@@ -3,7 +3,20 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, BookOpen, FileText, Users, Eye, Settings, LogOut, BarChart3, Menu, X } from "lucide-react"
+import {
+  LayoutDashboard,
+  BookOpen,
+  FileText,
+  Users,
+  Eye,
+  Settings,
+  LogOut,
+  BarChart3,
+  Menu,
+  X,
+  Mail,
+  HelpCircle,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -29,6 +42,16 @@ const sidebarItems = [
     title: "Reviews",
     href: "/admin/reviews",
     icon: Eye,
+  },
+  {
+    title: "Messages",
+    href: "/admin/messages",
+    icon: Mail,
+  },
+  {
+    title: "FAQ & Solutions",
+    href: "/admin/faq",
+    icon: HelpCircle,
   },
   {
     title: "Authors",
