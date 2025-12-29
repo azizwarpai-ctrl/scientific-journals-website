@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { FileText } from "lucide-react"
 import { useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 
 export default function SubmissionServicePage() {
   const [formData, setFormData] = useState({
@@ -19,11 +20,27 @@ export default function SubmissionServicePage() {
     description: "",
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Service request submitted:", formData)
-    alert("Your request has been sent to our support team. We'll get back to you shortly!")
-    setFormData({ name: "", email: "", subject: "", description: "" })
+
+    const supabase = createClient()
+
+    const { error } = await supabase.from("messages").insert({
+      message_type: "submission_help",
+      name: formData.name,
+      email: formData.email,
+      subject: formData.subject,
+      message: formData.description,
+      status: "unread",
+    })
+
+    if (error) {
+      console.error("Error submitting message:", error)
+      alert("There was an error sending your message. Please try again.")
+    } else {
+      alert("Your request has been sent to our support team. We'll get back to you shortly!")
+      setFormData({ name: "", email: "", subject: "", description: "" })
+    }
   }
 
   return (
