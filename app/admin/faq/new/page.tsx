@@ -13,7 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
 
 export default function NewFAQPage() {
   const router = useRouter()
@@ -30,19 +29,13 @@ export default function NewFAQPage() {
     e.preventDefault()
     setIsSubmitting(true)
 
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    const { error } = await supabase.from("faq_solutions").insert({
-      category: formData.category,
-      question: formData.question,
-      answer: formData.answer,
-      is_published: formData.is_published,
-      search_keywords: formData.search_keywords.split(",").map((k) => k.trim()),
-      created_by: user?.id,
-    })
+    // Mock FAQ creation
+    const error = null
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    } catch (e) {
+      console.error(e)
+    }
 
     setIsSubmitting(false)
 

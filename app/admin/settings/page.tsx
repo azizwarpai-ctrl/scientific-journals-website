@@ -1,20 +1,20 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Settings } from "lucide-react"
 
 export default async function SettingsPage() {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Mock authentication check
+  const user = { id: "mock-admin" }
+  const adminUser = {
+    full_name: "Admin User",
+    email: "admin@digitopub.com",
+    role: "admin",
+    created_at: "2024-01-01T00:00:00Z"
+  }
 
   if (!user) {
     redirect("/admin/login")
   }
-
-  const { data: adminUser } = await supabase.from("admin_users").select("*").eq("id", user.id).single()
 
   return (
     <div className="space-y-6">

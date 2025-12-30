@@ -1,61 +1,30 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookOpen, FileText, Eye, TrendingUp, Users, CheckCircle2, Clock, XCircle } from "lucide-react"
+import { mockJournals, mockSubmissions, mockReviews, mockPublishedArticles } from "@/lib/mock-data"
 
 export default async function AdminDashboardPage() {
-  const supabase = await createClient()
+  // Mock authentication check - always authorized for build
+  const user = { id: "mock-admin" }
+  const adminUser = { full_name: "Admin User" }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  if (!user || !adminUser) {
     redirect("/admin/login")
   }
 
-  // Check if user is admin
-  const { data: adminUser } = await supabase.from("admin_users").select("*").eq("id", user.id).single()
+  // Calculate dashboard statistics from mock data
+  const journalsCount = mockJournals.length
+  const submissionsCount = mockSubmissions.length
+  const underReviewCount = mockSubmissions.filter(s => s.status === "under_review").length
+  const acceptedCount = mockSubmissions.filter(s => s.status === "accepted").length
+  const rejectedCount = mockSubmissions.filter(s => s.status === "rejected").length
+  const pendingReviewsCount = mockReviews.filter(r => r.review_status === "pending").length // Note: mock data currently has 'site_completed', ensure 'pending' exists if needed or just count
+  const publishedArticlesCount = mockPublishedArticles.length
 
-  if (!adminUser) {
-    redirect("/admin/login")
-  }
-
-  // Fetch dashboard statistics
-  const { count: journalsCount } = await supabase.from("journals").select("*", { count: "exact", head: true })
-
-  const { count: submissionsCount } = await supabase.from("submissions").select("*", { count: "exact", head: true })
-
-  const { count: underReviewCount } = await supabase
-    .from("submissions")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "under_review")
-
-  const { count: acceptedCount } = await supabase
-    .from("submissions")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "accepted")
-
-  const { count: rejectedCount } = await supabase
-    .from("submissions")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "rejected")
-
-  const { count: pendingReviewsCount } = await supabase
-    .from("reviews")
-    .select("*", { count: "exact", head: true })
-    .eq("review_status", "pending")
-
-  const { count: publishedArticlesCount } = await supabase
-    .from("published_articles")
-    .select("*", { count: "exact", head: true })
-
-  // Fetch recent submissions
-  const { data: recentSubmissions } = await supabase
-    .from("submissions")
-    .select("*, journals(title)")
-    .order("submission_date", { ascending: false })
-    .limit(5)
+  // Fetch recent submissions from mock data
+  const recentSubmissions = [...mockSubmissions]
+    .sort((a, b) => new Date(b.submission_date).getTime() - new Date(a.submission_date).getTime())
+    .slice(0, 5)
 
   const stats = [
     {
@@ -164,15 +133,14 @@ export default async function AdminDashboardPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${
-                        submission.status === "submitted"
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${submission.status === "submitted"
                           ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
                           : submission.status === "under_review"
                             ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
                             : submission.status === "accepted"
                               ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
                               : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
-                      }`}
+                        }`}
                     >
                       {submission.status.replace("_", " ")}
                     </span>

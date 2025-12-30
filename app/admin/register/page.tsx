@@ -4,7 +4,6 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -23,7 +22,6 @@ export default function AdminRegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
@@ -33,25 +31,9 @@ export default function AdminRegisterPage() {
       return
     }
 
+    // Mock registration
     try {
-      // Sign up the user
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo:
-            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/admin/dashboard`,
-          data: {
-            full_name: fullName,
-            role: "admin",
-          },
-        },
-      })
-
-      if (signUpError) throw signUpError
-
-      if (!authData.user) throw new Error("Registration failed")
-
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate network
       router.push("/admin/registration-success")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")

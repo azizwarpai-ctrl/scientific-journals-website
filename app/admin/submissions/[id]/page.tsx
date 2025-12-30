@@ -1,37 +1,32 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, FileText, Download, User, Mail, Calendar, Tag } from "lucide-react"
 import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { mockSubmissions, mockReviews } from "@/lib/mock-data"
 import { Badge } from "@/components/ui/badge"
 
+export async function generateStaticParams() {
+  return mockSubmissions.map((submission) => ({
+    id: submission.id,
+  }))
+}
+
 export default async function SubmissionDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient()
   const { id } = await params
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Mock authentication check - always authorized for build
+  const user = { id: "mock-admin" }
 
   if (!user) {
     redirect("/admin/login")
   }
 
-  // Fetch submission details
-  const { data: submission, error } = await supabase
-    .from("submissions")
-    .select(
-      `
-      *,
-      journals(*)
-    `,
-    )
-    .eq("id", id)
-    .single()
+  // Fetch submission details from mock data
+  const submission = mockSubmissions.find(s => s.id === id)
 
-  if (error || !submission) {
+  if (!submission) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
@@ -46,8 +41,10 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
     )
   }
 
-  // Fetch reviews for this submission
-  const { data: reviews } = await supabase.from("reviews").select("*").eq("submission_id", id).order("created_at")
+  // Fetch reviews for this submission from mock data
+  const reviews = mockReviews.filter(r => r.submission_id === id).sort((a, b) =>
+    new Date(a.review_date).getTime() - new Date(b.review_date).getTime()
+  )
 
   return (
     <div className="space-y-6">
@@ -63,15 +60,14 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
         </div>
         <Badge
           variant="outline"
-          className={`text-sm px-3 py-1 ${
-            submission.status === "submitted"
-              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200"
-              : submission.status === "under_review"
-                ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400 border-orange-200"
-                : submission.status === "accepted"
-                  ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200"
-                  : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400 border-gray-200"
-          }`}
+          className={`text-sm px-3 py-1 ${submission.status === "submitted"
+            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200"
+            : submission.status === "under_review"
+              ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400 border-orange-200"
+              : submission.status === "accepted"
+                ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200"
+                : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400 border-gray-200"
+            }`}
         >
           {submission.status.replace("_", " ")}
         </Badge>
@@ -151,13 +147,12 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
                         <CardTitle className="text-lg">{review.reviewer_name}</CardTitle>
                         <Badge
                           variant="outline"
-                          className={`${
-                            review.review_status === "completed"
-                              ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                              : review.review_status === "in_progress"
-                                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
-                                : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
-                          }`}
+                          className={`${review.review_status === "completed"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                            : review.review_status === "in_progress"
+                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
+                              : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
+                            }`}
                         >
                           {review.review_status.replace("_", " ")}
                         </Badge>
