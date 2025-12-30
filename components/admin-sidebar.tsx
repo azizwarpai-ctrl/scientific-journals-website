@@ -19,7 +19,6 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 import Image from "next/image"
 
 const sidebarItems = [
@@ -76,8 +75,7 @@ export function AdminSidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const handleLogout = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    // Mock logout - just redirect
     router.push("/admin/login")
   }
 
