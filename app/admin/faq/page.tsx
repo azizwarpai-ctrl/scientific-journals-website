@@ -1,30 +1,25 @@
-import { createClient } from "@/lib/supabase/server"
+import { HelpCircle, Plus } from "lucide-react"
+import Link from "next/link"
+import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { HelpCircle, Plus } from "lucide-react"
-import Link from "next/link"
-import { redirect } from "next/navigation"
+
+import { mockFaqs } from "@/lib/mock-data"
 
 export default async function FAQPage() {
-  const supabase = await createClient()
-
-  // Check authentication
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Mock authentication check
+  const user = { id: "mock-admin" }
 
   if (!user) {
     redirect("/admin/login")
   }
 
-  // Fetch FAQ/Solutions
-  const { data: faqs, error } = await supabase
-    .from("faq_solutions")
-    .select("*")
-    .order("created_at", { ascending: false })
+  // Fetch FAQ/Solutions from mock data
+  const faqs = [...mockFaqs]
+  const error = null
 
   const publishedCount = faqs?.filter((f) => f.is_published).length || 0
   const draftCount = faqs?.filter((f) => !f.is_published).length || 0
