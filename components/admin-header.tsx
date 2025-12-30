@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -19,22 +18,11 @@ export function AdminHeader() {
   const [adminUser, setAdminUser] = useState<{ full_name: string | null; email: string } | null>(null)
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (user) {
-        const { data } = await supabase.from("admin_users").select("full_name, email").eq("id", user.id).single()
-
-        if (data) {
-          setAdminUser(data)
-        }
-      }
-    }
-
-    fetchUser()
+    // Mock user fetch
+    setAdminUser({
+      full_name: "Admin User",
+      email: "admin@example.com"
+    })
   }, [])
 
   const getInitials = (name: string | null) => {
