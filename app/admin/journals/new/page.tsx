@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -55,10 +56,25 @@ export default function NewJournalPage() {
     setIsLoading(true)
     setError(null)
 
-    // Mock submission
+    const supabase = createClient()
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+
+      const { error: insertError } = await supabase.from("journals").insert([
+        {
+          ...formData,
+          submission_fee: formData.submission_fee ? Number.parseFloat(formData.submission_fee) : 0,
+          publication_fee: formData.publication_fee ? Number.parseFloat(formData.publication_fee) : 0,
+          created_by: user.id,
+        },
+      ])
+
+      if (insertError) throw insertError
+
       router.push("/admin/journals")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")

@@ -1,3 +1,4 @@
+import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -7,24 +8,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Mail, Calendar, User } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { mockMessages } from "@/lib/mock-data"
-
-export async function generateStaticParams() {
-  return mockMessages.map((message) => ({
-    id: message.id,
-  }))
-}
 
 export default async function MessageDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const supabase = await createClient()
 
-  // Mock authentication check - always authorized for build
-  const user = { id: "mock-admin" }
+  // Check authentication
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  // Fetch message from mock data
-  const message = mockMessages.find(m => m.id === id)
+  if (!user) {
+    redirect("/admin/login")
+  }
 
-  if (!message) {
+  // Fetch message
+  const { data: message, error } = await supabase.from("messages").select("*").eq("id", id).single()
+
+  if (error || !message) {
     return <div>Message not found</div>
   }
 
@@ -71,7 +72,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
                   <div className="rounded-lg border-l-4 border-primary bg-primary/5 p-4">
                     <p className="whitespace-pre-wrap text-sm">{message.response}</p>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Responded at: {new Date(message.responded_at || "").toLocaleString()}
+                      Responded at: {new Date(message.responded_at).toLocaleString()}
                     </p>
                   </div>
                 </div>

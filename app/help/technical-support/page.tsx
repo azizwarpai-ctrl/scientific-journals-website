@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { HelpCircle, Mail, Clock } from "lucide-react"
 import { useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 
 export default function TechnicalSupportPage() {
   const [formData, setFormData] = useState({
@@ -25,9 +26,16 @@ export default function TechnicalSupportPage() {
     e.preventDefault()
     setIsSubmitting(true)
 
-    // Mock submission
-    const error = null
-    await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate network delay
+    const supabase = createClient()
+
+    const { error } = await supabase.from("messages").insert({
+      message_type: "technical_support",
+      name: formData.name,
+      email: formData.email,
+      subject: formData.issue,
+      message: formData.message,
+      status: "unread",
+    })
 
     setIsSubmitting(false)
 

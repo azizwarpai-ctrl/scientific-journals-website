@@ -1,19 +1,24 @@
 import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, Mail, FileText } from "lucide-react"
 
-import { mockSubmissions } from "@/lib/mock-data"
-
 export default async function AuthorsPage() {
-  // Mock authentication check
-  const user = { id: "mock-admin" }
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   if (!user) {
     redirect("/admin/login")
   }
 
-  // Fetch unique authors from mock submissions
-  const submissions = [...mockSubmissions].sort((a, b) => new Date(b.submission_date).getTime() - new Date(a.submission_date).getTime())
+  // Fetch unique authors from submissions
+  const { data: submissions } = await supabase
+    .from("submissions")
+    .select("author_name, author_email, submission_date")
+    .order("submission_date", { ascending: false })
 
   // Group by email to get unique authors
   const authorsMap = new Map()

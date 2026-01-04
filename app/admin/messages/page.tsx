@@ -1,3 +1,4 @@
+import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -6,22 +7,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Mail, Clock, CheckCircle2, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { mockMessages } from "@/lib/mock-data"
 
 export default async function MessagesPage() {
-  // Mock authentication check - always authorized for build
-  const user = { id: "mock-admin" }
+  const supabase = await createClient()
+
+  // Check authentication
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   if (!user) {
     redirect("/admin/login")
   }
 
-  // Fetch messages from mock data
-  const messages = [...mockMessages].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  // Fetch messages with counts
+  const { data: messages, error } = await supabase
+    .from("messages")
+    .select("*")
+    .order("created_at", { ascending: false })
 
-  const unreadCount = messages.filter((m) => m.status === "unread").length
-  const repliedCount = messages.filter((m) => m.status === "replied").length
-  const resolvedCount = messages.filter((m) => m.status === "resolved").length
+  const unreadCount = messages?.filter((m) => m.status === "unread").length || 0
+  const repliedCount = messages?.filter((m) => m.status === "replied").length || 0
+  const resolvedCount = messages?.filter((m) => m.status === "resolved").length || 0
 
   return (
     <div className="space-y-6">
@@ -38,7 +45,7 @@ export default async function MessagesPage() {
             <Mail className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{messages.length}</div>
+            <div className="text-2xl font-bold">{messages?.length || 0}</div>
           </CardContent>
         </Card>
 
@@ -124,7 +131,7 @@ export default async function MessagesPage() {
             </TabsContent>
 
             <TabsContent value="unread">
-              {messages.filter((m) => m.status === "unread").length > 0 ? (
+              {messages?.filter((m) => m.status === "unread").length > 0 ? (
                 messages
                   .filter((m) => m.status === "unread")
                   .map((message) => (
@@ -149,7 +156,7 @@ export default async function MessagesPage() {
             </TabsContent>
 
             <TabsContent value="replied">
-              {messages.filter((m) => m.status === "replied").length > 0 ? (
+              {messages?.filter((m) => m.status === "replied").length > 0 ? (
                 messages
                   .filter((m) => m.status === "replied")
                   .map((message) => (
@@ -174,7 +181,7 @@ export default async function MessagesPage() {
             </TabsContent>
 
             <TabsContent value="resolved">
-              {messages.filter((m) => m.status === "resolved").length > 0 ? (
+              {messages?.filter((m) => m.status === "resolved").length > 0 ? (
                 messages
                   .filter((m) => m.status === "resolved")
                   .map((message) => (
