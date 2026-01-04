@@ -5,46 +5,43 @@ import Image from "next/image"
 import { Search, Menu, X, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { GoogleTranslate } from "@/components/google-translate"
 import { useState } from "react"
-import { useLanguage } from "@/hooks/use-language"
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const { t } = useLanguage()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/images/logodigitopub.jpeg" alt="DigitoPub" width={120} height={40} className="h-10 w-auto" />
+          <Image src="/images/logodigitopub.png" alt="DigitoPub" width={120} height={40} className="h-10 w-auto" />
         </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
           <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
-            {t("home")}
+            Home
           </Link>
           <Link href="/about" className="text-sm font-medium transition-colors hover:text-primary">
-            {t("about")}
+            About
           </Link>
           <Link href="/journals" className="text-sm font-medium transition-colors hover:text-primary">
-            {t("journals")}
+            Journals
           </Link>
           <Link href="/solutions" className="text-sm font-medium transition-colors hover:text-primary">
-            {t("solutions")}
+            Solutions
           </Link>
           <Link href="/submit-manager" className="text-sm font-medium transition-colors hover:text-primary">
-            {t("submitManager")}
+            Submit Manager
           </Link>
           <Link href="/help" className="text-sm font-medium transition-colors hover:text-primary">
-            {t("help")}
+            Help
           </Link>
           <Link href="/contact" className="text-sm font-medium transition-colors hover:text-primary">
-            {t("contact")}
+            Contact
           </Link>
         </nav>
 
@@ -63,15 +60,14 @@ export function Navbar() {
             <GoogleTranslate />
           </div>
           <ThemeToggle />
-          <LanguageSwitcher />
           <Button variant="outline" size="sm" asChild className="hidden md:flex bg-transparent">
             <Link href="/login">
               <User className="mr-2 h-4 w-4" />
-              {t("login")}
+              Login
             </Link>
           </Button>
           <Button size="sm" asChild className="hidden md:flex">
-            <Link href="/register">{t("register")}</Link>
+            <Link href="/register">Register</Link>
           </Button>
 
           {/* Mobile Menu Toggle */}
@@ -96,32 +92,32 @@ export function Navbar() {
               />
             </div>
             <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
-              {t("home")}
+              Home
             </Link>
             <Link href="/about" className="text-sm font-medium transition-colors hover:text-primary">
-              {t("about")}
+              About
             </Link>
             <Link href="/journals" className="text-sm font-medium transition-colors hover:text-primary">
-              {t("journals")}
+              Journals
             </Link>
             <Link href="/solutions" className="text-sm font-medium transition-colors hover:text-primary">
-              {t("solutions")}
+              Solutions
             </Link>
             <Link href="/submit-manager" className="text-sm font-medium transition-colors hover:text-primary">
-              {t("submitManager")}
+              Submit Manager
             </Link>
             <Link href="/help" className="text-sm font-medium transition-colors hover:text-primary">
-              {t("help")}
+              Help
             </Link>
             <Link href="/contact" className="text-sm font-medium transition-colors hover:text-primary">
-              {t("contact")}
+              Contact
             </Link>
             <div className="flex gap-2 pt-2">
               <Button variant="outline" size="sm" className="flex-1 bg-transparent" asChild>
-                <Link href="/login">{t("login")}</Link>
+                <Link href="/login">Login</Link>
               </Button>
               <Button size="sm" className="flex-1" asChild>
-                <Link href="/register">{t("register")}</Link>
+                <Link href="/register">Register</Link>
               </Button>
             </div>
           </nav>

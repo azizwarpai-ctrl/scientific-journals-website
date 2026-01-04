@@ -4,7 +4,6 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -56,24 +55,27 @@ export default function NewJournalPage() {
     setIsLoading(true)
     setError(null)
 
-    const supabase = createClient()
-
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-
-      const { error: insertError } = await supabase.from("journals").insert([
-        {
-          ...formData,
-          submission_fee: formData.submission_fee ? Number.parseFloat(formData.submission_fee) : 0,
-          publication_fee: formData.publication_fee ? Number.parseFloat(formData.publication_fee) : 0,
-          created_by: user.id,
+      const response = await fetch("/api/journals", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      ])
+        body: JSON.stringify({
+          title: formData.title,
+          issn: formData.issn,
+          description: formData.description,
+          subject_area: formData.field,
+          frequency: formData.frequency || "quarterly",
+          submission_fee: formData.submission_fee ? parseFloat(formData.submission_fee) : 0,
+          publication_fee: formData.publication_fee ? parseFloat(formData.publication_fee) : 0,
+        }),
+      })
 
-      if (insertError) throw insertError
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create journal")
+      }
 
       router.push("/admin/journals")
     } catch (error: unknown) {

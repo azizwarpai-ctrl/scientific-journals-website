@@ -6,12 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { BookOpen, FileText, Users, HelpCircle } from "lucide-react"
 import Link from "next/link"
-import { useLanguage } from "@/hooks/use-language"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 
 export default function HelpPage() {
-  const { t } = useLanguage()
-
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
@@ -22,8 +19,8 @@ export default function HelpPage() {
           <section className="bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-12 md:py-16">
             <div className="container mx-auto px-4 md:px-6">
               <div className="mx-auto max-w-3xl text-center">
-                <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">{t("helpCenter")}</h1>
-                <p className="text-lg text-muted-foreground">{t("helpDescription")}</p>
+                <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">Help Center</h1>
+                <p className="text-lg text-muted-foreground">Find answers, guides and support for your publishing journey</p>
               </div>
             </div>
           </section>
@@ -42,7 +39,7 @@ export default function HelpPage() {
                           <BookOpen className="h-6 w-6 text-primary" />
                         </div>
                       </div>
-                      <h3 className="font-semibold">{t("authorGuides")}</h3>
+                      <h3 className="font-semibold">Guide for Authors</h3>
                     </CardContent>
                   </Card>
                   <Card className="transition-shadow hover:shadow-lg">
@@ -52,7 +49,7 @@ export default function HelpPage() {
                           <Users className="h-6 w-6 text-secondary" />
                         </div>
                       </div>
-                      <h3 className="font-semibold">{t("reviewerGuides")}</h3>
+                      <h3 className="font-semibold">Guide for Reviewers</h3>
                     </CardContent>
                   </Card>
                   <Link href="/help/submission-service">
@@ -63,7 +60,7 @@ export default function HelpPage() {
                             <FileText className="h-6 w-6 text-primary" />
                           </div>
                         </div>
-                        <h3 className="font-semibold">{t("submissionHelp")}</h3>
+                        <h3 className="font-semibold">Submission Help</h3>
                       </CardContent>
                     </Card>
                   </Link>
@@ -75,7 +72,7 @@ export default function HelpPage() {
                             <HelpCircle className="h-6 w-6 text-secondary" />
                           </div>
                         </div>
-                        <h3 className="font-semibold">{t("technicalSupport")}</h3>
+                        <h3 className="font-semibold">Technical Support</h3>
                       </CardContent>
                     </Card>
                   </Link>
@@ -86,63 +83,63 @@ export default function HelpPage() {
               <GSAPWrapper animation="fadeIn" delay={0.3}>
                 <Card>
                   <CardHeader>
-                    <CardTitle>{t("faq")}</CardTitle>
+                    <CardTitle>FAQ</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <Accordion type="single" collapsible className="w-full">
                       <AccordionItem value="item-1">
-                        <AccordionTrigger>{t("howToSubmitManuscript")}</AccordionTrigger>
+                        <AccordionTrigger>How to submit a manuscript?</AccordionTrigger>
                         <AccordionContent className="text-muted-foreground leading-relaxed">
-                          {t("submitManuscriptInstructions")}
+                          To submit a manuscript, you need to register an account first. After logging in, navigate to the 'Submit Manager' or click 'Submit Manuscript' on the journal's page. Follow the step-by-step submission process to upload your files and provide necessary metadata.
                         </AccordionContent>
                       </AccordionItem>
 
                       <AccordionItem value="item-2">
-                        <AccordionTrigger>{t("typicalReviewTimeline")}</AccordionTrigger>
+                        <AccordionTrigger>What is the typical review timeline?</AccordionTrigger>
                         <AccordionContent className="text-muted-foreground leading-relaxed">
-                          {t("reviewTimelineInstructions")}
+                          The initial editorial check usually takes 3-5 days. The peer review process typically takes 4-8 weeks, depending on reviewer availability. Once reviews are in, an editorial decision is made within 1-2 weeks. Total time from submission to first decision averages 8-10 weeks.
                         </AccordionContent>
                       </AccordionItem>
 
                       <AccordionItem value="item-3">
-                        <AccordionTrigger>{t("howToBecomeReviewer")}</AccordionTrigger>
+                        <AccordionTrigger>How can I become a reviewer?</AccordionTrigger>
                         <AccordionContent className="text-muted-foreground leading-relaxed">
-                          {t("becomeReviewerInstructions")}
+                          We welcome qualified experts to join our reviewer community. You can update your profile to indicate your interest in reviewing and specify your areas of expertise. Alternatively, you can contact the journal editor directly with your CV and research interests.
                         </AccordionContent>
                       </AccordionItem>
 
                       <AccordionItem value="item-4">
-                        <AccordionTrigger>{t("acceptedFileFormats")}</AccordionTrigger>
+                        <AccordionTrigger>What file formats are accepted?</AccordionTrigger>
                         <AccordionContent className="text-muted-foreground leading-relaxed">
-                          {t("fileFormatsInstructions")}
+                          For the main manuscript, we accept Microsoft Word (.doc, .docx) and PDF files. For figures, strictly high-resolution JPEG, TIFF, or PNG formats are required. Supplementary materials can be in any common format. Please check the specific journal guidelines for detailed requirements.
                         </AccordionContent>
                       </AccordionItem>
 
                       <AccordionItem value="item-5">
-                        <AccordionTrigger>{t("howToTrackSubmissionStatus")}</AccordionTrigger>
+                        <AccordionTrigger>How to track my submission status?</AccordionTrigger>
                         <AccordionContent className="text-muted-foreground leading-relaxed">
-                          {t("trackSubmissionStatusInstructions")}
+                          You can track the status of your manuscript at any time by logging into your account and clicking on 'My Submissions'. The status will be displayed (e.g., 'Under Review', 'Revision Required', 'Accepted'). You will also receive email notifications at key stages.
                         </AccordionContent>
                       </AccordionItem>
 
                       <AccordionItem value="item-6">
-                        <AccordionTrigger>{t("publicationCharges")}</AccordionTrigger>
+                        <AccordionTrigger>Are there publication charges?</AccordionTrigger>
                         <AccordionContent className="text-muted-foreground leading-relaxed">
-                          {t("publicationChargesInstructions")}
+                          Publication charges (APCs) vary by journal. Many of our journals are Open Access and require an APC upon acceptance to cover publishing costs. Some journals may have waivers or discounts for authors from certain countries or institutions. Please refer to the specific journal's 'Article Processing Charges' page.
                         </AccordionContent>
                       </AccordionItem>
 
                       <AccordionItem value="item-7">
-                        <AccordionTrigger>{t("howToResetPassword")}</AccordionTrigger>
+                        <AccordionTrigger>How to reset my password?</AccordionTrigger>
                         <AccordionContent className="text-muted-foreground leading-relaxed">
-                          {t("resetPasswordInstructions")}
+                          If you have forgotten your password, go to the login page and click on the 'Forgot Password?' link. Enter your registered email address, and we will send you instructions to reset your password.
                         </AccordionContent>
                       </AccordionItem>
 
                       <AccordionItem value="item-8">
-                        <AccordionTrigger>{t("whatIsORCID")}</AccordionTrigger>
+                        <AccordionTrigger>What is ORCID?</AccordionTrigger>
                         <AccordionContent className="text-muted-foreground leading-relaxed">
-                          {t("orcidInstructions")}
+                          ORCID provides a persistent digital identifier that distinguishes you from every other researcher. We strongly encourage all authors to link their ORCID iD to their account to ensure their work is correctly attributed to them.
                         </AccordionContent>
                       </AccordionItem>
                     </Accordion>
@@ -155,40 +152,40 @@ export default function HelpPage() {
                 <div className="mt-8 grid gap-6 md:grid-cols-2">
                   <Card>
                     <CardHeader>
-                      <CardTitle>{t("authorGuides")}</CardTitle>
+                      <CardTitle>Guide for Authors</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3 text-sm text-muted-foreground">
                       <div>
-                        <h4 className="mb-1 font-semibold text-foreground">{t("manuscriptPreparation")}</h4>
-                        <p className="leading-relaxed">{t("manuscriptPreparationInstructions")}</p>
+                        <h4 className="mb-1 font-semibold text-foreground">Manuscript Preparation</h4>
+                        <p className="leading-relaxed">Ensure your manuscript adheres to the journal's formatting guidelines, including citation style, figure resolution, and word count limits. Use the templates provided if available.</p>
                       </div>
                       <div>
-                        <h4 className="mb-1 font-semibold text-foreground">{t("submissionProcess")}</h4>
-                        <p className="leading-relaxed">{t("submissionProcessInstructions")}</p>
+                        <h4 className="mb-1 font-semibold text-foreground">Submission Process</h4>
+                        <p className="leading-relaxed">Verify that all co-authors are listed correctly and that you have obtained necessary ethical approvals. Prepare a cover letter to the editor highlighting the significance of your work.</p>
                       </div>
                       <div>
-                        <h4 className="mb-1 font-semibold text-foreground">{t("revisionAndResubmission")}</h4>
-                        <p className="leading-relaxed">{t("revisionAndResubmissionInstructions")}</p>
+                        <h4 className="mb-1 font-semibold text-foreground">Revision & Resubmission</h4>
+                        <p className="leading-relaxed">When submitting a revised manuscript, include a point-by-point response to the reviewers' comments. Highlight changes in the manuscript text for easy verification.</p>
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>{t("reviewerGuides")}</CardTitle>
+                      <CardTitle>Guide for Reviewers</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3 text-sm text-muted-foreground">
                       <div>
-                        <h4 className="mb-1 font-semibold text-foreground">{t("reviewProcess")}</h4>
-                        <p className="leading-relaxed">{t("reviewProcessInstructions")}</p>
+                        <h4 className="mb-1 font-semibold text-foreground">The Review Process</h4>
+                        <p className="leading-relaxed">Reviews should be constructive, objective, and timely. Evaluate the study's methodology, clarity, and contribution to the field. Maintain confidentiality throughout the process.</p>
                       </div>
                       <div>
-                        <h4 className="mb-1 font-semibold text-foreground">{t("writingReviews")}</h4>
-                        <p className="leading-relaxed">{t("writingReviewsInstructions")}</p>
+                        <h4 className="mb-1 font-semibold text-foreground">Writing Reviews</h4>
+                        <p className="leading-relaxed">Provide specific comments and suggestions for improvement. Clearly state your recommendation (Accept, Minor Revision, Major Revision, Reject) to the editor.</p>
                       </div>
                       <div>
-                        <h4 className="mb-1 font-semibold text-foreground">{t("timelineAndExpectations")}</h4>
-                        <p className="leading-relaxed">{t("timelineAndExpectationsInstructions")}</p>
+                        <h4 className="mb-1 font-semibold text-foreground">Timeline & Expectations</h4>
+                        <p className="leading-relaxed">Accept review invitations only if you have the expertise and time to complete the review within the deadline. Inform the editor immediately if a conflict of interest or delay arises.</p>
                       </div>
                     </CardContent>
                   </Card>

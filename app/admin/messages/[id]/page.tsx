@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
+import { getSession } from "@/lib/db/auth"
+import { query } from "@/lib/db/config"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,21 +12,21 @@ import { redirect } from "next/navigation"
 
 export default async function MessageDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
+  const session = await getSession()
 
-  // Check authentication
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  if (!session) {
     redirect("/admin/login")
   }
 
-  // Fetch message
-  const { data: message, error } = await supabase.from("messages").select("*").eq("id", id).single()
+  let message: any = null
+  try {
+    const result = await query(`SELECT * FROM messages WHERE id = $1`, [id])
+    message = result.rows[0]
+  } catch (error) {
+    console.error("Error fetching message:", error)
+  }
 
-  if (error || !message) {
+  if (!message) {
     return <div>Message not found</div>
   }
 

@@ -57,7 +57,7 @@ export default function AdminRegisterPage() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Image
-            src="/images/logodigitopub.jpeg"
+            src="/images/logodigitopub.png"
             alt="DigitoPub Logo"
             width={180}
             height={60}

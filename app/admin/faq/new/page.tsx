@@ -13,7 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
 
 export default function NewFAQPage() {
   const router = useRouter()
@@ -30,27 +29,32 @@ export default function NewFAQPage() {
     e.preventDefault()
     setIsSubmitting(true)
 
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    try {
+      const response = await fetch("/api/faq", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          category: formData.category,
+          question: formData.question,
+          answer: formData.answer,
+        }),
+      })
 
-    const { error } = await supabase.from("faq_solutions").insert({
-      category: formData.category,
-      question: formData.question,
-      answer: formData.answer,
-      is_published: formData.is_published,
-      search_keywords: formData.search_keywords.split(",").map((k) => k.trim()),
-      created_by: user?.id,
-    })
+      setIsSubmitting(false)
 
-    setIsSubmitting(false)
-
-    if (error) {
+      if (!response.ok) {
+        const error = await response.json()
+        console.error("Error creating FAQ:", error)
+        alert("Failed to create FAQ. Please try again.")
+      } else {
+        router.push("/admin/faq")
+      }
+    } catch (error) {
+      setIsSubmitting(false)
       console.error("Error creating FAQ:", error)
       alert("Failed to create FAQ. Please try again.")
-    } else {
-      router.push("/admin/faq")
     }
   }
 

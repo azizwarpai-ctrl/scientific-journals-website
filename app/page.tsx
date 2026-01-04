@@ -6,13 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { BookOpen, Zap } from "lucide-react"
 import Link from "next/link"
-import { useLanguage } from "@/hooks/use-language"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { AnimatedCounter } from "@/components/animated-counter"
 
 export default function HomePage() {
-  const { t } = useLanguage()
-
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
@@ -27,17 +24,17 @@ export default function HomePage() {
                   <Zap className="h-4 w-4" />
                   Scientific Excellence
                 </div>
-                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl text-balance">{t("heroTitle")}</h1>
-                <p className="mb-8 text-lg text-muted-foreground leading-relaxed text-pretty">{t("heroDescription")}</p>
+                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl text-balance">Modern Platform for Scientific Publishing</h1>
+                <p className="mb-8 text-lg text-muted-foreground leading-relaxed text-pretty">Comprehensive solutions for digital journals, submission management, and scientific publishing.</p>
                 <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
                   <Button size="lg" asChild>
                     <Link href="/journals">
                       <BookOpen className="mr-2 h-5 w-5" />
-                      {t("exploreJournals")}
+                      Explore Journals
                     </Link>
                   </Button>
                   <Button size="lg" variant="outline" asChild>
-                    <Link href="/about">{t("learnMore")}</Link>
+                    <Link href="/about">Learn More</Link>
                   </Button>
                 </div>
               </div>
@@ -54,25 +51,25 @@ export default function HomePage() {
                   <div className="mb-2 text-primary">
                     <AnimatedCounter end={250} suffix="+" duration={2500} />
                   </div>
-                  <div className="text-sm text-muted-foreground">{t("activeJournals")}</div>
+                  <div className="text-sm text-muted-foreground">Active Journals</div>
                 </div>
                 <div className="text-center">
                   <div className="mb-2 text-secondary">
                     <AnimatedCounter end={15000} suffix="+" duration={2500} />
                   </div>
-                  <div className="text-sm text-muted-foreground">{t("publishedArticles")}</div>
+                  <div className="text-sm text-muted-foreground">Published Articles</div>
                 </div>
                 <div className="text-center">
                   <div className="mb-2 text-primary">
                     <AnimatedCounter end={50000} suffix="+" duration={2500} />
                   </div>
-                  <div className="text-sm text-muted-foreground">{t("researchers")}</div>
+                  <div className="text-sm text-muted-foreground">Researchers</div>
                 </div>
                 <div className="text-center">
                   <div className="mb-2 text-secondary">
                     <AnimatedCounter end={120} suffix="+" duration={2500} />
                   </div>
-                  <div className="text-sm text-muted-foreground">{t("countries")}</div>
+                  <div className="text-sm text-muted-foreground">Countries</div>
                 </div>
               </div>
             </div>
@@ -85,11 +82,11 @@ export default function HomePage() {
             <div className="container mx-auto px-4 md:px-6">
               <div className="mb-12 flex items-center justify-between">
                 <div>
-                  <h2 className="mb-2 text-3xl font-bold md:text-4xl">{t("featuredJournals")}</h2>
-                  <p className="text-muted-foreground">{t("recentlyAdded")}</p>
+                  <h2 className="mb-2 text-3xl font-bold md:text-4xl">Featured Journals</h2>
+                  <p className="text-muted-foreground">Recently added and high-impact journals</p>
                 </div>
                 <Button variant="outline" asChild>
-                  <Link href="/journals">{t("viewAll")}</Link>
+                  <Link href="/journals">View All</Link>
                 </Button>
               </div>
 
@@ -134,7 +131,7 @@ export default function HomePage() {
                         <p className="mb-4 text-sm text-muted-foreground">{journal.issn}</p>
                         <div className="flex items-center justify-between">
                           <Button size="sm" variant="outline" asChild>
-                            <Link href={`/journals/${idx + 1}`}>{t("viewDetails")}</Link>
+                            <Link href={`/journals/${idx + 1}`}>View Details</Link>
                           </Button>
                         </div>
                       </CardContent>
@@ -151,14 +148,14 @@ export default function HomePage() {
           <section className="py-20">
             <div className="container mx-auto px-4 md:px-6">
               <div className="mx-auto max-w-3xl rounded-2xl bg-gradient-to-br from-primary to-secondary p-8 text-center text-primary-foreground md:p-12">
-                <h2 className="mb-4 text-3xl font-bold md:text-4xl">{t("readyToPublish")}</h2>
-                <p className="mb-8 text-lg opacity-90 leading-relaxed">{t("joinResearchers")}</p>
+                <h2 className="mb-4 text-3xl font-bold md:text-4xl">Ready to Publish?</h2>
+                <p className="mb-8 text-lg opacity-90 leading-relaxed">Join thousands of researchers sharing their work with the global scientific community.</p>
                 <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
                   <Button size="lg" variant="secondary" asChild>
-                    <Link href="/register">{t("getStarted")}</Link>
+                    <Link href="/register">Get Started</Link>
                   </Button>
                   <Button size="lg" variant="outline" className="bg-transparent hover:bg-primary-foreground/10" asChild>
-                    <Link href="/contact">{t("contactUs")}</Link>
+                    <Link href="/contact">Contact Us</Link>
                   </Button>
                 </div>
               </div>
