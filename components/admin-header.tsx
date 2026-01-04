@@ -18,11 +18,19 @@ export function AdminHeader() {
   const [adminUser, setAdminUser] = useState<{ full_name: string | null; email: string } | null>(null)
 
   useEffect(() => {
-    // Mock user fetch
-    setAdminUser({
-      full_name: "Admin User",
-      email: "admin@example.com"
-    })
+    const fetchUser = async () => {
+      try {
+        const response = await fetch("/api/auth/me")
+        if (response.ok) {
+          const data = await response.json()
+          setAdminUser(data.user)
+        }
+      } catch (error) {
+        console.error("Failed to fetch user:", error)
+      }
+    }
+
+    fetchUser()
   }, [])
 
   const getInitials = (name: string | null) => {

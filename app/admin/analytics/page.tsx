@@ -1,39 +1,53 @@
 import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, BookOpen, FileText, Eye, CheckCircle } from "lucide-react"
 
-import { mockJournals, mockSubmissions, mockReviews, mockPublishedArticles } from "@/lib/mock-data"
-
 export default async function AnalyticsPage() {
-  // Mock authentication check
-  const user = { id: "mock-admin" }
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   if (!user) {
     redirect("/admin/login")
   }
 
-  // Calculate analytics data from mock data
-  const journalsCount = mockJournals.length
-  const submissionsCount = mockSubmissions.length
-  const acceptedCount = mockSubmissions.filter(s => s.status === "accepted").length
-  const publishedCount = mockPublishedArticles.length
-  const reviewsCount = mockReviews.length
+  // Fetch analytics data
+  const { count: journalsCount } = await supabase.from("journals").select("*", { count: "exact", head: true })
+
+  const { count: submissionsCount } = await supabase.from("submissions").select("*", { count: "exact", head: true })
+
+  const { count: acceptedCount } = await supabase
+    .from("submissions")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "accepted")
+
+  const { count: publishedCount } = await supabase
+    .from("published_articles")
+    .select("*", { count: "exact", head: true })
+
+  const { count: reviewsCount } = await supabase.from("reviews").select("*", { count: "exact", head: true })
 
   // Calculate acceptance rate
-  const acceptanceRate = submissionsCount > 0 ? (acceptedCount / submissionsCount) * 100 : 0
+  const acceptanceRate = submissionsCount && submissionsCount > 0 ? ((acceptedCount || 0) / submissionsCount) * 100 : 0
 
-  // Calculate submissions by field
-  // Group journals by field first
+  // Fetch submissions by field
+  const { data: journalsWithSubmissions } = await supabase.from("journals").select("field, id").order("field")
+
   const fieldGroups: { [key: string]: number } = {}
-
-  mockSubmissions.forEach(submission => {
-    // We need to find the journal for this submission to get the field
-    // Assuming submissions have journal_id, we look up in mockJournals
-    const journal = mockJournals.find(j => j.id === (submission as any).journal_id)
-    if (journal && journal.field) {
-      fieldGroups[journal.field] = (fieldGroups[journal.field] || 0) + 1
+  if (journalsWithSubmissions) {
+    for (const journal of journalsWithSubmissions) {
+      const { count } = await supabase
+        .from("submissions")
+        .select("*", { count: "exact", head: true })
+        .eq("journal_id", journal.id)
+      if (journal.field) {
+        fieldGroups[journal.field] = (fieldGroups[journal.field] || 0) + (count || 0)
+      }
     }
-  })
+  }
 
   const topFields = Object.entries(fieldGroups)
     .sort(([, a], [, b]) => b - a)

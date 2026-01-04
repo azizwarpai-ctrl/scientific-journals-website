@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus, Pencil, Eye } from "lucide-react"
@@ -6,19 +7,22 @@ import Link from "next/link"
 import Image from "next/image"
 import { BookOpen } from "lucide-react" // Declare the BookOpen variable
 
-import { mockJournals } from "@/lib/mock-data"
-
 export default async function JournalsPage() {
-  // Mock authentication check
-  const user = { id: "mock-admin" }
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   if (!user) {
     redirect("/admin/login")
   }
 
-  // Fetch all journals from mock data
-  const journals = [...mockJournals]
-  const error = null
+  // Fetch all journals
+  const { data: journals, error } = await supabase
+    .from("journals")
+    .select("*")
+    .order("created_at", { ascending: false })
 
   return (
     <div className="space-y-6">
@@ -81,12 +85,13 @@ export default async function JournalsPage() {
 
                 <div className="flex items-center gap-1">
                   <span
-                    className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${journal.status === "active"
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                      : journal.status === "inactive"
-                        ? "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
-                        : "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
-                      }`}
+                    className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                      journal.status === "active"
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                        : journal.status === "inactive"
+                          ? "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
+                          : "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                    }`}
                   >
                     {journal.status}
                   </span>

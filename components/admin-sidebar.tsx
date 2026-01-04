@@ -75,8 +75,13 @@ export function AdminSidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const handleLogout = async () => {
-    // Mock logout - just redirect
-    router.push("/admin/login")
+    try {
+      await fetch("/api/auth/logout", { method: "POST" })
+      router.push("/admin/login")
+      router.refresh()
+    } catch (error) {
+      console.error("Logout failed:", error)
+    }
   }
 
   return (
