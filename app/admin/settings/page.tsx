@@ -1,20 +1,26 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { getSession } from "@/lib/db/auth"
+import { query } from "@/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Settings } from "lucide-react"
 
 export default async function SettingsPage() {
-  const supabase = await createClient()
+  const session = await getSession()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  if (!session) {
     redirect("/admin/login")
   }
 
-  const { data: adminUser } = await supabase.from("admin_users").select("*").eq("id", user.id).single()
+  let adminUser: any = null
+  try {
+    const result = await query(
+      `SELECT * FROM admin_users WHERE email = $1 LIMIT 1`,
+      [session.email]
+    )
+    adminUser = result.rows[0]
+  } catch (error) {
+    console.error("Error fetching admin user:", error)
+  }
 
   return (
     <div className="space-y-6">

@@ -1,52 +1,61 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { getSession } from "@/lib/db/auth"
+import { query } from "@/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, BookOpen, FileText, Eye, CheckCircle } from "lucide-react"
 
 export default async function AnalyticsPage() {
-  const supabase = await createClient()
+  const session = await getSession()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  if (!session) {
     redirect("/admin/login")
   }
 
   // Fetch analytics data
-  const { count: journalsCount } = await supabase.from("journals").select("*", { count: "exact", head: true })
+  let journalsCount = 0
+  let submissionsCount = 0
+  let acceptedCount = 0
+  let publishedCount = 0
+  let reviewsCount = 0
 
-  const { count: submissionsCount } = await supabase.from("submissions").select("*", { count: "exact", head: true })
+  try {
+    const journalsResult = await query(`SELECT COUNT(*) as count FROM journals`)
+    journalsCount = parseInt(journalsResult.rows[0].count)
 
-  const { count: acceptedCount } = await supabase
-    .from("submissions")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "accepted")
+    const submissionsResult = await query(`SELECT COUNT(*) as count FROM submissions`)
+    submissionsCount = parseInt(submissionsResult.rows[0].count)
 
-  const { count: publishedCount } = await supabase
-    .from("published_articles")
-    .select("*", { count: "exact", head: true })
+    const acceptedResult = await query(`SELECT COUNT(*) as  count FROM submissions WHERE status = 'accepted'`)
+    acceptedCount = parseInt(acceptedResult.rows[0].count)
 
-  const { count: reviewsCount } = await supabase.from("reviews").select("*", { count: "exact", head: true })
+    const publishedResult = await query(`SELECT COUNT(*) as count FROM published_articles`)
+    publishedCount = parseInt(publishedResult.rows[0].count)
+
+    const reviewsResult = await query(`SELECT COUNT(*) as count FROM reviews`)
+    reviewsCount = parseInt(reviewsResult.rows[0].count)
+  } catch (error) {
+    console.error("Error fetching analytics:", error)
+  }
 
   // Calculate acceptance rate
   const acceptanceRate = submissionsCount && submissionsCount > 0 ? ((acceptedCount || 0) / submissionsCount) * 100 : 0
 
   // Fetch submissions by field
-  const { data: journalsWithSubmissions } = await supabase.from("journals").select("field, id").order("field")
-
-  const fieldGroups: { [key: string]: number } = {}
-  if (journalsWithSubmissions) {
-    for (const journal of journalsWithSubmissions) {
-      const { count } = await supabase
-        .from("submissions")
-        .select("*", { count: "exact", head: true })
-        .eq("journal_id", journal.id)
-      if (journal.field) {
-        fieldGroups[journal.field] = (fieldGroups[journal.field] || 0) + (count || 0)
-      }
-    }
+  let fieldGroups: { [key: string]: number } = {}
+  try {
+    const result = await query(
+      `SELECT j.field, COUNT(s.id) as count
+       FROM journals j
+       LEFT JOIN submissions s ON s.journal_id = j.id
+       WHERE j.field IS NOT NULL
+       GROUP BY j.field
+       ORDER BY count DESC`
+    )
+    result.rows.forEach((row: any) => {
+      fieldGroups[row.field] = parseInt(row.count)
+    })
+  } catch (error) {
+    console.error("Error fetching field groups:", error)
   }
 
   const topFields = Object.entries(fieldGroups)

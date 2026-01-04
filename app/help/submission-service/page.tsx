@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { FileText } from "lucide-react"
 import { useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 
 export default function SubmissionServicePage() {
   const [formData, setFormData] = useState({
@@ -19,27 +18,41 @@ export default function SubmissionServicePage() {
     subject: "",
     description: "",
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsSubmitting(true)
 
-    const supabase = createClient()
+    try {
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          subject: formData.subject,
+          message: formData.description,
+          type: "submission_help",
+        }),
+      })
 
-    const { error } = await supabase.from("messages").insert({
-      message_type: "submission_help",
-      name: formData.name,
-      email: formData.email,
-      subject: formData.subject,
-      message: formData.description,
-      status: "unread",
-    })
+      setIsSubmitting(false)
 
-    if (error) {
+      if (!response.ok) {
+        const error = await response.json()
+        console.error("Error submitting message:", error)
+        alert("There was an error sending your message. Please try again.")
+      } else {
+        alert("Your request has been sent to our support team. We'll get back to you shortly!")
+        setFormData({ name: "", email: "", subject: "", description: "" })
+      }
+    } catch (error) {
+      setIsSubmitting(false)
       console.error("Error submitting message:", error)
       alert("There was an error sending your message. Please try again.")
-    } else {
-      alert("Your request has been sent to our support team. We'll get back to you shortly!")
-      setFormData({ name: "", email: "", subject: "", description: "" })
     }
   }
 
@@ -121,8 +134,8 @@ export default function SubmissionServicePage() {
                       />
                     </div>
 
-                    <Button type="submit" className="w-full" size="lg">
-                      Send Request to Support Team
+                    <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+                      {isSubmitting ? "Sending..." : "Send Request to Support Team"}
                     </Button>
                   </form>
                 </CardContent>

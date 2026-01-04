@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { getSession } from "@/lib/db/auth"
+import { query } from "@/lib/db/config"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Eye, FileText } from "lucide-react"
@@ -8,31 +9,41 @@ import { SubmissionsFilter } from "@/components/submissions-filter"
 import { Suspense } from "react"
 
 async function SubmissionsList({ searchParams }: { searchParams: { status?: string; search?: string } }) {
-  const supabase = await createClient()
-
-  // Build query
-  let query = supabase
-    .from("submissions")
-    .select(
-      `
-      *,
-      journals(title, field)
-    `,
-    )
-    .order("submission_date", { ascending: false })
+  // Build SQL query
+  let sqlQuery = `
+    SELECT s.*, j.title as journal_title, j.field as journal_field
+    FROM submissions s
+    LEFT JOIN journals j ON s.journal_id = j.id
+  `
+  const queryParams: any[] = []
+  const conditions: string[] = []
 
   // Apply filters
   if (searchParams.status && searchParams.status !== "all") {
-    query = query.eq("status", searchParams.status)
+    conditions.push(`s.status = $${queryParams.length + 1}`)
+    queryParams.push(searchParams.status)
   }
 
   if (searchParams.search) {
-    query = query.or(
-      `manuscript_title.ilike.%${searchParams.search}%,author_name.ilike.%${searchParams.search}%,author_email.ilike.%${searchParams.search}%`,
-    )
+    conditions.push(`(s.manuscript_title ILIKE $${queryParams.length + 1} OR s.author_name ILIKE $${queryParams.length + 1} OR s.author_email ILIKE $${queryParams.length + 1})`)
+    queryParams.push(`%${searchParams.search}%`)
   }
 
-  const { data: submissions, error } = await query
+  if (conditions.length > 0) {
+    sqlQuery += ` WHERE ${conditions.join(" AND ")}`
+  }
+
+  sqlQuery += ` ORDER BY s.submission_date DESC`
+
+  let submissions: any[] = []
+  let error: Error | null = null
+
+  try {
+    const result = await query(sqlQuery, queryParams)
+    submissions = result.rows
+  } catch (e) {
+    error = e as Error
+  }
 
   return (
     <Card>
@@ -55,7 +66,7 @@ async function SubmissionsList({ searchParams }: { searchParams: { status?: stri
                       <div className="flex-1">
                         <h3 className="font-semibold text-lg line-clamp-1">{submission.manuscript_title}</h3>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {submission.journals?.title} • {submission.journals?.field}
+                          {submission.journal_title} • {submission.journal_field}
                         </p>
                       </div>
                     </div>
@@ -86,8 +97,7 @@ async function SubmissionsList({ searchParams }: { searchParams: { status?: stri
 
                   <div className="flex flex-col items-end gap-3">
                     <span
-                      className={`inline-flex rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap ${
-                        submission.status === "submitted"
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap ${submission.status === "submitted"
                           ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
                           : submission.status === "under_review"
                             ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
@@ -98,7 +108,7 @@ async function SubmissionsList({ searchParams }: { searchParams: { status?: stri
                                 : submission.status === "rejected"
                                   ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
                                   : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
-                      }`}
+                        }`}
                     >
                       {submission.status.replace("_", " ")}
                     </span>
@@ -135,21 +145,23 @@ export default async function SubmissionsPage({
 }: {
   searchParams: Promise<{ status?: string; search?: string }>
 }) {
-  const supabase = await createClient()
+  const session = await getSession()
   const params = await searchParams
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  if (!session) {
     redirect("/admin/login")
   }
 
   // Build query for stats
-  const statsQuery = supabase.from("submissions").select("status").order("submission_date", { ascending: false })
-
-  const { data: allSubmissions } = await statsQuery
+  let allSubmissions: any[] = []
+  try {
+    const result = await query(
+      `SELECT status FROM submissions ORDER BY submission_date DESC`
+    )
+    allSubmissions = result.rows
+  } catch (error) {
+    console.error("Error fetching submissions stats:", error)
+  }
 
   const statusCounts = {
     all: allSubmissions?.length || 0,

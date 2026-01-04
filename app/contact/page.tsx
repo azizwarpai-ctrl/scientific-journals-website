@@ -12,11 +12,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Mail } from "lucide-react"
 import { useState } from "react"
-import { useLanguage } from "@/hooks/use-language"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 
 export default function ContactPage() {
-  const { t } = useLanguage()
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -39,7 +37,7 @@ export default function ContactPage() {
           <section className="bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-12 md:py-16">
             <div className="container mx-auto px-4 md:px-6">
               <div className="mx-auto max-w-3xl text-center">
-                <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">{t("contact")}</h1>
+                <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">Contact Us</h1>
                 <p className="text-lg text-muted-foreground">
                   Get in touch with our team for support, inquiries, or feedback
                 </p>
@@ -76,7 +74,7 @@ export default function ContactPage() {
                     <form onSubmit={handleSubmit} className="space-y-6">
                       <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2">
-                          <Label htmlFor="name">{t("name")}</Label>
+                          <Label htmlFor="name">Name</Label>
                           <Input
                             id="name"
                             placeholder="John Doe"
@@ -86,7 +84,7 @@ export default function ContactPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="email">{t("email")}</Label>
+                          <Label htmlFor="email">Email</Label>
                           <Input
                             id="email"
                             type="email"
@@ -99,7 +97,7 @@ export default function ContactPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="subject">{t("subject")}</Label>
+                        <Label htmlFor="subject">Subject</Label>
                         <Select onValueChange={(value) => setFormData({ ...formData, subject: value })}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select a subject" />
@@ -116,7 +114,7 @@ export default function ContactPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="message">{t("message")}</Label>
+                        <Label htmlFor="message">Message</Label>
                         <Textarea
                           id="message"
                           placeholder="Tell us how we can help..."
@@ -128,7 +126,7 @@ export default function ContactPage() {
                       </div>
 
                       <Button type="submit" className="w-full">
-                        {t("send")}
+                        Send Message
                       </Button>
                     </form>
                   </CardContent>

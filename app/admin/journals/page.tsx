@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { getSession } from "@/lib/db/auth"
+import { query } from "@/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus, Pencil, Eye } from "lucide-react"
@@ -8,21 +9,24 @@ import Image from "next/image"
 import { BookOpen } from "lucide-react" // Declare the BookOpen variable
 
 export default async function JournalsPage() {
-  const supabase = await createClient()
+  const session = await getSession()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  if (!session) {
     redirect("/admin/login")
   }
 
   // Fetch all journals
-  const { data: journals, error } = await supabase
-    .from("journals")
-    .select("*")
-    .order("created_at", { ascending: false })
+  let journals: any[] = []
+  let error: Error | null = null
+
+  try {
+    const result = await query(
+      `SELECT * FROM journals ORDER BY created_at DESC`
+    )
+    journals = result.rows
+  } catch (e) {
+    error = e as Error
+  }
 
   return (
     <div className="space-y-6">
@@ -41,7 +45,7 @@ export default async function JournalsPage() {
 
       {error && (
         <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
-          <p className="text-sm text-red-600 dark:text-red-400">Error loading journals: {error.message}</p>
+          <p className="text-sm text-red-600 dark:text-red-400">Error loading journals: {error instanceof Error ? error.message : 'Unknown error'}</p>
         </div>
       )}
 
@@ -85,13 +89,12 @@ export default async function JournalsPage() {
 
                 <div className="flex items-center gap-1">
                   <span
-                    className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                      journal.status === "active"
-                        ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                        : journal.status === "inactive"
-                          ? "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
-                          : "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
-                    }`}
+                    className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${journal.status === "active"
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                      : journal.status === "inactive"
+                        ? "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
+                        : "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                      }`}
                   >
                     {journal.status}
                   </span>

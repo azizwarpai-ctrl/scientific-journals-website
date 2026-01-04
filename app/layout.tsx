@@ -2,7 +2,6 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
-import { LanguageProvider } from "@/hooks/use-language"
 import { ThemeProvider } from "@/components/theme-provider"
 import "./globals.css"
 
@@ -39,11 +38,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} font-sans antialiased`}>
-        <ThemeProvider defaultTheme="system" storageKey="digitopub-theme">
-          <LanguageProvider>
-            {children}
-            <Analytics />
-          </LanguageProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem={true}
+          storageKey="digitopub-theme"
+        >
+          {children}
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>

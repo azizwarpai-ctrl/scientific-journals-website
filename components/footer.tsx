@@ -3,18 +3,15 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Mail, Phone, MapPin } from "lucide-react"
-import { useLanguage } from "@/hooks/use-language"
 
 export function Footer() {
-  const { t } = useLanguage()
-
   return (
     <footer className="border-t bg-muted/30">
       <div className="container mx-auto px-4 py-12 md:px-6">
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <Image src="/images/logodigitopub.jpeg" alt="DigitoPub" width={120} height={40} className="h-10 w-auto" />
+              <Image src="/images/logodigitopub.png" alt="DigitoPub" width={120} height={40} className="h-10 w-auto" />
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Advancing open, ethical, and impactful scholarly communication through digital innovation.
@@ -23,26 +20,26 @@ export function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h3 className="mb-4 text-sm font-semibold">{t("quickLinks")}</h3>
+            <h3 className="mb-4 text-sm font-semibold">Quick Links</h3>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link href="/journals" className="text-muted-foreground hover:text-primary">
-                  {t("journals")}
+                  Journals
                 </Link>
               </li>
               <li>
                 <Link href="/about" className="text-muted-foreground hover:text-primary">
-                  {t("about")}
+                  About
                 </Link>
               </li>
               <li>
                 <Link href="/help" className="text-muted-foreground hover:text-primary">
-                  {t("help")}
+                  Help
                 </Link>
               </li>
               <li>
                 <Link href="/contact" className="text-muted-foreground hover:text-primary">
-                  {t("contact")}
+                  Contact
                 </Link>
               </li>
             </ul>
@@ -50,16 +47,16 @@ export function Footer() {
 
           {/* Resources */}
           <div>
-            <h3 className="mb-4 text-sm font-semibold">{t("resources")}</h3>
+            <h3 className="mb-4 text-sm font-semibold">Resources</h3>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link href="/help" className="text-muted-foreground hover:text-primary">
-                  {t("authorGuides")}
+                  Guide for Authors
                 </Link>
               </li>
               <li>
                 <Link href="/help" className="text-muted-foreground hover:text-primary">
-                  {t("reviewerGuides")}
+                  Guide for Reviewers
                 </Link>
               </li>
               <li>
@@ -69,7 +66,7 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/help" className="text-muted-foreground hover:text-primary">
-                  {t("faq")}
+                  FAQ
                 </Link>
               </li>
             </ul>
@@ -79,13 +76,17 @@ export function Footer() {
           <div>
             <h3 className="mb-4 text-sm font-semibold">Contact Info</h3>
             <ul className="space-y-3 text-sm">
-              <li className="flex items-start gap-2">
-                <Mail className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">contact@digitopub.com</span>
+              <li>
+                <a href="mailto:contact@digitopub.com" className="flex items-center gap-2 text-muted-foreground hover:text-primary">
+                  <Mail className="h-4 w-4" />
+                  contact@digitopub.com
+                </a>
               </li>
-              <li className="flex items-start gap-2">
-                <Phone className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">+1 (555) 123-4567</span>
+              <li>
+                <a href="tel:+15551234567" className="flex items-center gap-2 text-muted-foreground hover:text-primary">
+                  <Phone className="h-4 w-4" />
+                  +1 (555) 123-4567
+                </a>
               </li>
               <li className="flex items-start gap-2">
                 <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground" />
@@ -97,14 +98,14 @@ export function Footer() {
 
         <div className="mt-12 border-t pt-8 text-center text-sm text-muted-foreground">
           <p>
-            © {new Date().getFullYear()} DigitoPub Scientific Journals. {t("allRightsReserved")}
+            © {new Date().getFullYear()} DigitoPub Scientific Journals. All rights reserved.
           </p>
           <div className="mt-2 flex justify-center gap-4">
             <Link href="#" className="hover:text-primary">
-              {t("privacyPolicy")}
+              Privacy Policy
             </Link>
             <Link href="#" className="hover:text-primary">
-              {t("termsOfService")}
+              Terms of Service
             </Link>
             <Link href="#" className="hover:text-primary">
               Data Protection

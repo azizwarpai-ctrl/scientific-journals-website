@@ -1,24 +1,28 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { getSession } from "@/lib/db/auth"
+import { query } from "@/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, Mail, FileText } from "lucide-react"
 
 export default async function AuthorsPage() {
-  const supabase = await createClient()
+  const session = await getSession()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  if (!session) {
     redirect("/admin/login")
   }
 
   // Fetch unique authors from submissions
-  const { data: submissions } = await supabase
-    .from("submissions")
-    .select("author_name, author_email, submission_date")
-    .order("submission_date", { ascending: false })
+  let submissions: any[] = []
+  try {
+    const result = await query(
+      `SELECT author_name, author_email, submission_date 
+       FROM submissions 
+       ORDER BY submission_date DESC`
+    )
+    submissions = result.rows
+  } catch (error) {
+    console.error("Error fetching submissions:", error)
+  }
 
   // Group by email to get unique authors
   const authorsMap = new Map()

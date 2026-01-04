@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
+import { getSession } from "@/lib/db/auth"
+import { query } from "@/lib/db/config"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -9,22 +10,22 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 
 export default async function FAQPage() {
-  const supabase = await createClient()
+  const session = await getSession()
 
-  // Check authentication
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  if (!session) {
     redirect("/admin/login")
   }
 
   // Fetch FAQ/Solutions
-  const { data: faqs, error } = await supabase
-    .from("faq_solutions")
-    .select("*")
-    .order("created_at", { ascending: false })
+  let faqs: any[] = []
+  try {
+    const result = await query(
+      `SELECT * FROM faq_solutions ORDER BY created_at DESC`
+    )
+    faqs = result.rows
+  } catch (error) {
+    console.error("Error fetching FAQs:", error)
+  }
 
   const publishedCount = faqs?.filter((f) => f.is_published).length || 0
   const draftCount = faqs?.filter((f) => !f.is_published).length || 0

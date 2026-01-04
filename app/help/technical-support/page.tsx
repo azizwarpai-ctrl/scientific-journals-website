@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { HelpCircle, Mail, Clock } from "lucide-react"
 import { useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 
 export default function TechnicalSupportPage() {
   const [formData, setFormData] = useState({
@@ -26,28 +25,38 @@ export default function TechnicalSupportPage() {
     e.preventDefault()
     setIsSubmitting(true)
 
-    const supabase = createClient()
+    try {
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          subject: formData.issue,
+          message: formData.message,
+          type: "technical_support",
+        }),
+      })
 
-    const { error } = await supabase.from("messages").insert({
-      message_type: "technical_support",
-      name: formData.name,
-      email: formData.email,
-      subject: formData.issue,
-      message: formData.message,
-      status: "unread",
-    })
+      setIsSubmitting(false)
 
-    setIsSubmitting(false)
-
-    if (error) {
+      if (!response.ok) {
+        const error = await response.json()
+        console.error("Error submitting message:", error)
+        alert("There was an error sending your message. Please try again.")
+      } else {
+        setIsSubmitted(true)
+        setTimeout(() => {
+          setFormData({ name: "", email: "", issue: "", message: "" })
+          setIsSubmitted(false)
+        }, 3000)
+      }
+    } catch (error) {
+      setIsSubmitting(false)
       console.error("Error submitting message:", error)
       alert("There was an error sending your message. Please try again.")
-    } else {
-      setIsSubmitted(true)
-      setTimeout(() => {
-        setFormData({ name: "", email: "", issue: "", message: "" })
-        setIsSubmitted(false)
-      }, 3000)
     }
   }
 

@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
+import { getSession } from "@/lib/db/auth"
+import { query } from "@/lib/db/config"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -9,22 +10,22 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 
 export default async function MessagesPage() {
-  const supabase = await createClient()
+  const session = await getSession()
 
-  // Check authentication
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  if (!session) {
     redirect("/admin/login")
   }
 
   // Fetch messages with counts
-  const { data: messages, error } = await supabase
-    .from("messages")
-    .select("*")
-    .order("created_at", { ascending: false })
+  let messages: any[] = []
+  try {
+    const result = await query(
+      `SELECT * FROM messages ORDER BY created_at DESC`
+    )
+    messages = result.rows
+  } catch (error) {
+    console.error("Error fetching messages:", error)
+  }
 
   const unreadCount = messages?.filter((m) => m.status === "unread").length || 0
   const repliedCount = messages?.filter((m) => m.status === "replied").length || 0
