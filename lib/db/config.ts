@@ -5,11 +5,12 @@ let pool: Pool | null = null
 
 export function getPool() {
   if (!pool) {
+    if (!process.env.POSTGRES_URL) {
+      throw new Error("POSTGRES_URL environment variable is not set")
+    }
     pool = new Pool({
       connectionString: process.env.POSTGRES_URL,
-      ssl: {
-        rejectUnauthorized: false,
-      },
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
