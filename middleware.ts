@@ -1,48 +1,65 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { isPublicRoute, isAdminRoute } from "@/config/routes"
 import * as jose from "jose"
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "your-secret-key-change-in-production")
 
 export async function middleware(request: NextRequest) {
-    // Only run on /admin routes
-    if (request.nextUrl.pathname.startsWith("/admin")) {
-        const token = request.cookies.get("auth_token")?.value
-        const isLoginPage = request.nextUrl.pathname === "/admin/login"
-        const isRegisterPage = request.nextUrl.pathname === "/admin/register" // If exists
+  const { pathname } = request.nextUrl
 
-        if (!token) {
-            // If no token and trying to access protected route, redirect to login
-            if (!isLoginPage && !isRegisterPage) {
-                return NextResponse.redirect(new URL("/admin/login", request.url))
-            }
-            // If no token and on login page, allow
-            return NextResponse.next()
-        }
+  // Skip static files and Next.js internals
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/static") ||
+    pathname.includes(".") ||
+    pathname.startsWith("/favicon")
+  ) {
+    return NextResponse.next()
+  }
 
-        try {
-            // Verify token
-            const verified = await jose.jwtVerify(token, JWT_SECRET)
+  const token = request.cookies.get("auth_token")?.value
 
-            // If token is valid and user is on login page, redirect to dashboard
-            if (verified && isLoginPage) {
-                return NextResponse.redirect(new URL("/admin/dashboard", request.url))
-            }
+  // Special case: Login page with valid token -> redirect to dashboard
+  if (pathname === "/admin/login" && token) {
+    try {
+      await jose.jwtVerify(token, JWT_SECRET)
+      return NextResponse.redirect(new URL("/admin/dashboard", request.url))
+    } catch {
+      // Token invalid, let it proceed to login page
+    }
+  }
 
-            // Token valid, proceed
-            return NextResponse.next()
-        } catch (err) {
-            // Token invalid/expired
-            if (!isLoginPage) {
-                return NextResponse.redirect(new URL("/admin/login", request.url))
-            }
-            return NextResponse.next()
-        }
+  // Public routes - allow access
+  if (isPublicRoute(pathname)) {
+    return NextResponse.next()
+  }
+
+  // Admin routes - require authentication
+  if (isAdminRoute(pathname)) {
+    if (!token) {
+      const url = request.nextUrl.clone()
+      url.pathname = "/admin/login"
+      url.searchParams.set("redirect", pathname)
+      return NextResponse.redirect(url)
     }
 
-    return NextResponse.next()
+    try {
+      await jose.jwtVerify(token, JWT_SECRET)
+      return NextResponse.next()
+    } catch (error) {
+      console.error("JWT verification failed in middleware:", error)
+      const url = request.nextUrl.clone()
+      url.pathname = "/admin/login"
+      url.searchParams.set("redirect", pathname)
+      return NextResponse.redirect(url)
+    }
+  }
+
+  // Default: allow access
+  return NextResponse.next()
 }
 
 export const config = {
-    matcher: ["/admin/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 }
