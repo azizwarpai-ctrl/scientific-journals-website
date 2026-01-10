@@ -1,46 +1,46 @@
 import { PrismaClient } from '@prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
-import { Pool } from 'pg'
 import bcrypt from 'bcryptjs'
+import 'dotenv/config'
 
-const connectionString = process.env.POSTGRES_URL
+const prisma = new PrismaClient()
 
-if (!connectionString) {
-  throw new Error("POSTGRES_URL environment variable is not set")
-}
-
-const pool = new Pool({
-  connectionString,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
-})
-const adapter = new PrismaPg(pool)
-const prisma = new PrismaClient({ adapter })
 
 async function main() {
-  const email = 'admin@example.com'
-  const password = 'admin'
+  console.log('🌱 Seeding database...')
+  console.log('📍 Using:', process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':****@'))
+
+  // Create default admin user
+  const email = 'admin@digitopub.com'
+  const password = 'admin123'
   const hashedPassword = await bcrypt.hash(password, 10)
 
-  const user = await prisma.adminUser.upsert({
+  const adminUser = await prisma.adminUser.upsert({
     where: { email },
-    update: {},
+    update: {
+      password_hash: hashedPassword,
+    },
     create: {
       email,
-      full_name: 'Default Admin',
+      full_name: 'DigitoPub Admin',
       role: 'admin',
       password_hash: hashedPassword,
     },
   })
 
-  console.log({ user })
+  console.log('✅ Admin user created/updated:')
+  console.log('   📧 Email:', email)
+  console.log('   🔑 Password: admin123')
+  console.log('   🆔 ID:', adminUser.id.toString())
+  console.log('   👤 Name:', adminUser.full_name)
 }
 
 main()
   .then(async () => {
+    console.log('\n✅ Seeding completed successfully!')
     await prisma.$disconnect()
   })
   .catch(async (e) => {
-    console.error(e)
+    console.error('\n❌ Seeding failed:', e)
     await prisma.$disconnect()
     process.exit(1)
   })

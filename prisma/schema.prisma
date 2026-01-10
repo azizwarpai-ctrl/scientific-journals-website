@@ -3,16 +3,19 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("POSTGRES_URL")
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model AdminUser {
-  id            String @id @default(uuid())
-  email         String @unique
-  full_name     String
-  role          String @default("admin")
-  password_hash String
+  id            BigInt   @id @default(autoincrement())
+  email         String   @unique @db.VarChar(255)
+  full_name     String   @db.VarChar(255)
+  role          String   @default("admin") @db.VarChar(50)
+  password_hash String   @db.VarChar(255)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @default(now()) @updatedAt
 
+  @@index([email])
   @@map("admin_users")
 }
