@@ -1,45 +1,22 @@
-import { Pool } from "pg"
+import { PrismaClient } from '@prisma/client'
 
-// Create a singleton connection pool
-let pool: Pool | null = null
+// Prisma 5 Stable Configuration
+// Using standard schema.prisma configuration
 
-export function getPool() {
-  if (!pool) {
-    if (!process.env.POSTGRES_URL) {
-      throw new Error("POSTGRES_URL environment variable is not set")
-    }
-    pool = new Pool({
-      connectionString: process.env.POSTGRES_URL,
-      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
-    })
-
-    pool.on("error", (err) => {
-      console.error("Unexpected error on idle client", err)
-      process.exit(-1)
-    })
-  }
-
-  return pool
+declare global {
+  var prisma: PrismaClient | undefined
 }
 
+// Simple PrismaClient - connection string from environment
+export const prisma = global.prisma || new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+})
+
+if (process.env.NODE_ENV !== 'production') {
+  global.prisma = prisma
+}
+
+// Helper function for backwards compatibility
 export async function query(text: string, params?: any[]) {
-  const pool = getPool()
-  const start = Date.now()
-  try {
-    const res = await pool.query(text, params)
-    const duration = Date.now() - start
-    console.log("Executed query", { text, duration, rows: res.rowCount })
-    return res
-  } catch (error) {
-    console.error("Database query error:", error)
-    throw error
-  }
-}
-
-export async function getClient() {
-  const pool = getPool()
-  return await pool.connect()
+  throw new Error('Direct SQL queries deprecated - use Prisma client instead')
 }

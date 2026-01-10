@@ -1,5 +1,5 @@
 import { cookies } from "next/headers"
-import { query } from "./config"
+import { prisma } from "./config"
 import * as jose from "jose"
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "your-secret-key-change-in-production")
@@ -58,6 +58,10 @@ export async function destroySession() {
 }
 
 export async function verifyAdmin(userId: string): Promise<boolean> {
-  const result = await query("SELECT role FROM admin_users WHERE id = $1", [userId])
-  return result.rows.length > 0 && result.rows[0].role === "admin"
+  const user = await prisma.adminUser.findUnique({
+    where: { id: BigInt(userId) },
+    select: { role: true },
+  })
+  
+  return user?.role === "admin"
 }
