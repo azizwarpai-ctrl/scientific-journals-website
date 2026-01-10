@@ -1,222 +1,238 @@
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- MySQL Migration Script
+-- Converts PostgreSQL schema to MySQL-compatible schema
+-- Version: 1.0
+-- Date: 2026-01-10
 
--- Create admin_users table for admin authentication
-CREATE TABLE IF NOT EXISTS public.admin_users (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT NOT NULL,
-  full_name TEXT,
-  role TEXT DEFAULT 'admin' CHECK (role IN ('admin', 'super_admin')),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- Create database with UTF-8 support
+CREATE DATABASE IF NOT EXISTS scientific_journals 
+CHARACTER SET utf8mb4 
+COLLATE utf8mb4_unicode_ci;
 
--- Create journals table
-CREATE TABLE IF NOT EXISTS public.journals (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+USE scientific_journals;
+
+-- =====================================================
+-- ADMIN USERS TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS admin_users (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  full_name VARCHAR(255) NOT NULL,
+  role VARCHAR(50) NOT NULL DEFAULT 'admin' 
+    CHECK (role IN ('admin', 'super_admin')),
+  password_hash VARCHAR(255) NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  
+  INDEX idx_admin_email (email),
+  INDEX idx_admin_role (role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- JOURNALS TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS journals (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
   title TEXT NOT NULL,
-  abbreviation TEXT,
-  issn TEXT UNIQUE,
-  e_issn TEXT,
+  abbreviation VARCHAR(100),
+  issn VARCHAR(20) UNIQUE,
+  e_issn VARCHAR(20),
   description TEXT,
-  field TEXT NOT NULL,
-  publisher TEXT,
-  editor_in_chief TEXT,
-  frequency TEXT,
+  field VARCHAR(100) NOT NULL,
+  publisher VARCHAR(255),
+  editor_in_chief VARCHAR(255),
+  frequency VARCHAR(50),
   submission_fee DECIMAL(10, 2) DEFAULT 0,
   publication_fee DECIMAL(10, 2) DEFAULT 0,
-  cover_image_url TEXT,
-  website_url TEXT,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES public.admin_users(id)
-);
+  cover_image_url VARCHAR(500),
+  website_url VARCHAR(500),
+  status VARCHAR(20) DEFAULT 'active' 
+    CHECK (status IN ('active', 'inactive', 'suspended')),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_by BIGINT,
+  ojs_id VARCHAR(50) UNIQUE COMMENT 'Reference to OJS journal_id for sync',
+  
+  INDEX idx_journals_field (field),
+  INDEX idx_journals_status (status),
+  INDEX idx_journals_issn (issn),
+  INDEX idx_journals_ojs_id (ojs_id),
+  FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Create submissions table
-CREATE TABLE IF NOT EXISTS public.submissions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  journal_id UUID NOT NULL REFERENCES public.journals(id) ON DELETE CASCADE,
+-- =====================================================
+-- SUBMISSIONS TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS submissions (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  journal_id BIGINT NOT NULL,
   manuscript_title TEXT NOT NULL,
   abstract TEXT NOT NULL,
-  keywords TEXT[],
-  submission_type TEXT CHECK (submission_type IN ('original_research', 'review', 'case_report', 'short_communication', 'letter')),
-  author_name TEXT NOT NULL,
-  author_email TEXT NOT NULL,
-  corresponding_author_name TEXT,
-  corresponding_author_email TEXT,
-  co_authors JSONB,
-  manuscript_file_url TEXT,
-  supplementary_files JSONB,
-  status TEXT DEFAULT 'submitted' CHECK (status IN ('submitted', 'under_review', 'revision_required', 'accepted', 'rejected', 'published')),
-  submission_date TIMESTAMPTZ DEFAULT NOW(),
-  last_updated TIMESTAMPTZ DEFAULT NOW(),
-  assigned_to UUID REFERENCES public.admin_users(id),
+  keywords JSON COMMENT 'Array of keywords stored as JSON',
+  submission_type VARCHAR(50) 
+    CHECK (submission_type IN ('original_research', 'review', 'case_report', 'short_communication', 'letter')),
+  author_name VARCHAR(255) NOT NULL,
+  author_email VARCHAR(255) NOT NULL,
+  corresponding_author_name VARCHAR(255),
+  corresponding_author_email VARCHAR(255),
+  co_authors JSON COMMENT 'Array of co-author objects stored as JSON',
+  manuscript_file_url VARCHAR(500),
+  supplementary_files JSON COMMENT 'Array of supplementary file objects stored as JSON',
+  status VARCHAR(50) DEFAULT 'submitted' 
+    CHECK (status IN ('submitted', 'under_review', 'revision_required', 'accepted', 'rejected', 'published')),
+  submission_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  last_updated DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  assigned_to BIGINT,
   notes TEXT,
-  created_by UUID REFERENCES auth.users(id)
-);
+  created_by BIGINT,
+  ojs_submission_id VARCHAR(50) UNIQUE COMMENT 'Reference to OJS submission_id for sync',
+  
+  INDEX idx_submissions_journal_id (journal_id),
+  INDEX idx_submissions_status (status),
+  INDEX idx_submissions_author_email (author_email),
+  INDEX idx_submissions_submission_date (submission_date),
+  INDEX idx_submissions_ojs_id (ojs_submission_id),
+  FOREIGN KEY (journal_id) REFERENCES journals(id) ON DELETE CASCADE,
+  FOREIGN KEY (assigned_to) REFERENCES admin_users(id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Create reviews table
-CREATE TABLE IF NOT EXISTS public.reviews (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  submission_id UUID NOT NULL REFERENCES public.submissions(id) ON DELETE CASCADE,
-  reviewer_name TEXT NOT NULL,
-  reviewer_email TEXT NOT NULL,
-  reviewer_affiliation TEXT,
-  review_status TEXT DEFAULT 'pending' CHECK (review_status IN ('pending', 'in_progress', 'completed', 'declined')),
-  recommendation TEXT CHECK (recommendation IN ('accept', 'minor_revision', 'major_revision', 'reject')),
+-- =====================================================
+-- REVIEWS TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS reviews (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  submission_id BIGINT NOT NULL,
+  reviewer_name VARCHAR(255) NOT NULL,
+  reviewer_email VARCHAR(255) NOT NULL,
+  reviewer_affiliation VARCHAR(255),
+  review_status VARCHAR(50) DEFAULT 'pending' 
+    CHECK (review_status IN ('pending', 'in_progress', 'completed', 'declined')),
+  recommendation VARCHAR(50) 
+    CHECK (recommendation IN ('accept', 'minor_revision', 'major_revision', 'reject')),
   comments_to_author TEXT,
   comments_to_editor TEXT,
-  review_date TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  assigned_by UUID REFERENCES public.admin_users(id)
-);
+  review_date DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  assigned_by BIGINT,
+  
+  INDEX idx_reviews_submission_id (submission_id),
+  INDEX idx_reviews_status (review_status),
+  INDEX idx_reviews_reviewer_email (reviewer_email),
+  FOREIGN KEY (submission_id) REFERENCES submissions(id) ON DELETE CASCADE,
+  FOREIGN KEY (assigned_by) REFERENCES admin_users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Create published_articles table
-CREATE TABLE IF NOT EXISTS public.published_articles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  submission_id UUID NOT NULL REFERENCES public.submissions(id),
-  journal_id UUID NOT NULL REFERENCES public.journals(id) ON DELETE CASCADE,
-  doi TEXT UNIQUE,
-  volume INTEGER,
-  issue INTEGER,
-  page_start INTEGER,
-  page_end INTEGER,
+-- =====================================================
+-- PUBLISHED ARTICLES TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS published_articles (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  submission_id BIGINT NOT NULL,
+  journal_id BIGINT NOT NULL,
+  doi VARCHAR(255) UNIQUE,
+  volume INT,
+  issue INT,
+  page_start INT,
+  page_end INT,
   publication_date DATE NOT NULL,
-  pdf_url TEXT,
-  html_url TEXT,
-  views_count INTEGER DEFAULT 0,
-  downloads_count INTEGER DEFAULT 0,
-  citations_count INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  published_by UUID REFERENCES public.admin_users(id)
-);
+  pdf_url VARCHAR(500),
+  html_url VARCHAR(500),
+  views_count INT DEFAULT 0,
+  downloads_count INT DEFAULT 0,
+  citations_count INT DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  published_by BIGINT,
+  ojs_publication_id VARCHAR(50) UNIQUE COMMENT 'Reference to OJS publication_id for sync',
+  
+  INDEX idx_published_articles_journal_id (journal_id),
+  INDEX idx_published_articles_doi (doi),
+  INDEX idx_published_articles_publication_date (publication_date),
+  INDEX idx_published_articles_ojs_id (ojs_publication_id),
+  FOREIGN KEY (submission_id) REFERENCES submissions(id) ON DELETE CASCADE,
+  FOREIGN KEY (journal_id) REFERENCES journals(id) ON DELETE CASCADE,
+  FOREIGN KEY (published_by) REFERENCES admin_users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Create system_settings table
-CREATE TABLE IF NOT EXISTS public.system_settings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  setting_key TEXT UNIQUE NOT NULL,
-  setting_value JSONB NOT NULL,
+-- =====================================================
+-- SYSTEM SETTINGS TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS system_settings (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  setting_key VARCHAR(255) UNIQUE NOT NULL,
+  setting_value JSON NOT NULL,
   description TEXT,
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_by UUID REFERENCES public.admin_users(id)
-);
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  updated_by BIGINT,
+  
+  INDEX idx_settings_key (setting_key),
+  FOREIGN KEY (updated_by) REFERENCES admin_users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Enable Row Level Security
-ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.journals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.published_articles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+-- =====================================================
+-- TRIGGERS FOR UPDATED_AT
+-- Note: MySQL doesn't need explicit triggers for updated_at
+-- when using ON UPDATE CURRENT_TIMESTAMP in column definition
+-- These are kept for compatibility/explicit control if needed
+-- =====================================================
 
--- RLS Policies for admin_users (admins can manage their own profile)
-CREATE POLICY "Admins can view their own profile" ON public.admin_users
-  FOR SELECT USING (auth.uid() = id);
+DELIMITER $$
 
-CREATE POLICY "Admins can update their own profile" ON public.admin_users
-  FOR UPDATE USING (auth.uid() = id);
-
--- RLS Policies for journals (admins can manage journals)
-CREATE POLICY "Admins can view all journals" ON public.journals
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
-  );
-
-CREATE POLICY "Admins can insert journals" ON public.journals
-  FOR INSERT WITH CHECK (
-    EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
-  );
-
-CREATE POLICY "Admins can update journals" ON public.journals
-  FOR UPDATE USING (
-    EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
-  );
-
-CREATE POLICY "Admins can delete journals" ON public.journals
-  FOR DELETE USING (
-    EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
-  );
-
--- RLS Policies for submissions (admins can view and manage all submissions)
-CREATE POLICY "Admins can view all submissions" ON public.submissions
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
-  );
-
-CREATE POLICY "Admins can insert submissions" ON public.submissions
-  FOR INSERT WITH CHECK (
-    EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
-  );
-
-CREATE POLICY "Admins can update submissions" ON public.submissions
-  FOR UPDATE USING (
-    EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
-  );
-
-CREATE POLICY "Admins can delete submissions" ON public.submissions
-  FOR DELETE USING (
-    EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
-  );
-
--- RLS Policies for reviews
-CREATE POLICY "Admins can view all reviews" ON public.reviews
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
-  );
-
-CREATE POLICY "Admins can manage reviews" ON public.reviews
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
-  );
-
--- RLS Policies for published_articles
-CREATE POLICY "Admins can view all articles" ON public.published_articles
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
-  );
-
-CREATE POLICY "Admins can manage articles" ON public.published_articles
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
-  );
-
--- RLS Policies for system_settings
-CREATE POLICY "Admins can view settings" ON public.system_settings
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid())
-  );
-
-CREATE POLICY "Super admins can manage settings" ON public.system_settings
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.admin_users WHERE id = auth.uid() AND role = 'super_admin')
-  );
-
--- Create indexes for better performance
-CREATE INDEX idx_journals_field ON public.journals(field);
-CREATE INDEX idx_journals_status ON public.journals(status);
-CREATE INDEX idx_submissions_journal_id ON public.submissions(journal_id);
-CREATE INDEX idx_submissions_status ON public.submissions(status);
-CREATE INDEX idx_submissions_author_email ON public.submissions(author_email);
-CREATE INDEX idx_reviews_submission_id ON public.reviews(submission_id);
-CREATE INDEX idx_published_articles_journal_id ON public.published_articles(journal_id);
-CREATE INDEX idx_published_articles_doi ON public.published_articles(doi);
-
--- Create trigger function for updating timestamps
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
+-- Admin Users Update Trigger (redundant but explicit)
+CREATE TRIGGER trg_admin_users_updated_at 
+BEFORE UPDATE ON admin_users
+FOR EACH ROW
 BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+    SET NEW.updated_at = CURRENT_TIMESTAMP;
+END$$
 
--- Apply triggers
-CREATE TRIGGER update_admin_users_updated_at BEFORE UPDATE ON public.admin_users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- Journals Update Trigger (redundant but explicit)
+CREATE TRIGGER trg_journals_updated_at 
+BEFORE UPDATE ON journals
+FOR EACH ROW
+BEGIN
+    SET NEW.updated_at = CURRENT_TIMESTAMP;
+END$$
 
-CREATE TRIGGER update_journals_updated_at BEFORE UPDATE ON public.journals
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- Submissions Update Trigger (redundant but explicit)
+CREATE TRIGGER trg_submissions_updated_at 
+BEFORE UPDATE ON submissions
+FOR EACH ROW
+BEGIN
+    SET NEW.last_updated = CURRENT_TIMESTAMP;
+END$$
 
-CREATE TRIGGER update_submissions_updated_at BEFORE UPDATE ON public.submissions
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DELIMITER ;
+
+-- =====================================================
+-- INSERT INITIAL SYSTEM SETTINGS
+-- =====================================================
+INSERT INTO system_settings (setting_key, setting_value, description) VALUES
+  ('site_name', '"DigitoPub.com"', 'Name of the platform'),
+  ('maintenance_mode', 'false', 'Enable/disable maintenance mode'),
+  ('allowed_file_types', '["pdf", "doc", "docx", "txt"]', 'Allowed file types for submissions'),
+  ('max_file_size_mb', '50', 'Maximum file size in MB for uploads'),
+  ('ojs_sync_enabled', 'true', 'Enable/disable OJS database synchronization'),
+  ('ojs_last_sync', 'null', 'Timestamp of last successful OJS sync')
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
+-- =====================================================
+-- CREATE READ-ONLY USER (FOR APPLICATION USE)
+-- This user should be created separately for security
+-- Commented out for manual execution
+-- =====================================================
+-- CREATE USER 'app_readonly'@'localhost' IDENTIFIED BY 'secure_password_here';
+-- GRANT SELECT ON scientific_journals.* TO 'app_readonly'@'localhost';
+-- FLUSH PRIVILEGES;
+
+-- =====================================================
+-- NOTES ON MIGRATION FROM POSTGRESQL
+-- =====================================================
+-- 1. UUID columns changed to BIGINT AUTO_INCREMENT
+-- 2. JSONB changed to JSON
+-- 3. TEXT[] arrays changed to JSON arrays
+-- 4. TIMESTAMPTZ changed to DATETIME
+-- 5. Row Level Security removed - implement in application layer
+-- 6. Auth schema references removed - using separate created_by fields
+-- 7. Added ojs_id columns for OJS database sync tracking
+-- 8. Check constraints added where appropriate
+-- 9. All indexes recreated for MySQL optimization
