@@ -1,5 +1,5 @@
 import { getSession } from "@/lib/db/auth"
-import { query } from "@/lib/db/config"
+import { prisma } from "@/lib/db/config"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -20,8 +20,9 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
 
   let message: any = null
   try {
-    const result = await query(`SELECT * FROM messages WHERE id = $1`, [id])
-    message = result.rows[0]
+    message = await prisma.message.findUnique({
+      where: { id: BigInt(id) }
+    })
   } catch (error) {
     console.error("Error fetching message:", error)
   }

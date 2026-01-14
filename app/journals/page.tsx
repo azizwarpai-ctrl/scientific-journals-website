@@ -170,7 +170,7 @@ export default function JournalsPage() {
                 <Card key={journal.id} className="group overflow-hidden transition-all hover:shadow-xl">
                   <div className="relative h-80 w-full overflow-hidden">
                     <img
-                      src={journal.coverImage || "/placeholder.svg"}
+                      src={journal.coverImage || "/images/logodigitopub.png"}
                       alt={journal.title}
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />

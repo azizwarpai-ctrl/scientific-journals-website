@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/db/auth"
-import { query } from "@/lib/db/config"
+import { prisma } from "@/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus, Pencil, Eye } from "lucide-react"
@@ -20,10 +20,16 @@ export default async function JournalsPage() {
   let error: Error | null = null
 
   try {
-    const result = await query(
-      `SELECT * FROM journals ORDER BY created_at DESC`
-    )
-    journals = result.rows
+    journals = await prisma.journal.findMany({
+      orderBy: { created_at: 'desc' },
+      include: {
+        creator: {
+          select: {
+            full_name: true
+          }
+        }
+      }
+    })
   } catch (e) {
     error = e as Error
   }
@@ -56,7 +62,7 @@ export default async function JournalsPage() {
               {journal.cover_image_url ? (
                 <div className="relative h-48 w-full overflow-hidden bg-muted">
                   <Image
-                    src={journal.cover_image_url || "/placeholder.svg"}
+                    src={journal.cover_image_url || "/images/logodigitopub.png"}
                     alt={journal.title}
                     fill
                     className="object-cover"

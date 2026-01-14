@@ -10,7 +10,6 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "DigitoPub - Scientific Journals Platform",
   description: "Professional academic publishing platform showcasing scientific journals with digital innovation",
-  generator: "v0.app",
   icons: {
     icon: [
       {

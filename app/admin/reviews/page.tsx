@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/db/auth"
-import { query } from "@/lib/db/config"
+import { prisma } from "@/lib/db/config"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Eye, Plus } from "lucide-react"
@@ -19,16 +19,20 @@ export default async function ReviewsPage() {
   let error: Error | null = null
 
   try {
-    const result = await query(
-      `SELECT r.*, 
-        s.manuscript_title,
-        j.title as journal_title
-       FROM reviews r
-       LEFT JOIN submissions s ON r.submission_id = s.id
-       LEFT JOIN journals j ON s.journal_id = j.id
-       ORDER BY r.created_at DESC`
-    )
-    reviews = result.rows
+    reviews = await prisma.review.findMany({
+      orderBy: { created_at: "desc" },
+      include: {
+        submission: {
+          include: {
+            journal: {
+              select: {
+                title: true
+              }
+            }
+          }
+        }
+      }
+    })
   } catch (e) {
     error = e as Error
   }
@@ -101,8 +105,8 @@ export default async function ReviewsPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 space-y-2">
                       <div>
-                        <h3 className="font-semibold line-clamp-1">{review.submissions?.manuscript_title}</h3>
-                        <p className="text-sm text-muted-foreground">{review.submissions?.journals?.title}</p>
+                        <h3 className="font-semibold line-clamp-1">{review.submission?.manuscript_title}</h3>
+                        <p className="text-sm text-muted-foreground">{review.submission?.journal?.title}</p>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
@@ -128,12 +132,12 @@ export default async function ReviewsPage() {
                       <Badge
                         variant="outline"
                         className={`${review.review_status === "completed"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200"
-                            : review.review_status === "in_progress"
-                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200"
-                              : review.review_status === "pending"
-                                ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400 border-yellow-200"
-                                : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400 border-gray-200"
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200"
+                          : review.review_status === "in_progress"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200"
+                            : review.review_status === "pending"
+                              ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400 border-yellow-200"
+                              : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400 border-gray-200"
                           }`}
                       >
                         {review.review_status.replace("_", " ")}
