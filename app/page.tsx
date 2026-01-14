@@ -115,7 +115,7 @@ export default function HomePage() {
                     <Card className="transition-shadow hover:shadow-lg overflow-hidden">
                       <div className="relative h-64 w-full overflow-hidden">
                         <img
-                          src={journal.fieldImage || "/placeholder.svg"}
+                          src={journal.fieldImage || "/images/logodigitopub.png"}
                           alt={journal.field}
                           className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
                         />

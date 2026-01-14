@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/db/auth"
-import { query } from "@/lib/db/config"
+import { prisma } from "@/lib/db/config"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Eye, FileText } from "lucide-react"
@@ -9,38 +9,38 @@ import { SubmissionsFilter } from "@/components/submissions-filter"
 import { Suspense } from "react"
 
 async function SubmissionsList({ searchParams }: { searchParams: { status?: string; search?: string } }) {
-  // Build SQL query
-  let sqlQuery = `
-    SELECT s.*, j.title as journal_title, j.field as journal_field
-    FROM submissions s
-    LEFT JOIN journals j ON s.journal_id = j.id
-  `
-  const queryParams: any[] = []
-  const conditions: string[] = []
+  const { status, search } = searchParams
 
-  // Apply filters
-  if (searchParams.status && searchParams.status !== "all") {
-    conditions.push(`s.status = $${queryParams.length + 1}`)
-    queryParams.push(searchParams.status)
+  const where: any = {}
+
+  if (status && status !== "all") {
+    where.status = status
   }
 
-  if (searchParams.search) {
-    conditions.push(`(s.manuscript_title ILIKE $${queryParams.length + 1} OR s.author_name ILIKE $${queryParams.length + 1} OR s.author_email ILIKE $${queryParams.length + 1})`)
-    queryParams.push(`%${searchParams.search}%`)
+  if (search) {
+    where.OR = [
+      { manuscript_title: { contains: search } },
+      { author_name: { contains: search } },
+      { author_email: { contains: search } }
+    ]
   }
-
-  if (conditions.length > 0) {
-    sqlQuery += ` WHERE ${conditions.join(" AND ")}`
-  }
-
-  sqlQuery += ` ORDER BY s.submission_date DESC`
 
   let submissions: any[] = []
   let error: Error | null = null
 
   try {
-    const result = await query(sqlQuery, queryParams)
-    submissions = result.rows
+    submissions = await prisma.submission.findMany({
+      where,
+      orderBy: { submission_date: "desc" },
+      include: {
+        journal: {
+          select: {
+            title: true,
+            field: true
+          }
+        }
+      }
+    })
   } catch (e) {
     error = e as Error
   }
@@ -66,7 +66,7 @@ async function SubmissionsList({ searchParams }: { searchParams: { status?: stri
                       <div className="flex-1">
                         <h3 className="font-semibold text-lg line-clamp-1">{submission.manuscript_title}</h3>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {submission.journal_title} • {submission.journal_field}
+                          {submission.journal?.title} • {submission.journal?.field}
                         </p>
                       </div>
                     </div>
@@ -98,16 +98,16 @@ async function SubmissionsList({ searchParams }: { searchParams: { status?: stri
                   <div className="flex flex-col items-end gap-3">
                     <span
                       className={`inline-flex rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap ${submission.status === "submitted"
-                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
-                          : submission.status === "under_review"
-                            ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
-                            : submission.status === "revision_required"
-                              ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400"
-                              : submission.status === "accepted"
-                                ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                                : submission.status === "rejected"
-                                  ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
-                                  : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
+                        : submission.status === "under_review"
+                          ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
+                          : submission.status === "revision_required"
+                            ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400"
+                            : submission.status === "accepted"
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                              : submission.status === "rejected"
+                                ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                                : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
                         }`}
                     >
                       {submission.status.replace("_", " ")}
@@ -153,12 +153,13 @@ export default async function SubmissionsPage({
   }
 
   // Build query for stats
-  let allSubmissions: any[] = []
+  let allSubmissions: { status: string | null }[] = []
   try {
-    const result = await query(
-      `SELECT status FROM submissions ORDER BY submission_date DESC`
-    )
-    allSubmissions = result.rows
+    allSubmissions = await prisma.submission.findMany({
+      select: {
+        status: true
+      }
+    })
   } catch (error) {
     console.error("Error fetching submissions stats:", error)
   }

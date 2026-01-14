@@ -1,5 +1,5 @@
 import { getSession } from "@/lib/db/auth"
-import { query } from "@/lib/db/config"
+import { prisma } from "@/lib/db/config"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -19,10 +19,9 @@ export default async function FAQPage() {
   // Fetch FAQ/Solutions
   let faqs: any[] = []
   try {
-    const result = await query(
-      `SELECT * FROM faq_solutions ORDER BY created_at DESC`
-    )
-    faqs = result.rows
+    faqs = await prisma.fAQ.findMany({
+      orderBy: { created_at: "desc" }
+    })
   } catch (error) {
     console.error("Error fetching FAQs:", error)
   }

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/db/auth"
-import { query } from "@/lib/db/config"
+import { prisma } from "@/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookOpen, FileText, Eye, TrendingUp, Users, CheckCircle2, Clock, XCircle } from "lucide-react"
 
@@ -11,28 +11,45 @@ export default async function AdminDashboardPage() {
     redirect("/admin/login")
   }
 
-  const statsResult = await query(`
-    SELECT
-      (SELECT COUNT(*) FROM journals) as journals_count,
-      (SELECT COUNT(*) FROM submissions) as submissions_count,
-      (SELECT COUNT(*) FROM submissions WHERE status = 'under_review') as under_review_count,
-      (SELECT COUNT(*) FROM submissions WHERE status = 'accepted') as accepted_count,
-      (SELECT COUNT(*) FROM submissions WHERE status = 'rejected') as rejected_count,
-      (SELECT COUNT(*) FROM reviews WHERE review_status = 'pending') as pending_reviews_count,
-      (SELECT COUNT(*) FROM published_articles) as published_articles_count
-  `)
+  const [
+    journalsCount,
+    submissionsCount,
+    underReviewCount,
+    acceptedCount,
+    rejectedCount,
+    pendingReviewsCount,
+    publishedCount
+  ] = await Promise.all([
+    prisma.journal.count(),
+    prisma.submission.count(),
+    prisma.submission.count({ where: { status: 'under_review' } }),
+    prisma.submission.count({ where: { status: 'accepted' } }),
+    prisma.submission.count({ where: { status: 'rejected' } }),
+    prisma.review.count({ where: { review_status: 'pending' } }),
+    prisma.publishedArticle.count()
+  ])
 
-  const stats = statsResult.rows[0]
+  const stats = {
+    journals_count: journalsCount,
+    submissions_count: submissionsCount,
+    under_review_count: underReviewCount,
+    accepted_count: acceptedCount,
+    rejected_count: rejectedCount,
+    pending_reviews_count: pendingReviewsCount,
+    published_articles_count: publishedCount
+  }
 
-  const recentSubmissionsResult = await query(`
-    SELECT s.*, j.title as journal_title
-    FROM submissions s
-    LEFT JOIN journals j ON s.journal_id = j.id
-    ORDER BY s.submission_date DESC
-    LIMIT 5
-  `)
-
-  const recentSubmissions = recentSubmissionsResult.rows
+  const recentSubmissions = await prisma.submission.findMany({
+    take: 5,
+    orderBy: { submission_date: 'desc' },
+    include: {
+      journal: {
+        select: {
+          title: true
+        }
+      }
+    }
+  })
 
   const statsCards = [
     {
@@ -136,20 +153,19 @@ export default async function AdminDashboardPage() {
                   <div className="space-y-1">
                     <p className="font-medium">{submission.manuscript_title}</p>
                     <p className="text-sm text-muted-foreground">
-                      {submission.journal_title} • {submission.author_name}
+                      {submission.journal?.title} • {submission.author_name}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${
-                        submission.status === "submitted"
-                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
-                          : submission.status === "under_review"
-                            ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
-                            : submission.status === "accepted"
-                              ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                              : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
-                      }`}
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${submission.status === "submitted"
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
+                        : submission.status === "under_review"
+                          ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
+                          : submission.status === "accepted"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                            : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
+                        }`}
                     >
                       {submission.status.replace("_", " ")}
                     </span>
