@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
 }
 
 model AdminUser {
@@ -16,6 +15,176 @@ model AdminUser {
   created_at    DateTime @default(now())
   updated_at    DateTime @default(now()) @updatedAt
 
+  created_journals     Journal[]          @relation("CreatedBy")
+  created_submissions  Submission[]       @relation("CreatedBy")
+  assigned_submissions Submission[]       @relation("AssignedTo")
+  assigned_reviews     Review[]           @relation("AssignedBy")
+  published_articles   PublishedArticle[] @relation("PublishedBy")
+  updated_settings     SystemSetting[]    @relation("UpdatedBy")
+
   @@index([email])
   @@map("admin_users")
+}
+
+model Journal {
+  id              BigInt   @id @default(autoincrement())
+  title           String   @db.Text
+  abbreviation    String?  @db.VarChar(100)
+  issn            String?  @unique @db.VarChar(20)
+  e_issn          String?  @db.VarChar(20)
+  description     String?  @db.Text
+  field           String   @db.VarChar(100)
+  publisher       String?  @db.VarChar(255)
+  editor_in_chief String?  @db.VarChar(255)
+  frequency       String?  @db.VarChar(50)
+  submission_fee  Decimal? @default(0) @db.Decimal(10, 2)
+  publication_fee Decimal? @default(0) @db.Decimal(10, 2)
+  cover_image_url String?  @db.VarChar(500)
+  website_url     String?  @db.VarChar(500)
+  status          String?  @default("active") @db.VarChar(20)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @default(now()) @updatedAt
+  created_by      BigInt?
+  ojs_id          String?  @unique @db.VarChar(50)
+
+  creator            AdminUser?         @relation("CreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
+  submissions        Submission[]
+  published_articles PublishedArticle[]
+
+  @@index([field])
+  @@index([status])
+  @@index([issn])
+  @@index([ojs_id])
+  @@map("journals")
+}
+
+model Submission {
+  id                         BigInt   @id @default(autoincrement())
+  journal_id                 BigInt
+  manuscript_title           String   @db.Text
+  abstract                   String   @db.Text
+  keywords                   Json?
+  submission_type            String?  @db.VarChar(50)
+  author_name                String   @db.VarChar(255)
+  author_email               String   @db.VarChar(255)
+  corresponding_author_name  String?  @db.VarChar(255)
+  corresponding_author_email String?  @db.VarChar(255)
+  co_authors                 Json?
+  manuscript_file_url        String?  @db.VarChar(500)
+  supplementary_files        Json?
+  status                     String?  @default("submitted") @db.VarChar(50)
+  submission_date            DateTime @default(now())
+  last_updated               DateTime @default(now()) @updatedAt
+  assigned_to                BigInt?
+  notes                      String?  @db.Text
+  created_by                 BigInt?
+  ojs_submission_id          String?  @unique @db.VarChar(50)
+
+  journal            Journal            @relation(fields: [journal_id], references: [id], onDelete: Cascade)
+  assignee           AdminUser?         @relation("AssignedTo", fields: [assigned_to], references: [id], onDelete: SetNull)
+  creator            AdminUser?         @relation("CreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
+  reviews            Review[]
+  published_articles PublishedArticle[]
+
+  @@index([journal_id])
+  @@index([status])
+  @@index([author_email])
+  @@index([submission_date])
+  @@index([ojs_submission_id])
+  @@map("submissions")
+}
+
+model Review {
+  id                   BigInt    @id @default(autoincrement())
+  submission_id        BigInt
+  reviewer_name        String    @db.VarChar(255)
+  reviewer_email       String    @db.VarChar(255)
+  reviewer_affiliation String?   @db.VarChar(255)
+  review_status        String?   @default("pending") @db.VarChar(50)
+  recommendation       String?   @db.VarChar(50)
+  comments_to_author   String?   @db.Text
+  comments_to_editor   String?   @db.Text
+  review_date          DateTime?
+  created_at           DateTime  @default(now())
+  assigned_by          BigInt?
+
+  submission Submission @relation(fields: [submission_id], references: [id], onDelete: Cascade)
+  assigner   AdminUser? @relation("AssignedBy", fields: [assigned_by], references: [id], onDelete: SetNull)
+
+  @@index([submission_id])
+  @@index([review_status])
+  @@index([reviewer_email])
+  @@map("reviews")
+}
+
+model PublishedArticle {
+  id                 BigInt   @id @default(autoincrement())
+  submission_id      BigInt
+  journal_id         BigInt
+  doi                String?  @unique @db.VarChar(255)
+  volume             Int?
+  issue              Int?
+  page_start         Int?
+  page_end           Int?
+  publication_date   DateTime @db.Date
+  pdf_url            String?  @db.VarChar(500)
+  html_url           String?  @db.VarChar(500)
+  views_count        Int?     @default(0)
+  downloads_count    Int?     @default(0)
+  citations_count    Int?     @default(0)
+  created_at         DateTime @default(now())
+  published_by       BigInt?
+  ojs_publication_id String?  @unique @db.VarChar(50)
+
+  submission Submission @relation(fields: [submission_id], references: [id], onDelete: Cascade)
+  journal    Journal    @relation(fields: [journal_id], references: [id], onDelete: Cascade)
+  publisher  AdminUser? @relation("PublishedBy", fields: [published_by], references: [id], onDelete: SetNull)
+
+  @@index([journal_id])
+  @@index([doi])
+  @@index([publication_date])
+  @@index([ojs_publication_id])
+  @@map("published_articles")
+}
+
+model SystemSetting {
+  id            BigInt   @id @default(autoincrement())
+  setting_key   String   @unique @db.VarChar(255)
+  setting_value Json
+  description   String?  @db.Text
+  updated_at    DateTime @default(now()) @updatedAt
+  updated_by    BigInt?
+
+  updater AdminUser? @relation("UpdatedBy", fields: [updated_by], references: [id], onDelete: SetNull)
+
+  @@index([setting_key])
+  @@map("system_settings")
+}
+
+model Message {
+  id           BigInt   @id @default(autoincrement())
+  name         String   @db.VarChar(255)
+  email        String   @db.VarChar(255)
+  subject      String   @db.VarChar(255)
+  message      String   @db.Text
+  message_type String   @db.VarChar(50)
+  status       String   @default("unread") @db.VarChar(50)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @default(now()) @updatedAt
+
+  @@map("messages")
+}
+
+model FAQ {
+  id            BigInt   @id @default(autoincrement())
+  question      String   @db.Text
+  answer        String   @db.Text
+  category      String?  @db.VarChar(100)
+  is_published  Boolean  @default(false)
+  view_count    Int      @default(0)
+  helpful_count Int      @default(0)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @default(now()) @updatedAt
+
+  @@map("faq_solutions")
 }
