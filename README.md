@@ -3,7 +3,6 @@
 A comprehensive digital publishing platform for academic and scientific journals by DigitoPub, built with Next.js, Prisma, and MySQL.
 
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/azizwarpai-7979s-projects/v0-scientific-journals-website)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/pimzlFZ9TGi)
 
 ## 🌟 Features
 
@@ -264,7 +263,6 @@ This project is private and proprietary.
 ## 🔗 Links
 
 - **Production**: [Vercel Deployment](https://vercel.com/azizwarpai-7979s-projects/v0-scientific-journals-website)
-- **Development**: [v0.app Chat](https://v0.app/chat/pimzlFZ9TGi)
 - **OJS Documentation**: [PKP Documentation](https://docs.pkp.sfu.ca/)
 
 
