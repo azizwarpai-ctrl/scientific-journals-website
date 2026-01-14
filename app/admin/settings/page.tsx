@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/db/auth"
-import { query } from "@/lib/db/config"
+import { prisma } from "@/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Settings } from "lucide-react"
 
@@ -13,11 +13,9 @@ export default async function SettingsPage() {
 
   let adminUser: any = null
   try {
-    const result = await query(
-      `SELECT * FROM admin_users WHERE email = $1 LIMIT 1`,
-      [session.email]
-    )
-    adminUser = result.rows[0]
+    adminUser = await prisma.adminUser.findUnique({
+      where: { email: session.email }
+    })
   } catch (error) {
     console.error("Error fetching admin user:", error)
   }

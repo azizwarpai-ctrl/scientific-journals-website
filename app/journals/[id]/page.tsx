@@ -95,7 +95,7 @@ export default function JournalDetailPage({ params }: { params: Promise<{ id: st
                   {journal.coverImage && (
                     <div className="flex-shrink-0">
                       <Image
-                        src={journal.coverImage || "/placeholder.svg"}
+                        src={journal.coverImage || "/images/logodigitopub.png"}
                         alt={journal.title}
                         width={80}
                         height={100}

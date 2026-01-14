@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/db/auth"
-import { query } from "@/lib/db/config"
+import { prisma } from "@/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, Mail, FileText } from "lucide-react"
 
@@ -14,12 +14,14 @@ export default async function AuthorsPage() {
   // Fetch unique authors from submissions
   let submissions: any[] = []
   try {
-    const result = await query(
-      `SELECT author_name, author_email, submission_date 
-       FROM submissions 
-       ORDER BY submission_date DESC`
-    )
-    submissions = result.rows
+    submissions = await prisma.submission.findMany({
+      select: {
+        author_name: true,
+        author_email: true,
+        submission_date: true
+      },
+      orderBy: { submission_date: "desc" }
+    })
   } catch (error) {
     console.error("Error fetching submissions:", error)
   }

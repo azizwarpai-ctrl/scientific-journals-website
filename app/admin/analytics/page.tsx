@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/db/auth"
-import { query } from "@/lib/db/config"
+import { prisma } from "@/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, BookOpen, FileText, Eye, CheckCircle } from "lucide-react"
 
@@ -12,27 +12,26 @@ export default async function AnalyticsPage() {
   }
 
   // Fetch analytics data
-  let journalsCount = 0
-  let submissionsCount = 0
-  let acceptedCount = 0
-  let publishedCount = 0
-  let reviewsCount = 0
-
   try {
-    const journalsResult = await query(`SELECT COUNT(*) as count FROM journals`)
-    journalsCount = parseInt(journalsResult.rows[0].count)
+    const [
+      journalsCountRes,
+      submissionsCountRes,
+      acceptedCountRes,
+      publishedCountRes,
+      reviewsCountRes
+    ] = await Promise.all([
+      prisma.journal.count(),
+      prisma.submission.count(),
+      prisma.submission.count({ where: { status: "accepted" } }),
+      prisma.publishedArticle.count(),
+      prisma.review.count()
+    ])
 
-    const submissionsResult = await query(`SELECT COUNT(*) as count FROM submissions`)
-    submissionsCount = parseInt(submissionsResult.rows[0].count)
-
-    const acceptedResult = await query(`SELECT COUNT(*) as  count FROM submissions WHERE status = 'accepted'`)
-    acceptedCount = parseInt(acceptedResult.rows[0].count)
-
-    const publishedResult = await query(`SELECT COUNT(*) as count FROM published_articles`)
-    publishedCount = parseInt(publishedResult.rows[0].count)
-
-    const reviewsResult = await query(`SELECT COUNT(*) as count FROM reviews`)
-    reviewsCount = parseInt(reviewsResult.rows[0].count)
+    journalsCount = journalsCountRes
+    submissionsCount = submissionsCountRes
+    acceptedCount = acceptedCountRes
+    publishedCount = publishedCountRes
+    reviewsCount = reviewsCountRes
   } catch (error) {
     console.error("Error fetching analytics:", error)
   }
@@ -41,18 +40,20 @@ export default async function AnalyticsPage() {
   const acceptanceRate = submissionsCount && submissionsCount > 0 ? ((acceptedCount || 0) / submissionsCount) * 100 : 0
 
   // Fetch submissions by field
-  let fieldGroups: { [key: string]: number } = {}
   try {
-    const result = await query(
-      `SELECT j.field, COUNT(s.id) as count
-       FROM journals j
-       LEFT JOIN submissions s ON s.journal_id = j.id
-       WHERE j.field IS NOT NULL
-       GROUP BY j.field
-       ORDER BY count DESC`
-    )
-    result.rows.forEach((row: any) => {
-      fieldGroups[row.field] = parseInt(row.count)
+    const journalFields = await prisma.journal.findMany({
+      select: {
+        field: true,
+        _count: {
+          select: { submissions: true }
+        }
+      }
+    })
+
+    journalFields.forEach((item) => {
+      if (item.field) {
+        fieldGroups[item.field] = (fieldGroups[item.field] || 0) + item._count.submissions
+      }
     })
   } catch (error) {
     console.error("Error fetching field groups:", error)

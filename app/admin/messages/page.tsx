@@ -1,5 +1,5 @@
 import { getSession } from "@/lib/db/auth"
-import { query } from "@/lib/db/config"
+import { prisma } from "@/lib/db/config"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -19,10 +19,9 @@ export default async function MessagesPage() {
   // Fetch messages with counts
   let messages: any[] = []
   try {
-    const result = await query(
-      `SELECT * FROM messages ORDER BY created_at DESC`
-    )
-    messages = result.rows
+    messages = await prisma.message.findMany({
+      orderBy: { created_at: "desc" }
+    })
   } catch (error) {
     console.error("Error fetching messages:", error)
   }
