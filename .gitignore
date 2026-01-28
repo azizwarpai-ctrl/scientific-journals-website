@@ -6,6 +6,7 @@
 # next.js
 /.next/
 /out/
+/release/
 
 # production
 /build
@@ -26,3 +27,7 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+backend-deploy.zip
+
+.gitignore
