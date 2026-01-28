@@ -191,7 +191,7 @@ export default function JournalsPage() {
                       <span>Est. {journal.year}</span>
                     </div>
                     <Button size="sm" className="w-full" asChild>
-                      <Link href={`/journals/${journal.id}`}>View Journal</Link>
+                      <Link href={`/journals/detail?id=${journal.id}`}>View Journal</Link>
                     </Button>
                   </CardContent>
                 </Card>

@@ -131,7 +131,7 @@ export default function HomePage() {
                         <p className="mb-4 text-sm text-muted-foreground">{journal.issn}</p>
                         <div className="flex items-center justify-between">
                           <Button size="sm" variant="outline" asChild>
-                            <Link href={`/journals/${idx + 1}`}>View Details</Link>
+                            <Link href={`/journals/detail?id=${idx + 1}`}>View Details</Link>
                           </Button>
                         </div>
                       </CardContent>
