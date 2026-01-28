@@ -1,109 +1,132 @@
-import { redirect } from "next/navigation"
-import { getSession } from "@/lib/db/auth"
-import { prisma } from "@/lib/db/config"
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useCurrentUser } from "@/lib/client/hooks/useAuth"
+import { journalsAPI, messagesAPI, ojsAPI } from "@/lib/php-api-client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookOpen, FileText, Eye, TrendingUp, Users, CheckCircle2, Clock, XCircle } from "lucide-react"
 
-export default async function AdminDashboardPage() {
-  const user = await getSession()
+export default function AdminDashboardPage() {
+  const { data: user, isLoading: authLoading } = useCurrentUser()
+  const router = useRouter()
+  const [stats, setStats] = useState({
+    journals_count: 0,
+    submissions_count: 0,
+    under_review_count: 0,
+    accepted_count: 0,
+    rejected_count: 0,
+    pending_reviews_count: 0,
+    published_articles_count: 0
+  })
+  const [recentSubmissions, setRecentSubmissions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  if (!user) {
-    redirect("/admin/login")
-  }
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/admin/login")
+    }
+  }, [user, authLoading, router])
 
-  const [
-    journalsCount,
-    submissionsCount,
-    underReviewCount,
-    acceptedCount,
-    rejectedCount,
-    pendingReviewsCount,
-    publishedCount
-  ] = await Promise.all([
-    prisma.journal.count(),
-    prisma.submission.count(),
-    prisma.submission.count({ where: { status: 'under_review' } }),
-    prisma.submission.count({ where: { status: 'accepted' } }),
-    prisma.submission.count({ where: { status: 'rejected' } }),
-    prisma.review.count({ where: { review_status: 'pending' } }),
-    prisma.publishedArticle.count()
-  ])
+  useEffect(() => {
+    async function fetchStats() {
+      if (!user) return
 
-  const stats = {
-    journals_count: journalsCount,
-    submissions_count: submissionsCount,
-    under_review_count: underReviewCount,
-    accepted_count: acceptedCount,
-    rejected_count: rejectedCount,
-    pending_reviews_count: pendingReviewsCount,
-    published_articles_count: publishedCount
-  }
+      try {
+        // Fetch separate counts (using list endpoints with limit=1 to get totals)
+        const [journalsRes, messagesRes, ojsRes] = await Promise.all([
+          journalsAPI.list(1, 1),
+          messagesAPI.list(1, 1),
+          ojsAPI.listSubmissions({ page: 1, per_page: 5 }) // Get recent submissions too
+        ])
 
-  const recentSubmissions = await prisma.submission.findMany({
-    take: 5,
-    orderBy: { submission_date: 'desc' },
-    include: {
-      journal: {
-        select: {
-          title: true
-        }
+        // Note: Real counts depend on API returning 'total'. 
+        // If PHP API structure is standard { data: [], total: 100 }, this works.
+        // Assuming OJS API returns submissions status for counts, or we mock it if API is simple.
+
+        // Since the current PHP/OJS implementation might be basic, we'll use available data.
+
+        setStats({
+          journals_count: journalsRes.total || 0,
+          submissions_count: ojsRes.total || 0, // Assuming OJS submissions
+          under_review_count: 0, // Requires filtered API call
+          accepted_count: 0,
+          rejected_count: 0,
+          pending_reviews_count: 0,
+          published_articles_count: 0
+        })
+
+        setRecentSubmissions(ojsRes.data || [])
+      } catch (error) {
+        console.error("Failed to fetch dashboard stats", error)
+      } finally {
+        setLoading(false)
       }
     }
-  })
+
+    fetchStats()
+  }, [user])
+
+  if (authLoading || (loading && user)) {
+    return <div className="p-8">Loading dashboard...</div>
+  }
+
+  if (!user) return null
 
   const statsCards = [
     {
       title: "Total Journals",
-      value: Number(stats.journals_count) || 0,
+      value: stats.journals_count,
       icon: BookOpen,
       color: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 dark:bg-blue-900/20",
     },
     {
       title: "Total Submissions",
-      value: Number(stats.submissions_count) || 0,
+      value: stats.submissions_count,
       icon: FileText,
       color: "text-purple-600 dark:text-purple-400",
       bgColor: "bg-purple-100 dark:bg-purple-900/20",
     },
+    // Placeholders for other stats until API supports filtering
     {
       title: "Under Review",
-      value: Number(stats.under_review_count) || 0,
+      value: "-",
       icon: Clock,
       color: "text-orange-600 dark:text-orange-400",
       bgColor: "bg-orange-100 dark:bg-orange-900/20",
     },
     {
       title: "Pending Reviews",
-      value: Number(stats.pending_reviews_count) || 0,
+      value: "-",
       icon: Eye,
       color: "text-yellow-600 dark:text-yellow-400",
       bgColor: "bg-yellow-100 dark:bg-yellow-900/20",
     },
     {
       title: "Accepted",
-      value: Number(stats.accepted_count) || 0,
+      value: "-",
       icon: CheckCircle2,
       color: "text-green-600 dark:text-green-400",
       bgColor: "bg-green-100 dark:bg-green-900/20",
     },
     {
       title: "Rejected",
-      value: Number(stats.rejected_count) || 0,
+      value: "-",
       icon: XCircle,
       color: "text-red-600 dark:text-red-400",
       bgColor: "bg-red-100 dark:bg-red-900/20",
     },
     {
       title: "Published Articles",
-      value: Number(stats.published_articles_count) || 0,
+      value: "-",
       icon: TrendingUp,
       color: "text-teal-600 dark:text-teal-400",
       bgColor: "bg-teal-100 dark:bg-teal-900/20",
     },
     {
       title: "Total Authors",
-      value: Math.ceil((Number(stats.submissions_count) || 0) * 0.7),
+      value: "-",
       icon: Users,
       color: "text-indigo-600 dark:text-indigo-400",
       bgColor: "bg-indigo-100 dark:bg-indigo-900/20",
@@ -151,33 +174,21 @@ export default async function AdminDashboardPage() {
                   className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
                 >
                   <div className="space-y-1">
-                    <p className="font-medium">{submission.manuscript_title}</p>
+                    <p className="font-medium">{submission.title || "Untitled"}</p>
                     <p className="text-sm text-muted-foreground">
-                      {submission.journal?.title} • {submission.author_name}
+                      ID: {submission.id} • Status: {submission.status}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${submission.status === "submitted"
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
-                        : submission.status === "under_review"
-                          ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
-                          : submission.status === "accepted"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                            : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
-                        }`}
-                    >
-                      {submission.status.replace("_", " ")}
-                    </span>
                     <span className="text-sm text-muted-foreground">
-                      {new Date(submission.submission_date).toLocaleDateString()}
+                      {new Date(submission.date_submitted || Date.now()).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-center text-muted-foreground py-8">No submissions yet</p>
+            <p className="text-center text-muted-foreground py-8">No submissions yet (or OJS sync pending)</p>
           )}
         </CardContent>
       </Card>

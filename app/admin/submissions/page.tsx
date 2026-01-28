@@ -1,176 +1,248 @@
-import { redirect } from "next/navigation"
-import { getSession } from "@/lib/db/auth"
-import { prisma } from "@/lib/db/config"
-import { Card, CardContent } from "@/components/ui/card"
+"use client"
+
+import { useEffect, useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useCurrentUser } from "@/lib/client/hooks/useAuth"
+import { ojsAPI } from "@/lib/php-api-client"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Eye, FileText } from "lucide-react"
+import { Eye, FileText, ArrowLeft, Calendar } from "lucide-react"
 import Link from "next/link"
 import { SubmissionsFilter } from "@/components/submissions-filter"
-import { Suspense } from "react"
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
 
-async function SubmissionsList({ searchParams }: { searchParams: { status?: string; search?: string } }) {
-  const { status, search } = searchParams
+function SubmissionDetailModal({ submissionId, open, onOpenChange }: { submissionId: number | null, open: boolean, onOpenChange: (open: boolean) => void }) {
+  const [submission, setSubmission] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
-  const where: any = {}
-
-  if (status && status !== "all") {
-    where.status = status
-  }
-
-  if (search) {
-    where.OR = [
-      { manuscript_title: { contains: search } },
-      { author_name: { contains: search } },
-      { author_email: { contains: search } }
-    ]
-  }
-
-  let submissions: any[] = []
-  let error: Error | null = null
-
-  try {
-    submissions = await prisma.submission.findMany({
-      where,
-      orderBy: { submission_date: "desc" },
-      include: {
-        journal: {
-          select: {
-            title: true,
-            field: true
-          }
-        }
-      }
-    })
-  } catch (e) {
-    error = e as Error
-  }
+  useEffect(() => {
+    if (open && submissionId) {
+      setLoading(true)
+      ojsAPI.getSubmission(submissionId)
+        .then(res => setSubmission(res.data))
+        .catch(err => console.error(err))
+        .finally(() => setLoading(false))
+    } else {
+      setSubmission(null)
+    }
+  }, [open, submissionId])
 
   return (
-    <Card>
-      <CardContent className="p-0">
-        {error && (
-          <div className="p-4">
-            <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
-              <p className="text-sm text-red-600 dark:text-red-400">Error loading submissions: {error.message}</p>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        {loading ? (
+          <div className="p-12 text-center">Loading submission details...</div>
+        ) : submission ? (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold line-clamp-1">{submission.title || "Untitled"}</h2>
+                <p className="text-muted-foreground mt-1">Submission ID: {submission.id}</p>
+              </div>
+              <Badge variant="outline" className="text-sm px-3 py-1">
+                {submission.status}
+              </Badge>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2 space-y-6">
+                <Tabs defaultValue="manuscript">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="manuscript">Manuscript</TabsTrigger>
+                    <TabsTrigger value="reviews">Reviews (0)</TabsTrigger>
+                    <TabsTrigger value="history">History</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="manuscript" className="space-y-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Abstract</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{submission.abstract || "No abstract available"}</p>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="reviews" className="space-y-4">
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                        <p className="text-lg font-medium">No reviews yet</p>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="history">
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                        <p className="text-lg font-medium">Submission Timeline</p>
+                        <p className="text-sm text-muted-foreground mt-1">History tracking coming soon</p>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </div>
+
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Submission Info</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">Submitted:</span>
+                        <span className="text-muted-foreground">
+                          {new Date(submission.date_submitted || Date.now()).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
-        )}
-
-        {submissions && submissions.length > 0 ? (
-          <div className="divide-y">
-            {submissions.map((submission: any) => (
-              <div key={submission.id} className="p-4 hover:bg-muted/50 transition-colors">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg line-clamp-1">{submission.manuscript_title}</h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {submission.journal?.title} • {submission.journal?.field}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-                      <span>
-                        <span className="font-medium">Author:</span> {submission.author_name}
-                      </span>
-                      <span className="text-muted-foreground">{submission.author_email}</span>
-                      <span className="text-muted-foreground">
-                        {new Date(submission.submission_date).toLocaleDateString()}
-                      </span>
-                    </div>
-
-                    {submission.keywords && submission.keywords.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {submission.keywords.slice(0, 3).map((keyword: string, idx: number) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium"
-                          >
-                            {keyword}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-end gap-3">
-                    <span
-                      className={`inline-flex rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap ${submission.status === "submitted"
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
-                        : submission.status === "under_review"
-                          ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
-                          : submission.status === "revision_required"
-                            ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400"
-                            : submission.status === "accepted"
-                              ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                              : submission.status === "rejected"
-                                ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
-                                : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
-                        }`}
-                    >
-                      {submission.status.replace("_", " ")}
-                    </span>
-
-                    <Button asChild size="sm" variant="outline" className="bg-transparent">
-                      <Link href={`/admin/submissions/${submission.id}`}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Details
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         ) : (
-          <div className="py-12 text-center">
-            <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">No submissions found</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {searchParams.status || searchParams.search
-                ? "Try adjusting your filters"
-                : "Submissions will appear here"}
-            </p>
-          </div>
+          <div className="p-12 text-center text-muted-foreground">Submission not found</div>
         )}
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   )
 }
 
-export default async function SubmissionsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ status?: string; search?: string }>
-}) {
-  const session = await getSession()
-  const params = await searchParams
+function SubmissionsList({ status, search }: { status?: string, search?: string }) {
+  const [submissions, setSubmissions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<number | null>(null)
 
-  if (!session) {
-    redirect("/admin/login")
+  useEffect(() => {
+    async function fetchSubmissions() {
+      setLoading(true)
+      try {
+        const response = await ojsAPI.listSubmissions({ status, search, page: 1, per_page: 50 })
+        setSubmissions(response.data || [])
+      } catch (err: any) {
+        setError(err.message || "Failed to load submissions")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchSubmissions()
+  }, [status, search])
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">Loading submissions...</CardContent>
+      </Card>
+    )
   }
 
-  // Build query for stats
-  let allSubmissions: { status: string | null }[] = []
-  try {
-    allSubmissions = await prisma.submission.findMany({
-      select: {
-        status: true
-      }
-    })
-  } catch (error) {
-    console.error("Error fetching submissions stats:", error)
+  return (
+    <>
+      <Card>
+        <CardContent className="p-0">
+          {error && (
+            <div className="p-4">
+              <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
+                <p className="text-sm text-red-600 dark:text-red-400">Error loading submissions: {error}</p>
+              </div>
+            </div>
+          )}
+
+          {submissions.length > 0 ? (
+            <div className="divide-y">
+              {submissions.map((submission: any) => (
+                <div key={submission.id} className="p-4 hover:bg-muted/50 transition-colors">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg line-clamp-1">{submission.title || "Untitled"}</h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            ID: {submission.id}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                        <span className="text-muted-foreground">
+                          {new Date(submission.date_submitted || Date.now()).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-3">
+                      <span className="inline-flex rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap bg-gray-100 text-gray-700">
+                        {submission.status || "Unknown"}
+                      </span>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-transparent"
+                        onClick={() => setSelectedSubmissionId(submission.id)}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Details
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-12 text-center">
+              <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-lg font-medium">No submissions found</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {status || search ? "Try adjusting your filters" : "Submissions will appear here"}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <SubmissionDetailModal
+        submissionId={selectedSubmissionId}
+        open={!!selectedSubmissionId}
+        onOpenChange={(open) => !open && setSelectedSubmissionId(null)}
+      />
+    </>
+  )
+}
+
+export default function SubmissionsPage() {
+  const { data: user, isLoading: authLoading } = useCurrentUser()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const status = searchParams.get("status") || "all"
+  const search = searchParams.get("search") || ""
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/admin/login")
+    }
+  }, [user, authLoading, router])
+
+  if (authLoading || (!user)) {
+    return <div className="p-8">Loading...</div>
   }
 
   const statusCounts = {
-    all: allSubmissions?.length || 0,
-    submitted: allSubmissions?.filter((s) => s.status === "submitted").length || 0,
-    under_review: allSubmissions?.filter((s) => s.status === "under_review").length || 0,
-    revision_required: allSubmissions?.filter((s) => s.status === "revision_required").length || 0,
-    accepted: allSubmissions?.filter((s) => s.status === "accepted").length || 0,
-    rejected: allSubmissions?.filter((s) => s.status === "rejected").length || 0,
+    all: 0,
+    submitted: 0,
+    under_review: 0,
+    revision_required: 0,
+    accepted: 0,
+    rejected: 0,
   }
 
   return (
@@ -180,7 +252,7 @@ export default async function SubmissionsPage({
         <p className="text-muted-foreground mt-1">Manage all manuscript submissions</p>
       </div>
 
-      {/* Stats Cards */}
+      {/* Placeholder Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <Card>
           <CardContent className="p-4">
@@ -188,38 +260,7 @@ export default async function SubmissionsPage({
             <div className="text-2xl font-bold">{statusCounts.all}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Submitted</div>
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{statusCounts.submitted}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Under Review</div>
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{statusCounts.under_review}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Revision Required</div>
-            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-              {statusCounts.revision_required}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Accepted</div>
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{statusCounts.accepted}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Rejected</div>
-            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{statusCounts.rejected}</div>
-          </CardContent>
-        </Card>
+        {/* Other stats cards mocked/placeholder */}
       </div>
 
       {/* Filters */}
@@ -232,14 +273,8 @@ export default async function SubmissionsPage({
       </Card>
 
       {/* Submissions List */}
-      <Suspense
-        fallback={
-          <Card>
-            <CardContent className="py-12 text-center">Loading submissions...</CardContent>
-          </Card>
-        }
-      >
-        <SubmissionsList searchParams={params} />
+      <Suspense fallback={<div className="p-8 text-center">Loading list...</div>}>
+        <SubmissionsList status={status} search={search} />
       </Suspense>
     </div>
   )

@@ -1,47 +1,35 @@
-import { redirect } from "next/navigation"
-import { getSession } from "@/lib/db/auth"
-import { prisma } from "@/lib/db/config"
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useCurrentUser } from "@/lib/client/hooks/useAuth"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Eye, Plus } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 
-export default async function ReviewsPage() {
-  const session = await getSession()
+export default function ReviewsPage() {
+  const { data: user, isLoading: authLoading } = useCurrentUser()
+  const router = useRouter()
+  // Reviews data placeholder
+  const [reviews, setReviews] = useState<any[]>([])
 
-  if (!session) {
-    redirect("/admin/login")
-  }
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/admin/login")
+    }
+  }, [user, authLoading, router])
 
-  // Fetch all reviews with submission and journal details
-  let reviews: any[] = []
-  let error: Error | null = null
-
-  try {
-    reviews = await prisma.review.findMany({
-      orderBy: { created_at: "desc" },
-      include: {
-        submission: {
-          include: {
-            journal: {
-              select: {
-                title: true
-              }
-            }
-          }
-        }
-      }
-    })
-  } catch (e) {
-    error = e as Error
+  if (authLoading || (!user)) {
+    return <div className="p-8">Loading...</div>
   }
 
   const stats = {
-    total: reviews?.length || 0,
-    pending: reviews?.filter((r) => r.review_status === "pending").length || 0,
-    in_progress: reviews?.filter((r) => r.review_status === "in_progress").length || 0,
-    completed: reviews?.filter((r) => r.review_status === "completed").length || 0,
+    total: reviews.length,
+    pending: reviews.filter((r) => r.review_status === "pending").length,
+    in_progress: reviews.filter((r) => r.review_status === "in_progress").length,
+    completed: reviews.filter((r) => r.review_status === "completed").length,
   }
 
   return (
@@ -90,15 +78,7 @@ export default async function ReviewsPage() {
       {/* Reviews List */}
       <Card>
         <CardContent className="p-0">
-          {error && (
-            <div className="p-4">
-              <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
-                <p className="text-sm text-red-600 dark:text-red-400">Error loading reviews: {error.message}</p>
-              </div>
-            </div>
-          )}
-
-          {reviews && reviews.length > 0 ? (
+          {reviews.length > 0 ? (
             <div className="divide-y">
               {reviews.map((review: any) => (
                 <div key={review.id} className="p-4 hover:bg-muted/50 transition-colors">

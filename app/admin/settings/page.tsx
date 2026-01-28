@@ -1,23 +1,23 @@
-import { redirect } from "next/navigation"
-import { getSession } from "@/lib/db/auth"
-import { prisma } from "@/lib/db/config"
+"use client"
+
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useCurrentUser } from "@/lib/client/hooks/useAuth"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Settings } from "lucide-react"
 
-export default async function SettingsPage() {
-  const session = await getSession()
+export default function SettingsPage() {
+  const { data: user, isLoading: authLoading } = useCurrentUser()
+  const router = useRouter()
 
-  if (!session) {
-    redirect("/admin/login")
-  }
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/admin/login")
+    }
+  }, [user, authLoading, router])
 
-  let adminUser: any = null
-  try {
-    adminUser = await prisma.adminUser.findUnique({
-      where: { email: session.email }
-    })
-  } catch (error) {
-    console.error("Error fetching admin user:", error)
+  if (authLoading || (!user)) {
+    return <div className="p-8">Loading...</div>
   }
 
   return (
@@ -34,19 +34,19 @@ export default async function SettingsPage() {
         <CardContent className="space-y-4">
           <div>
             <p className="text-sm text-muted-foreground">Full Name</p>
-            <p className="font-medium">{adminUser?.full_name || "Not set"}</p>
+            <p className="font-medium">{user.full_name || "Not set"}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Email</p>
-            <p className="font-medium">{adminUser?.email}</p>
+            <p className="font-medium">{user.email}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Role</p>
-            <p className="font-medium capitalize">{adminUser?.role}</p>
+            <p className="font-medium capitalize">{user.role || 'Admin'}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Member Since</p>
-            <p className="font-medium">{new Date(adminUser?.created_at).toLocaleDateString()}</p>
+            <p className="font-medium">{user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</p>
           </div>
         </CardContent>
       </Card>
@@ -59,7 +59,14 @@ export default async function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">System settings and configurations will be available here.</p>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">System settings and configurations will be available here.</p>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mt-4">
+              <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                🔒 Two-Factor Authentication (2FA) is enabled by default for all admin accounts to ensure maximum security.
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

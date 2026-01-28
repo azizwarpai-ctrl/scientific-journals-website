@@ -1,34 +1,54 @@
-import { getSession } from "@/lib/db/auth"
-import { prisma } from "@/lib/db/config"
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useCurrentUser } from "@/lib/client/hooks/useAuth"
+import { messagesAPI } from "@/lib/php-api-client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Mail, Clock, CheckCircle2, AlertCircle } from "lucide-react"
-import Link from "next/link"
-import { redirect } from "next/navigation"
+import { Mail, Clock, CheckCircle2, AlertCircle, User, Calendar } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 
-export default async function MessagesPage() {
-  const session = await getSession()
+export default function MessagesPage() {
+  const { data: session, isLoading: authLoading } = useCurrentUser()
+  const router = useRouter()
+  const [messages, setMessages] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedMessage, setSelectedMessage] = useState<any>(null)
 
-  if (!session) {
-    redirect("/admin/login")
+  useEffect(() => {
+    if (!authLoading && !session) {
+      router.push("/admin/login")
+    }
+  }, [session, authLoading, router])
+
+  useEffect(() => {
+    async function fetchMessages() {
+      if (!session) return
+      try {
+        const response = await messagesAPI.list(1, 100)
+        setMessages(response.data || [])
+      } catch (error) {
+        console.error("Error fetching messages:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchMessages()
+  }, [session])
+
+  if (authLoading || (loading && session)) {
+    return <div className="p-8">Loading messages...</div>
   }
 
-  // Fetch messages with counts
-  let messages: any[] = []
-  try {
-    messages = await prisma.message.findMany({
-      orderBy: { created_at: "desc" }
-    })
-  } catch (error) {
-    console.error("Error fetching messages:", error)
-  }
+  if (!session) return null
 
-  const unreadCount = messages?.filter((m) => m.status === "unread").length || 0
-  const repliedCount = messages?.filter((m) => m.status === "replied").length || 0
-  const resolvedCount = messages?.filter((m) => m.status === "resolved").length || 0
+  const unreadCount = messages.filter((m) => m.status === "unread").length
 
   return (
     <div className="space-y-6">
@@ -45,7 +65,7 @@ export default async function MessagesPage() {
             <Mail className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{messages?.length || 0}</div>
+            <div className="text-2xl font-bold">{messages.length}</div>
           </CardContent>
         </Card>
 
@@ -56,26 +76,6 @@ export default async function MessagesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{unreadCount}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Replied</CardTitle>
-            <Clock className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{repliedCount}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Resolved</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{resolvedCount}</div>
           </CardContent>
         </Card>
       </div>
@@ -95,33 +95,33 @@ export default async function MessagesPage() {
           <Tabs defaultValue="all" className="w-full">
             <TabsList>
               <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="unread">Unread ({unreadCount})</TabsTrigger>
-              <TabsTrigger value="replied">Replied</TabsTrigger>
-              <TabsTrigger value="resolved">Resolved</TabsTrigger>
+              <TabsTrigger value="unread">Unread</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="space-y-4">
-              {messages && messages.length > 0 ? (
+              {messages.length > 0 ? (
                 messages.map((message) => (
-                  <div key={message.id} className="flex items-center justify-between border-b pb-4 last:border-0">
+                  <div
+                    key={message.id}
+                    className="flex items-center justify-between border-b pb-4 last:border-0 hover:bg-muted/50 p-2 rounded cursor-pointer transition-colors"
+                    onClick={() => setSelectedMessage(message)}
+                  >
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center gap-2">
                         <p className="font-medium">{message.subject}</p>
                         <Badge variant={message.status === "unread" ? "destructive" : "secondary"}>
                           {message.status}
                         </Badge>
-                        <Badge variant="outline">{message.message_type.replace("_", " ")}</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
                         From: {message.name} ({message.email})
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(message.created_at).toLocaleDateString()} at{" "}
-                        {new Date(message.created_at).toLocaleTimeString()}
+                        {new Date(message.created_at).toLocaleDateString()}
                       </p>
                     </div>
-                    <Button asChild>
-                      <Link href={`/admin/messages/${message.id}`}>View Details</Link>
+                    <Button variant="ghost" size="sm">
+                      View Details
                     </Button>
                   </div>
                 ))
@@ -130,83 +130,131 @@ export default async function MessagesPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="unread">
-              {messages?.filter((m) => m.status === "unread").length > 0 ? (
-                messages
-                  .filter((m) => m.status === "unread")
-                  .map((message) => (
-                    <div key={message.id} className="flex items-center justify-between border-b pb-4 last:border-0">
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{message.subject}</p>
-                          <Badge variant="destructive">unread</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          From: {message.name} ({message.email})
-                        </p>
+            <TabsContent value="unread" className="space-y-4">
+              {messages.filter(m => m.status === 'unread').length > 0 ? (
+                messages.filter(m => m.status === 'unread').map((message) => (
+                  <div
+                    key={message.id}
+                    className="flex items-center justify-between border-b pb-4 last:border-0 hover:bg-muted/50 p-2 rounded cursor-pointer transition-colors"
+                    onClick={() => setSelectedMessage(message)}
+                  >
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{message.subject}</p>
+                        <Badge variant="destructive">
+                          {message.status}
+                        </Badge>
                       </div>
-                      <Button asChild>
-                        <Link href={`/admin/messages/${message.id}`}>View Details</Link>
-                      </Button>
+                      <p className="text-sm text-muted-foreground">
+                        From: {message.name} ({message.email})
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(message.created_at).toLocaleDateString()}
+                      </p>
                     </div>
-                  ))
+                    <Button variant="ghost" size="sm">
+                      View Details
+                    </Button>
+                  </div>
+                ))
               ) : (
-                <div className="py-8 text-center text-muted-foreground">No unread messages</div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="replied">
-              {messages?.filter((m) => m.status === "replied").length > 0 ? (
-                messages
-                  .filter((m) => m.status === "replied")
-                  .map((message) => (
-                    <div key={message.id} className="flex items-center justify-between border-b pb-4 last:border-0">
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{message.subject}</p>
-                          <Badge>replied</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          From: {message.name} ({message.email})
-                        </p>
-                      </div>
-                      <Button asChild>
-                        <Link href={`/admin/messages/${message.id}`}>View Details</Link>
-                      </Button>
-                    </div>
-                  ))
-              ) : (
-                <div className="py-8 text-center text-muted-foreground">No replied messages</div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="resolved">
-              {messages?.filter((m) => m.status === "resolved").length > 0 ? (
-                messages
-                  .filter((m) => m.status === "resolved")
-                  .map((message) => (
-                    <div key={message.id} className="flex items-center justify-between border-b pb-4 last:border-0">
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{message.subject}</p>
-                          <Badge variant="outline">resolved</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          From: {message.name} ({message.email})
-                        </p>
-                      </div>
-                      <Button asChild variant="outline">
-                        <Link href={`/admin/messages/${message.id}`}>View Details</Link>
-                      </Button>
-                    </div>
-                  ))
-              ) : (
-                <div className="py-8 text-center text-muted-foreground">No resolved messages</div>
+                <div className="py-8 text-center text-muted-foreground">No unread messages found</div>
               )}
             </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Message Detail Modal */}
+      <Dialog open={!!selectedMessage} onOpenChange={(open) => !open && setSelectedMessage(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Message Details</DialogTitle>
+            <DialogDescription>View and respond to support request</DialogDescription>
+          </DialogHeader>
+
+          {selectedMessage && (
+            <div className="grid gap-6">
+              {/* Message Content */}
+              <div className="space-y-6">
+                <Card className="border-none shadow-none">
+                  <CardHeader className="p-0 pb-4">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <CardTitle>{selectedMessage.subject}</CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={selectedMessage.status === "unread" ? "destructive" : "secondary"}>
+                            {selectedMessage.status}
+                          </Badge>
+                          <Badge variant="outline">
+                            {selectedMessage.message_type?.replace("_", " ") || "Support"}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0 space-y-4">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="flex items-center gap-3">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{selectedMessage.name}</p>
+                          <p className="text-xs text-muted-foreground">Name</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{selectedMessage.email}</p>
+                          <p className="text-xs text-muted-foreground">Email</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">
+                            {new Date(selectedMessage.created_at).toLocaleDateString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Date</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-4">
+                      <Label>Message Content</Label>
+                      <div className="rounded-lg bg-muted/50 p-4">
+                        <p className="whitespace-pre-wrap text-sm">{selectedMessage.message}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Response Form */}
+                <Card className="border-none shadow-none pt-4 border-t rounded-none">
+                  <CardHeader className="p-0 pb-4">
+                    <CardTitle className="text-lg">Send Response</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0 space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="response">Your Response</Label>
+                      <Textarea
+                        id="response"
+                        placeholder="Type your response here..."
+                        className="min-h-[100px]"
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button className="flex-1">Send Response</Button>
+                      <Button variant="outline">Mark as Resolved</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

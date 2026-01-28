@@ -1,38 +1,48 @@
-import { redirect } from "next/navigation"
-import { getSession } from "@/lib/db/auth"
-import { prisma } from "@/lib/db/config"
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useCurrentUser } from "@/lib/client/hooks/useAuth"
+import { journalsAPI } from "@/lib/php-api-client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Plus, Pencil, Eye } from "lucide-react"
+import { Plus, Pencil, Eye, BookOpen } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import { BookOpen } from "lucide-react" // Declare the BookOpen variable
 
-export default async function JournalsPage() {
-  const session = await getSession()
+export default function JournalsPage() {
+  const { data: session, isLoading: authLoading } = useCurrentUser()
+  const router = useRouter()
+  const [journals, setJournals] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  if (!session) {
-    redirect("/admin/login")
-  }
+  useEffect(() => {
+    if (!authLoading && !session) {
+      router.push("/admin/login")
+    }
+  }, [session, authLoading, router])
 
-  // Fetch all journals
-  let journals: any[] = []
-  let error: Error | null = null
-
-  try {
-    journals = await prisma.journal.findMany({
-      orderBy: { created_at: 'desc' },
-      include: {
-        creator: {
-          select: {
-            full_name: true
-          }
-        }
+  useEffect(() => {
+    async function fetchJournals() {
+      if (!session) return
+      try {
+        const response = await journalsAPI.list(1, 100)
+        setJournals(response.data || [])
+      } catch (err: any) {
+        setError(err.message || "Failed to load journals")
+      } finally {
+        setLoading(false)
       }
-    })
-  } catch (e) {
-    error = e as Error
+    }
+    fetchJournals()
+  }, [session])
+
+  if (authLoading || (loading && session)) {
+    return <div className="p-8">Loading journals...</div>
   }
+
+  if (!session) return null
 
   return (
     <div className="space-y-6">
@@ -51,18 +61,18 @@ export default async function JournalsPage() {
 
       {error && (
         <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
-          <p className="text-sm text-red-600 dark:text-red-400">Error loading journals: {error instanceof Error ? error.message : 'Unknown error'}</p>
+          <p className="text-sm text-red-600 dark:text-red-400">Error loading journals: {error}</p>
         </div>
       )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {journals?.map((journal) => (
+        {journals.map((journal) => (
           <Card key={journal.id} className="overflow-hidden">
             <CardHeader className="p-0">
               {journal.cover_image_url ? (
                 <div className="relative h-48 w-full overflow-hidden bg-muted">
                   <Image
-                    src={journal.cover_image_url || "/images/logodigitopub.png"}
+                    src={journal.cover_image_url}
                     alt={journal.title}
                     fill
                     className="object-cover"
@@ -96,13 +106,11 @@ export default async function JournalsPage() {
                 <div className="flex items-center gap-1">
                   <span
                     className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${journal.status === "active"
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                      : journal.status === "inactive"
-                        ? "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
-                        : "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                        : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
                       }`}
                   >
-                    {journal.status}
+                    {journal.status || "active"}
                   </span>
                 </div>
 
@@ -126,7 +134,7 @@ export default async function JournalsPage() {
         ))}
       </div>
 
-      {journals && journals.length === 0 && (
+      {!loading && journals.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
             <BookOpen className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
