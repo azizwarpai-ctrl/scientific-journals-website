@@ -1,16 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "export",
   typescript: {
     ignoreBuildErrors: true,
   },
   images: {
     unoptimized: true,
   },
-  experimental: {
-    // turbo was invalid here
-  },
-  // As per invalid config warning tip:
   turbopack: {
+    // Empty config to allow webpack config below
   },
   webpack: (config, { dev, isServer }) => {
     // Suppress source map warnings in development
