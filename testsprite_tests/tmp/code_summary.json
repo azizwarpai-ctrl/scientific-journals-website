@@ -1,0 +1,144 @@
+{
+    "tech_stack": [
+        "TypeScript",
+        "Next.js 16 (App Router)",
+        "React 19",
+        "Prisma ORM",
+        "MariaDB/MySQL",
+        "Tailwind CSS v4",
+        "shadcn/ui (Radix UI)",
+        "bcryptjs",
+        "jose (JWT)",
+        "zod"
+    ],
+    "features": [
+        {
+            "name": "Authentication System",
+            "description": "Custom JWT-based authentication with httpOnly cookies, middleware protection, and session management",
+            "files": [
+                "lib/db/auth.ts",
+                "middleware.ts",
+                "app/api/auth/login/route.ts",
+                "app/api/auth/logout/route.ts",
+                "app/api/auth/me/route.ts"
+            ]
+        },
+        {
+            "name": "Admin Dashboard",
+            "description": "Complete admin panel with sidebar navigation, header, and protected routes",
+            "files": [
+                "app/admin/layout.tsx",
+                "app/admin/dashboard/page.tsx",
+                "components/admin-sidebar.tsx",
+                "components/admin-header.tsx",
+                "components/admin-layout-wrapper.tsx"
+            ]
+        },
+        {
+            "name": "Admin Login",
+            "description": "Login page for admin authentication",
+            "files": [
+                "app/admin/login/page.tsx"
+            ]
+        },
+        {
+            "name": "Analytics Dashboard",
+            "description": "Analytics and reporting page with statistics visualization",
+            "files": [
+                "app/admin/analytics/page.tsx"
+            ]
+        },
+        {
+            "name": "Journals Management",
+            "description": "Journal listing and management interface",
+            "files": [
+                "app/admin/journals/page.tsx"
+            ]
+        },
+        {
+            "name": "Submissions Management",
+            "description": "Manuscript submissions tracking and management",
+            "files": [
+                "app/admin/submissions/page.tsx",
+                "components/submissions-filter.tsx"
+            ]
+        },
+        {
+            "name": "Reviews Management",
+            "description": "Peer review tracking and management",
+            "files": [
+                "app/admin/reviews/page.tsx"
+            ]
+        },
+        {
+            "name": "Messages System",
+            "description": "Admin messaging interface",
+            "files": [
+                "app/admin/messages/page.tsx"
+            ]
+        },
+        {
+            "name": "FAQ Management",
+            "description": "FAQ and solutions management",
+            "files": [
+                "app/admin/faq/page.tsx"
+            ]
+        },
+        {
+            "name": "Authors Management",
+            "description": "Author profiles and management",
+            "files": [
+                "app/admin/authors/page.tsx"
+            ]
+        },
+        {
+            "name": "Settings Panel",
+            "description": "Admin settings and configuration",
+            "files": [
+                "app/admin/settings/page.tsx"
+            ]
+        },
+        {
+            "name": "Testsprite Widget",
+            "description": "Client-side automated testing widget for form filling and interaction simulation",
+            "files": [
+                "components/testsprite/testsprite-widget.tsx",
+                "lib/testsprite-core.ts"
+            ]
+        },
+        {
+            "name": "Theme System",
+            "description": "Dark/light theme toggle with next-themes",
+            "files": [
+                "components/theme-provider.tsx",
+                "components/theme-toggle.tsx",
+                "app/globals.css"
+            ]
+        },
+        {
+            "name": "Database Layer",
+            "description": "Prisma ORM configuration and database connection",
+            "files": [
+                "lib/db/config.ts",
+                "prisma/schema.prisma",
+                "prisma/seed.ts"
+            ]
+        },
+        {
+            "name": "UI Components",
+            "description": "Reusable shadcn/ui components built on Radix UI primitives",
+            "files": [
+                "components/ui/button.tsx",
+                "components/ui/card.tsx",
+                "components/ui/input.tsx",
+                "components/ui/label.tsx",
+                "components/ui/dropdown-menu.tsx",
+                "components/ui/avatar.tsx",
+                "components/ui/dialog.tsx",
+                "components/ui/select.tsx",
+                "components/ui/tabs.tsx",
+                "components/ui/toast.tsx"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,477 @@
+[
+  {
+    "id": "TC001",
+    "title": "Successful Admin Login",
+    "description": "Verify that an admin user can log in with valid email and password credentials, establishing a secure session with a JWT stored in httpOnly cookies.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the admin login page"
+      },
+      {
+        "type": "action",
+        "description": "Input a valid registered email and corresponding password"
+      },
+      {
+        "type": "action",
+        "description": "Click the login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Check that login is successful and a JWT token is set in an httpOnly cookie"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify redirection to the protected admin dashboard page"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Login Failure with Incorrect Credentials",
+    "description": "Verify that the system prevents login when an invalid email or password is supplied, showing an error message without creating a session.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the admin login page"
+      },
+      {
+        "type": "action",
+        "description": "Input an invalid or unregistered email with any password"
+      },
+      {
+        "type": "action",
+        "description": "Click the login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify login is rejected with appropriate error message"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no JWT httpOnly cookie is set and user remains on login page"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "JWT Session Expiry and Logout",
+    "description": "Verify that the JWT session properly expires after configured duration and user is redirected to login upon session expiry or manual logout.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in successfully as an admin user"
+      },
+      {
+        "type": "action",
+        "description": "Wait until JWT token expires or manually trigger logout via logout API or button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the session cookie is invalidated or deleted"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify redirection to the admin login page"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to access a protected admin route after logout/session expiry"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access is denied and redirected to login page"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Access Control for Admin Routes",
+    "description": "Ensure all admin dashboard routes are protected and only accessible by authenticated admin users using JWT middleware protections.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt to navigate to various admin routes (journals, submissions, reviews, authors, settings) without authentication"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify redirection to admin login page"
+      },
+      {
+        "type": "action",
+        "description": "Log in successfully and navigate to the same admin routes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify routes load successfully with dashboard content visible"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Admin Dashboard Journal Listing and Filtering",
+    "description": "Verify that admins can view a complete, paginated list of journals and apply filters to narrow results.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as an admin user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to the journals management page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the full list of journals is displayed with correct details"
+      },
+      {
+        "type": "action",
+        "description": "Use filter controls to filter journals by status, category, or other attributes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the journal list updates correctly and reflects filter criteria"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Create and Edit Journal Entries",
+    "description": "Ensure admins can create new journal entries and edit existing ones via form inputs, with validation and API interaction.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access journals management page as logged-in admin"
+      },
+      {
+        "type": "action",
+        "description": "Click on 'Add New Journal' button"
+      },
+      {
+        "type": "action",
+        "description": "Fill in all required journal fields with valid data"
+      },
+      {
+        "type": "action",
+        "description": "Submit the journal creation form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify new journal is created and appears in listing"
+      },
+      {
+        "type": "action",
+        "description": "Select an existing journal and open edit form"
+      },
+      {
+        "type": "action",
+        "description": "Modify data fields and submit updates"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify journal details are updated correctly in the list and database"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Data Migration Integrity from PostgreSQL to MySQL",
+    "description": "Validate the migration process correctly transfers all data from PostgreSQL to MySQL preserving data types, relationships, and indices.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Perform data migration using provided migration tools and guides"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify total counts of records match in source PostgreSQL and target MySQL databases"
+      },
+      {
+        "type": "assertion",
+        "description": "Validate UUID to BIGINT conversions and array to JSON transformations in migrated data"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all foreign keys, indices, and constraints are properly recreated in MySQL"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Synchronization with External OJS MySQL Database",
+    "description": "Check that periodic synchronization via automated scripts and cron jobs correctly imports journal and article metadata from OJS without errors.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Verify connectivity and read-only permissions using provided MySQL user for external OJS database"
+      },
+      {
+        "type": "action",
+        "description": "Run synchronization script manually"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm new or updated journal and submission data is synced into DigitoPub's MySQL database"
+      },
+      {
+        "type": "action",
+        "description": "Verify synchronization runs successfully via scheduled cron job and logs no critical errors"
+      },
+      {
+        "type": "assertion",
+        "description": "Validate data consistency between OJS source and local database after sync"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "API Authentication Routes Edge Cases",
+    "description": "Confirm authentication API routes correctly handle invalid inputs, expired sessions, and logout with proper status codes and feedback messages.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send login request with missing or invalid email/password fields"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response returns 400 Bad Request with descriptive error message"
+      },
+      {
+        "type": "action",
+        "description": "Send login request with valid credentials but invalid password"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response returns 401 Unauthorized"
+      },
+      {
+        "type": "action",
+        "description": "Send request to session info endpoint with expired or missing JWT token"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response returns 401 Unauthorized with session expired message"
+      },
+      {
+        "type": "action",
+        "description": "Send logout request and verify cookie invalidation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify successful logout response and session cookie removal"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Admin Dashboard UI Responsiveness and Theme Toggle",
+    "description": "Verify admin dashboard UI is responsive across desktop and mobile viewports and that dark/light theme toggle functions correctly.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as admin and open the dashboard"
+      },
+      {
+        "type": "action",
+        "description": "Resize browser window to various widths simulating desktop, tablet, and mobile devices"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify layout adjusts appropriately with sidebar, header, content resizing"
+      },
+      {
+        "type": "action",
+        "description": "Use the theme toggle to switch between dark and light modes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify theme changes globally and persists across page reloads"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Testsprite Widget Automated Form Interaction",
+    "description": "Validate the embedded Testsprite widget correctly runs automated form filling, input simulation, and UI interaction tests without failure.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Load a page containing the Testsprite widget"
+      },
+      {
+        "type": "action",
+        "description": "Start an automated test scenario with the widget simulating user input on forms"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the widget executes test steps properly, filling inputs and clicking buttons"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm that no errors occur and expected UI responses are triggered"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Database Connection Verification Scripts",
+    "description": "Test database connection verification scripts for both the main application and the OJS external database run successfully and provide expected operational statistics.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Run connection verification script for main application MySQL database"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm successful connection with expected connection statistics printed"
+      },
+      {
+        "type": "action",
+        "description": "Run connection verification script for external OJS MySQL database using read-only user"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm successful connection with expected statistics and read-only access confirmed"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Admin Messages System CRUD Operations",
+    "description": "Verify admins can view, create, edit, and delete messages in the admin messaging interface with proper validation and UI updates.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access admin messages page after successful login"
+      },
+      {
+        "type": "action",
+        "description": "View list of existing messages paginated"
+      },
+      {
+        "type": "action",
+        "description": "Create a new message with valid content and submit"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify new message appears in the list"
+      },
+      {
+        "type": "action",
+        "description": "Edit an existing message and save changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm updated message content is shown"
+      },
+      {
+        "type": "action",
+        "description": "Delete a message and confirm removal"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify message no longer appears in the list"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "FAQ Management - Add, Edit, Delete FAQ Entries",
+    "description": "Verify full CRUD operations for FAQs including validation of required fields and UI feedback on the FAQs management page.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to admin FAQ management page"
+      },
+      {
+        "type": "action",
+        "description": "Add a new FAQ with question and answer fields filled"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify new FAQ is displayed in the list"
+      },
+      {
+        "type": "action",
+        "description": "Select an existing FAQ to edit, modify text, and save"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm updated FAQ data is rendered correctly"
+      },
+      {
+        "type": "action",
+        "description": "Delete an FAQ and confirm removal from the UI"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify FAQ entry no longer appears"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Authors Management - Profile Update and List Filtering",
+    "description": "Validate ability to view, filter, add, and edit author profiles with form validations and proper database updates.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access the authors management page as logged-in admin"
+      },
+      {
+        "type": "action",
+        "description": "Apply filtering criteria such as name or affiliation to the author list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify filtered authors list displays correctly"
+      },
+      {
+        "type": "action",
+        "description": "Create a new author profile by filling required fields"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm newly added author appears in the list"
+      },
+      {
+        "type": "action",
+        "description": "Edit an existing author profile and submit changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify author information updates are reflected in the UI"
+      }
+    ]
+  }
+]

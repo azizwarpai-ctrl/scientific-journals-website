@@ -1,0 +1,15 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000/admin/login",
+  "executionArgs": {
+    "projectName": "scientific-journals-website",
+    "projectPath": "c:\\Users\\iG\\Downloads\\scientific-journals-website",
+    "testIds": [],
+    "additionalInstruction": "Test the admin login page at /admin/login using credentials admin@digitopub.com / admin123. Verify the Testsprite widget (bug icon) is visible. After login, verify navigation to dashboard and test the sidebar navigation links.",
+    "envs": {
+      "API_KEY": "sk-user-lAOL9L841UValWT-YFKO-lMluc8_p1kul9aB5mwwisIHhjGONAod8_dJreVPTn3EYPovKcrjZJmSsFjyHR2bERU1oCrAvRgm3HPJrPsLbWxXoRgoT6V8qSoeFonm8MY6Vc4"
+    }
+  }
+}

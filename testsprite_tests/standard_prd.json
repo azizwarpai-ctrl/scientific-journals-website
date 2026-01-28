@@ -1,0 +1,191 @@
+{
+  "meta": {
+    "project": "DigitoPub Scientific Publishing Platform",
+    "date": "2026-01-14",
+    "prepared_by": "Software Development Manager"
+  },
+  "product_overview": "DigitoPub.com is a comprehensive digital platform designed for managing academic and scientific journals. It provides an end-to-end solution for journal management, manuscript submissions, peer reviews, and analytics, integrated with the Open Journal Systems (OJS) database for seamless data synchronization. The platform leverages a robust MySQL backend, modern React and Next.js frontend technologies, and features a secure JWT-based authentication system for admin access.",
+  "core_goals": [
+    "Migrate the existing platform database from PostgreSQL to MySQL while maintaining data integrity and application functionality.",
+    "Integrate read-only access and periodic synchronization with an external Open Journal Systems (OJS) MySQL database for enriched journal data and analytics.",
+    "Provide a secure, role-based admin dashboard for managing journals, submissions, reviews, authors, FAQs, messages, and settings.",
+    "Implement a custom JWT-based authentication system with secure session management and middleware protection.",
+    "Create an intuitive, responsive UI using React, Next.js App Router, Tailwind CSS, and reusable Radix UI components.",
+    "Offer an automated testing widget and theming options (dark/light modes) as part of the client interface."
+  ],
+  "key_features": [
+    "Complete admin dashboard with sidebar navigation, header, and protected routes for managing journals, submissions, peer reviews, authors, FAQs, messages, analytics, and settings.",
+    "Custom JWT authentication system utilizing httpOnly cookies, bcrypt password hashing, and JWT session management with secure middleware protections.",
+    "Database migration tools and guides to transfer from PostgreSQL to MySQL including data transformations (UUID to BIGINT, array to JSON, JSONB to JSON).",
+    "Integration with OJS via a read-only MySQL user with automated synchronization scripts and cron job scheduling for data consistency.",
+    "Comprehensive API routes for authentication (login, logout, register, session info) supporting secure user management.",
+    "Reusable UI components built on Radix UI and shadcn/ui for consistent and accessible interfaces.",
+    "Dark/light theme toggle implemented via next-themes for user personalization.",
+    "Client-side Testsprite widget for automated interaction testing and form simulation.",
+    "Prisma ORM integration for database schema management and query abstraction with optimized indexing and triggers."
+  ],
+  "user_flow_summary": [
+    "Admin users visit the platform and authenticate via the login page using email and password, establishing a secure session with JWT stored in httpOnly cookies.",
+    "Upon successful authentication, admins access the protected admin dashboard to manage journals, submissions, reviews, authors, messages, FAQs, analytics, and settings through intuitive UI components and navigation.",
+    "Admins can view and filter lists of journals, submissions, reviews, and authors, create new entries or edit existing ones with form interfaces that communicate via API routes.",
+    "The platform periodically synchronizes journal and article data from the external OJS database through automated scripts, ensuring up-to-date content in the admin views and analytics dashboards.",
+    "Admins can toggle between dark and light mode themes globally within the application interface for usability preferences.",
+    "Automated testing is conducted using the embedded Testsprite widget to simulate user interactions and validate form workflows and UI responsiveness during development and QA.",
+    "In case of session expiry or logout, the admin is redirected to the login page, ensuring secure access control enforced by server middleware."
+  ],
+  "validation_criteria": [
+    "All PostgreSQL data is correctly migrated to MySQL preserving data integrity, including correct type mappings and indexing.",
+    "The custom JWT authentication system correctly protects admin routes with appropriate session expiry, secured cookies, and password validation via bcrypt.",
+    "Admin dashboard features are fully accessible only to authenticated admin users with no unauthorized access.",
+    "Synchronization scripts between DigitoPub’s MySQL database and the OJS system successfully import journals, submissions, and article metadata without errors, both manually and via cron job automation.",
+    "UI responsiveness and theme toggling function correctly across supported browsers and device sizes.",
+    "API routes for authentication handle all edge cases such as invalid credentials, session expiration, and logout correctly with proper status codes and feedback.",
+    "Automated tests via Testsprite widget reproduce expected user form input behaviors and interactions without failures.",
+    "Database connection verification scripts for both main application and OJS databases run successfully with expected statistics outputs.",
+    "Security best practices are enforced including use of read-only users for OJS, strong password policies, HTTP-only cookies, and environment variable management."
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "TypeScript",
+      "Next.js 16 (App Router)",
+      "React 19",
+      "Prisma ORM",
+      "MariaDB/MySQL",
+      "Tailwind CSS v4",
+      "shadcn/ui (Radix UI)",
+      "bcryptjs",
+      "jose (JWT)",
+      "zod"
+    ],
+    "features": [
+      {
+        "name": "Authentication System",
+        "description": "Custom JWT-based authentication with httpOnly cookies, middleware protection, and session management",
+        "files": [
+          "lib/db/auth.ts",
+          "middleware.ts",
+          "app/api/auth/login/route.ts",
+          "app/api/auth/logout/route.ts",
+          "app/api/auth/me/route.ts"
+        ]
+      },
+      {
+        "name": "Admin Dashboard",
+        "description": "Complete admin panel with sidebar navigation, header, and protected routes",
+        "files": [
+          "app/admin/layout.tsx",
+          "app/admin/dashboard/page.tsx",
+          "components/admin-sidebar.tsx",
+          "components/admin-header.tsx",
+          "components/admin-layout-wrapper.tsx"
+        ]
+      },
+      {
+        "name": "Admin Login",
+        "description": "Login page for admin authentication",
+        "files": [
+          "app/admin/login/page.tsx"
+        ]
+      },
+      {
+        "name": "Analytics Dashboard",
+        "description": "Analytics and reporting page with statistics visualization",
+        "files": [
+          "app/admin/analytics/page.tsx"
+        ]
+      },
+      {
+        "name": "Journals Management",
+        "description": "Journal listing and management interface",
+        "files": [
+          "app/admin/journals/page.tsx"
+        ]
+      },
+      {
+        "name": "Submissions Management",
+        "description": "Manuscript submissions tracking and management",
+        "files": [
+          "app/admin/submissions/page.tsx",
+          "components/submissions-filter.tsx"
+        ]
+      },
+      {
+        "name": "Reviews Management",
+        "description": "Peer review tracking and management",
+        "files": [
+          "app/admin/reviews/page.tsx"
+        ]
+      },
+      {
+        "name": "Messages System",
+        "description": "Admin messaging interface",
+        "files": [
+          "app/admin/messages/page.tsx"
+        ]
+      },
+      {
+        "name": "FAQ Management",
+        "description": "FAQ and solutions management",
+        "files": [
+          "app/admin/faq/page.tsx"
+        ]
+      },
+      {
+        "name": "Authors Management",
+        "description": "Author profiles and management",
+        "files": [
+          "app/admin/authors/page.tsx"
+        ]
+      },
+      {
+        "name": "Settings Panel",
+        "description": "Admin settings and configuration",
+        "files": [
+          "app/admin/settings/page.tsx"
+        ]
+      },
+      {
+        "name": "Testsprite Widget",
+        "description": "Client-side automated testing widget for form filling and interaction simulation",
+        "files": [
+          "components/testsprite/testsprite-widget.tsx",
+          "lib/testsprite-core.ts"
+        ]
+      },
+      {
+        "name": "Theme System",
+        "description": "Dark/light theme toggle with next-themes",
+        "files": [
+          "components/theme-provider.tsx",
+          "components/theme-toggle.tsx",
+          "app/globals.css"
+        ]
+      },
+      {
+        "name": "Database Layer",
+        "description": "Prisma ORM configuration and database connection",
+        "files": [
+          "lib/db/config.ts",
+          "prisma/schema.prisma",
+          "prisma/seed.ts"
+        ]
+      },
+      {
+        "name": "UI Components",
+        "description": "Reusable shadcn/ui components built on Radix UI primitives",
+        "files": [
+          "components/ui/button.tsx",
+          "components/ui/card.tsx",
+          "components/ui/input.tsx",
+          "components/ui/label.tsx",
+          "components/ui/dropdown-menu.tsx",
+          "components/ui/avatar.tsx",
+          "components/ui/dialog.tsx",
+          "components/ui/select.tsx",
+          "components/ui/tabs.tsx",
+          "components/ui/toast.tsx"
+        ]
+      }
+    ]
+  }
+}
