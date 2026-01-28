@@ -105,8 +105,17 @@ export function AdminSidebar() {
       >
         <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className="flex h-16 items-center border-b px-6">
-            <Image src="/images/logodigitopub.png" alt="DigitoPub" width={140} height={40} />
+          <div className="flex h-16 items-center gap-2 border-b px-6">
+            <div className="relative h-8 w-8 min-w-[32px]">
+              <Image
+                src="/images/logodigitopub.png"
+                alt="DigitoPub"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
+            <span className="font-bold text-xl tracking-tight">DigitoPub</span>
           </div>
 
           {/* Navigation */}
