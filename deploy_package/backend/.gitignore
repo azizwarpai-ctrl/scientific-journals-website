@@ -1,0 +1,10 @@
+/vendor/
+/node_modules/
+.env
+.env.local
+.DS_Store
+/coverage/
+/var/
+/public/storage
+phpunit.xml.bak
+.php-cs-fixer.cache
