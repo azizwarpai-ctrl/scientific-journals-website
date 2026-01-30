@@ -13,7 +13,7 @@
 
 $ReleaseDir = "release"
 $FrontendSrc = "out"
-$BackendSrc = "deploy_package"
+$BackendSrc = "backend-out"
 
 # Ensure Release Directory Exists
 if (-not (Test-Path $ReleaseDir)) {
@@ -27,29 +27,35 @@ if (Test-Path $FrontendSrc) {
     $FrontendZip = "$ReleaseDir\frontend-dist.zip"
     if (Test-Path $FrontendZip) { Remove-Item $FrontendZip }
     
+    # Ensure .htaccess exists in out (Frontend)
+    if (-not (Test-Path "$FrontendSrc\.htaccess")) {
+        Write-Host "Creating .htaccess for Frontend..." -ForegroundColor Gray
+        Set-Content -Path "$FrontendSrc\.htaccess" -Value "Options -Indexes`nErrorDocument 404 /404.html`n<IfModule mod_rewrite.c>`nRewriteEngine On`nRewriteBase /`nRewriteCond %{REQUEST_FILENAME} !-d`nRewriteCond %{REQUEST_FILENAME}.html -f`nRewriteRule ^ %{REQUEST_FILENAME}.html [L]`nRewriteCond %{REQUEST_FILENAME} -d`nRewriteCond %{REQUEST_FILENAME}.html -f`nRewriteRule ^(.*)/$ `$1.html [L]`n</IfModule>" -NoNewline
+    }
+
     Compress-Archive -Path "$FrontendSrc\*" -DestinationPath $FrontendZip -Force
-    Write-Host "✅ Frontend Package Ready: $FrontendZip" -ForegroundColor Green
+    Write-Host " [SUCCESS] Frontend Package Ready: $FrontendZip" -ForegroundColor Green
 }
 else {
-    Write-Host "❌ Frontend build ('out') not found. Run 'bun run build' first." -ForegroundColor Red
+    Write-Host " [ERROR] Frontend build ('out') not found. Run 'bun run build' first." -ForegroundColor Red
 }
 
 # --- Package Backend ---
+if (-not (Test-Path $BackendSrc)) {
+    Write-Host "Backend artifact not found. Building now..." -ForegroundColor Yellow
+    npm run build:backend
+}
+
 if (Test-Path $BackendSrc) {
     Write-Host "Packaging Backend (API)..." -ForegroundColor Green
     $BackendZip = "$ReleaseDir\backend-api.zip"
     if (Test-Path $BackendZip) { Remove-Item $BackendZip }
     
-    # Ensure vendor directory exists in the source
-    if (-not (Test-Path "$BackendSrc\backend\vendor")) {
-        Write-Host "⚠️  Warning: 'vendor' directory missing in backend package. Ensure 'composer install' was run." -ForegroundColor Yellow
-    }
-
     Compress-Archive -Path "$BackendSrc\*" -DestinationPath $BackendZip -Force
-    Write-Host "✅ Backend Package Ready: $BackendZip" -ForegroundColor Green
+    Write-Host " [SUCCESS] Backend Package Ready: $BackendZip" -ForegroundColor Green
 }
 else {
-    Write-Host "❌ Backend package ('deploy_package') not found." -ForegroundColor Red
+    Write-Host " [ERROR] Backend build failed or not found." -ForegroundColor Red
 }
 
 Get-ChildItem $ReleaseDir
