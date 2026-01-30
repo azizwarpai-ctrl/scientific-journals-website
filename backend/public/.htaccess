@@ -1,21 +1,26 @@
 <IfModule mod_rewrite.c>
-    <IfModule mod_negotiation.c>
-        Options -MultiViews -Indexes
-    </IfModule>
+  RewriteEngine On
+  RewriteBase /
 
-    RewriteEngine On
+  # 1. Remove .html extension from URL
+  RewriteCond %{THE_REQUEST} ^[A-Z]{3,}\s([^.]+)\.html [NC]
+  RewriteRule ^ %1 [R=301,L]
 
-    # Handle Authorization Header
-    RewriteCond %{HTTP:Authorization} .
-    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+  # 2. Redirect directory to .html file if it exists (Fix for /admin -> /admin.html)
+  # If request is /admin/ but admin.html exists, redirect or serve it
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME}.html -f
+  RewriteRule ^ %{REQUEST_FILENAME}.html [L]
 
-    # Redirect Trailing Slashes If Not A Folder...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} (.+)/$
-    RewriteRule ^ %1 [L,R=301]
-
-    # Send Requests To Front Controller...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^ index.php [L]
+  # 3. Handle trailing slash issues (Next.js export often uses file.html)
+  # If visiting /admin/ and /admin is a directory but has no index, AND /admin.html exists:
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteCond %{REQUEST_FILENAME}.html -f
+  RewriteRule ^(.*)/$ $1.html [L]
 </IfModule>
+
+# Enable proper error pages
+ErrorDocument 404 /404.html
+
+# Disable directory listing (Security)
+Options -Indexes
