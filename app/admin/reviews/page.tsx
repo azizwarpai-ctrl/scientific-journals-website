@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useCurrentUser } from "@/lib/client/hooks/useAuth"
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Eye, Plus } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -39,12 +39,10 @@ export default function ReviewsPage() {
           <h1 className="text-3xl font-bold">Review Management</h1>
           <p className="text-muted-foreground mt-1">Manage peer reviews and reviewer assignments</p>
         </div>
-        <Button asChild>
-          <Link href="/admin/reviews/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Assign Reviewer
-          </Link>
-        </Button>
+        <Link href="/admin/reviews/new" className={buttonVariants()}>
+          <Plus className="mr-2 h-4 w-4" />
+          Assign Reviewer
+        </Link>
       </div>
 
       {/* Stats Cards */}
@@ -123,12 +121,13 @@ export default function ReviewsPage() {
                         {review.review_status.replace("_", " ")}
                       </Badge>
 
-                      <Button asChild size="sm" variant="outline" className="bg-transparent">
-                        <Link href={`/admin/submissions/${review.submission_id}`}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          View Submission
-                        </Link>
-                      </Button>
+                      <Link
+                        href={`/admin/submissions/${review.submission_id}`}
+                        className={buttonVariants({ variant: "outline", size: "sm", className: "bg-transparent" })}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Submission
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -143,6 +142,6 @@ export default function ReviewsPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </div >
   )
 }
