@@ -88,10 +88,6 @@ else {
 
 # 5. Final Touch: Environment
 if (Test-Path "$Dest\.env") {
-    # Rename .env to .env.production or just leave it for user to configure?
-    # Usually we delete .env from build artifacts so user puts their prod one in.
-    # But user might want the defaults.
-    # Let's remove the DEV .env to prevent accidental local-config in prod.
     Remove-Item "$Dest\.env" -ErrorAction SilentlyContinue
 }
 if (Test-Path "$Source\.env.example") {
@@ -100,6 +96,29 @@ if (Test-Path "$Source\.env.example") {
 elseif (Test-Path ".env.example") {
     Copy-Item ".env.example" "$Dest\.env.example" -Force
 }
+
+# -------------------------------------------------------------
+# 5.5 RESTRUCTURE FOR PRODUCTION DEPLOYMENT (/api root)
+# -------------------------------------------------------------
+Write-Host " Restructuring for API deployment (moving public/* to root)..." -ForegroundColor Cyan
+
+# Move public contents to root
+if (Test-Path "$Dest\public") {
+    Get-ChildItem -Path "$Dest\public" | Move-Item -Destination $Dest -Force
+    Remove-Item "$Dest\public" -Force
+}
+
+# Patch index.php to fix paths (remove /../)
+$IndexFile = "$Dest\index.php"
+if (Test-Path $IndexFile) {
+    $Content = Get-Content $IndexFile -Raw
+    $Content = $Content -replace "/\.\./vendor", "/vendor"
+    $Content = $Content -replace "/\.\./src", "/src"
+    $Content = $Content -replace "__DIR__ \. '/\.\.'", "__DIR__" 
+    Set-Content -Path $IndexFile -Value $Content -NoNewline
+    Write-Host " Patched index.php paths." -ForegroundColor Gray
+}
+# -------------------------------------------------------------
 
 # 6. Create production-ready .htaccess if missing (we already made one in public/, ensuring it's there)
 # (It was copied in step 2)
