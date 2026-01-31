@@ -10,7 +10,8 @@
     "backend:dev": "cd backend && php -S localhost:8000 -t public",
     "backend:test": "cd backend && php scripts/test-db.php",
     "backend:sync": "cd backend && php scripts/ojs-sync-cron.php",
-    "build:backend": "powershell -ExecutionPolicy Bypass -File scripts/build_backend.ps1"
+    "build:backend": "powershell -ExecutionPolicy Bypass -File scripts/build_backend.ps1",
+    "deploy": "bun run build && bun run build:backend && powershell -ExecutionPolicy Bypass -File scripts/package_release.ps1"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

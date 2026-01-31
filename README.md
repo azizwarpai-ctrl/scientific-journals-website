@@ -64,13 +64,41 @@ scientific-journals-website/
 ├── lib/
 │   └── php-api-client.ts   # TypsScript API Client for Backend
 ├── out/                    # Static export output (bun run build)
-├── scripts/                # Database initialization SQL scrips
+├── scripts/                # Build scripts, SQL migrations, diagnose-403.php
 ├── docker-compose.yml      # MySQL configuration
 └── README.md
 ```
 
 ## 🔐 Authentication & API
 See [API_INTEGRATION.md](./API_INTEGRATION.md) for detailed documentation on the authentication flow, API endpoints, and integration usage.
+
+### Production deployment
+For production, set `NEXT_PUBLIC_API_URL` at build time so the frontend calls the correct API:
+
+```bash
+# Example: API at same domain
+NEXT_PUBLIC_API_URL=https://digitopub.com/api bun run build
+
+# Or use .env.production
+echo 'NEXT_PUBLIC_API_URL=https://digitopub.com/api' > .env.production
+bun run build
+```
+
+Ensure `.htaccess` from `public/` is deployed to the web root so `/admin/` and extensionless URLs work on Apache.
+
+### Troubleshooting 403 Forbidden on /admin/
+If you get a 403 when accessing `/admin/`:
+
+**Option 1 – HTML diagnostic (no PHP):**  
+Open `https://yourdomain.com/diagnose-403.html` (included in the build). Click **Run Diagnostic** to test URLs and see what’s returning 403. Works even when the PHP script is blocked.
+
+**Option 2 – PHP diagnostic (server-side):**  
+1. Upload `scripts/diagnose-403.php` to your web root  
+2. Visit `https://yourdomain.com/diagnose-403.php?key=digitopub-debug`  
+3. Review the report and suggested fixes  
+4. Delete the file after debugging  
+
+The PHP script checks: server type, document root, `.htaccess` presence and content, `admin.html` existence, file permissions, and `mod_rewrite` (Apache). If the PHP script also returns 403, use the HTML diagnostic instead.
 
 ## 🛠️ Development
 

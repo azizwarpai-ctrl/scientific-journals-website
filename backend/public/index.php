@@ -26,7 +26,10 @@ $allowedOrigins = [
 if (in_array($origin, $allowedOrigins)) {
     header("Access-Control-Allow-Origin: $origin");
 } else {
-    header('Access-Control-Allow-Origin: *'); // Development fallback
+    // Development fallback: Reflect origin to support Credentials
+    if ($origin) {
+        header("Access-Control-Allow-Origin: $origin");
+    }
 }
 
 if ($method === 'OPTIONS') {

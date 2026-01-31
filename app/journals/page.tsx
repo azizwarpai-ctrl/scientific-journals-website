@@ -6,94 +6,63 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, SlidersHorizontal } from "lucide-react"
+import { Search, SlidersHorizontal, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { useState, useMemo } from "react"
-
-const journals = [
-  {
-    id: 1,
-    title: "Journal of Prosthetic Dentistry",
-    issn: "ISSN 0022-3913",
-    field: "Dental Medicine",
-    publisher: "DigitoPub Scientific",
-    year: "2020",
-    coverImage: "/images/imegjournal.jpg",
-  },
-  {
-    id: 2,
-    title: "Open Journal of Biomedical Research",
-    issn: "ISSN 2456-7891",
-    field: "Biomedical Science",
-    publisher: "DigitoPub Scientific",
-    year: "2019",
-    coverImage: "/images/33.png",
-  },
-  {
-    id: 3,
-    title: "Journal of Technology Research",
-    issn: "ISSN 3005-639X",
-    field: "Engineering",
-    publisher: "DigitoPub Scientific",
-    year: "2021",
-    coverImage: "/images/1.png",
-  },
-  {
-    id: 4,
-    title: "International Journal of Maxillofacial Science",
-    issn: "ISSN 2456-7893",
-    field: "Medical Science",
-    publisher: "DigitoPub Scientific",
-    year: "2018",
-    coverImage: "/images/33.png",
-  },
-  {
-    id: 5,
-    title: "Journal of Computerized Dentistry",
-    issn: "ISSN 1560-4853",
-    field: "Digital Dentistry",
-    publisher: "DigitoPub Scientific",
-    year: "2022",
-    coverImage: "/images/2.png",
-  },
-  {
-    id: 6,
-    title: "Journal of Dentistry",
-    issn: "ISSN 0300-5712",
-    field: "Dental Medicine",
-    publisher: "DigitoPub Scientific",
-    year: "2020",
-    coverImage: "/images/4.jpg",
-  },
-]
+import { useState, useMemo, useEffect } from "react"
+import { journalsAPI } from "@/lib/php-api-client"
 
 export default function JournalsPage() {
+  const [journals, setJournals] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedField, setSelectedField] = useState("all")
   const [sortBy, setSortBy] = useState("title")
+
+  useEffect(() => {
+    async function fetchJournals() {
+      try {
+        const response = await journalsAPI.list(1, 100)
+        const data = response.data
+        const list = data?.data ?? data ?? []
+        setJournals(Array.isArray(list) ? list : [])
+      } catch (err: any) {
+        setError(err.message || "Failed to load journals")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchJournals()
+  }, [])
 
   const filteredJournals = useMemo(() => {
     return journals
       .filter((journal) => {
         const query = searchQuery.toLowerCase().trim()
-
-        // Match against title, ISSN, field, and publisher
+        if (!query) {
+          const matchesField = selectedField === "all" || journal.field === selectedField
+          return matchesField
+        }
+        const issn = journal.issn ? String(journal.issn) : ""
         const matchesSearch =
-          journal.title.toLowerCase().includes(query) ||
-          journal.issn.toLowerCase().includes(query) ||
-          journal.field.toLowerCase().includes(query) ||
-          journal.publisher.toLowerCase().includes(query)
-
+          (journal.title || "").toLowerCase().includes(query) ||
+          issn.toLowerCase().includes(query) ||
+          (journal.field || "").toLowerCase().includes(query) ||
+          (journal.publisher || "").toLowerCase().includes(query)
         const matchesField = selectedField === "all" || journal.field === selectedField
         return matchesSearch && matchesField
       })
       .sort((a, b) => {
-        if (sortBy === "year") return Number.parseInt(b.year) - Number.parseInt(a.year)
-        return a.title.localeCompare(b.title)
+        if (sortBy === "year") {
+          const yearA = a.created_at ? new Date(a.created_at).getFullYear() : 0
+          const yearB = b.created_at ? new Date(b.created_at).getFullYear() : 0
+          return yearB - yearA
+        }
+        return (a.title || "").localeCompare(b.title || "")
       })
-  }, [searchQuery, selectedField, sortBy])
+  }, [journals, searchQuery, selectedField, sortBy])
 
-  const fields = ["all", ...Array.from(new Set(journals.map((j) => j.field)))]
+  const fields = ["all", ...Array.from(new Set(journals.map((j) => j.field).filter(Boolean)))]
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -106,7 +75,7 @@ export default function JournalsPage() {
             <div className="mx-auto max-w-3xl text-center">
               <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">Browse Journals</h1>
               <p className="text-lg text-muted-foreground">
-                Explore our collection of {journals.length} peer-reviewed scientific journals
+                Explore our collection of {loading ? "..." : journals.length} peer-reviewed scientific journals
               </p>
             </div>
           </div>
@@ -161,46 +130,67 @@ export default function JournalsPage() {
         {/* Journals Grid */}
         <section className="py-12">
           <div className="container mx-auto px-4 md:px-6">
+            {error && (
+              <div className="mb-6 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </div>
+            )}
             <div className="mb-6 text-sm text-muted-foreground">
               Showing {filteredJournals.length} journal{filteredJournals.length !== 1 ? "s" : ""}
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredJournals.map((journal) => (
-                <Card key={journal.id} className="group overflow-hidden transition-all hover:shadow-xl">
-                  <div className="relative h-80 w-full overflow-hidden">
-                    <img
-                      src={journal.coverImage || "/images/logodigitopub.png"}
-                      alt={journal.title}
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-6">
-                      <div className="mb-3">
-                        <span className="inline-block rounded-full bg-primary/90 px-3 py-1.5 text-xs font-medium text-primary-foreground backdrop-blur-sm">
-                          {journal.field}
-                        </span>
+            {loading ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {filteredJournals.map((journal) => {
+                  const issnDisplay = journal.issn
+                    ? (String(journal.issn).startsWith("ISSN") ? journal.issn : `ISSN ${journal.issn}`)
+                    : ""
+                  const yearDisplay = journal.created_at
+                    ? new Date(journal.created_at).getFullYear()
+                    : ""
+                  return (
+                    <Card key={journal.id} className="group overflow-hidden transition-all hover:shadow-xl">
+                      <div className="relative h-80 w-full overflow-hidden">
+                        <img
+                          src={journal.cover_image_url || "/images/logodigitopub.png"}
+                          alt={journal.title}
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-6">
+                          <div className="mb-3">
+                            <span className="inline-block rounded-full bg-primary/90 px-3 py-1.5 text-xs font-medium text-primary-foreground backdrop-blur-sm">
+                              {journal.field || "Journal"}
+                            </span>
+                          </div>
+                          <h3 className="mb-2 text-lg font-bold text-white text-balance leading-tight">{journal.title}</h3>
+                          <p className="text-sm text-white/80">{issnDisplay}</p>
+                        </div>
                       </div>
-                      <h3 className="mb-2 text-lg font-bold text-white text-balance leading-tight">{journal.title}</h3>
-                      <p className="text-sm text-white/80">{journal.issn}</p>
-                    </div>
-                  </div>
-                  <CardContent className="p-6">
-                    <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
-                      <span>{journal.publisher}</span>
-                      <span>Est. {journal.year}</span>
-                    </div>
-                    <Button size="sm" className="w-full" asChild>
-                      <Link href={`/journals/detail?id=${journal.id}`}>View Journal</Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      <CardContent className="p-6">
+                        <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
+                          <span>{journal.publisher || "DigitoPub"}</span>
+                          {yearDisplay && <span>Est. {yearDisplay}</span>}
+                        </div>
+                        <Button size="sm" className="w-full" asChild>
+                          <Link href={`/journals/detail?id=${journal.id}`}>View Journal</Link>
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
 
-            {filteredJournals.length === 0 && (
+            {!loading && filteredJournals.length === 0 && (
               <div className="py-12 text-center">
-                <p className="text-muted-foreground">No journals found matching your criteria.</p>
+                <p className="text-muted-foreground">
+                  {error ? "Unable to load journals." : "No journals found matching your criteria."}
+                </p>
               </div>
             )}
           </div>

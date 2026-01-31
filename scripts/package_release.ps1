@@ -30,7 +30,27 @@ if (Test-Path $FrontendSrc) {
     # Ensure .htaccess exists in out (Frontend)
     if (-not (Test-Path "$FrontendSrc\.htaccess")) {
         Write-Host "Creating .htaccess for Frontend..." -ForegroundColor Gray
-        Set-Content -Path "$FrontendSrc\.htaccess" -Value "Options -Indexes`nErrorDocument 404 /404.html`n<IfModule mod_rewrite.c>`nRewriteEngine On`nRewriteBase /`nRewriteCond %{REQUEST_FILENAME} !-d`nRewriteCond %{REQUEST_FILENAME}.html -f`nRewriteRule ^ %{REQUEST_FILENAME}.html [L]`nRewriteCond %{REQUEST_FILENAME} -d`nRewriteCond %{REQUEST_FILENAME}.html -f`nRewriteRule ^(.*)/$ `$1.html [L]`n</IfModule>" -NoNewline
+        $htaccessContent = @'
+Options -Indexes
+ErrorDocument 404 /404.html
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Serve .html files for extensionless URLs
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME}.html -f
+    RewriteRule ^ %{REQUEST_FILENAME}.html [L]
+
+    # Handle trailing slashes (e.g., /admin/ -> admin.html)
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteCond %{REQUEST_FILENAME}.html -f
+    RewriteRule ^(.*)/$ $1.html [L]
+</IfModule>
+'@
+        # Force UTF8 encoding without BOM for Linux/Apache compatibility
+        [System.IO.File]::WriteAllText("$FrontendSrc\.htaccess", $htaccessContent)
     }
 
     Compress-Archive -Path "$FrontendSrc\*" -DestinationPath $FrontendZip -Force

@@ -25,6 +25,10 @@ class JournalController
 
         try {
             $result = $this->listUseCase->execute($page, $perPage, $filters);
+            // Convert Journal entities to arrays for JSON response
+            if (isset($result['data']) && is_array($result['data'])) {
+                $result['data'] = array_map(fn ($j) => method_exists($j, 'toArray') ? $j->toArray() : (array) $j, $result['data']);
+            }
             $this->jsonResponse($result);
         } catch (\Exception $e) {
             $this->errorResponse($e->getMessage());

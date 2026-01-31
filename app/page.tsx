@@ -4,12 +4,36 @@ import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { BookOpen, Zap } from "lucide-react"
+import { BookOpen, Zap, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { AnimatedCounter } from "@/components/animated-counter"
+import { journalsAPI } from "@/lib/php-api-client"
+import { useEffect, useState } from "react"
 
 export default function HomePage() {
+  const [featuredJournals, setFeaturedJournals] = useState<any[]>([])
+  const [journalsTotal, setJournalsTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const response = await journalsAPI.list(1, 6)
+        const data = response.data
+        const journals = data?.data ?? data ?? []
+        const total = data?.total ?? journals?.length ?? 0
+        setFeaturedJournals(Array.isArray(journals) ? journals.slice(0, 3) : [])
+        setJournalsTotal(typeof total === "number" ? total : 0)
+      } catch (err) {
+        console.error("Failed to fetch homepage data:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
@@ -49,7 +73,7 @@ export default function HomePage() {
               <div className="grid gap-8 md:grid-cols-4">
                 <div className="text-center">
                   <div className="mb-2 text-primary">
-                    <AnimatedCounter end={250} suffix="+" duration={2500} />
+                    <AnimatedCounter end={loading ? 0 : Math.max(journalsTotal, 1)} suffix="+" duration={2500} />
                   </div>
                   <div className="text-sm text-muted-foreground">Active Journals</div>
                 </div>
@@ -91,53 +115,44 @@ export default function HomePage() {
               </div>
 
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {[
-                  {
-                    title: "Journal of Prosthetic Dentistry",
-                    issn: "ISSN 0022-3913",
-                    field: "Dental Medicine",
-                    fieldImage: "/images/imegjournal.jpg",
-                  },
-                  {
-                    title: "Journal of Computerized Dentistry",
-                    issn: "ISSN 1560-4853",
-                    field: "Digital Dentistry",
-                    fieldImage: "/images/2.png",
-                  },
-                  {
-                    title: "Journal of Technology Research",
-                    issn: "ISSN 3005-639X",
-                    field: "Engineering",
-                    fieldImage: "/images/1.png",
-                  },
-                ].map((journal, idx) => (
-                  <GSAPWrapper key={idx} animation="slideUp" delay={0.4 + idx * 0.1}>
-                    <Card className="transition-shadow hover:shadow-lg overflow-hidden">
-                      <div className="relative h-64 w-full overflow-hidden">
-                        <img
-                          src={journal.fieldImage || "/images/logodigitopub.png"}
-                          alt={journal.field}
-                          className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-                        <div className="absolute bottom-4 left-4 right-4">
-                          <span className="inline-block rounded-full bg-primary/90 px-3 py-1 text-xs font-medium text-primary-foreground backdrop-blur-sm">
-                            {journal.field}
-                          </span>
+                {loading ? (
+                  <div className="col-span-full flex justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : featuredJournals.length > 0 ? (
+                  featuredJournals.map((journal, idx) => (
+                    <GSAPWrapper key={journal.id ?? idx} animation="slideUp" delay={0.4 + idx * 0.1}>
+                      <Card className="transition-shadow hover:shadow-lg overflow-hidden">
+                        <div className="relative h-64 w-full overflow-hidden">
+                          <img
+                            src={journal.cover_image_url || "/images/logodigitopub.png"}
+                            alt={journal.field || journal.title}
+                            className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                          <div className="absolute bottom-4 left-4 right-4">
+                            <span className="inline-block rounded-full bg-primary/90 px-3 py-1 text-xs font-medium text-primary-foreground backdrop-blur-sm">
+                              {journal.field || "Journal"}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <CardContent className="pt-6">
-                        <h3 className="mb-2 font-semibold text-balance">{journal.title}</h3>
-                        <p className="mb-4 text-sm text-muted-foreground">{journal.issn}</p>
-                        <div className="flex items-center justify-between">
-                          <Button size="sm" variant="outline" asChild>
-                            <Link href={`/journals/detail?id=${idx + 1}`}>View Details</Link>
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </GSAPWrapper>
-                ))}
+                        <CardContent className="pt-6">
+                          <h3 className="mb-2 font-semibold text-balance">{journal.title}</h3>
+                          <p className="mb-4 text-sm text-muted-foreground">{journal.issn ? (String(journal.issn).startsWith("ISSN") ? journal.issn : `ISSN ${journal.issn}`) : ""}</p>
+                          <div className="flex items-center justify-between">
+                            <Button size="sm" variant="outline" asChild>
+                              <Link href={`/journals/detail?id=${journal.id}`}>View Details</Link>
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </GSAPWrapper>
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-12 text-muted-foreground">
+                    No journals yet. Check back soon.
+                  </div>
+                )}
               </div>
             </div>
           </section>
