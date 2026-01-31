@@ -1,35 +1,41 @@
 <#
 .SYNOPSIS
     Packages the Scientific Journals Website for production deployment.
-    Creates 'release/frontend.zip' and 'release/backend.zip'.
+    Creates a single unified 'release/digitopub-deploy.zip'.
 
 .DESCRIPTION
     This script performs the following:
-    1. Checks for build artifacts ('out' directory and 'deploy_package').
-    2. Suggests running build commands if artifacts are missing.
-    3. Compresses the frontend static export to 'release/frontend-dist.zip'.
-    4. Compresses the backend deployment package to 'release/backend-api.zip'.
+    1. Builds a unified 'deploy' directory structure (Frontend at root, Backend in /api).
+    2. Cleans previous release artifacts.
+    3. Compresses everything into a single deployable Zip file.
 #>
 
 $ReleaseDir = "release"
+$DeployDir = "deploy"
 $FrontendSrc = "out"
 $BackendSrc = "backend-out"
 
-# Ensure Release Directory Exists
-if (-not (Test-Path $ReleaseDir)) {
-    New-Item -ItemType Directory -Path $ReleaseDir | Out-Null
-    Write-Host "Created release directory: $ReleaseDir" -ForegroundColor Cyan
+# 1. Clean/Create Directories
+if (-not (Test-Path $ReleaseDir)) { 
+    New-Item -ItemType Directory -Path $ReleaseDir | Out-Null 
+} else {
+    # Clean old artifacts to avoid confusion
+    Get-ChildItem -Path $ReleaseDir -Include "*.zip" -Recurse | Remove-Item -Force
 }
+if (Test-Path $DeployDir) { Remove-Item $DeployDir -Recurse -Force }
+New-Item -ItemType Directory -Path $DeployDir | Out-Null
+New-Item -ItemType Directory -Path "$DeployDir\api" | Out-Null
 
-# --- Package Frontend ---
+Write-Host "Assembling Deployment Package..." -ForegroundColor Cyan
+
+# 2. Setup Frontend (Root)
 if (Test-Path $FrontendSrc) {
-    Write-Host "Packaging Frontend..." -ForegroundColor Green
-    $FrontendZip = "$ReleaseDir\frontend-dist.zip"
-    if (Test-Path $FrontendZip) { Remove-Item $FrontendZip }
+    Write-Host "  [1/3] Copying Frontend to root..." -ForegroundColor Gray
+    Copy-Item -Path "$FrontendSrc\*" -Destination $DeployDir -Recurse -Force
     
-    # Ensure .htaccess exists in out (Frontend)
-    if (-not (Test-Path "$FrontendSrc\.htaccess")) {
-        Write-Host "Creating .htaccess for Frontend..." -ForegroundColor Gray
+    # Ensure Frontend .htaccess
+    if (-not (Test-Path "$DeployDir\.htaccess")) {
+        Write-Host "        Creating Frontend .htaccess..." -ForegroundColor Gray
         $htaccessContent = @'
 Options -Indexes
 ErrorDocument 404 /404.html
@@ -49,34 +55,39 @@ ErrorDocument 404 /404.html
     RewriteRule ^(.*)/$ $1.html [L]
 </IfModule>
 '@
-        # Force UTF8 encoding without BOM for Linux/Apache compatibility
-        [System.IO.File]::WriteAllText("$FrontendSrc\.htaccess", $htaccessContent)
+        [System.IO.File]::WriteAllText("$DeployDir\.htaccess", $htaccessContent)
     }
-
-    Compress-Archive -Path "$FrontendSrc\*" -DestinationPath $FrontendZip -Force
-    Write-Host " [SUCCESS] Frontend Package Ready: $FrontendZip" -ForegroundColor Green
-}
-else {
-    Write-Host " [ERROR] Frontend build ('out') not found. Run 'bun run build' first." -ForegroundColor Red
+} else {
+    Write-Host "  [ERROR] Frontend build 'out' not found!" -ForegroundColor Red
 }
 
-# --- Package Backend ---
+# 3. Setup Backend (/api)
 if (-not (Test-Path $BackendSrc)) {
-    Write-Host "Backend artifact not found. Building now..." -ForegroundColor Yellow
+    Write-Host "  [INFO] Backend artifact missing. Running build..." -ForegroundColor Yellow
     npm run build:backend
 }
 
 if (Test-Path $BackendSrc) {
-    Write-Host "Packaging Backend (API)..." -ForegroundColor Green
-    $BackendZip = "$ReleaseDir\backend-api.zip"
-    if (Test-Path $BackendZip) { Remove-Item $BackendZip }
-    
-    Compress-Archive -Path "$BackendSrc\*" -DestinationPath $BackendZip -Force
-    Write-Host " [SUCCESS] Backend Package Ready: $BackendZip" -ForegroundColor Green
-}
-else {
-    Write-Host " [ERROR] Backend build failed or not found." -ForegroundColor Red
+    Write-Host "  [2/3] Copying Backend to /api..." -ForegroundColor Gray
+    Copy-Item -Path "$BackendSrc\*" -Destination "$DeployDir\api" -Recurse -Force
+} else {
+    Write-Host "  [ERROR] Backend build failed!" -ForegroundColor Red
 }
 
-Get-ChildItem $ReleaseDir
-Write-Host "`n[SUCCESS] Packages are ready to upload!" -ForegroundColor Cyan
+# 4. Final compression
+Write-Host "  [3/3] Compressing release (Size: $( "{0:N2} MB" -f ((Get-ChildItem $DeployDir -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB) ))..." -ForegroundColor Gray
+$FinalZip = "$ReleaseDir\digitopub-deploy.zip"
+if (Test-Path $FinalZip) { Remove-Item $FinalZip }
+
+# Use pipeline for robust content compression ( avoids wildcards issues )
+Get-ChildItem -Path $DeployDir | Compress-Archive -DestinationPath $FinalZip -Force
+
+# Verify Zip Size
+$ZipSize = (Get-Item $FinalZip).Length
+if ($ZipSize -lt 1MB) {
+    Write-Host "  [WARNING] Zip file seems too small ($("{0:N2} KB" -f ($ZipSize / 1KB))). Check contents!" -ForegroundColor Yellow
+} else {
+    Write-Host "`n[SUCCESS] Deployment Package Ready!" -ForegroundColor Green
+    Write-Host "  Structure: $DeployDir" -ForegroundColor Cyan
+    Write-Host "  Zip File:  $FinalZip ($("{0:N2} MB" -f ($ZipSize / 1MB)))" -ForegroundColor Cyan
+}
