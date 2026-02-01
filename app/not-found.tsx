@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { FileQuestion, Home, ArrowLeft } from 'lucide-react';
 
@@ -5,10 +7,10 @@ export default function NotFound() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 font-sans text-foreground relative overflow-hidden">
       {/* Decorative Background Elements */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.03]" 
-           style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
+        style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
       </div>
-      
+
       <div className="max-w-md w-full text-center relative z-10 space-y-8">
         {/* Status Code Block */}
         <div className="relative inline-block">
@@ -31,15 +33,15 @@ export default function NotFound() {
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-          <button 
+          <button
             onClick={() => window.history.back()}
             className="flex items-center justify-center gap-2 px-6 py-3 rounded-md border border-input bg-background hover:bg-muted text-foreground transition-colors font-medium"
           >
             <ArrowLeft className="w-4 h-4" />
             Return Previous
           </button>
-          
-          <Link 
+
+          <Link
             href="/"
             className="flex items-center justify-center gap-2 px-6 py-3 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-bold uppercase tracking-wide shadow-lg shadow-primary/20"
           >

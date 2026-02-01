@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect } from "react"
+import { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { AdminHeader } from "./admin-header"
 import { AdminSidebar } from "./admin-sidebar"
@@ -12,7 +12,7 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
     const pathname = usePathname()
     const router = useRouter()
     const isLoginPage = pathname === "/admin/login" || pathname === "/admin/register"
-    
+
     // Check authentication status
     const { data: user, isLoading, isError } = useCurrentUser()
 
