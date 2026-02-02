@@ -5,7 +5,7 @@
  * All requests include proper error handling, authentication, and CORS support.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = 'https://digitopub.com'; // Hardcoded for debugging production issue
 
 // Types
 export interface ApiResponse<T = any> {

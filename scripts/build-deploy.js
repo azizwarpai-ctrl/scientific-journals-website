@@ -368,11 +368,9 @@ async function buildBackend() {
     let content = fs.readFileSync(indexPath, 'utf8');
 
     // Fix relative paths for root deployment
-    content = content.replace(/'\.\.\/vendor'/g, "'./vendor'");
-    content = content.replace(/"\.\.\/vendor"/g, '"./vendor"');
-    content = content.replace(/'\.\.\/src'/g, "'./src'");
-    content = content.replace(/"\.\.\/src"/g, '"./src"');
-    content = content.replace(/__DIR__\s*\.\s*['"]\/\.\.['"]/g, '__DIR__');
+    content = content.replace(/\/+\.\.\/vendor/g, '/vendor');
+    content = content.replace(/\/+\.\.\/src/g, '/src');
+    content = content.replace(/\.\s*['"]\/\.\.['"]/g, "");
 
     fs.writeFileSync(indexPath, content);
     success('Patched index.php paths');
