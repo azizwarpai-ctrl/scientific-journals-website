@@ -1,212 +1,63 @@
-"use client"
-
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, SlidersHorizontal } from "lucide-react"
-import Link from "next/link"
-import { useState, useMemo } from "react"
+import { prisma } from "@/lib/db/config"
+import { JournalsClientView } from "./components/journals-client-view"
 
-const journals = [
-  {
-    id: 1,
-    title: "Journal of Prosthetic Dentistry",
-    issn: "ISSN 0022-3913",
-    field: "Dental Medicine",
-    publisher: "DigitoPub Scientific",
-    year: "2020",
-    coverImage: "/images/imegjournal.jpg",
-  },
-  {
-    id: 2,
-    title: "Open Journal of Biomedical Research",
-    issn: "ISSN 2456-7891",
-    field: "Biomedical Science",
-    publisher: "DigitoPub Scientific",
-    year: "2019",
-    coverImage: "/images/33.png",
-  },
-  {
-    id: 3,
-    title: "Journal of Technology Research",
-    issn: "ISSN 3005-639X",
-    field: "Engineering",
-    publisher: "DigitoPub Scientific",
-    year: "2021",
-    coverImage: "/images/1.png",
-  },
-  {
-    id: 4,
-    title: "International Journal of Maxillofacial Science",
-    issn: "ISSN 2456-7893",
-    field: "Medical Science",
-    publisher: "DigitoPub Scientific",
-    year: "2018",
-    coverImage: "/images/33.png",
-  },
-  {
-    id: 5,
-    title: "Journal of Computerized Dentistry",
-    issn: "ISSN 1560-4853",
-    field: "Digital Dentistry",
-    publisher: "DigitoPub Scientific",
-    year: "2022",
-    coverImage: "/images/2.png",
-  },
-  {
-    id: 6,
-    title: "Journal of Dentistry",
-    issn: "ISSN 0300-5712",
-    field: "Dental Medicine",
-    publisher: "DigitoPub Scientific",
-    year: "2020",
-    coverImage: "/images/4.jpg",
-  },
-]
+export default async function JournalsPage() {
+  let journals = []
+  let error: Error | null = null
 
-export default function JournalsPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedField, setSelectedField] = useState("all")
-  const [sortBy, setSortBy] = useState("title")
+  try {
+    const result = await Promise.race([
+      prisma.journal.findMany({
+        where: { status: "active" },
+        select: {
+          id: true,
+          title: true,
+          issn: true,
+          field: true,
+          publisher: true,
+          cover_image_url: true,
+          created_at: true,
+        },
+        orderBy: { created_at: "desc" },
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Database query timeout")), 5000)
+      ),
+    ])
 
-  const filteredJournals = useMemo(() => {
-    return journals
-      .filter((journal) => {
-        const query = searchQuery.toLowerCase().trim()
-
-        // Match against title, ISSN, field, and publisher
-        const matchesSearch =
-          journal.title.toLowerCase().includes(query) ||
-          journal.issn.toLowerCase().includes(query) ||
-          journal.field.toLowerCase().includes(query) ||
-          journal.publisher.toLowerCase().includes(query)
-
-        const matchesField = selectedField === "all" || journal.field === selectedField
-        return matchesSearch && matchesField
-      })
-      .sort((a, b) => {
-        if (sortBy === "year") return Number.parseInt(b.year) - Number.parseInt(a.year)
-        return a.title.localeCompare(b.title)
-      })
-  }, [searchQuery, selectedField, sortBy])
-
-  const fields = ["all", ...Array.from(new Set(journals.map((j) => j.field)))]
+    journals = (result as any[]).map((j) => ({
+      id: j.id.toString(),
+      title: j.title,
+      issn: j.issn || "N/A",
+      field: j.field,
+      publisher: j.publisher || "Unknown",
+      coverImage: j.cover_image_url || "/images/logodigitopub.png",
+    }))
+  } catch (e) {
+    // Gracefully handle connection errors during SSG
+    console.error("Error fetching journals:", e)
+    // Return empty array to avoid build failure
+    journals = []
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
-
       <main className="flex-1">
-        {/* Header */}
-        <section className="bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-12 md:py-16">
-          <div className="container mx-auto px-4 md:px-6">
-            <div className="mx-auto max-w-3xl text-center">
-              <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">Browse Journals</h1>
-              <p className="text-lg text-muted-foreground">
-                Explore our collection of {journals.length} peer-reviewed scientific journals
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="border-b bg-background py-6">
-          <div className="container mx-auto px-4 md:px-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-1 items-center gap-2">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    placeholder="Search by title, field, ISSN, or publisher..."
-                    className="pl-9"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Select value={selectedField} onValueChange={setSelectedField}>
-                  <SelectTrigger className="w-[180px]">
-                    <SlidersHorizontal className="mr-2 h-4 w-4" />
-                    <SelectValue placeholder="Filter by field" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Fields</SelectItem>
-                    {fields.slice(1).map((field) => (
-                      <SelectItem key={field} value={field}>
-                        {field}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="title">Title (A-Z)</SelectItem>
-                    <SelectItem value="year">Year (Newest)</SelectItem>
-                  </SelectContent>
-                </Select>
+        {error ? (
+          <section className="py-12">
+            <div className="container mx-auto px-4 md:px-6">
+              <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
+                <p className="text-sm text-red-600 dark:text-red-400">Error loading journals: {error.message}</p>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* Journals Grid */}
-        <section className="py-12">
-          <div className="container mx-auto px-4 md:px-6">
-            <div className="mb-6 text-sm text-muted-foreground">
-              Showing {filteredJournals.length} journal{filteredJournals.length !== 1 ? "s" : ""}
-            </div>
-
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredJournals.map((journal) => (
-                <Card key={journal.id} className="group overflow-hidden transition-all hover:shadow-xl">
-                  <div className="relative h-80 w-full overflow-hidden">
-                    <img
-                      src={journal.coverImage || "/images/logodigitopub.png"}
-                      alt={journal.title}
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-6">
-                      <div className="mb-3">
-                        <span className="inline-block rounded-full bg-primary/90 px-3 py-1.5 text-xs font-medium text-primary-foreground backdrop-blur-sm">
-                          {journal.field}
-                        </span>
-                      </div>
-                      <h3 className="mb-2 text-lg font-bold text-white text-balance leading-tight">{journal.title}</h3>
-                      <p className="text-sm text-white/80">{journal.issn}</p>
-                    </div>
-                  </div>
-                  <CardContent className="p-6">
-                    <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
-                      <span>{journal.publisher}</span>
-                      <span>Est. {journal.year}</span>
-                    </div>
-                    <Button size="sm" className="w-full" asChild>
-                      <Link href={`/journals/${journal.id}`}>View Journal</Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {filteredJournals.length === 0 && (
-              <div className="py-12 text-center">
-                <p className="text-muted-foreground">No journals found matching your criteria.</p>
-              </div>
-            )}
-          </div>
-        </section>
+          </section>
+        ) : (
+          <JournalsClientView journals={journals} />
+        )}
       </main>
-
       <Footer />
     </div>
   )
