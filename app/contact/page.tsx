@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-
+import { useState } from "react"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -11,20 +11,56 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Mail } from "lucide-react"
-import { useState } from "react"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    subject: "",
+    subject: "general",
     message: "",
   })
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [isSuccess, setIsSuccess] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Form submitted:", formData)
+    setIsLoading(true)
+    setError(null)
+    setIsSuccess(false)
+
+    try {
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          subject: formData.subject,
+          message: formData.message,
+          message_type: formData.subject,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send message")
+      }
+
+      setIsSuccess(true)
+      setFormData({
+        name: "",
+        email: "",
+        subject: "general",
+        message: "",
+      })
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -125,8 +161,20 @@ export default function ContactPage() {
                         />
                       </div>
 
-                      <Button type="submit" className="w-full">
-                        Send Message
+                      {isSuccess && (
+                        <div className="rounded-lg bg-green-50 p-3 dark:bg-green-900/20">
+                          <p className="text-sm text-green-600 dark:text-green-400">
+                            Message sent successfully! We will get back to you soon.
+                          </p>
+                        </div>
+                      )}
+                      {error && (
+                        <div className="rounded-lg bg-red-50 p-3 dark:bg-red-900/20">
+                          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                        </div>
+                      )}
+                      <Button type="submit" className="w-full" disabled={isLoading}>
+                        {isLoading ? "Sending..." : "Send Message"}
                       </Button>
                     </form>
                   </CardContent>

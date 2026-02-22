@@ -30,15 +30,16 @@ export default function NewFAQPage() {
     setIsSubmitting(true)
 
     try {
-      const response = await fetch("/api/faq", {
+      const response = await fetch("/api/solutions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          category: formData.category,
           question: formData.question,
           answer: formData.answer,
+          category: formData.category,
+          is_published: formData.is_published,
         }),
       })
 
