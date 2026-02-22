@@ -8,7 +8,29 @@ import { BookOpen, FileText, Users, HelpCircle } from "lucide-react"
 import Link from "next/link"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 
+import { useState, useEffect } from "react"
+
 export default function HelpPage() {
+  const [faqs, setFaqs] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchFaqs = async () => {
+      try {
+        const response = await fetch("/api/solutions")
+        const data = await response.json()
+        if (data.success) {
+          setFaqs(data.data)
+        }
+      } catch (error) {
+        console.error("Error fetching FAQs:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchFaqs()
+  }, [])
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
@@ -87,61 +109,24 @@ export default function HelpPage() {
                   </CardHeader>
                   <CardContent>
                     <Accordion type="single" collapsible className="w-full">
-                      <AccordionItem value="item-1">
-                        <AccordionTrigger>How to submit a manuscript?</AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground leading-relaxed">
-                          To submit a manuscript, you need to register an account first. After logging in, navigate to the 'Submit Manager' or click 'Submit Manuscript' on the journal's page. Follow the step-by-step submission process to upload your files and provide necessary metadata.
-                        </AccordionContent>
-                      </AccordionItem>
-
-                      <AccordionItem value="item-2">
-                        <AccordionTrigger>What is the typical review timeline?</AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground leading-relaxed">
-                          The initial editorial check usually takes 3-5 days. The peer review process typically takes 4-8 weeks, depending on reviewer availability. Once reviews are in, an editorial decision is made within 1-2 weeks. Total time from submission to first decision averages 8-10 weeks.
-                        </AccordionContent>
-                      </AccordionItem>
-
-                      <AccordionItem value="item-3">
-                        <AccordionTrigger>How can I become a reviewer?</AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground leading-relaxed">
-                          We welcome qualified experts to join our reviewer community. You can update your profile to indicate your interest in reviewing and specify your areas of expertise. Alternatively, you can contact the journal editor directly with your CV and research interests.
-                        </AccordionContent>
-                      </AccordionItem>
-
-                      <AccordionItem value="item-4">
-                        <AccordionTrigger>What file formats are accepted?</AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground leading-relaxed">
-                          For the main manuscript, we accept Microsoft Word (.doc, .docx) and PDF files. For figures, strictly high-resolution JPEG, TIFF, or PNG formats are required. Supplementary materials can be in any common format. Please check the specific journal guidelines for detailed requirements.
-                        </AccordionContent>
-                      </AccordionItem>
-
-                      <AccordionItem value="item-5">
-                        <AccordionTrigger>How to track my submission status?</AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground leading-relaxed">
-                          You can track the status of your manuscript at any time by logging into your account and clicking on 'My Submissions'. The status will be displayed (e.g., 'Under Review', 'Revision Required', 'Accepted'). You will also receive email notifications at key stages.
-                        </AccordionContent>
-                      </AccordionItem>
-
-                      <AccordionItem value="item-6">
-                        <AccordionTrigger>Are there publication charges?</AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground leading-relaxed">
-                          Publication charges (APCs) vary by journal. Many of our journals are Open Access and require an APC upon acceptance to cover publishing costs. Some journals may have waivers or discounts for authors from certain countries or institutions. Please refer to the specific journal's 'Article Processing Charges' page.
-                        </AccordionContent>
-                      </AccordionItem>
-
-                      <AccordionItem value="item-7">
-                        <AccordionTrigger>How to reset my password?</AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground leading-relaxed">
-                          If you have forgotten your password, go to the login page and click on the 'Forgot Password?' link. Enter your registered email address, and we will send you instructions to reset your password.
-                        </AccordionContent>
-                      </AccordionItem>
-
-                      <AccordionItem value="item-8">
-                        <AccordionTrigger>What is ORCID?</AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground leading-relaxed">
-                          ORCID provides a persistent digital identifier that distinguishes you from every other researcher. We strongly encourage all authors to link their ORCID iD to their account to ensure their work is correctly attributed to them.
-                        </AccordionContent>
-                      </AccordionItem>
+                      {isLoading ? (
+                        <div className="flex justify-center py-8">
+                          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                        </div>
+                      ) : faqs.length > 0 ? (
+                        faqs.map((faq, idx) => (
+                          <AccordionItem key={faq.id} value={`item-${idx}`}>
+                            <AccordionTrigger>{faq.question}</AccordionTrigger>
+                            <AccordionContent className="text-muted-foreground leading-relaxed">
+                              {faq.answer}
+                            </AccordionContent>
+                          </AccordionItem>
+                        ))
+                      ) : (
+                        <div className="py-8 text-center text-muted-foreground">
+                          No FAQ items found.
+                        </div>
+                      )}
                     </Accordion>
                   </CardContent>
                 </Card>

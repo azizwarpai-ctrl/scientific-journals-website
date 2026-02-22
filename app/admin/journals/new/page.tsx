@@ -63,12 +63,19 @@ export default function NewJournalPage() {
         },
         body: JSON.stringify({
           title: formData.title,
+          abbreviation: formData.abbreviation,
           issn: formData.issn,
+          e_issn: formData.e_issn,
           description: formData.description,
-          subject_area: formData.field,
-          frequency: formData.frequency || "quarterly",
+          field: formData.field,
+          publisher: formData.publisher,
+          editor_in_chief: formData.editor_in_chief,
+          frequency: formData.frequency,
           submission_fee: formData.submission_fee ? parseFloat(formData.submission_fee) : 0,
           publication_fee: formData.publication_fee ? parseFloat(formData.publication_fee) : 0,
+          cover_image_url: formData.cover_image_url,
+          website_url: formData.website_url,
+          status: formData.status,
         }),
       })
 
