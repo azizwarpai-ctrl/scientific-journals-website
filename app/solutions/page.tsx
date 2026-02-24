@@ -1,21 +1,17 @@
+"use client"
+
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
-import { prisma } from "@/lib/db/config"
 import { Card, CardContent } from "@/components/ui/card"
-import { BookOpen } from "lucide-react"
+import { BookOpen, Loader2 } from "lucide-react"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
+import { useGetJournals } from "@/src/features/journals"
 
-export default async function SolutionsPage() {
-  let journals: any[] = []
-  try {
-    journals = (await Promise.race([
-      prisma.journal.findMany({ select: { id: true, title: true, description: true, field: true }, take: 6 }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("Database query timeout")), 5000))
-    ])) as any[]
-  } catch (e) {
-    console.error("Error fetching solutions journals:", e)
-  }
+export default function SolutionsPage() {
+  const { data: journals = [], isLoading, error } = useGetJournals()
 
+  // Take 6 journals for the solutions page preview
+  const featuredJournals = journals.slice(0, 6)
   const colors = ["primary", "secondary"]
 
   return (
@@ -39,25 +35,35 @@ export default async function SolutionsPage() {
 
         <section className="py-20">
           <div className="container mx-auto px-4 md:px-6">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {journals.map((journal, idx) => (
-                <GSAPWrapper key={idx} animation="slideUp" delay={0.1 + idx * 0.1}>
-                  <Card className="h-full transition-all hover:shadow-xl hover:-translate-y-1">
-                    <CardContent className="pt-6">
-                      <div
-                        className={`mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-${colors[idx % 2]}/10`}
-                      >
-                        <BookOpen className={`h-6 w-6 text-${colors[idx % 2]}`} />
-                      </div>
-                      <h3 className="mb-2 text-xl font-semibold">{journal.title}</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {journal.description || `Specialized publishing solutions for ${journal.field} research and development.`}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </GSAPWrapper>
-              ))}
-            </div>
+            {error ? (
+              <div className="rounded-lg bg-red-50 p-4 text-center text-red-600">
+                Failed to load featured journals. Please try again later.
+              </div>
+            ) : isLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {featuredJournals.map((journal, idx) => (
+                  <GSAPWrapper key={journal.id} animation="slideUp" delay={0.1 + idx * 0.1}>
+                    <Card className="h-full transition-all hover:shadow-xl hover:-translate-y-1">
+                      <CardContent className="pt-6">
+                        <div
+                          className={`mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-${colors[idx % 2]}/10`}
+                        >
+                          <BookOpen className={`h-6 w-6 text-${colors[idx % 2]}`} />
+                        </div>
+                        <h3 className="mb-2 text-xl font-semibold">{journal.title}</h3>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {journal.description || `Specialized publishing solutions for ${journal.field} research and development.`}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </GSAPWrapper>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </main>

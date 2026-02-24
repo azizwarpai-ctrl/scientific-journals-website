@@ -11,40 +11,28 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useLogin } from "@/src/features/auth"
+import { Loader2 } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const { mutate, isPending, error } = useLogin()
+
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError(null)
 
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Login failed")
+    mutate(
+      { email, password },
+      {
+        onSuccess: () => {
+          router.push("/admin/dashboard")
+          router.refresh()
+        },
       }
-
-      // Success - redirect to dashboard or home
-      router.push("/admin/dashboard") // Using admin dashboard for now as common destination
-      router.refresh()
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred")
-    } finally {
-      setIsLoading(false)
-    }
+    )
   }
 
   return (
@@ -75,6 +63,7 @@ export default function LoginPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
+                      disabled={isPending}
                     />
                   </div>
                   <div className="space-y-2">
@@ -90,15 +79,25 @@ export default function LoginPage() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
+                      disabled={isPending}
                     />
                   </div>
                   {error && (
                     <div className="rounded-lg bg-red-50 p-3 dark:bg-red-900/20">
-                      <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                      <p className="text-sm text-red-600 dark:text-red-400">
+                        {error instanceof Error ? error.message : "Login failed"}
+                      </p>
                     </div>
                   )}
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Logging in..." : "Login"}
+                  <Button type="submit" className="w-full" disabled={isPending}>
+                    {isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Logging in...
+                      </>
+                    ) : (
+                      "Login"
+                    )}
                   </Button>
                 </form>
 

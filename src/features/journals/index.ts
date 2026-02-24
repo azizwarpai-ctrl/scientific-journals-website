@@ -1,5 +1,7 @@
 export { journalCreateSchema, journalUpdateSchema, journalIdParamSchema } from "./schemas/journal-schema"
 export type { JournalCreate, JournalUpdate } from "./schemas/journal-schema"
 export type { Journal, JournalResponse } from "./types/journal-type"
-export { journalRouter } from "./server/route"
 export { useCreateJournal } from "./api/use-create-journal"
+export { useGetJournals } from "./api/use-get-journals"
+export { useGetJournal } from "./api/use-get-journal"
+export { useJournalId } from "./hooks/use-journal-id"
