@@ -2,7 +2,10 @@ import { cookies } from "next/headers"
 import { prisma } from "./config"
 import * as jose from "jose"
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "your-secret-key-change-in-production")
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is required")
+}
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
 
 export interface User {
   id: string
@@ -62,6 +65,6 @@ export async function verifyAdmin(userId: string): Promise<boolean> {
     where: { id: BigInt(userId) },
     select: { role: true },
   })
-  
+
   return user?.role === "admin"
 }
