@@ -1,4 +1,5 @@
 import { Hono } from "hono"
+import { zValidator } from "@hono/zod-validator"
 import { getSession } from "@/lib/db/auth"
 import { prisma } from "@/lib/db/config"
 import { journalCreateSchema, journalUpdateSchema, journalIdParamSchema } from "../schemas/journal-schema"
@@ -15,31 +16,33 @@ const serializeJournal = (journal: any): Journal => ({
   publication_fee: journal.publication_fee || 0,
 })
 
+const JOURNAL_SELECT = {
+  id: true,
+  title: true,
+  abbreviation: true,
+  issn: true,
+  e_issn: true,
+  description: true,
+  field: true,
+  publisher: true,
+  editor_in_chief: true,
+  frequency: true,
+  submission_fee: true,
+  publication_fee: true,
+  cover_image_url: true,
+  website_url: true,
+  status: true,
+  created_at: true,
+  updated_at: true,
+  created_by: true,
+  ojs_id: true,
+} as const
+
 // GET /journals - List all journals (public)
 app.get("/", async (c) => {
   try {
     const journals = await prisma.journal.findMany({
-      select: {
-        id: true,
-        title: true,
-        abbreviation: true,
-        issn: true,
-        e_issn: true,
-        description: true,
-        field: true,
-        publisher: true,
-        editor_in_chief: true,
-        frequency: true,
-        submission_fee: true,
-        publication_fee: true,
-        cover_image_url: true,
-        website_url: true,
-        status: true,
-        created_at: true,
-        updated_at: true,
-        created_by: true,
-        ojs_id: true,
-      },
+      select: JOURNAL_SELECT,
       orderBy: { created_at: "desc" },
     })
 
@@ -54,44 +57,13 @@ app.get("/", async (c) => {
 })
 
 // GET /journals/:id - Get single journal (public)
-app.get("/:id", async (c) => {
+app.get("/:id", zValidator("param", journalIdParamSchema), async (c) => {
   try {
-    const { id } = c.req.param()
-    const validation = journalIdParamSchema.safeParse({ id })
-
-    if (!validation.success) {
-      return c.json(
-        {
-          success: false,
-          error: "Invalid journal ID",
-        },
-        400
-      )
-    }
+    const { id } = c.req.valid("param")
 
     const journal = await prisma.journal.findUnique({
       where: { id: BigInt(id) },
-      select: {
-        id: true,
-        title: true,
-        abbreviation: true,
-        issn: true,
-        e_issn: true,
-        description: true,
-        field: true,
-        publisher: true,
-        editor_in_chief: true,
-        frequency: true,
-        submission_fee: true,
-        publication_fee: true,
-        cover_image_url: true,
-        website_url: true,
-        status: true,
-        created_at: true,
-        updated_at: true,
-        created_by: true,
-        ojs_id: true,
-      },
+      select: JOURNAL_SELECT,
     })
 
     if (!journal) {
@@ -109,28 +81,14 @@ app.get("/:id", async (c) => {
 })
 
 // POST /journals - Create journal (auth required)
-app.post("/", async (c) => {
+app.post("/", zValidator("json", journalCreateSchema), async (c) => {
   try {
     const session = await getSession()
     if (!session) {
       return c.json({ success: false, error: "Unauthorized" }, 401)
     }
 
-    const body = await c.req.json()
-    const validation = journalCreateSchema.safeParse(body)
-
-    if (!validation.success) {
-      return c.json(
-        {
-          success: false,
-          error: "Validation failed",
-          data: validation.error.issues,
-        },
-        400
-      )
-    }
-
-    const data = validation.data
+    const data = c.req.valid("json")
     const journal = await prisma.journal.create({
       data: {
         title: data.title,
@@ -149,27 +107,7 @@ app.post("/", async (c) => {
         status: data.status || "active",
         created_by: BigInt(session.id),
       },
-      select: {
-        id: true,
-        title: true,
-        abbreviation: true,
-        issn: true,
-        e_issn: true,
-        description: true,
-        field: true,
-        publisher: true,
-        editor_in_chief: true,
-        frequency: true,
-        submission_fee: true,
-        publication_fee: true,
-        cover_image_url: true,
-        website_url: true,
-        status: true,
-        created_at: true,
-        updated_at: true,
-        created_by: true,
-        ojs_id: true,
-      },
+      select: JOURNAL_SELECT,
     })
 
     return c.json(
@@ -183,39 +121,15 @@ app.post("/", async (c) => {
 })
 
 // PATCH /journals/:id - Update journal (auth required)
-app.patch("/:id", async (c) => {
+app.patch("/:id", zValidator("param", journalIdParamSchema), zValidator("json", journalUpdateSchema), async (c) => {
   try {
     const session = await getSession()
     if (!session) {
       return c.json({ success: false, error: "Unauthorized" }, 401)
     }
 
-    const { id } = c.req.param()
-    const validation = journalIdParamSchema.safeParse({ id })
-
-    if (!validation.success) {
-      return c.json(
-        {
-          success: false,
-          error: "Invalid journal ID",
-        },
-        400
-      )
-    }
-
-    const body = await c.req.json()
-    const dataValidation = journalUpdateSchema.safeParse(body)
-
-    if (!dataValidation.success) {
-      return c.json(
-        {
-          success: false,
-          error: "Validation failed",
-          data: dataValidation.error.issues,
-        },
-        400
-      )
-    }
+    const { id } = c.req.valid("param")
+    const data = c.req.valid("json")
 
     // Check if journal exists
     const existingJournal = await prisma.journal.findUnique({
@@ -230,7 +144,6 @@ app.patch("/:id", async (c) => {
       )
     }
 
-    const data = dataValidation.data
     const updateData: any = {}
 
     if (data.title !== undefined) updateData.title = data.title
@@ -251,27 +164,7 @@ app.patch("/:id", async (c) => {
     const journal = await prisma.journal.update({
       where: { id: BigInt(id) },
       data: updateData,
-      select: {
-        id: true,
-        title: true,
-        abbreviation: true,
-        issn: true,
-        e_issn: true,
-        description: true,
-        field: true,
-        publisher: true,
-        editor_in_chief: true,
-        frequency: true,
-        submission_fee: true,
-        publication_fee: true,
-        cover_image_url: true,
-        website_url: true,
-        status: true,
-        created_at: true,
-        updated_at: true,
-        created_by: true,
-        ojs_id: true,
-      },
+      select: JOURNAL_SELECT,
     })
 
     return c.json(
@@ -285,25 +178,14 @@ app.patch("/:id", async (c) => {
 })
 
 // DELETE /journals/:id - Delete journal (auth required)
-app.delete("/:id", async (c) => {
+app.delete("/:id", zValidator("param", journalIdParamSchema), async (c) => {
   try {
     const session = await getSession()
     if (!session) {
       return c.json({ success: false, error: "Unauthorized" }, 401)
     }
 
-    const { id } = c.req.param()
-    const validation = journalIdParamSchema.safeParse({ id })
-
-    if (!validation.success) {
-      return c.json(
-        {
-          success: false,
-          error: "Invalid journal ID",
-        },
-        400
-      )
-    }
+    const { id } = c.req.valid("param")
 
     const existingJournal = await prisma.journal.findUnique({
       where: { id: BigInt(id) },

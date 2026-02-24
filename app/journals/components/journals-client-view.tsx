@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, SlidersHorizontal } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 
 interface Journal {
   id: string
@@ -117,9 +118,11 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
             {filteredJournals.map((journal) => (
               <Card key={journal.id} className="group overflow-hidden transition-all hover:shadow-xl">
                 <div className="relative h-80 w-full overflow-hidden">
-                  <img
+                  <Image
                     src={journal.coverImage || "/images/logodigitopub.png"}
                     alt={journal.title}
+                    width={500}
+                    height={500}
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />

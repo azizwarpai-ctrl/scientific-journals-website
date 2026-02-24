@@ -1,4 +1,5 @@
 import { Hono } from "hono"
+import { zValidator } from "@hono/zod-validator"
 import { loginSchema, registerSchema } from "../schemas/auth-schema"
 import { createUser, verifyPassword, getUserById } from "@/lib/db/users"
 import { createSession, getSession, destroySession } from "@/lib/db/auth"
@@ -6,19 +7,9 @@ import { createSession, getSession, destroySession } from "@/lib/db/auth"
 const app = new Hono()
 
 // POST /auth/login
-app.post("/login", async (c) => {
+app.post("/login", zValidator("json", loginSchema), async (c) => {
   try {
-    const body = await c.req.json()
-    const validation = loginSchema.safeParse(body)
-
-    if (!validation.success) {
-      return c.json(
-        { success: false, error: "Validation failed", data: validation.error.issues },
-        400
-      )
-    }
-
-    const { email, password } = validation.data
+    const { email, password } = c.req.valid("json")
     const user = await verifyPassword(email, password)
 
     if (!user) {
@@ -38,26 +29,16 @@ app.post("/login", async (c) => {
 })
 
 // POST /auth/register
-app.post("/register", async (c) => {
+app.post("/register", zValidator("json", registerSchema), async (c) => {
   try {
-    const body = await c.req.json()
-    const validation = registerSchema.safeParse(body)
-
-    if (!validation.success) {
-      return c.json(
-        { success: false, error: "Validation failed", data: validation.error.issues },
-        400
-      )
-    }
-
-    const { email, password, fullName } = validation.data
-    const userId = await createUser(email, password, fullName, "admin")
+    const { email, password, fullName } = c.req.valid("json")
+    const userId = await createUser(email, password, fullName, "author")
 
     const user = {
       id: userId.toString(),
       email,
       full_name: fullName,
-      role: "admin",
+      role: "author",
     }
 
     await createSession(user)

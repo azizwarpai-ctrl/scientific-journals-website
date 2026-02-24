@@ -1,4 +1,5 @@
 import { Hono } from "hono"
+import { zValidator } from "@hono/zod-validator"
 import { getSession } from "@/lib/db/auth"
 import { prisma } from "@/lib/db/config"
 import { messageCreateSchema, messageUpdateSchema, messageIdParamSchema } from "../schemas/message-schema"
@@ -31,19 +32,14 @@ app.get("/", async (c) => {
 })
 
 // GET /messages/:id - Get single message (auth required)
-app.get("/:id", async (c) => {
+app.get("/:id", zValidator("param", messageIdParamSchema), async (c) => {
   try {
     const session = await getSession()
     if (!session) {
       return c.json({ success: false, error: "Unauthorized" }, 401)
     }
 
-    const { id } = c.req.param()
-    const validation = messageIdParamSchema.safeParse({ id })
-
-    if (!validation.success) {
-      return c.json({ success: false, error: "Invalid message ID" }, 400)
-    }
+    const { id } = c.req.valid("param")
 
     const message = await prisma.message.findUnique({
       where: { id: BigInt(id) },
@@ -61,19 +57,9 @@ app.get("/:id", async (c) => {
 })
 
 // POST /messages - Create message (public, for contact forms)
-app.post("/", async (c) => {
+app.post("/", zValidator("json", messageCreateSchema), async (c) => {
   try {
-    const body = await c.req.json()
-    const validation = messageCreateSchema.safeParse(body)
-
-    if (!validation.success) {
-      return c.json(
-        { success: false, error: "Validation failed", data: validation.error.issues },
-        400
-      )
-    }
-
-    const data = validation.data
+    const data = c.req.valid("json")
     const message = await prisma.message.create({
       data: {
         name: data.name,
@@ -96,29 +82,15 @@ app.post("/", async (c) => {
 })
 
 // PATCH /messages/:id - Update message status (auth required)
-app.patch("/:id", async (c) => {
+app.patch("/:id", zValidator("param", messageIdParamSchema), zValidator("json", messageUpdateSchema), async (c) => {
   try {
     const session = await getSession()
     if (!session) {
       return c.json({ success: false, error: "Unauthorized" }, 401)
     }
 
-    const { id } = c.req.param()
-    const idValidation = messageIdParamSchema.safeParse({ id })
-
-    if (!idValidation.success) {
-      return c.json({ success: false, error: "Invalid message ID" }, 400)
-    }
-
-    const body = await c.req.json()
-    const dataValidation = messageUpdateSchema.safeParse(body)
-
-    if (!dataValidation.success) {
-      return c.json(
-        { success: false, error: "Validation failed", data: dataValidation.error.issues },
-        400
-      )
-    }
+    const { id } = c.req.valid("param")
+    const data = c.req.valid("json")
 
     const existing = await prisma.message.findUnique({
       where: { id: BigInt(id) },
@@ -130,7 +102,7 @@ app.patch("/:id", async (c) => {
     }
 
     const updateData: any = {}
-    if (dataValidation.data.status !== undefined) updateData.status = dataValidation.data.status
+    if (data.status !== undefined) updateData.status = data.status
 
     const message = await prisma.message.update({
       where: { id: BigInt(id) },
@@ -148,19 +120,14 @@ app.patch("/:id", async (c) => {
 })
 
 // DELETE /messages/:id - Delete message (auth required)
-app.delete("/:id", async (c) => {
+app.delete("/:id", zValidator("param", messageIdParamSchema), async (c) => {
   try {
     const session = await getSession()
     if (!session) {
       return c.json({ success: false, error: "Unauthorized" }, 401)
     }
 
-    const { id } = c.req.param()
-    const validation = messageIdParamSchema.safeParse({ id })
-
-    if (!validation.success) {
-      return c.json({ success: false, error: "Invalid message ID" }, 400)
-    }
+    const { id } = c.req.valid("param")
 
     const existing = await prisma.message.findUnique({
       where: { id: BigInt(id) },

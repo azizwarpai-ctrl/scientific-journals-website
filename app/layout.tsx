@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
+import { QueryProvider } from "@/components/query-provider"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -43,7 +44,9 @@ export default function RootLayout({
           enableSystem={true}
           storageKey="digitopub-theme"
         >
-          {children}
+          <QueryProvider>
+            {children}
+          </QueryProvider>
           <Analytics />
         </ThemeProvider>
       </body>
