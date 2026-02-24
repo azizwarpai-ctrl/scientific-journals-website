@@ -1,5 +1,5 @@
 export { solutionCreateSchema, solutionUpdateSchema, solutionIdParamSchema } from "./schemas/solution-schema"
 export type { SolutionCreate, SolutionUpdate } from "./schemas/solution-schema"
 export type { Solution, SolutionResponse } from "./types/solution-type"
-export { solutionRouter } from "./server/route"
 export { useGetSolutions, useCreateSolution } from "./api/use-solutions"
+export { useGetFaqs } from "./api/use-get-faqs"
