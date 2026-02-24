@@ -1,31 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { Hono } from "hono"
-import { journalRouter } from "@/src/features/journals"
-import { solutionRouter } from "@/src/features/solutions"
-import { authRouter } from "@/src/features/auth"
-import { messageRouter } from "@/src/features/messages"
-import { ojsRouter } from "@/src/features/ojs"
-
-const app = new Hono().basePath("/api")
-
-// Feature routes
-app.route("/journals", journalRouter)
-app.route("/solutions", solutionRouter)
-app.route("/auth", authRouter)
-app.route("/messages", messageRouter)
-app.route("/ojs", ojsRouter)
-
-// Root health check
-app.get("/", (c) => {
-  return c.json(
-    {
-      success: true,
-      message: "API is running",
-      version: "1.0.0",
-    },
-    200
-  )
-})
+import { app } from "@/src/server/app"
 
 // Custom Next.js handler for Hono app
 const handler = async (req: NextRequest) => {
@@ -52,6 +26,3 @@ export const GET = handler
 export const POST = handler
 export const PATCH = handler
 export const DELETE = handler
-
-// Export AppType for RPC client type safety
-export type AppType = typeof app

@@ -6,31 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { BookOpen, FileText, Users, HelpCircle } from "lucide-react"
 import Link from "next/link"
+import { Skeleton } from "@/components/ui/skeleton"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 
-import { useState, useEffect } from "react"
+import { useGetFaqs } from "@/src/features/solutions"
 
 export default function HelpPage() {
-  const [faqs, setFaqs] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchFaqs = async () => {
-      try {
-        const response = await fetch("/api/solutions")
-        const data = await response.json()
-        if (data.success) {
-          setFaqs(data.data)
-        }
-      } catch (error) {
-        console.error("Error fetching FAQs:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchFaqs()
-  }, [])
+  const { data: faqs = [], isLoading } = useGetFaqs()
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
@@ -110,8 +92,12 @@ export default function HelpPage() {
                   <CardContent>
                     <Accordion type="single" collapsible className="w-full">
                       {isLoading ? (
-                        <div className="flex justify-center py-8">
-                          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                        <div className="space-y-4 py-4">
+                          {[...Array(5)].map((_, i) => (
+                            <div key={i} className="border-b pb-4">
+                              <Skeleton className="h-6 w-3/4" />
+                            </div>
+                          ))}
                         </div>
                       ) : faqs.length > 0 ? (
                         faqs.map((faq, idx) => (

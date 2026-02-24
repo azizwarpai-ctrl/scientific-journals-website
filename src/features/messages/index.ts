@@ -1,5 +1,4 @@
 export { messageCreateSchema, messageUpdateSchema, messageIdParamSchema } from "./schemas/message-schema"
 export type { MessageCreate, MessageUpdate } from "./schemas/message-schema"
 export type { Message, MessageResponse } from "./types/message-type"
-export { messageRouter } from "./server/route"
 export { useCreateMessage } from "./api/use-create-message"

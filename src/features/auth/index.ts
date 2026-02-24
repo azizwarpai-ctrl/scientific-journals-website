@@ -1,5 +1,4 @@
-export { loginSchema, registerSchema } from "./schemas/auth-schema"
-export type { LoginInput, RegisterInput } from "./schemas/auth-schema"
+export { loginSchema, registerSchema, registerFormSchema } from "./schemas/auth-schema"
+export type { LoginInput, RegisterInput, RegisterFormValues } from "./schemas/auth-schema"
 export type { AuthUser, AuthResponse } from "./types/auth-type"
-export { authRouter } from "./server/route"
 export { useLogin, useRegister, useLogout } from "./api/use-auth"

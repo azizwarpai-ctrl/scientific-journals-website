@@ -2,38 +2,47 @@ import { useMutation } from "@tanstack/react-query"
 import type { LoginInput, RegisterInput } from "../schemas/auth-schema"
 import type { AuthResponse } from "../types/auth-type"
 
-async function postAuth(endpoint: string, body: LoginInput | RegisterInput): Promise<AuthResponse> {
-    const response = await fetch(`/api/auth/${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-    })
-    const data = await response.json()
-    if (!response.ok) {
-        throw new Error(data.error || `${endpoint} failed`)
-    }
-    return data
-}
+import { client } from "@/src/lib/rpc"
 
 export function useLogin() {
     return useMutation({
-        mutationFn: (input: LoginInput) => postAuth("login", input),
+        mutationFn: async (input: LoginInput): Promise<AuthResponse> => {
+            const response = await client.api.auth.login.$post({
+                json: input,
+            })
+            const data = await response.json()
+            if (!response.ok) {
+                throw new Error((data as any).error || "Login failed")
+            }
+            return data as AuthResponse
+        },
     })
 }
 
 export function useRegister() {
     return useMutation({
-        mutationFn: (input: RegisterInput) => postAuth("register", input),
+        mutationFn: async (input: RegisterInput): Promise<AuthResponse> => {
+            const response = await client.api.auth.register.$post({
+                json: input,
+            })
+            const data = await response.json()
+            if (!response.ok) {
+                throw new Error((data as any).error || "Registration failed")
+            }
+            return data as AuthResponse
+        },
     })
 }
 
 export function useLogout() {
     return useMutation({
-        mutationFn: async () => {
-            const response = await fetch("/api/auth/logout", { method: "POST" })
+        mutationFn: async (): Promise<AuthResponse> => {
+            const response = await client.api.auth.logout.$post()
             const data = await response.json()
-            if (!response.ok) throw new Error(data.error || "Logout failed")
-            return data
+            if (!response.ok) {
+                throw new Error((data as any).error || "Logout failed")
+            }
+            return data as AuthResponse
         },
     })
 }
