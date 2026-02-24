@@ -1,4 +1,5 @@
 import { Hono } from "hono"
+import { zValidator } from "@hono/zod-validator"
 import { getSession } from "@/lib/db/auth"
 import { prisma } from "@/lib/db/config"
 import { solutionCreateSchema, solutionUpdateSchema, solutionIdParamSchema } from "../schemas/solution-schema"
@@ -12,6 +13,18 @@ const serializeSolution = (solution: any): Solution => ({
   id: solution.id.toString(),
 })
 
+const SOLUTION_SELECT = {
+  id: true,
+  question: true,
+  answer: true,
+  category: true,
+  is_published: true,
+  view_count: true,
+  helpful_count: true,
+  created_at: true,
+  updated_at: true,
+} as const
+
 // GET /solutions - List published solutions (public)
 app.get("/", async (c) => {
   try {
@@ -20,17 +33,7 @@ app.get("/", async (c) => {
 
     const solutions = await prisma.fAQ.findMany({
       where,
-      select: {
-        id: true,
-        question: true,
-        answer: true,
-        category: true,
-        is_published: true,
-        view_count: true,
-        helpful_count: true,
-        created_at: true,
-        updated_at: true,
-      },
+      select: SOLUTION_SELECT,
       orderBy: { created_at: "desc" },
     })
 
@@ -45,34 +48,13 @@ app.get("/", async (c) => {
 })
 
 // GET /solutions/:id - Get single solution (public for published, admin only for draft)
-app.get("/:id", async (c) => {
+app.get("/:id", zValidator("param", solutionIdParamSchema), async (c) => {
   try {
-    const { id } = c.req.param()
-    const validation = solutionIdParamSchema.safeParse({ id })
-
-    if (!validation.success) {
-      return c.json(
-        {
-          success: false,
-          error: "Invalid solution ID",
-        },
-        400
-      )
-    }
+    const { id } = c.req.valid("param")
 
     const solution = await prisma.fAQ.findUnique({
       where: { id: BigInt(id) },
-      select: {
-        id: true,
-        question: true,
-        answer: true,
-        category: true,
-        is_published: true,
-        view_count: true,
-        helpful_count: true,
-        created_at: true,
-        updated_at: true,
-      },
+      select: SOLUTION_SELECT,
     })
 
     if (!solution) {
@@ -101,28 +83,14 @@ app.get("/:id", async (c) => {
 })
 
 // POST /solutions - Create solution (auth required)
-app.post("/", async (c) => {
+app.post("/", zValidator("json", solutionCreateSchema), async (c) => {
   try {
     const session = await getSession()
     if (!session) {
       return c.json({ success: false, error: "Unauthorized" }, 401)
     }
 
-    const body = await c.req.json()
-    const validation = solutionCreateSchema.safeParse(body)
-
-    if (!validation.success) {
-      return c.json(
-        {
-          success: false,
-          error: "Validation failed",
-          data: validation.error.issues,
-        },
-        400
-      )
-    }
-
-    const data = validation.data
+    const data = c.req.valid("json")
     const solution = await prisma.fAQ.create({
       data: {
         question: data.question,
@@ -130,17 +98,7 @@ app.post("/", async (c) => {
         category: data.category || "general",
         is_published: data.is_published || false,
       },
-      select: {
-        id: true,
-        question: true,
-        answer: true,
-        category: true,
-        is_published: true,
-        view_count: true,
-        helpful_count: true,
-        created_at: true,
-        updated_at: true,
-      },
+      select: SOLUTION_SELECT,
     })
 
     return c.json(
@@ -154,39 +112,15 @@ app.post("/", async (c) => {
 })
 
 // PATCH /solutions/:id - Update solution (auth required)
-app.patch("/:id", async (c) => {
+app.patch("/:id", zValidator("param", solutionIdParamSchema), zValidator("json", solutionUpdateSchema), async (c) => {
   try {
     const session = await getSession()
     if (!session) {
       return c.json({ success: false, error: "Unauthorized" }, 401)
     }
 
-    const { id } = c.req.param()
-    const validation = solutionIdParamSchema.safeParse({ id })
-
-    if (!validation.success) {
-      return c.json(
-        {
-          success: false,
-          error: "Invalid solution ID",
-        },
-        400
-      )
-    }
-
-    const body = await c.req.json()
-    const dataValidation = solutionUpdateSchema.safeParse(body)
-
-    if (!dataValidation.success) {
-      return c.json(
-        {
-          success: false,
-          error: "Validation failed",
-          data: dataValidation.error.issues,
-        },
-        400
-      )
-    }
+    const { id } = c.req.valid("param")
+    const data = c.req.valid("json")
 
     // Check if solution exists
     const existingSolution = await prisma.fAQ.findUnique({
@@ -201,7 +135,6 @@ app.patch("/:id", async (c) => {
       )
     }
 
-    const data = dataValidation.data
     const updateData: any = {}
 
     if (data.question !== undefined) updateData.question = data.question
@@ -212,17 +145,7 @@ app.patch("/:id", async (c) => {
     const solution = await prisma.fAQ.update({
       where: { id: BigInt(id) },
       data: updateData,
-      select: {
-        id: true,
-        question: true,
-        answer: true,
-        category: true,
-        is_published: true,
-        view_count: true,
-        helpful_count: true,
-        created_at: true,
-        updated_at: true,
-      },
+      select: SOLUTION_SELECT,
     })
 
     return c.json(
@@ -236,25 +159,14 @@ app.patch("/:id", async (c) => {
 })
 
 // DELETE /solutions/:id - Delete solution (auth required)
-app.delete("/:id", async (c) => {
+app.delete("/:id", zValidator("param", solutionIdParamSchema), async (c) => {
   try {
     const session = await getSession()
     if (!session) {
       return c.json({ success: false, error: "Unauthorized" }, 401)
     }
 
-    const { id } = c.req.param()
-    const validation = solutionIdParamSchema.safeParse({ id })
-
-    if (!validation.success) {
-      return c.json(
-        {
-          success: false,
-          error: "Invalid solution ID",
-        },
-        400
-      )
-    }
+    const { id } = c.req.valid("param")
 
     const existingSolution = await prisma.fAQ.findUnique({
       where: { id: BigInt(id) },

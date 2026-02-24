@@ -4,12 +4,16 @@ import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { BookOpen, Zap } from "lucide-react"
+import { BookOpen, Zap, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { AnimatedCounter } from "@/components/animated-counter"
+import { useGetOjsJournals } from "@/src/features/ojs/api/use-get-ojs-journals"
 
 export default function HomePage() {
+  const { data: ojsData, isLoading } = useGetOjsJournals()
+  const journals = ojsData?.data ?? []
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
@@ -90,55 +94,48 @@ export default function HomePage() {
                 </Button>
               </div>
 
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {[
-                  {
-                    title: "Journal of Prosthetic Dentistry",
-                    issn: "ISSN 0022-3913",
-                    field: "Dental Medicine",
-                    fieldImage: "/images/imegjournal.jpg",
-                  },
-                  {
-                    title: "Journal of Computerized Dentistry",
-                    issn: "ISSN 1560-4853",
-                    field: "Digital Dentistry",
-                    fieldImage: "/images/2.png",
-                  },
-                  {
-                    title: "Journal of Technology Research",
-                    issn: "ISSN 3005-639X",
-                    field: "Engineering",
-                    fieldImage: "/images/1.png",
-                  },
-                ].map((journal, idx) => (
-                  <GSAPWrapper key={idx} animation="slideUp" delay={0.4 + idx * 0.1}>
-                    <Card className="transition-shadow hover:shadow-lg overflow-hidden">
-                      <div className="relative h-64 w-full overflow-hidden">
-                        <img
-                          src={journal.fieldImage || "/images/logodigitopub.png"}
-                          alt={journal.field}
-                          className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-                        <div className="absolute bottom-4 left-4 right-4">
-                          <span className="inline-block rounded-full bg-primary/90 px-3 py-1 text-xs font-medium text-primary-foreground backdrop-blur-sm">
-                            {journal.field}
-                          </span>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : journals.length > 0 ? (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {journals.slice(0, 6).map((journal, idx) => (
+                    <GSAPWrapper key={journal.journal_id} animation="slideUp" delay={0.4 + idx * 0.1}>
+                      <Card className="transition-shadow hover:shadow-lg overflow-hidden">
+                        <div className="relative h-64 w-full overflow-hidden bg-gradient-to-br from-primary/20 to-secondary/20">
+                          <div className="flex h-full items-center justify-center">
+                            <BookOpen className="h-16 w-16 text-primary/40" />
+                          </div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                          <div className="absolute bottom-4 left-4 right-4">
+                            <span className="inline-block rounded-full bg-primary/90 px-3 py-1 text-xs font-medium text-primary-foreground backdrop-blur-sm">
+                              {journal.primary_locale}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <CardContent className="pt-6">
-                        <h3 className="mb-2 font-semibold text-balance">{journal.title}</h3>
-                        <p className="mb-4 text-sm text-muted-foreground">{journal.issn}</p>
-                        <div className="flex items-center justify-between">
-                          <Button size="sm" variant="outline" asChild>
-                            <Link href={`/journals/${idx + 1}`}>View Details</Link>
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </GSAPWrapper>
-                ))}
-              </div>
+                        <CardContent className="pt-6">
+                          <h3 className="mb-2 font-semibold text-balance">{journal.name || journal.path}</h3>
+                          <p className="mb-4 text-sm text-muted-foreground line-clamp-2">
+                            {journal.description || "No description available"}
+                          </p>
+                          <div className="flex items-center justify-between">
+                            <Button size="sm" variant="outline" asChild>
+                              <Link href={`/journals/${journal.journal_id}`}>View Details</Link>
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </GSAPWrapper>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16 text-muted-foreground">
+                  <BookOpen className="mx-auto mb-4 h-12 w-12 opacity-50" />
+                  <p className="text-lg font-medium">No journals available yet</p>
+                  <p className="mt-1 text-sm">Journals will appear here once the OJS database is connected.</p>
+                </div>
+              )}
             </div>
           </section>
         </GSAPWrapper>

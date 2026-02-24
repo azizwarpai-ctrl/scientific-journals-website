@@ -4,6 +4,7 @@ import { journalRouter } from "@/src/features/journals"
 import { solutionRouter } from "@/src/features/solutions"
 import { authRouter } from "@/src/features/auth"
 import { messageRouter } from "@/src/features/messages"
+import { ojsRouter } from "@/src/features/ojs"
 
 const app = new Hono().basePath("/api")
 
@@ -12,6 +13,7 @@ app.route("/journals", journalRouter)
 app.route("/solutions", solutionRouter)
 app.route("/auth", authRouter)
 app.route("/messages", messageRouter)
+app.route("/ojs", ojsRouter)
 
 // Root health check
 app.get("/", (c) => {
