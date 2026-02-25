@@ -15,7 +15,12 @@ export interface User {
 }
 
 export async function createSession(user: User) {
-  const token = await new jose.SignJWT({ userId: user.id, email: user.email, role: user.role })
+  const token = await new jose.SignJWT({
+    userId: user.id,
+    email: user.email,
+    full_name: user.full_name,
+    role: user.role,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
@@ -46,7 +51,7 @@ export async function getSession(): Promise<User | null> {
     return {
       id: payload.userId as string,
       email: payload.email as string,
-      full_name: "", // Will be fetched from DB if needed
+      full_name: (payload.full_name as string) || "",
       role: payload.role as string,
     }
   } catch (error) {
@@ -66,5 +71,5 @@ export async function verifyAdmin(userId: string): Promise<boolean> {
     select: { role: true },
   })
 
-  return user?.role === "admin"
+  return user?.role === "admin" || user?.role === "superadmin"
 }

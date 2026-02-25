@@ -29,8 +29,8 @@ export const requireAdmin = createMiddleware(async (c: Context, next: Next) => {
         return c.json({ success: false, error: "Unauthorized" }, 401)
     }
 
-    if (session.role !== "admin") {
-        return c.json({ success: false, error: "Forbidden: admin access required" }, 403)
+    if (session.role !== "admin" && session.role !== "superadmin") {
+        return c.json({ success: false, error: "Forbidden: administrative access required" }, 403)
     }
 
     c.set("session", session)

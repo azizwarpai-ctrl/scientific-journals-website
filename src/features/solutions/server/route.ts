@@ -25,7 +25,8 @@ const SOLUTION_SELECT = {
 app.get("/", async (c) => {
   try {
     const pagination = parsePagination(c)
-    const isAdmin = await getSession()
+    const session = await getSession()
+    const isAdmin = session && (session.role === "admin" || session.role === "superadmin")
     const where = isAdmin ? {} : { is_published: true }
 
     const [solutions, total] = await Promise.all([
@@ -62,7 +63,7 @@ app.get("/:id", zValidator("param", solutionIdParamSchema), async (c) => {
 
     if (!solution.is_published) {
       const session = await getSession()
-      if (!session) {
+      if (!session || (session.role !== "admin" && session.role !== "superadmin")) {
         return c.json({ success: false, error: "Not found" }, 404)
       }
     }
