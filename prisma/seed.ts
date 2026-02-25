@@ -55,10 +55,10 @@ async function main() {
 
     // 2. Create Super Admin
     console.log('👤 Creating Super Admin...')
-    const adminPassword = await bcrypt.hash('admin123', 10) // Should be changed on first login
+    const adminPassword = await bcrypt.hash('WMssg_k2', 10) // Should be changed on first login
     await prisma.adminUser.create({
       data: {
-        email: 'admin@digstobob.com',
+        email: 'admin@digitopub.com',
         password_hash: adminPassword,
         full_name: 'Super Administrator',
         role: 'superadmin',
