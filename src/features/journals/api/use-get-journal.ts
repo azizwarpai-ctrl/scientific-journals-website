@@ -7,7 +7,7 @@ export const useGetJournal = (id: string) => {
     const query = useQuery<Journal, Error>({
         queryKey: ["journals", id],
         queryFn: async () => {
-            const response = await client.api.journals[":id"].$get({
+            const response = await client.journals[":id"].$get({
                 param: { id },
             })
 

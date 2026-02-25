@@ -8,7 +8,7 @@ export function useCreateJournal() {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: async (input: JournalCreate): Promise<JournalResponse> => {
-            const response = await client.api.journals.$post({
+            const response = await client.journals.$post({
                 json: input,
             })
             const data = await response.json()

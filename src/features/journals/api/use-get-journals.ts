@@ -7,7 +7,7 @@ export const useGetJournals = () => {
     const query = useQuery<Journal[], Error>({
         queryKey: ["journals"],
         queryFn: async () => {
-            const response = await client.api.journals.$get()
+            const response = await client.journals.$get()
 
             if (!response.ok) {
                 const error = await response.json()
