@@ -7,7 +7,7 @@ import { client } from "@/src/lib/rpc"
 export function useLogin() {
     return useMutation({
         mutationFn: async (input: LoginInput): Promise<AuthResponse> => {
-            const response = await client.api.auth.login.$post({
+            const response = await client.auth.login.$post({
                 json: input,
             })
             const data = await response.json()
@@ -22,7 +22,7 @@ export function useLogin() {
 export function useRegister() {
     return useMutation({
         mutationFn: async (input: RegisterInput): Promise<AuthResponse> => {
-            const response = await client.api.auth.register.$post({
+            const response = await client.auth.register.$post({
                 json: input,
             })
             const data = await response.json()
@@ -37,7 +37,7 @@ export function useRegister() {
 export function useLogout() {
     return useMutation({
         mutationFn: async (): Promise<AuthResponse> => {
-            const response = await client.api.auth.logout.$post()
+            const response = await client.auth.logout.$post()
             const data = await response.json()
             if (!response.ok) {
                 throw new Error((data as any).error || "Logout failed")

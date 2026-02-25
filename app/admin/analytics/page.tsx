@@ -11,6 +11,14 @@ export default async function AnalyticsPage() {
     redirect("/admin/login")
   }
 
+  // Initialize counts
+  let journalsCount = 0
+  let submissionsCount = 0
+  let acceptedCount = 0
+  let publishedCount = 0
+  let reviewsCount = 0
+  const fieldGroups: Record<string, number> = {}
+
   // Fetch analytics data
   try {
     const [
@@ -37,7 +45,7 @@ export default async function AnalyticsPage() {
   }
 
   // Calculate acceptance rate
-  const acceptanceRate = submissionsCount && submissionsCount > 0 ? ((acceptedCount || 0) / submissionsCount) * 100 : 0
+  const acceptanceRate = submissionsCount > 0 ? (acceptedCount / submissionsCount) * 100 : 0
 
   // Fetch submissions by field
   try {

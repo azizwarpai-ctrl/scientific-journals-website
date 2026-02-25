@@ -1,20 +1,13 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
+import { requireAdmin } from "@/src/lib/auth-middleware"
+import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
+import { serializeRecord, serializeMany } from "@/src/lib/serialize"
 import { getSession } from "@/lib/db/auth"
 import { prisma } from "@/lib/db/config"
 import { journalCreateSchema, journalUpdateSchema, journalIdParamSchema } from "../schemas/journal-schema"
-import type { Journal } from "../types/journal-type"
 
 const app = new Hono()
-
-// Helper to serialize BigInt to string
-const serializeJournal = (journal: any): Journal => ({
-  ...journal,
-  id: journal.id.toString(),
-  created_by: journal.created_by?.toString() || null,
-  submission_fee: journal.submission_fee || 0,
-  publication_fee: journal.publication_fee || 0,
-})
 
 const JOURNAL_SELECT = {
   id: true,
@@ -38,18 +31,22 @@ const JOURNAL_SELECT = {
   ojs_id: true,
 } as const
 
-// GET /journals - List all journals (public)
+// GET /journals - List all journals (public, paginated)
 app.get("/", async (c) => {
   try {
-    const journals = await prisma.journal.findMany({
-      select: JOURNAL_SELECT,
-      orderBy: { created_at: "desc" },
-    })
+    const pagination = parsePagination(c)
 
-    return c.json(
-      { success: true, data: journals.map(serializeJournal) },
-      200
-    )
+    const [journals, total] = await Promise.all([
+      prisma.journal.findMany({
+        select: JOURNAL_SELECT,
+        orderBy: { created_at: "desc" },
+        take: pagination.limit,
+        skip: pagination.offset,
+      }),
+      prisma.journal.count(),
+    ])
+
+    return c.json(paginatedResponse(serializeMany(journals), total, pagination), 200)
   } catch (error) {
     console.error("Error fetching journals:", error)
     return c.json({ success: false, error: "Failed to fetch journals" }, 500)
@@ -67,27 +64,23 @@ app.get("/:id", zValidator("param", journalIdParamSchema), async (c) => {
     })
 
     if (!journal) {
-      return c.json(
-        { success: false, error: "Journal not found" },
-        404
-      )
+      return c.json({ success: false, error: "Journal not found" }, 404)
     }
 
-    return c.json({ success: true, data: serializeJournal(journal) }, 200)
+    return c.json({ success: true, data: serializeRecord(journal) }, 200)
   } catch (error) {
     console.error("Error fetching journal:", error)
     return c.json({ success: false, error: "Failed to fetch journal" }, 500)
   }
 })
 
-// POST /journals - Create journal (auth required)
-app.post("/", zValidator("json", journalCreateSchema), async (c) => {
+// POST /journals - Create journal (admin only)
+app.post("/", requireAdmin, zValidator("json", journalCreateSchema), async (c) => {
   try {
     const session = await getSession()
     if (!session) {
       return c.json({ success: false, error: "Unauthorized" }, 401)
     }
-
     const data = c.req.valid("json")
     const journal = await prisma.journal.create({
       data: {
@@ -111,7 +104,7 @@ app.post("/", zValidator("json", journalCreateSchema), async (c) => {
     })
 
     return c.json(
-      { success: true, data: serializeJournal(journal), message: "Journal created successfully" },
+      { success: true, data: serializeRecord(journal), message: "Journal created successfully" },
       201
     )
   } catch (error) {
@@ -120,46 +113,27 @@ app.post("/", zValidator("json", journalCreateSchema), async (c) => {
   }
 })
 
-// PATCH /journals/:id - Update journal (auth required)
-app.patch("/:id", zValidator("param", journalIdParamSchema), zValidator("json", journalUpdateSchema), async (c) => {
+// PATCH /journals/:id - Update journal (admin only)
+app.patch("/:id", requireAdmin, zValidator("param", journalIdParamSchema), zValidator("json", journalUpdateSchema), async (c) => {
   try {
-    const session = await getSession()
-    if (!session) {
-      return c.json({ success: false, error: "Unauthorized" }, 401)
-    }
-
     const { id } = c.req.valid("param")
     const data = c.req.valid("json")
 
-    // Check if journal exists
     const existingJournal = await prisma.journal.findUnique({
       where: { id: BigInt(id) },
       select: { id: true },
     })
 
     if (!existingJournal) {
-      return c.json(
-        { success: false, error: "Journal not found" },
-        404
-      )
+      return c.json({ success: false, error: "Journal not found" }, 404)
     }
 
-    const updateData: any = {}
-
-    if (data.title !== undefined) updateData.title = data.title
-    if (data.abbreviation !== undefined) updateData.abbreviation = data.abbreviation
-    if (data.issn !== undefined) updateData.issn = data.issn
-    if (data.e_issn !== undefined) updateData.e_issn = data.e_issn
-    if (data.description !== undefined) updateData.description = data.description
-    if (data.field !== undefined) updateData.field = data.field
-    if (data.publisher !== undefined) updateData.publisher = data.publisher
-    if (data.editor_in_chief !== undefined) updateData.editor_in_chief = data.editor_in_chief
-    if (data.frequency !== undefined) updateData.frequency = data.frequency
-    if (data.submission_fee !== undefined) updateData.submission_fee = data.submission_fee
-    if (data.publication_fee !== undefined) updateData.publication_fee = data.publication_fee
-    if (data.cover_image_url !== undefined) updateData.cover_image_url = data.cover_image_url
-    if (data.website_url !== undefined) updateData.website_url = data.website_url
-    if (data.status !== undefined) updateData.status = data.status
+    const updateData: Partial<typeof data> = {}
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        (updateData as any)[key] = value
+      }
+    }
 
     const journal = await prisma.journal.update({
       where: { id: BigInt(id) },
@@ -168,7 +142,7 @@ app.patch("/:id", zValidator("param", journalIdParamSchema), zValidator("json", 
     })
 
     return c.json(
-      { success: true, data: serializeJournal(journal), message: "Journal updated successfully" },
+      { success: true, data: serializeRecord(journal), message: "Journal updated successfully" },
       200
     )
   } catch (error) {
@@ -177,14 +151,9 @@ app.patch("/:id", zValidator("param", journalIdParamSchema), zValidator("json", 
   }
 })
 
-// DELETE /journals/:id - Delete journal (auth required)
-app.delete("/:id", zValidator("param", journalIdParamSchema), async (c) => {
+// DELETE /journals/:id - Delete journal (admin only)
+app.delete("/:id", requireAdmin, zValidator("param", journalIdParamSchema), async (c) => {
   try {
-    const session = await getSession()
-    if (!session) {
-      return c.json({ success: false, error: "Unauthorized" }, 401)
-    }
-
     const { id } = c.req.valid("param")
 
     const existingJournal = await prisma.journal.findUnique({
@@ -193,20 +162,14 @@ app.delete("/:id", zValidator("param", journalIdParamSchema), async (c) => {
     })
 
     if (!existingJournal) {
-      return c.json(
-        { success: false, error: "Journal not found" },
-        404
-      )
+      return c.json({ success: false, error: "Journal not found" }, 404)
     }
 
     await prisma.journal.delete({
       where: { id: BigInt(id) },
     })
 
-    return c.json(
-      { success: true, message: "Journal deleted successfully" },
-      200
-    )
+    return c.json({ success: true, message: "Journal deleted successfully" }, 200)
   } catch (error) {
     console.error("Error deleting journal:", error)
     return c.json({ success: false, error: "Failed to delete journal" }, 500)
