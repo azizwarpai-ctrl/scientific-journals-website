@@ -1,0 +1,21 @@
+{
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "noEmit": true,
+        "paths": {
+            "@/*": [
+                "../*"
+            ],
+            "@/src/*": [
+                "../src/*"
+            ],
+            "@/lib/*": [
+                "../lib/*"
+            ]
+        }
+    },
+    "include": [
+        "./**/*.ts"
+    ],
+    "exclude": []
+}
