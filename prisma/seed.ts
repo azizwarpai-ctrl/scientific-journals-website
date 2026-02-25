@@ -2,12 +2,43 @@ import { PrismaClient } from '@prisma/client'
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
 import bcrypt from 'bcryptjs'
 
+/**
+ * Parse DATABASE_URL to extract connection parameters.
+ * Supports format: mysql://user:password@host:port/database
+ */
+function parseConnectionConfig() {
+  const databaseUrl = process.env.DATABASE_URL
+
+  if (databaseUrl) {
+    try {
+      const url = new URL(databaseUrl)
+      return {
+        host: url.hostname || 'localhost',
+        port: parseInt(url.port || '3306'),
+        user: decodeURIComponent(url.username || 'root'),
+        password: decodeURIComponent(url.password || ''),
+        database: url.pathname.replace(/^\//, '') || 'scientific_journals_db',
+      }
+    } catch (e) {
+      console.warn('⚠️  Failed to parse DATABASE_URL, falling back to individual env vars')
+    }
+  }
+
+  // Fallback to individual environment variables
+  return {
+    host: process.env.DATABASE_HOST || 'localhost',
+    port: parseInt(process.env.DATABASE_PORT || '3306'),
+    user: process.env.DATABASE_USER || 'root',
+    password: process.env.DATABASE_PASSWORD || '',
+    database: process.env.DATABASE_NAME || 'scientific_journals_db',
+  }
+}
+
+const config = parseConnectionConfig()
+console.log(`📡 Connecting to: ${config.user}@${config.host}:${config.port}/${config.database}`)
+
 const adapter = new PrismaMariaDb({
-  host: process.env.DATABASE_HOST || 'localhost',
-  port: parseInt(process.env.DATABASE_PORT || '3306'),
-  user: process.env.DATABASE_USER || 'root',
-  password: process.env.DATABASE_PASSWORD || '',
-  database: process.env.DATABASE_NAME || 'scientific_journals_db',
+  ...config,
   connectionLimit: 5,
 })
 
@@ -15,6 +46,7 @@ const prisma = new PrismaClient({
   adapter,
   log: ['error'],
 })
+
 
 
 async function main() {

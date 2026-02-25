@@ -1,17 +1,13 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
+import { requireAdmin } from "@/src/lib/auth-middleware"
+import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
+import { serializeRecord, serializeMany } from "@/src/lib/serialize"
 import { getSession } from "@/lib/db/auth"
 import { prisma } from "@/lib/db/config"
 import { solutionCreateSchema, solutionUpdateSchema, solutionIdParamSchema } from "../schemas/solution-schema"
-import type { Solution } from "../types/solution-type"
 
 const app = new Hono()
-
-// Helper to serialize BigInt to string
-const serializeSolution = (solution: any): Solution => ({
-  ...solution,
-  id: solution.id.toString(),
-})
 
 const SOLUTION_SELECT = {
   id: true,
@@ -25,22 +21,25 @@ const SOLUTION_SELECT = {
   updated_at: true,
 } as const
 
-// GET /solutions - List published solutions (public)
+// GET /solutions - List solutions (public: published only; admin: all, paginated)
 app.get("/", async (c) => {
   try {
+    const pagination = parsePagination(c)
     const isAdmin = await getSession()
     const where = isAdmin ? {} : { is_published: true }
 
-    const solutions = await prisma.fAQ.findMany({
-      where,
-      select: SOLUTION_SELECT,
-      orderBy: { created_at: "desc" },
-    })
+    const [solutions, total] = await Promise.all([
+      prisma.fAQ.findMany({
+        where,
+        select: SOLUTION_SELECT,
+        orderBy: { created_at: "desc" },
+        take: pagination.limit,
+        skip: pagination.offset,
+      }),
+      prisma.fAQ.count({ where }),
+    ])
 
-    return c.json(
-      { success: true, data: solutions.map(serializeSolution) },
-      200
-    )
+    return c.json(paginatedResponse(serializeMany(solutions), total, pagination), 200)
   } catch (error) {
     console.error("Error fetching solutions:", error)
     return c.json({ success: false, error: "Failed to fetch solutions" }, 500)
@@ -58,38 +57,26 @@ app.get("/:id", zValidator("param", solutionIdParamSchema), async (c) => {
     })
 
     if (!solution) {
-      return c.json(
-        { success: false, error: "Solution not found" },
-        404
-      )
+      return c.json({ success: false, error: "Solution not found" }, 404)
     }
 
-    // Check if published or if user is admin
     if (!solution.is_published) {
       const session = await getSession()
       if (!session) {
-        return c.json(
-          { success: false, error: "Not found" },
-          404
-        )
+        return c.json({ success: false, error: "Not found" }, 404)
       }
     }
 
-    return c.json({ success: true, data: serializeSolution(solution) }, 200)
+    return c.json({ success: true, data: serializeRecord(solution) }, 200)
   } catch (error) {
     console.error("Error fetching solution:", error)
     return c.json({ success: false, error: "Failed to fetch solution" }, 500)
   }
 })
 
-// POST /solutions - Create solution (auth required)
-app.post("/", zValidator("json", solutionCreateSchema), async (c) => {
+// POST /solutions - Create solution (admin only)
+app.post("/", requireAdmin, zValidator("json", solutionCreateSchema), async (c) => {
   try {
-    const session = await getSession()
-    if (!session) {
-      return c.json({ success: false, error: "Unauthorized" }, 401)
-    }
-
     const data = c.req.valid("json")
     const solution = await prisma.fAQ.create({
       data: {
@@ -102,7 +89,7 @@ app.post("/", zValidator("json", solutionCreateSchema), async (c) => {
     })
 
     return c.json(
-      { success: true, data: serializeSolution(solution), message: "Solution created successfully" },
+      { success: true, data: serializeRecord(solution), message: "Solution created successfully" },
       201
     )
   } catch (error) {
@@ -111,32 +98,22 @@ app.post("/", zValidator("json", solutionCreateSchema), async (c) => {
   }
 })
 
-// PATCH /solutions/:id - Update solution (auth required)
-app.patch("/:id", zValidator("param", solutionIdParamSchema), zValidator("json", solutionUpdateSchema), async (c) => {
+// PATCH /solutions/:id - Update solution (admin only)
+app.patch("/:id", requireAdmin, zValidator("param", solutionIdParamSchema), zValidator("json", solutionUpdateSchema), async (c) => {
   try {
-    const session = await getSession()
-    if (!session) {
-      return c.json({ success: false, error: "Unauthorized" }, 401)
-    }
-
     const { id } = c.req.valid("param")
     const data = c.req.valid("json")
 
-    // Check if solution exists
     const existingSolution = await prisma.fAQ.findUnique({
       where: { id: BigInt(id) },
       select: { id: true },
     })
 
     if (!existingSolution) {
-      return c.json(
-        { success: false, error: "Solution not found" },
-        404
-      )
+      return c.json({ success: false, error: "Solution not found" }, 404)
     }
 
-    const updateData: any = {}
-
+    const updateData: Partial<typeof data> = {}
     if (data.question !== undefined) updateData.question = data.question
     if (data.answer !== undefined) updateData.answer = data.answer
     if (data.category !== undefined) updateData.category = data.category
@@ -149,7 +126,7 @@ app.patch("/:id", zValidator("param", solutionIdParamSchema), zValidator("json",
     })
 
     return c.json(
-      { success: true, data: serializeSolution(solution), message: "Solution updated successfully" },
+      { success: true, data: serializeRecord(solution), message: "Solution updated successfully" },
       200
     )
   } catch (error) {
@@ -158,14 +135,9 @@ app.patch("/:id", zValidator("param", solutionIdParamSchema), zValidator("json",
   }
 })
 
-// DELETE /solutions/:id - Delete solution (auth required)
-app.delete("/:id", zValidator("param", solutionIdParamSchema), async (c) => {
+// DELETE /solutions/:id - Delete solution (admin only)
+app.delete("/:id", requireAdmin, zValidator("param", solutionIdParamSchema), async (c) => {
   try {
-    const session = await getSession()
-    if (!session) {
-      return c.json({ success: false, error: "Unauthorized" }, 401)
-    }
-
     const { id } = c.req.valid("param")
 
     const existingSolution = await prisma.fAQ.findUnique({
@@ -174,20 +146,14 @@ app.delete("/:id", zValidator("param", solutionIdParamSchema), async (c) => {
     })
 
     if (!existingSolution) {
-      return c.json(
-        { success: false, error: "Solution not found" },
-        404
-      )
+      return c.json({ success: false, error: "Solution not found" }, 404)
     }
 
     await prisma.fAQ.delete({
       where: { id: BigInt(id) },
     })
 
-    return c.json(
-      { success: true, message: "Solution deleted successfully" },
-      200
-    )
+    return c.json({ success: true, message: "Solution deleted successfully" }, 200)
   } catch (error) {
     console.error("Error deleting solution:", error)
     return c.json({ success: false, error: "Failed to delete solution" }, 500)

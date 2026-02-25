@@ -7,6 +7,13 @@ import { authRouter } from "@/src/features/auth/server"
 import { messageRouter } from "@/src/features/messages/server"
 import { ojsRouter } from "@/src/features/ojs/server"
 
+const apiApp = new Hono()
+    .route("/journals", journalRouter)
+    .route("/solutions", solutionRouter)
+    .route("/auth", authRouter)
+    .route("/messages", messageRouter)
+    .route("/ojs", ojsRouter)
+
 const app = new Hono().basePath("/api")
 
 // Global middleware
@@ -35,13 +42,8 @@ app.use(
 )
 app.use("/*", logger())
 
-// Feature routes
-const routes = app
-    .route("/journals", journalRouter)
-    .route("/solutions", solutionRouter)
-    .route("/auth", authRouter)
-    .route("/messages", messageRouter)
-    .route("/ojs", ojsRouter)
+// Mount API routes
+app.route("/", apiApp)
 
 // Error handling
 app.onError((err, c) => {
@@ -69,5 +71,5 @@ app.notFound((c) => {
     )
 })
 
-export type AppType = typeof routes
+export type AppType = typeof apiApp
 export { app }
