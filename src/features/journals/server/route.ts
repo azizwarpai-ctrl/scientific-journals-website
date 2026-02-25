@@ -3,7 +3,6 @@ import { zValidator } from "@hono/zod-validator"
 import { requireAdmin } from "@/src/lib/auth-middleware"
 import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
 import { serializeRecord, serializeMany } from "@/src/lib/serialize"
-import { getSession } from "@/lib/db/auth"
 import { prisma } from "@/lib/db/config"
 import { journalCreateSchema, journalUpdateSchema, journalIdParamSchema } from "../schemas/journal-schema"
 
@@ -77,7 +76,7 @@ app.get("/:id", zValidator("param", journalIdParamSchema), async (c) => {
 // POST /journals - Create journal (admin only)
 app.post("/", requireAdmin, zValidator("json", journalCreateSchema), async (c) => {
   try {
-    const session = await getSession()
+    const session = (c as any).get("session")
     if (!session) {
       return c.json({ success: false, error: "Unauthorized" }, 401)
     }

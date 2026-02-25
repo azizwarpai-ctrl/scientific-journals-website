@@ -13,7 +13,8 @@
 DigitoPub is an academic journal management platform that enables:
 - **Public users** to browse journals, read published articles, submit manuscripts, and contact the editorial team
 - **Admin users** to manage journals, submissions, reviews, authors, analytics, FAQ/solutions, messages, and system settings
-- **OJS Integration** to pull journal metadata from an external Open Journal Systems (OJS) database
+- **External Integration (MANDATORY)**: Journals, Authors, and Reviewers are strictly imported from an external MySQL database. They must not be created locally or duplicated.
+- **Minimal User Set**: Only two primary system users are permitted: Super Admin and Technical Support.
 
 ### 1.2 Technology Stack
 
@@ -92,14 +93,15 @@ erDiagram
 
 | Model | Table | Rows (Fields) | Key Relationships |
 |-------|-------|---------------|-------------------|
-| `AdminUser` | `admin_users` | 7 + timestamps | Creator of journals, submissions; assignee of reviews |
-| `Journal` | `journals` | 14 + timestamps | Has submissions, published articles; linked to OJS via `ojs_id` |
-| `Submission` | `submissions` | 14 + timestamps | Belongs to journal; has reviews, published articles; linked to OJS |
-| `Review` | `reviews` | 9 + timestamp | Belongs to submission; assigned by admin |
+| `AdminUser` | `admin_users` | **2 Users Only** | Super Admin & Support User; Primary system actors |
+| `Journal` | `journals` | **External Only** | Synced/Linked; Not seeded locally |
+| `Submission` | `submissions` | 14 + timestamps | Belongs to journal; has reviews; linked to OJS |
+| `Review` | `reviews` | **External Only** | Peer review metadata; linked to external reviewers |
+| `Author` | `authors` | **External Only** | Research contributors; linked to external database |
 | `PublishedArticle` | `published_articles` | 12 + timestamp | Belongs to submission & journal; published by admin |
 | `SystemSetting` | `system_settings` | 4 + timestamp | Key-value config; updated by admin |
-| `Message` | `messages` | 7 + timestamps | Standalone (contact form) |
-| `FAQ` | `faq_solutions` | 7 + timestamps | Standalone (help/FAQ) |
+| `Message` | `messages` | 7 + timestamps | standalone (contact form) |
+| `FAQ` | `faq_solutions` | 7 + timestamps | standalone (help/FAQ) |
 
 ### 2.3 Data Integrity Rules
 
@@ -125,11 +127,10 @@ erDiagram
 
 ### 3.1 Roles
 
-| Role | Description | Auth Required |
-|------|------------|---------------|
-| **Public (Anonymous)** | Browse journals, view articles, submit contact messages | No |
-| **Author** | Register account (role = "author") — currently same DB as admin | Yes |
-| **Admin** | Full CRUD on all resources; system settings | Yes |
+| Role | Description | Email |
+|------|------------|-------|
+| **Super Admin** | Primary system administrator | `admin@digstobob.com` |
+| **Support** | Technical Support / Helpdesk | `support@digstobob.com` |
 
 ### 3.2 Permission Matrix
 
@@ -389,14 +390,13 @@ The seed data is designed to:
 
 | Model | Record Count | Rationale |
 |-------|-------------|-----------|
-| AdminUser | 8 | 1 superadmin + 2 admins + 2 editors + 3 authors — tests role hierarchy |
-| Journal | 6 | Active, inactive, and OJS-linked — tests filtering and status logic |
-| Submission | 12 | Various statuses (submitted, under_review, accepted, rejected, revision_requested) |
-| Review | 8 | Pending, completed with different recommendations |
-| PublishedArticle | 5 | Different volumes/issues, with DOIs and metrics |
-| SystemSetting | 4 | Common config keys (site_name, contact_email, maintenance_mode, analytics_enabled) |
-| Message | 10 | All statuses and message types — tests inbox management |
-| FAQ | 8 | Published and draft, different categories — tests visibility logic |
+| AdminUser | 2 | Minimal: admin@digstobob.com and support@digstobob.com |
+| Journal | 0 | **EXTERNAL DATA SOURCE** — Do not seed |
+| Submission | 0 | **EXTERNAL DATA SOURCE** — Do not seed |
+| Review | 0 | **EXTERNAL DATA SOURCE** — Do not seed |
+| SystemSetting | 2 | Min config (site_name, contact_email) |
+| Message | 0 | Not required for initialization |
+| FAQ | 2 | Core support articles only |
 
 ### 8.2 Prisma Seed Script
 
