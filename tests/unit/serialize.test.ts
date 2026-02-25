@@ -55,6 +55,30 @@ describe('Serialize Utilities', () => {
             const result = serializeRecord(record)
             expect(result.tags).toEqual(['a', 'b', 'c'])
         })
+
+        it('should convert Prisma Decimal objects to numbers', () => {
+            // Prisma Decimal has a toNumber() method
+            const fakeDecimal = { toNumber: () => 25.50, toString: () => '25.50' }
+            const record = { id: BigInt(1), submission_fee: fakeDecimal }
+            const result = serializeRecord(record)
+            expect(result.submission_fee).toBe(25.50)
+            expect(typeof result.submission_fee).toBe('number')
+        })
+
+        it('should handle undefined values in records', () => {
+            const record = { id: BigInt(1), optional_field: undefined }
+            const result = serializeRecord(record)
+            expect(result.id).toBe('1')
+            expect(result.optional_field).toBeUndefined()
+        })
+
+        it('should handle null input', () => {
+            expect(serializeRecord(null as any)).toBeNull()
+        })
+
+        it('should handle undefined input', () => {
+            expect(serializeRecord(undefined as any)).toBeUndefined()
+        })
     })
 
     describe('serializeMany', () => {

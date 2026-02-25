@@ -28,6 +28,20 @@ export function serializeRecord<T>(record: T): Serialized<T> {
         return record.map(serializeRecord) as any
     }
 
+    if (record instanceof Date) {
+        return record as any
+    }
+
+    // Handle Prisma Decimal type (has toNumber method)
+    if (
+        typeof record === "object" &&
+        record !== null &&
+        "toNumber" in record &&
+        typeof (record as any).toNumber === "function"
+    ) {
+        return (record as any).toNumber() as any
+    }
+
     if (typeof record === "object") {
         const serialized: any = {}
         for (const [key, value] of Object.entries(record)) {
