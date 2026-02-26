@@ -58,7 +58,7 @@ async function main() {
     const adminPassword = await bcrypt.hash('WMssg_k2', 10) // Should be changed on first login
     await prisma.adminUser.create({
       data: {
-        email: 'admin@digitopub.com',
+        email: 'ellarousi@gmail.com',
         password_hash: adminPassword,
         full_name: 'Super Administrator',
         role: 'superadmin',
@@ -67,10 +67,10 @@ async function main() {
 
     // 3. Create Support User
     console.log('🛠️ Creating Support User...')
-    const supportPassword = await bcrypt.hash('support123', 10)
+    const supportPassword = await bcrypt.hash('00000000', 10)
     await prisma.adminUser.create({
       data: {
-        email: 'support@digstobob.com',
+        email: 'www.alshebani88@gmail.com',
         password_hash: supportPassword,
         full_name: 'Technical Support',
         role: 'support',
