@@ -17,6 +17,9 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files
+.env
+.env.example
+.env.production.template
 
 # vercel
 .vercel
@@ -26,7 +29,3 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
-
-# .env
-.env
-.env.example
