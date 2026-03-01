@@ -6,11 +6,11 @@
     "node": ">=18.18.0"
   },
   "scripts": {
-    "postinstall": "prisma generate",
-    "build": "prisma generate && next build && node -e \"if(process.env.ALLOW_PROD_DB_INIT === 'true') { console.log('✅ Executing Prisma Migrations & Seed...'); require('child_process').execSync('npx --no-install prisma migrate deploy && npx --no-install prisma db seed', {stdio: 'inherit'}) } else { console.log('⏭️ DB Init skipped (ALLOW_PROD_DB_INIT!=true)') }\"",
+    "build": "prisma generate && next build && if [ \"$ALLOW_PROD_DB_INIT\" = \"true\" ]; then npx prisma migrate deploy && npx prisma db seed; else echo '⚠️ ALLOW_PROD_DB_INIT not true, skipping migrations/seed'; fi",
     "dev": "next dev",
-    "lint": "eslint .",
     "start": "next start",
+    "postinstall": "prisma generate",
+    "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
