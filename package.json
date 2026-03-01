@@ -96,6 +96,7 @@
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^4.0.18",
     "dotenv": "^17.2.3",
+    "ts-node": "^10.9.2",
     "typescript": "^5",
     "vitest": "^4.0.18"
   },
@@ -103,7 +104,7 @@
     "pg-native"
   ],
   "prisma": {
-    "seed": "bun prisma/seed.ts"
+    "seed": "ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} prisma/seed.ts"
   },
   "optionalDependencies": {
     "@tailwindcss/oxide-linux-x64-gnu": "^4.2.1",
