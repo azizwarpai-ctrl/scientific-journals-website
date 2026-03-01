@@ -7,7 +7,7 @@
   },
   "scripts": {
     "postinstall": "prisma generate",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && next build && node -e \"if(process.env.ALLOW_PROD_DB_INIT === 'true') { console.log('✅ Executing Prisma Migrations & Seed...'); require('child_process').execSync('npx --no-install prisma migrate deploy && npx --no-install prisma db seed', {stdio: 'inherit'}) } else { console.log('⏭️ DB Init skipped (ALLOW_PROD_DB_INIT!=true)') }\"",
     "dev": "next dev",
     "lint": "eslint .",
     "start": "next start",
