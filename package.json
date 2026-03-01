@@ -6,7 +6,7 @@
     "node": ">=18.18.0"
   },
   "scripts": {
-    "build": "prisma generate && next build && if [ \"$ALLOW_PROD_DB_INIT\" = \"true\" ]; then npx prisma migrate deploy && npx prisma db seed; else echo '⚠️ ALLOW_PROD_DB_INIT not true, skipping migrations/seed'; fi",
+    "build": "prisma generate && next build && if [ \"$ALLOW_PROD_DB_INIT\" = \"true\" ]; then npx prisma db push && npx prisma db seed; else echo '⚠️ ALLOW_PROD_DB_INIT not true, skipping migrations/seed'; fi",
     "dev": "next dev",
     "start": "next start",
     "postinstall": "prisma generate",
