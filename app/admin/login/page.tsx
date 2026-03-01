@@ -35,8 +35,13 @@ export default function AdminLoginPage() {
         throw new Error(data.error || "Authentication failed")
       }
 
-      router.push("/admin/dashboard")
-      router.refresh()
+      if (data.requiresVerification) {
+        // Redirect to OTP verification page
+        router.push(`/admin/verify-code?email=${encodeURIComponent(email)}`)
+      } else {
+        router.push("/admin/dashboard")
+        router.refresh()
+      }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {

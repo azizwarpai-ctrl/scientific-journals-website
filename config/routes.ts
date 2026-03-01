@@ -14,6 +14,7 @@ export const PUBLIC_ROUTES = [
   "/admin/login",
   "/admin/register",
   "/admin/registration-success",
+  "/admin/verify-code",
 ]
 
 export const ADMIN_ROUTES = [
