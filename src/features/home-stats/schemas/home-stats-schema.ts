@@ -6,7 +6,7 @@ export const homeStatsSchema = z.object({
         activeJournals: z.number().int().nonnegative(),
         publishedArticles: z.number().int().nonnegative(),
         researchers: z.number().int().nonnegative(),
-        countries: z.number().int().nonnegative(),
+        countriesEstimated: z.number().int().nonnegative(),
     }),
 })
 
