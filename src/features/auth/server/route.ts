@@ -10,6 +10,11 @@ import { prisma } from "@/lib/db/config"
 
 const app = new Hono()
 
+// Helper: Get OTP delivery method based on environment
+const getOtpDeliveryMethod = () => {
+  return (process.env.OTP_DELIVERY_METHOD || (process.env.NODE_ENV === "production" ? "disabled" : "console")) as "console" | "email" | "disabled"
+}
+
 // Helper: Generate a 6-digit OTP code using cryptographically secure random numbers
 function generateOTPCode(): string {
   // crypto.randomInt upper bound is exclusive, so 1000000 includes 999999
@@ -27,7 +32,7 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
     }
 
     // Check delivery method
-    const deliveryMethod = process.env.OTP_DELIVERY_METHOD || (process.env.NODE_ENV === 'production' ? 'disabled' : 'console')
+    const deliveryMethod = getOtpDeliveryMethod()
 
     if (deliveryMethod === 'disabled') {
       return c.json({
@@ -60,10 +65,10 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
     })
 
     if (deliveryMethod === 'console') {
-      // Log ONLY in development/console mode
-      console.log(`[OTP] Verification code generated for ${user.email}: ${code}`)
+      // Log ONLY in development/console mode (showing only masked/no code)
+      console.log(`[OTP] Verification generated for ${user.email}`)
     } else {
-      console.log(`[OTP] Verification code generated for ${user.email} (Email delivery enabled but not yet implemented)`)
+      console.log(`[OTP] Verification generated for ${user.email} (Email delivery enabled but not yet implemented)`)
     }
 
     return c.json({
@@ -72,7 +77,7 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
       email: user.email,
       message: deliveryMethod === 'console'
         ? "Verification code generated in server console."
-        : "Verification code sent. Please check your email.",
+        : "Email delivery not yet implemented. Please check server logs.",
     })
   } catch (error) {
     console.error("Login error:", error)
@@ -159,7 +164,7 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
     }
 
     // Check delivery method
-    const deliveryMethod = process.env.OTP_DELIVERY_METHOD || (process.env.NODE_ENV === 'production' ? 'disabled' : 'console')
+    const deliveryMethod = getOtpDeliveryMethod()
 
     if (deliveryMethod === 'disabled') {
       return c.json({ success: false, error: "OTP delivery is disabled." }, 503)
@@ -187,16 +192,16 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
     })
 
     if (deliveryMethod === 'console') {
-      console.log(`[OTP] Resent verification code for ${user.email}: ${code}`)
+      console.log(`[OTP] Resent verification for ${user.email}`)
     } else {
-      console.log(`[OTP] Resent verification code generated for ${user.email}`)
+      console.log(`[OTP] Resent verification generated for ${user.email} (Email delivery enabled but not yet implemented)`)
     }
 
     return c.json({
       success: true,
       message: deliveryMethod === 'console'
         ? "New verification code generated in server console."
-        : "New verification code sent.",
+        : "Email delivery not yet implemented.",
     })
   } catch (error) {
     console.error("Resend code error:", error)
@@ -207,15 +212,15 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
 // POST /auth/register
 app.post("/register", zValidator("json", registerSchema), async (c) => {
   try {
-    const { email, password, fullName } = c.req.valid("json")
-    const userId = await createUser(email, password, fullName, "author")
-
-    // Check delivery method
-    const deliveryMethod = process.env.OTP_DELIVERY_METHOD || (process.env.NODE_ENV === 'production' ? 'disabled' : 'console')
+    // Check delivery method BEFORE creating user
+    const deliveryMethod = getOtpDeliveryMethod()
 
     if (deliveryMethod === 'disabled') {
       return c.json({ success: false, error: "Registration is temporarily restricted (OTP delivery disabled)." }, 503)
     }
+
+    const { email, password, fullName } = c.req.valid("json")
+    const userId = await createUser(email, password, fullName, "author")
 
     // Generate OTP code for verification
     const code = generateOTPCode()
@@ -234,9 +239,11 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
     })
 
     if (deliveryMethod === 'console') {
-      console.log(`[OTP] Registration verification code for ${email}: ${code}`)
+      // Log ONLY in development/console mode (showing only masked/no code)
+      // We can log a small hash for correlation if needed, but never the code itself
+      console.log(`[OTP] Registration verification generated for ${email}`)
     } else {
-      console.log(`[OTP] Registration code generated for ${email}`)
+      console.log(`[OTP] Registration code generated for ${email} (Email delivery enabled but not yet implemented)`)
     }
 
     return c.json({
@@ -245,7 +252,7 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
       email,
       message: deliveryMethod === 'console'
         ? "Registration successful. Code generated in server console."
-        : "Registration successful. Please verify your email with the code provided.",
+        : "Registration successful. Email delivery pending implementation.",
     })
   } catch (error: any) {
     console.error("Registration error:", error)

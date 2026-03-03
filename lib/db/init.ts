@@ -34,17 +34,19 @@ export async function initializeDatabase() {
 
   try {
     // 3. Migrate database using npx prisma migrate deploy
-    // Since we are in a production Hostinger environment, we must use `npx --no-install`
-    // assuming prisma is installed in node_modules locally.
     console.log('[DB Init] Executing Prisma migrations...')
     try {
       const migrateOut = execSync('npx --no-install prisma migrate deploy', {
         env: { ...process.env },
         encoding: 'utf-8',
-        stdio: 'pipe'
+        stdio: 'pipe',
+        timeout: 600000 // 10 minutes timeout
       })
       console.log('[DB Init] Migration output:', migrateOut.trim())
     } catch (migrateErr: any) {
+      if (migrateErr.code === 'ETIMEDOUT') {
+        console.error('[DB Init] Migration timed out after 10 minutes.')
+      }
       console.error('[DB Init] Migration failed. Output:', migrateErr.stdout || migrateErr.message)
       throw new Error('Database migration failed during runtime initialization.')
     }
@@ -82,29 +84,34 @@ export async function initializeDatabase() {
     const prisma = new PrismaClient({ adapter })
 
     try {
-      // Helper for masking emails in logs
       const maskEmail = (email: string) => {
         const [name, domain] = email.split('@')
         if (!domain) return email
         return `${name.charAt(0)}${'*'.repeat(5)}@${domain}`
       }
 
-      // 5. Validate Required Environment Variables
       const adminEmail = process.env.ADMIN_EMAIL
       const adminPasswordRaw = process.env.ADMIN_PASSWORD
       const supportEmail = process.env.SUPPORT_EMAIL
       const supportPasswordRaw = process.env.SUPPORT_PASSWORD
 
       if (!adminEmail || !adminPasswordRaw || !supportEmail || !supportPasswordRaw) {
-        throw new Error('[DB Init] CRITICAL: Missing required seed credentials (ADMIN_EMAIL, ADMIN_PASSWORD, SUPPORT_EMAIL, SUPPORT_PASSWORD). Seeding aborted for security.')
+        throw new Error('[DB Init] CRITICAL: Missing required seed credentials. Seeding aborted.')
       }
 
       console.log(`[DB Init] Checking for seed accounts...`)
 
-      // 6. Seed Super Admin (Identify by role/flag for stability)
-      const seededAdmin = await prisma.adminUser.findFirst({
-        where: { role: 'superadmin' }
+      // Deterministic Super Admin Seeding
+      const adminAccounts = await prisma.adminUser.findMany({
+        where: { role: 'superadmin' },
+        orderBy: { id: 'asc' }
       })
+
+      if (adminAccounts.length > 1) {
+        throw new Error('[DB Init] Conflict: Multiple superadmin accounts found. Manual intervention required.')
+      }
+
+      const seededAdmin = adminAccounts[0]
 
       if (!seededAdmin) {
         console.log(`[DB Init] 👤 Creating Super Admin (${maskEmail(adminEmail)})...`)
@@ -118,22 +125,36 @@ export async function initializeDatabase() {
           }
         })
       } else {
-        // Update credentials if changed
-        console.log(`[DB Init] Super Admin exists (${maskEmail(seededAdmin.email)}). Syncing credentials...`)
-        const adminPassword = await bcrypt.hash(adminPasswordRaw, 10)
-        await prisma.adminUser.update({
-          where: { id: seededAdmin.id },
-          data: {
-            email: adminEmail,
-            password_hash: adminPassword
-          }
-        })
+        // Smart Sync: Only update if different
+        const needsEmailUpdate = seededAdmin.email !== adminEmail
+        const needsPasswordUpdate = !(await bcrypt.compare(adminPasswordRaw, seededAdmin.password_hash))
+
+        if (needsEmailUpdate || needsPasswordUpdate) {
+          console.log(`[DB Init] Syncing Super Admin credentials...`)
+          const data: any = {}
+          if (needsEmailUpdate) data.email = adminEmail
+          if (needsPasswordUpdate) data.password_hash = await bcrypt.hash(adminPasswordRaw, 10)
+
+          await prisma.adminUser.update({
+            where: { id: seededAdmin.id },
+            data
+          })
+        } else {
+          console.log(`[DB Init] Super Admin (${maskEmail(seededAdmin.email)}) is up to date.`)
+        }
       }
 
-      // 7. Seed Support User
-      const seededSupport = await prisma.adminUser.findFirst({
-        where: { role: 'support' }
+      // Deterministic Support User Seeding
+      const supportAccounts = await prisma.adminUser.findMany({
+        where: { role: 'support' },
+        orderBy: { id: 'asc' }
       })
+
+      if (supportAccounts.length > 1) {
+        throw new Error('[DB Init] Conflict: Multiple support accounts found.')
+      }
+
+      const seededSupport = supportAccounts[0]
 
       if (!seededSupport) {
         console.log(`[DB Init] 🛠️ Creating Support User (${maskEmail(supportEmail)})...`)
@@ -147,15 +168,22 @@ export async function initializeDatabase() {
           }
         })
       } else {
-        console.log(`[DB Init] Support User exists (${maskEmail(seededSupport.email)}). Syncing credentials...`)
-        const supportPassword = await bcrypt.hash(supportPasswordRaw, 10)
-        await prisma.adminUser.update({
-          where: { id: seededSupport.id },
-          data: {
-            email: supportEmail,
-            password_hash: supportPassword
-          }
-        })
+        const needsEmailUpdate = seededSupport.email !== supportEmail
+        const needsPasswordUpdate = !(await bcrypt.compare(supportPasswordRaw, seededSupport.password_hash))
+
+        if (needsEmailUpdate || needsPasswordUpdate) {
+          console.log(`[DB Init] Syncing Support User credentials...`)
+          const data: any = {}
+          if (needsEmailUpdate) data.email = supportEmail
+          if (needsPasswordUpdate) data.password_hash = await bcrypt.hash(supportPasswordRaw, 10)
+
+          await prisma.adminUser.update({
+            where: { id: seededSupport.id },
+            data
+          })
+        } else {
+          console.log(`[DB Init] Support User (${maskEmail(seededSupport.email)}) is up to date.`)
+        }
       }
 
       // Initialize system settings if they don't exist

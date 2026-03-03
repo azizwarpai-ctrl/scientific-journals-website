@@ -79,9 +79,9 @@ export default function HomePage() {
                   </div>
                   <div className="text-center">
                     <div className="mb-2 text-secondary">
-                      <AnimatedCounter end={stats?.countries ?? 0} suffix="+" duration={2500} />
+                      <AnimatedCounter end={stats?.countriesEstimated ?? 0} suffix="+" duration={2500} />
                     </div>
-                    <div className="text-sm text-muted-foreground">Countries</div>
+                    <div className="text-sm text-muted-foreground">Countries (Estimated)</div>
                   </div>
                 </div>
               )}

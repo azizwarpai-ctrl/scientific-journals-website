@@ -14,14 +14,16 @@ declare global {
 export function GoogleTranslate() {
   const [isLoaded, setIsLoaded] = useState(false)
   const [error, setError] = useState(false)
+  const pollingRef = useRef<NodeJS.Timeout | null>(null)
+  const initializedRef = useRef(false)
 
   useEffect(() => {
     // Only run on client
     if (typeof window === "undefined") return
 
-    const pollingRef = useRef<NodeJS.Timeout | null>(null)
-
     const initTranslateWidget = () => {
+      if (initializedRef.current) return
+
       if (window.google && window.google.translate && window.google.translate.TranslateElement) {
         new window.google.translate.TranslateElement(
           {
@@ -32,6 +34,7 @@ export function GoogleTranslate() {
           },
           "google_translate_element",
         )
+        initializedRef.current = true
         setIsLoaded(true)
         if (pollingRef.current) {
           clearInterval(pollingRef.current)
@@ -77,11 +80,14 @@ export function GoogleTranslate() {
     }
 
     // Initialize the widget if it hasn't been yet (polling fallback)
-    pollingRef.current = setInterval(initTranslateWidget, 1000)
+    if (!initializedRef.current) {
+      pollingRef.current = setInterval(initTranslateWidget, 1000)
+    }
 
     return () => {
       if (pollingRef.current) {
         clearInterval(pollingRef.current)
+        pollingRef.current = null
       }
     }
   }, [])
