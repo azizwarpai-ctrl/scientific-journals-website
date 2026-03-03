@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Languages } from "lucide-react"
 
@@ -19,38 +19,9 @@ export function GoogleTranslate() {
     // Only run on client
     if (typeof window === "undefined") return
 
-    const checkScriptLoaded = () => {
-      if (window.google && window.google.translate) {
-        setIsLoaded(true)
-        return true
-      }
-      return false
-    }
+    const pollingRef = useRef<NodeJS.Timeout | null>(null)
 
-    if (checkScriptLoaded()) return
-
-    window.googleTranslateElementInit = () => {
-      setIsLoaded(true)
-    }
-
-    const addScript = () => {
-      const script = document.createElement("script")
-      script.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"
-      script.async = true
-      script.onerror = () => setError(true)
-      document.body.appendChild(script)
-    }
-
-    // Check if script already exists
-    const existingScript = document.querySelector('script[src*="translate.google.com"]')
-    if (!existingScript) {
-      addScript()
-    } else if (window.google && window.google.translate) {
-      setIsLoaded(true)
-    }
-
-    // Initialize the widget if it hasn't been yet
-    const timer = setInterval(() => {
+    const initTranslateWidget = () => {
       if (window.google && window.google.translate && window.google.translate.TranslateElement) {
         new window.google.translate.TranslateElement(
           {
@@ -62,11 +33,57 @@ export function GoogleTranslate() {
           "google_translate_element",
         )
         setIsLoaded(true)
-        clearInterval(timer)
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current)
+          pollingRef.current = null
+        }
       }
-    }, 1000)
+    }
 
-    return () => clearInterval(timer)
+    const checkScriptLoaded = () => {
+      if (window.google && window.google.translate) {
+        initTranslateWidget()
+        return true
+      }
+      return false
+    }
+
+    checkScriptLoaded()
+
+    window.googleTranslateElementInit = () => {
+      initTranslateWidget()
+    }
+
+    const addScript = () => {
+      const script = document.createElement("script")
+      script.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"
+      script.async = true
+      script.onerror = () => {
+        setError(true)
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current)
+          pollingRef.current = null
+        }
+      }
+      document.body.appendChild(script)
+    }
+
+    // Check if script already exists
+    const existingScript = document.querySelector('script[src*="translate.google.com"]')
+    if (!existingScript) {
+      addScript()
+    } else if (window.google && window.google.translate) {
+      initTranslateWidget()
+    }
+
+    // Initialize the widget if it hasn't been yet (polling fallback)
+    pollingRef.current = setInterval(initTranslateWidget, 1000)
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+      }
+    }
   }, [])
 
   if (error) return null

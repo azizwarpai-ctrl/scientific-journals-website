@@ -28,9 +28,11 @@ export default async function AdminDashboardPage() {
     prisma.submission.count({ where: { status: 'rejected' } }),
     prisma.review.count({ where: { review_status: 'pending' } }),
     prisma.publishedArticle.count(),
-    prisma.submission.findMany({
-      select: { author_email: true },
-      distinct: ['author_email'],
+    prisma.submission.groupBy({
+      by: ['author_email'],
+      where: {
+        author_email: { not: "" },
+      },
     })
   ])
 
@@ -42,7 +44,7 @@ export default async function AdminDashboardPage() {
     rejected_count: rejectedCount,
     pending_reviews_count: pendingReviewsCount,
     published_articles_count: publishedCount,
-    authors_count: (authorsCountResult as any[]).length
+    authors_count: authorsCountResult.length
   }
 
   const recentSubmissions = await prisma.submission.findMany({

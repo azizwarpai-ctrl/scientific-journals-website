@@ -7,7 +7,7 @@ import type { OjsJournal } from "../schemas/ojs-schema"
 const app = new Hono()
 
 // GET /ojs/journals — Fetch journals from OJS database
-app.get("/journals", zValidator("json", ojsJournalsResponseSchema), async (c) => {
+app.get("/journals", async (c) => {
     try {
         if (!isOjsConfigured()) {
             return c.json(

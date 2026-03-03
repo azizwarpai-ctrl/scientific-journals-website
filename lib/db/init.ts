@@ -82,17 +82,32 @@ export async function initializeDatabase() {
     const prisma = new PrismaClient({ adapter })
 
     try {
-      const adminEmail = process.env.ADMIN_EMAIL || 'ellarousi@gmail.com'
-      const adminPasswordRaw = process.env.ADMIN_PASSWORD || 'WMssg_k2'
+      // Helper for masking emails in logs
+      const maskEmail = (email: string) => {
+        const [name, domain] = email.split('@')
+        if (!domain) return email
+        return `${name.charAt(0)}${'*'.repeat(5)}@${domain}`
+      }
 
-      console.log(`[DB Init] Checking for existing user: ${adminEmail}...`)
-      // Idempotency check: Do we already have the superadmin seeded?
-      const existingAdmin = await prisma.adminUser.findUnique({
-        where: { email: adminEmail }
+      // 5. Validate Required Environment Variables
+      const adminEmail = process.env.ADMIN_EMAIL
+      const adminPasswordRaw = process.env.ADMIN_PASSWORD
+      const supportEmail = process.env.SUPPORT_EMAIL
+      const supportPasswordRaw = process.env.SUPPORT_PASSWORD
+
+      if (!adminEmail || !adminPasswordRaw || !supportEmail || !supportPasswordRaw) {
+        throw new Error('[DB Init] CRITICAL: Missing required seed credentials (ADMIN_EMAIL, ADMIN_PASSWORD, SUPPORT_EMAIL, SUPPORT_PASSWORD). Seeding aborted for security.')
+      }
+
+      console.log(`[DB Init] Checking for seed accounts...`)
+
+      // 6. Seed Super Admin (Identify by role/flag for stability)
+      const seededAdmin = await prisma.adminUser.findFirst({
+        where: { role: 'superadmin' }
       })
 
-      if (!existingAdmin) {
-        console.log(`[DB Init] 👤 Creating Super Admin (${adminEmail})...`)
+      if (!seededAdmin) {
+        console.log(`[DB Init] 👤 Creating Super Admin (${maskEmail(adminEmail)})...`)
         const adminPassword = await bcrypt.hash(adminPasswordRaw, 10)
         await prisma.adminUser.create({
           data: {
@@ -103,18 +118,25 @@ export async function initializeDatabase() {
           }
         })
       } else {
-        console.log('[DB Init] Super Admin already exists. Skipping...')
+        // Update credentials if changed
+        console.log(`[DB Init] Super Admin exists (${maskEmail(seededAdmin.email)}). Syncing credentials...`)
+        const adminPassword = await bcrypt.hash(adminPasswordRaw, 10)
+        await prisma.adminUser.update({
+          where: { id: seededAdmin.id },
+          data: {
+            email: adminEmail,
+            password_hash: adminPassword
+          }
+        })
       }
 
-      const supportEmail = process.env.SUPPORT_EMAIL || 'www.alshebani88@gmail.com'
-      const supportPasswordRaw = process.env.SUPPORT_PASSWORD || '00000000'
-
-      const existingSupport = await prisma.adminUser.findUnique({
-        where: { email: supportEmail }
+      // 7. Seed Support User
+      const seededSupport = await prisma.adminUser.findFirst({
+        where: { role: 'support' }
       })
 
-      if (!existingSupport) {
-        console.log(`[DB Init] 🛠️ Creating Support User (${supportEmail})...`)
+      if (!seededSupport) {
+        console.log(`[DB Init] 🛠️ Creating Support User (${maskEmail(supportEmail)})...`)
         const supportPassword = await bcrypt.hash(supportPasswordRaw, 10)
         await prisma.adminUser.create({
           data: {
@@ -125,7 +147,15 @@ export async function initializeDatabase() {
           }
         })
       } else {
-        console.log('[DB Init] Support User already exists. Skipping...')
+        console.log(`[DB Init] Support User exists (${maskEmail(seededSupport.email)}). Syncing credentials...`)
+        const supportPassword = await bcrypt.hash(supportPasswordRaw, 10)
+        await prisma.adminUser.update({
+          where: { id: seededSupport.id },
+          data: {
+            email: supportEmail,
+            password_hash: supportPassword
+          }
+        })
       }
 
       // Initialize system settings if they don't exist
