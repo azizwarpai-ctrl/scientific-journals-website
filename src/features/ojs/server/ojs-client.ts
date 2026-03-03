@@ -24,6 +24,7 @@ function getPool(): mariadb.Pool {
             password: process.env.OJS_DATABASE_PASSWORD || "",
             connectionLimit: 3,
             idleTimeout: 30000,
+            allowPublicKeyRetrieval: true,
         })
     }
     return pool
