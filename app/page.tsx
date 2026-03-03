@@ -4,15 +4,27 @@ import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { BookOpen, Zap, Loader2 } from "lucide-react"
+import { BookOpen, Zap } from "lucide-react"
 import Link from "next/link"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { AnimatedCounter } from "@/components/animated-counter"
 import { useGetOjsJournals } from "@/src/features/ojs/api/use-get-ojs-journals"
+import { useGetHomeStats } from "@/src/features/home-stats"
+import { HomeStatsSkeleton } from "@/components/skeletons/home-stats-skeleton"
+import { JournalCardSkeleton } from "@/components/skeletons/journal-card-skeleton"
 
 export default function HomePage() {
-  const { data: ojsData, isLoading } = useGetOjsJournals()
-  const journals = ojsData?.data ?? []
+  const { data: ojsData, isLoading: isLoadingOjs, isError: isErrorOjs } = useGetOjsJournals()
+  const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetHomeStats()
+
+  const journals = ojsData?.data
+
+  const statConfigs = [
+    { label: "Active Journals", value: stats?.activeJournals, color: "text-primary" },
+    { label: "Published Articles", value: stats?.publishedArticles, color: "text-secondary" },
+    { label: "Researchers", value: stats?.researchers, color: "text-primary" },
+    { label: "Countries (Estimated)", value: stats?.countriesEstimated, color: "text-secondary" },
+  ]
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -50,32 +62,24 @@ export default function HomePage() {
         <GSAPWrapper animation="slideUp" delay={0.2}>
           <section className="border-y bg-muted/30 py-12">
             <div className="container mx-auto px-4 md:px-6">
-              <div className="grid gap-8 md:grid-cols-4">
-                <div className="text-center">
-                  <div className="mb-2 text-primary">
-                    <AnimatedCounter end={250} suffix="+" duration={2500} />
-                  </div>
-                  <div className="text-sm text-muted-foreground">Active Journals</div>
+              {isLoadingStats ? (
+                <HomeStatsSkeleton />
+              ) : isErrorStats ? (
+                <div className="text-center py-4 text-destructive font-medium">
+                  Failed to load statistics. Please try again later.
                 </div>
-                <div className="text-center">
-                  <div className="mb-2 text-secondary">
-                    <AnimatedCounter end={15000} suffix="+" duration={2500} />
-                  </div>
-                  <div className="text-sm text-muted-foreground">Published Articles</div>
+              ) : (
+                <div className="grid gap-8 md:grid-cols-4">
+                  {statConfigs.map((item) => (
+                    <div key={item.label} className="text-center">
+                      <div className={`mb-2 ${item.color}`}>
+                        <AnimatedCounter end={item.value ?? 0} suffix="+" duration={2500} />
+                      </div>
+                      <div className="text-sm text-muted-foreground">{item.label}</div>
+                    </div>
+                  ))}
                 </div>
-                <div className="text-center">
-                  <div className="mb-2 text-primary">
-                    <AnimatedCounter end={50000} suffix="+" duration={2500} />
-                  </div>
-                  <div className="text-sm text-muted-foreground">Researchers</div>
-                </div>
-                <div className="text-center">
-                  <div className="mb-2 text-secondary">
-                    <AnimatedCounter end={120} suffix="+" duration={2500} />
-                  </div>
-                  <div className="text-sm text-muted-foreground">Countries</div>
-                </div>
-              </div>
+              )}
             </div>
           </section>
         </GSAPWrapper>
@@ -94,13 +98,21 @@ export default function HomePage() {
                 </Button>
               </div>
 
-              {isLoading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : journals.length > 0 ? (
+              {isLoadingOjs ? (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {journals.slice(0, 6).map((journal, idx) => (
+                  {[...Array(6)].map((_, i) => (
+                    <JournalCardSkeleton key={i} />
+                  ))}
+                </div>
+              ) : isErrorOjs ? (
+                <div className="text-center py-12 text-destructive">
+                  <BookOpen className="mx-auto mb-4 h-12 w-12 opacity-50" />
+                  <p className="text-lg font-medium">Connection Error</p>
+                  <p className="mt-1 text-sm">Could not fetch journals from the OJS database.</p>
+                </div>
+              ) : journals && journals.length > 0 ? (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {journals.slice(0, 6).map((journal: any, idx: number) => (
                     <GSAPWrapper key={journal.journal_id} animation="slideUp" delay={0.4 + idx * 0.1}>
                       <Card className="transition-shadow hover:shadow-lg overflow-hidden">
                         <div className="relative h-64 w-full overflow-hidden bg-gradient-to-br from-primary/20 to-secondary/20">

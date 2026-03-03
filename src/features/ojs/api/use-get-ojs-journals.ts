@@ -1,14 +1,15 @@
 import { useQuery } from "@tanstack/react-query"
-import type { OjsJournalsResponse } from "../types/ojs-type"
+import { client } from "@/src/lib/rpc"
+import type { OjsJournalsResponse } from "../schemas/ojs-schema"
 
 export function useGetOjsJournals() {
     return useQuery<OjsJournalsResponse>({
         queryKey: ["ojs-journals"],
         queryFn: async () => {
-            const response = await fetch("/api/ojs/journals")
+            const response = await client.ojs.journals.$get()
             const data = await response.json()
             if (!response.ok) {
-                throw new Error(data.error || "Failed to fetch OJS journals")
+                throw new Error((data as any).error || "Failed to fetch OJS journals")
             }
             return data
         },
