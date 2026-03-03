@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
 import { ShieldCheck, RefreshCw } from "lucide-react"
+import { client } from "@/src/lib/rpc"
 
 export default function VerifyCodePage() {
     const [code, setCode] = useState(["", "", "", "", "", ""])
@@ -80,16 +81,14 @@ export default function VerifyCodePage() {
         setError(null)
 
         try {
-            const response = await fetch("/api/auth/verify-code", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, code: fullCode }),
+            const response = await client.auth["verify-code"].$post({
+                json: { email, code: fullCode },
             })
 
             const data = await response.json()
 
             if (!response.ok) {
-                throw new Error(data.error || "Verification failed")
+                throw new Error((data as any).error || "Verification failed")
             }
 
             router.push("/admin/dashboard")
@@ -111,16 +110,14 @@ export default function VerifyCodePage() {
         setSuccessMessage(null)
 
         try {
-            const response = await fetch("/api/auth/resend-code", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email }),
+            const response = await client.auth["resend-code"].$post({
+                json: { email },
             })
 
             const data = await response.json()
 
             if (!response.ok) {
-                throw new Error(data.error || "Failed to resend code")
+                throw new Error((data as any).error || "Failed to resend code")
             }
 
             setSuccessMessage("A new verification code has been sent to your email.")
