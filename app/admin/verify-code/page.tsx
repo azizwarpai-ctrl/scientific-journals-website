@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import Image from "next/image"
 import { ShieldCheck, RefreshCw } from "lucide-react"
 import { client } from "@/src/lib/rpc"
+import { AlertBanner } from "@/components/ui/alert-banner"
 
 export default function VerifyCodePage() {
     const [code, setCode] = useState(["", "", "", "", "", ""])
@@ -180,15 +181,11 @@ export default function VerifyCodePage() {
                                 </div>
 
                                 {error && (
-                                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                                        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                                    </div>
+                                    <AlertBanner variant="error" message={error} />
                                 )}
 
                                 {successMessage && (
-                                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-                                        <p className="text-sm text-green-600 dark:text-green-400">{successMessage}</p>
-                                    </div>
+                                    <AlertBanner variant="success" message={successMessage} />
                                 )}
 
                                 <Button type="submit" className="w-full" disabled={isLoading}>

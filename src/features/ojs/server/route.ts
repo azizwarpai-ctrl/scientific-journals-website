@@ -53,7 +53,19 @@ app.get("/journals", async (c) => {
             description: row.description,
         }))
 
-        return c.json({ success: true, data: journals, configured: true }, 200)
+        const responsePayload = { success: true as const, data: journals, configured: true as const }
+
+        // Validate output against schema before sending
+        const validated = ojsJournalsResponseSchema.safeParse(responsePayload)
+        if (!validated.success) {
+            console.error("OJS response validation failed:", validated.error.flatten())
+            return c.json(
+                { success: false, configured: true, error: "Internal data validation error" },
+                500
+            )
+        }
+
+        return c.json(validated.data, 200)
     } catch (error) {
         console.error("Error fetching OJS journals:", error)
         return c.json(

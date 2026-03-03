@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
 import Image from "next/image"
+import Link from "next/link"
+import { AlertBanner } from "@/components/ui/alert-banner"
 
 import { client } from "@/src/lib/rpc"
 
@@ -94,9 +95,7 @@ export default function AdminLoginPage() {
                   />
                 </div>
                 {error && (
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                    <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                  </div>
+                  <AlertBanner variant="error" message={error} />
                 )}
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Signing in..." : "Sign In"}
