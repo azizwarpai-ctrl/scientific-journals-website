@@ -1,11 +1,13 @@
 import { Hono } from "hono"
+import { zValidator } from "@hono/zod-validator"
 import { ojsQuery, isOjsConfigured } from "./ojs-client"
-import type { OjsJournal } from "../types/ojs-type"
+import { ojsJournalsResponseSchema } from "../schemas/ojs-schema"
+import type { OjsJournal } from "../schemas/ojs-schema"
 
 const app = new Hono()
 
 // GET /ojs/journals — Fetch journals from OJS database
-app.get("/journals", async (c) => {
+app.get("/journals", zValidator("json", ojsJournalsResponseSchema), async (c) => {
     try {
         if (!isOjsConfigured()) {
             return c.json(
@@ -55,7 +57,7 @@ app.get("/journals", async (c) => {
     } catch (error) {
         console.error("Error fetching OJS journals:", error)
         return c.json(
-            { success: false, data: [], configured: true, error: "Failed to fetch OJS journals" },
+            { success: false, configured: true, error: "Failed to fetch OJS journals" },
             500
         )
     }

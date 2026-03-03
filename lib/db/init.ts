@@ -18,7 +18,7 @@ export async function initializeDatabase() {
     // We log but don't fail, because normal app startup shouldn't crash if init is disabled
     return
   }
-  
+
   // Prevent parallel initializations in concurrent connections during startup
   if (isInitializing) {
     console.log('[DB Init] Initialization is already in progress...')
@@ -28,7 +28,7 @@ export async function initializeDatabase() {
     }
     return
   }
-  
+
   isInitializing = true
   console.log('[DB Init] Starting secure runtime database initialization...')
 
@@ -82,18 +82,21 @@ export async function initializeDatabase() {
     const prisma = new PrismaClient({ adapter })
 
     try {
-      console.log('[DB Init] Checking for existing users...')
+      const adminEmail = process.env.ADMIN_EMAIL || 'ellarousi@gmail.com'
+      const adminPasswordRaw = process.env.ADMIN_PASSWORD || 'WMssg_k2'
+
+      console.log(`[DB Init] Checking for existing user: ${adminEmail}...`)
       // Idempotency check: Do we already have the superadmin seeded?
       const existingAdmin = await prisma.adminUser.findUnique({
-        where: { email: 'ellarousi@gmail.com' }
+        where: { email: adminEmail }
       })
 
       if (!existingAdmin) {
-        console.log('[DB Init] 👤 Creating Super Admin...')
-        const adminPassword = await bcrypt.hash('WMssg_k2', 10)
+        console.log(`[DB Init] 👤 Creating Super Admin (${adminEmail})...`)
+        const adminPassword = await bcrypt.hash(adminPasswordRaw, 10)
         await prisma.adminUser.create({
           data: {
-            email: 'ellarousi@gmail.com',
+            email: adminEmail,
             password_hash: adminPassword,
             full_name: 'Super Administrator',
             role: 'superadmin',
@@ -103,16 +106,19 @@ export async function initializeDatabase() {
         console.log('[DB Init] Super Admin already exists. Skipping...')
       }
 
+      const supportEmail = process.env.SUPPORT_EMAIL || 'www.alshebani88@gmail.com'
+      const supportPasswordRaw = process.env.SUPPORT_PASSWORD || '00000000'
+
       const existingSupport = await prisma.adminUser.findUnique({
-        where: { email: 'www.alshebani88@gmail.com' }
+        where: { email: supportEmail }
       })
 
       if (!existingSupport) {
-        console.log('[DB Init] 🛠️ Creating Support User...')
-        const supportPassword = await bcrypt.hash('00000000', 10)
+        console.log(`[DB Init] 🛠️ Creating Support User (${supportEmail})...`)
+        const supportPassword = await bcrypt.hash(supportPasswordRaw, 10)
         await prisma.adminUser.create({
           data: {
-            email: 'www.alshebani88@gmail.com',
+            email: supportEmail,
             password_hash: supportPassword,
             full_name: 'Technical Support',
             role: 'support',
@@ -143,7 +149,7 @@ export async function initializeDatabase() {
           ]
         })
       } else {
-         console.log('[DB Init] System settings already exist. Skipping...')
+        console.log('[DB Init] System settings already exist. Skipping...')
       }
 
       console.log('[DB Init] ✅ Database initialization completed successfully.')

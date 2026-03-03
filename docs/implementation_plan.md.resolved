@@ -1,0 +1,517 @@
+# DigitoPub — Phase 1: Full Project Analysis & Phase 2: Remediation Plan
+
+---
+
+## PHASE 1 — PROJECT STRUCTURE ANALYSIS
+
+### Technology Stack
+| Layer | Technology | Version |
+|---|---|---|
+| Framework | Next.js (App Router) | 16.0.10 |
+| API Server | Hono | ^4.12.2 |
+| Validation | Zod | ^4.3.6 |
+| Data Fetching | TanStack React Query | ^5.90.21 |
+| ORM | Prisma (MariaDB adapter) | 7.2.0 |
+| Auth | jose (JWT) | ^5.9.6 |
+| CSS | Tailwind CSS v4 | ^4.2.1 |
+| UI Components | Radix UI | multiple |
+| Animation | GSAP | 3.14.2 |
+
+### Folder Structure
+```
+d:\scientific-journals-website\
+├── app/                          # Next.js App Router pages
+│   ├── api/[[...route]]/route.ts # Hono catch-all API handler
+│   ├── admin/                    # 17 admin page files
+│   ├── about/ contact/ help/ journals/ solutions/ submit-manager/
+│   ├── login/ register/
+│   ├── page.tsx                  # Homepage (client component)
+│   ├── layout.tsx                # Root layout
+│   └── loading.tsx               # Returns null ⚠️
+├── src/
+│   ├── features/                 # Feature-based modules
+│   │   ├── auth/                 # api/ server/ schemas/ types/
+│   │   ├── journals/             # api/ server/ schemas/ types/ hooks/
+│   │   ├── messages/             # api/ server/ schemas/ types/
+│   │   ├── ojs/                  # api/ server/ types/ (no schemas/)
+│   │   └── solutions/            # api/ server/ schemas/ types/
+│   ├── lib/                      # Shared utilities
+│   │   ├── auth-middleware.ts     # Hono auth middleware
+│   │   ├── pagination.ts
+│   │   ├── rpc.ts                # Hono RPC client (typed as any)
+│   │   └── serialize.ts          # BigInt serialization
+│   └── server/app.ts             # Hono app definition + route mounting
+├── components/                   # Shared UI components
+│   ├── ui/                       # 15 Radix-based primitives
+│   ├── navbar.tsx                # Includes GoogleTranslate
+│   ├── google-translate.tsx      # External script injection ⚠️
+│   ├── animated-counter.tsx      # Used for hardcoded stats ⚠️
+│   └── ...
+├── lib/db/                       # Database layer
+│   ├── config.ts                 # Prisma singleton (lazy init ✅)
+│   ├── init.ts                   # Runtime DB init + seeding ⚠️
+│   ├── auth.ts                   # JWT session management
+│   └── users.ts                  # User CRUD
+├── config/routes.ts              # Route definitions for middleware
+├── middleware.ts                  # Next.js middleware (JWT auth)
+├── prisma/schema.prisma          # 9 models, BigInt IDs
+├── tests/                        # 7 unit + 2 integration tests
+└── .env / .env.production.template
+```
+
+### Observations
+- Feature-based structure is mostly consistent across 5 modules
+- Hono server setup is well-structured with CORS, logger, error handling, 404 handler
+- API route handler exports GET/POST/PATCH/DELETE (compliant with API-01)
+- [AppType](file:///d:/scientific-journals-website/src/server/app.ts#74-75) is correctly exported for RPC typing
+- Prisma singleton uses lazy initialization (`ENV-02` compliant)
+- Admin dashboard uses server-side rendering with direct Prisma calls (correct for RSC)
+- Tests exist for schemas, serialization, pagination, API routes, and auth
+
+---
+
+## ARCHITECTURE COMPLIANCE
+
+### Violations by `rule_id`
+
+| Rule | Description | Status | Details |
+|---|---|---|---|
+| **FEAT-SERVER-04** | UUID required for identifiers | ❌ VIOLATED | All 9 Prisma models use `BigInt @id @default(autoincrement())` |
+| **UI-01** | Shared components only | ⚠️ PARTIAL | Google Translate widget is a custom non-standard component, not a shared UI primitive |
+| **UI-02** | Visual consistency | ⚠️ PARTIAL | Translation button has inconsistent styling vs. rest of navbar |
+| **FEAT-API-02** | React Query required | ⚠️ PARTIAL | OJS hook ([use-get-ojs-journals.ts](file:///d:/scientific-journals-website/src/features/ojs/api/use-get-ojs-journals.ts)), login page, verify-code page use raw `fetch` instead of RPC client |
+| **FEAT-SERVER-02** | Zod validation required | ⚠️ PARTIAL | OJS route (`/ojs/journals`) has no Zod validation |
+| **NAME-01** | Kebab-case naming | ✅ COMPLIANT | All files use kebab-case |
+| **ARCH-01** | Feature-based structure | ✅ COMPLIANT | All features under `src/features/` |
+| **ARCH-02** | Feature structure pattern | ⚠️ PARTIAL | OJS feature missing `schemas/` directory |
+| **ENV-01** | Env vars documented | ✅ COMPLIANT | `.env.production.template` exists |
+| **ENV-02** | Lazy initialization | ✅ COMPLIANT | Both Prisma and OJS pool use lazy init |
+| **DEP-01** | No new deps without approval | ✅ COMPLIANT | No unauthorized packages detected |
+| **API-01** | Only get/post/patch/delete | ✅ COMPLIANT | Only these methods exported |
+
+### Critical Issues
+
+1. **🔴 Homepage Numbers Hardcoded** — Stats `250+`, `15000+`, `50000+`, `120+` are static values in `app/page.tsx` lines 56–77, not connected to any database
+2. **🔴 RPC Client Typed as `any`** — `src/lib/rpc.ts` line 9: `export const client: any = hc<AppType>(...)` — destroys end-to-end type safety
+3. **🔴 Hardcoded Credentials in `init.ts`** — Email `ellarousi@gmail.com` with password `WMssg_k2` and `www.alshebani88@gmail.com` with password `00000000` hardcoded in database seed
+4. **🔴 OTP Only Logs to Console** — `console.log()` in auth route.ts lines 47, 152 — no email delivery configured
+
+### High Priority Issues
+
+5. **🟠 BigInt IDs Instead of UUID** — Entire schema uses `BigInt @default(autoincrement())`, violating `FEAT-SERVER-04`. Requires migration.
+6. **🟠 Fake Dashboard Stat** — `app/admin/dashboard/page.tsx` line 106: `Total Authors = submissions * 0.7` — purely fabricated number
+7. **🟠 No Skeleton Loaders Used** — `Skeleton` component exists in `components/ui/skeleton.tsx` but is never used anywhere. `app/loading.tsx` returns `null`.
+8. **🟠 Google Translate Hydration Issue** — External script injection in `useEffect` causes the translation widget to appear/disappear during hydration
+
+---
+
+## FRONTEND ANALYSIS
+
+### UI Consistency
+- ✅ Radix UI primitives used consistently (15 in `components/ui/`)
+- ✅ Shared `Card`, `Button`, `Input`, `Label` components used across pages
+- ⚠️ Google Translate widget uses inline styles (`minHeight: "40px"`) instead of Tailwind
+- ⚠️ Error/success messages in verify-code and login pages use inline Tailwind classes for alerts instead of a shared Alert component
+
+### Shared Components Usage
+- ✅ `Navbar`, `Footer`, `AdminSidebar`, `AdminHeader` properly componentized
+- ✅ `GSAPWrapper`, `AnimatedCounter` provide animation consistently
+- ⚠️ No shared `EmptyState` component — empty states are ad-hoc inline JSX
+
+### React Query Compliance
+- ✅ `useGetJournals`, `useCreateJournal`, `useGetJournal` use RPC client via `client.journals.$get()`
+- ✅ `useLogin`, `useRegister`, `useLogout` use RPC client via `client.auth.*.$post()`
+- ❌ `useGetOjsJournals` uses raw `fetch("/api/ojs/journals")` — bypasses RPC
+- ❌ `app/admin/login/page.tsx` uses raw `fetch("/api/auth/login")` — bypasses RPC
+- ❌ `app/admin/verify-code/page.tsx` uses raw `fetch("/api/auth/verify-code")` and `fetch("/api/auth/resend-code")` — bypasses RPC
+
+### Skeleton Usage
+- `Skeleton` component defined but **never imported or used anywhere**
+- `app/loading.tsx` returns `null` — no loading UI for page transitions
+- Only `Loader2` spinner icon used for loading (journals on homepage)
+- Admin submissions page has its own `loading.tsx` (not yet inspected)
+
+### Hardcoded Values
+- ❌ `app/page.tsx` lines 56–77: `250+`, `15000+`, `50000+`, `120+` — fully static
+- ❌ `app/admin/dashboard/page.tsx` line 106: `submissions * 0.7` as "Total Authors"
+- ⚠️ OTP expiration is hardcoded to `5 * 60 * 1000` (5 minutes) — should be configurable
+
+---
+
+## BACKEND ANALYSIS
+
+### Hono Routing
+- ✅ All routes registered via `app.route()` in `src/server/app.ts`
+- ✅ Mounted routes: `/journals`, `/solutions`, `/auth`, `/messages`, `/ojs`
+- ✅ Base path `/api` set correctly
+- ✅ Global CORS, logger middleware applied
+- ✅ Error handler and 404 handler present
+
+### Zod Validation
+- ✅ `journals`, `solutions`, `messages`, `auth` routes all use `zValidator()`
+- ❌ `ojs` route has **zero Zod validation** — raw SQL, no input/output validation
+
+### Feature Router Placement
+- ✅ Each feature has `server/route.ts` exporting named router
+- ✅ Re-exported via `server.ts` barrel file in each feature
+- ⚠️ OJS feature has 2 files in `server/`: `route.ts` + `ojs-client.ts`
+
+### UUID Usage
+- ❌ **ALL models use `BigInt @id @default(autoincrement())`** — violates `FEAT-SERVER-04`
+- `VerificationCode` model also uses BigInt for `id` and `user_id`
+- `verifyAdmin()` in `lib/db/auth.ts` does `BigInt(userId)` conversion
+- Serialization in `src/lib/serialize.ts` handles BigInt→string conversion
+
+### API Naming Compliance
+- ✅ All route paths use kebab-case: `/verify-code`, `/resend-code`
+- ✅ Base paths map to feature names: `/journals`, `/solutions`, `/auth`, `/messages`, `/ojs`
+
+---
+
+## AUTHENTICATION REVIEW
+
+### Session Validation Logic
+- ✅ **Middleware-level protection**: `middleware.ts` uses `jose.jwtVerify()` for all admin routes
+- ✅ **Server-side protection**: `app/admin/dashboard/page.tsx` calls `getSession()` + `redirect()`
+- ✅ Cookie-based JWT with `httpOnly`, `secure` (production), `sameSite: "lax"`
+- ✅ 7-day token expiration
+- ✅ Login page redirects to dashboard if token is valid
+- ⚠️ No CSRF protection beyond sameSite cookie
+
+### Dashboard Protection
+- ✅ Middleware blocks all `/admin/*` routes without valid JWT
+- ✅ Dashboard page has server-side session check with redirect
+- ✅ Admin layout correctly excludes auth pages from sidebar/header
+- ✅ `requireAdmin` middleware enforces `admin|superadmin` role on API routes
+
+### OTP Verification System
+- ✅ 6-digit numeric OTP generated via `Math.random()` ⚠️ (not cryptographically secure)
+- ✅ 5-minute expiration enforced
+- ✅ Previous codes invalidated before generating new one
+- ✅ Code marked as `used: true` after verification
+- ✅ Resend cooldown (60s) enforced on client
+- ❌ **No email delivery** — OTP only logged to `console.log()`
+- ❌ Rate limiting missing on `/resend-code` endpoint (server-side)
+- ⚠️ Register endpoint bypasses OTP — creates session immediately
+
+### Email Templates
+- ❌ **No email templates exist** — no email service configured at all
+
+### Token Lifecycle
+- ✅ JWT issued with `setIssuedAt()` and `setExpirationTime("7d")`
+- ✅ Cookie `maxAge` matches JWT expiration (7 days)
+- ✅ Logout destroys cookie
+
+---
+
+## ENVIRONMENT & CONFIGURATION
+
+### Missing Env Variables
+- ⚠️ `ALLOW_PROD_DB_INIT` — Not in template, required for `init.ts` to function
+- ⚠️ `SESSION_EXPIRY` — Defined in `.env` but never used in code (JWT uses hardcoded `"7d"`)
+
+### Lazy Initialization Issues
+- ✅ Prisma client lazy-initialized via `createPrismaClient()` function
+- ✅ OJS pool lazy-initialized via `getPool()` function
+- ✅ Both use env var checks before connecting
+- ⚠️ `init.ts` creates a separate PrismaClient instance for seeding — this is intentional but creates a second connection pool
+
+---
+
+## SUMMARY OF TECHNICAL DEBT
+
+| # | Issue | Severity | Effort |
+|---|---|---|---|
+| 1 | Homepage stats hardcoded (250+, 15000+, 50000+, 120+) | 🔴 Critical | Medium |
+| 2 | RPC client typed as `any` — no type safety | 🔴 Critical | Low |
+| 3 | Hardcoded credentials in `init.ts` | 🔴 Critical | Low |
+| 4 | OTP logs to console — no email | 🔴 Critical | High |
+| 5 | BigInt IDs instead of UUID across all models | 🟠 High | Very High |
+| 6 | Translation button hydration/lifecycle issue | 🟠 High | Medium |
+| 7 | No skeleton loaders anywhere | 🟠 High | Medium |
+| 8 | Fake "Total Authors" stat on dashboard | 🟠 High | Low |
+| 9 | OJS feature missing Zod validation/schemas | 🟡 Medium | Low |
+| 10 | Raw `fetch` calls bypassing RPC in 3 pages | 🟡 Medium | Low |
+| 11 | OTP generation not cryptographically secure | 🟡 Medium | Low |
+| 12 | No rate limiting on auth endpoints | 🟡 Medium | Medium |
+| 13 | Register bypasses OTP verification | 🟡 Medium | Low |
+| 14 | `loading.tsx` returns `null` | 🟡 Medium | Low |
+| 15 | No shared Alert or EmptyState components | 🟡 Medium | Low |
+| 16 | `SESSION_EXPIRY` env var unused | 🟢 Low | Low |
+| 17 | `ALLOW_PROD_DB_INIT` not in env template | 🟢 Low | Low |
+
+---
+
+---
+
+# PHASE 2 — EXECUTION PLAN
+
+---
+
+## CRITICAL FIXES
+
+### 1. 🔴 Create `home-stats` Feature — Replace Hardcoded Homepage Numbers
+**Violates**: ARCH-01, Feature structure rules
+**Affected folder**: `src/features/home-stats/` (NEW)
+
+**Root cause**: The homepage `app/page.tsx` (lines 56–77) embeds static numbers (`250+`, `15000+`, `50000+`, `120+`) directly in JSX. These have no connection to any database. The `AnimatedCounter` component receives hardcoded `end` props.
+
+**Fix strategy**: Create a new `home-stats` feature module that queries the actual database for live counts.
+
+**Required files**:
+```
+src/features/home-stats/
+├── server/
+│   └── route.ts               # GET /home-stats — returns counts from Prisma
+├── schemas/
+│   └── home-stats-schema.ts   # Zod response schema
+├── types/
+│   └── home-stats-type.ts     # TypeScript types
+├── api/
+│   └── use-get-home-stats.ts  # React Query hook using RPC client
+├── index.ts                   # Barrel export
+└── server.ts                  # Re-export server router
+```
+
+**Server route logic**:
+- Query `prisma.journal.count()` for "Active Journals"
+- Query `prisma.publishedArticle.count()` for "Published Articles"  
+- Query `prisma.submission.count({ distinct: ['author_email'] })` for "Researchers"
+- Return a configurable "Countries" value from `SystemSetting` or calculate from data
+
+**Registration**: Add `homeStatsRouter` to `src/server/app.ts`
+
+**Frontend change**: Replace hardcoded `<AnimatedCounter end={250}/>` calls in `app/page.tsx` with data from `useGetHomeStats()`, with proper skeleton loading.
+
+---
+
+### 2. 🔴 Fix RPC Client Type Safety
+**Violates**: Type safety, FEAT-API-02
+**Affected file**: [rpc.ts](file:///d:/scientific-journals-website/src/lib/rpc.ts)
+
+**Root cause**: Line 9 casts the client to `any`: `export const client: any = hc<AppType>(...)`. This was likely done to bypass build-time type inference issues with Hono.
+
+**Fix strategy**: 
+- Remove the `: any` cast
+- If type inference fails during build, investigate the root Hono version compatibility
+- Alternatively, extract the type explicitly and use a proper typed wrapper
+
+**Risk**: May surface type errors in existing API hooks that were hidden by `any`
+
+---
+
+### 3. 🔴 Remove Hardcoded Credentials from `init.ts`
+**Affected file**: [init.ts](file:///d:/scientific-journals-website/lib/db/init.ts)
+
+**Fix strategy**:
+- Move admin email/password to environment variables: `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `SUPPORT_EMAIL`, `SUPPORT_PASSWORD`
+- Add these to `.env.production.template`
+- Update `init.ts` to read from `process.env`
+
+---
+
+## HIGH PRIORITY FIXES
+
+### 4. 🟠 Translation Button — Fix Design + Lifecycle
+**Violates**: UI-01, UI-02
+**Affected files**: [google-translate.tsx](file:///d:/scientific-journals-website/components/google-translate.tsx), [navbar.tsx](file:///d:/scientific-journals-website/components/navbar.tsx)
+
+**Root cause hypothesis**: 
+- The Google Translate widget injects an external `<script>` tag during `useEffect`
+- On initial hydration, the component mounts, `useEffect` fires, the script loads asynchronously
+- The `#google_translate_element` div is initially empty (no content), causing it to appear/disappear
+- The external script replaces the div content with a `<select>` dropdown that has Google's own styling, inconsistent with the app's design
+
+**Fix strategy**:
+1. Wrap the Google Translate element in a shared UI container with consistent styling
+2. Add a loading state (shimmer/skeleton) until the translate widget is ready
+3. Use a `MutationObserver` or `onload` callback to detect when the widget has mounted
+4. Apply CSS overrides to match the app's design system (border-radius, colors, font)
+5. Ensure stable mount — no conditional rendering based on loading state that would cause flickering
+
+**Folder placement**: Keep in `components/google-translate.tsx` (it's a shared component, not feature-specific)
+
+---
+
+### 5. 🟠 Custom Skeleton System
+**Violates**: UI-02 (loading consistency)
+**Affected files**: Multiple pages
+
+**Requirements**:
+- Each page should have a dedicated skeleton for its loading state
+- Empty state components should have custom empty skeleton variants
+- Must use the existing `Skeleton` primitive from `components/ui/skeleton.tsx`
+- Must NOT introduce new dependencies (`DEP-01`)
+
+**Implementation plan**:
+```
+components/
+├── skeletons/
+│   ├── home-stats-skeleton.tsx    # 4-column stat cards skeleton
+│   ├── journal-card-skeleton.tsx  # Journal card placeholder
+│   ├── dashboard-skeleton.tsx     # Admin dashboard stats + table skeleton
+│   └── page-skeleton.tsx          # Generic full-page skeleton
+├── empty-states/
+│   ├── empty-journals.tsx         # Custom empty state for journals list
+│   ├── empty-submissions.tsx      # Custom empty state for submissions
+│   └── empty-messages.tsx         # Custom empty state for messages
+```
+
+**Changes**:
+- Replace `app/loading.tsx` `return null` with `<PageSkeleton />`
+- Add skeletons to homepage stats section, journal cards section
+- Add skeletons to admin dashboard page loading
+- Replace inline "No journals available yet" with `<EmptyJournals />`
+
+---
+
+### 6. 🟠 Fix Fake "Total Authors" Dashboard Stat
+**Affected file**: [dashboard page.tsx](file:///d:/scientific-journals-website/app/admin/dashboard/page.tsx)
+
+**Root cause**: Line 106 calculates `Math.ceil(submissions * 0.7)` — a fabricated number.
+
+**Fix**: Query `prisma.submission.findMany({ select: { author_email: true }, distinct: ['author_email'] })` and use `.length` for real author count.
+
+---
+
+### 7. 🟠 OTP System — Console-Only, No Email
+**Violates**: Production readiness
+**Affected file**: [auth route.ts](file:///d:/scientific-journals-website/src/features/auth/server/route.ts)
+
+**Current state**: Lines 47, 152 — `console.log()` only
+
+**Fix strategy** (without adding new dependencies per DEP-01):
+- Document in the plan that a proper email service (e.g., SMTP via `nodemailer`) is **BLOCKED** by `DEP-01`
+- The current console.log approach should be clearly marked as "development-only"
+- Add `// TODO(PROD): Replace with email service` annotations
+- Add an env var `OTP_DELIVERY_METHOD=console|email` for future flexibility
+
+> [!IMPORTANT]
+> Implementing actual email delivery requires `nodemailer` or similar package, which would violate **DEP-01** (no new dependencies without approval). This item is **BLOCKED** pending dependency approval.
+
+---
+
+## MEDIUM FIXES
+
+### 8. 🟡 OJS Feature — Add Missing Schemas + Zod Validation
+**Violates**: FEAT-SERVER-02, ARCH-02
+**Affected files**: `src/features/ojs/`
+
+**Fix**:
+- Create `src/features/ojs/schemas/ojs-schema.ts` with Zod response schema
+- Add Zod output validation to `ojs/server/route.ts`
+
+---
+
+### 9. 🟡 Replace Raw `fetch` with RPC Client
+**Violates**: FEAT-API-02
+**Affected files**:
+- `src/features/ojs/api/use-get-ojs-journals.ts` — uses `fetch("/api/ojs/journals")`
+- `app/admin/login/page.tsx` — uses `fetch("/api/auth/login")`
+- `app/admin/verify-code/page.tsx` — uses `fetch("/api/auth/verify-code")` and `fetch("/api/auth/resend-code")`
+
+**Fix**: Replace all raw `fetch` calls with the RPC client (`client.auth.login.$post()`, etc.)
+
+---
+
+### 10. 🟡 Register Should Require OTP
+**Affected file**: [auth route.ts](file:///d:/scientific-journals-website/src/features/auth/server/route.ts)
+
+**Current**: Registration creates session immediately at line 177 without OTP
+**Fix**: Apply same OTP flow as login — generate code → verify → create session
+
+---
+
+### 11. 🟡 OTP Should Use Cryptographically Secure Random
+**Affected file**: [auth route.ts](file:///d:/scientific-journals-website/src/features/auth/server/route.ts)
+
+**Current**: `Math.floor(100000 + Math.random() * 900000)` — predictable
+**Fix**: Use `crypto.randomInt(100000, 999999)` from Node.js built-in `crypto` module (no new dependency needed)
+
+---
+
+### 12. 🟡 Fix `loading.tsx`
+**Affected file**: [loading.tsx](file:///d:/scientific-journals-website/app/loading.tsx)
+
+**Fix**: Replace `return null` with proper skeleton loading component
+
+---
+
+## REQUIRED NEW FEATURES
+
+| Feature | Path | Status |
+|---|---|---|
+| `home-stats` | `src/features/home-stats/` | NEW — Critical |
+| `skeletons` | `components/skeletons/` | NEW — High |
+| `empty-states` | `components/empty-states/` | NEW — High |
+
+## FILES TO MODIFY
+
+| File | Change |
+|---|---|
+| `src/server/app.ts` | Register `homeStatsRouter` |
+| `src/lib/rpc.ts` | Remove `: any` cast |
+| `lib/db/init.ts` | Use env vars for credentials |
+| `app/page.tsx` | Replace hardcoded stats with `useGetHomeStats()` + skeletons |
+| `app/loading.tsx` | Add skeleton or spinner |
+| `app/admin/dashboard/page.tsx` | Fix fake "Total Authors" stat |
+| `app/admin/login/page.tsx` | Use RPC client instead of raw fetch |
+| `app/admin/verify-code/page.tsx` | Use RPC client instead of raw fetch |
+| `src/features/ojs/api/use-get-ojs-journals.ts` | Use RPC client |
+| `src/features/auth/server/route.ts` | Use `crypto.randomInt()`, add TODO for email |
+| `components/google-translate.tsx` | Fix hydration, improve styling |
+| `.env.production.template` | Add `ALLOW_PROD_DB_INIT`, `ADMIN_EMAIL`, etc. |
+
+## FILES TO REMOVE (CLEAN-01)
+- None identified — no orphaned or dead files found
+
+## ARCHITECTURE REFACTOR REQUIRED? **NO**
+- The existing feature-based architecture is fundamentally sound
+- All fixes are additive or in-place corrections
+- The BigInt→UUID migration is flagged but is a **database migration** of very high effort and risk, recommended for a separate phase
+
+> [!WARNING]
+> The UUID migration (FEAT-SERVER-04) would require: new Prisma migration, data migration for all 9 tables, updating all BigInt references throughout the codebase. This is a **separate initiative** and should NOT be bundled with these fixes.
+
+## RISK ASSESSMENT
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| RPC type fix surfacing hidden type errors | High | Medium | Fix errors as they appear, all are currently masked by `any` |
+| Homepage stats API adding latency to page load | Low | Low | Use React Query staleTime and show skeleton during load |
+| Google Translate fix breaking in some browsers | Medium | Low | Test across Chrome, Firefox, Safari |
+| OTP email blocked by DEP-01 | Certain | High | Document as known limitation, proceed when approved |
+
+---
+
+## VERIFICATION PLAN
+
+### Automated Tests
+Existing tests to verify after changes:
+```bash
+# Run all existing tests
+npx vitest run
+
+# Run specific test suites
+npx vitest run tests/unit/auth-schema.test.ts
+npx vitest run tests/unit/journal-schema.test.ts
+npx vitest run tests/integration/api-routes.test.ts
+npx vitest run tests/integration/security-auth.test.ts
+```
+
+New tests to add:
+- `tests/unit/home-stats-schema.test.ts` — Validate the home-stats Zod schema
+- `tests/unit/ojs-schema.test.ts` — Validate the new OJS Zod schema
+
+### Build Verification
+```bash
+# Verify project builds without errors after RPC type fix
+npm run build
+```
+
+### Manual Verification
+1. **Homepage stats**: Start dev server (`npm run dev`), navigate to `/`, verify stats section shows real database numbers (or 0 if empty) with skeleton loading
+2. **Translation button**: Navigate to homepage, verify the translation widget appears consistently without flickering on page load and after navigation
+3. **Skeleton loaders**: Navigate between pages, verify skeleton loaders appear during transitions instead of blank screens
+4. **Admin dashboard**: Log in as admin, verify "Total Authors" shows a real count instead of `submissions * 0.7`
+5. **OTP flow**: Attempt login, verify OTP code appears in server console, verify the verify-code page works end-to-end

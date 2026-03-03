@@ -9,9 +9,14 @@ import Link from "next/link"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { AnimatedCounter } from "@/components/animated-counter"
 import { useGetOjsJournals } from "@/src/features/ojs/api/use-get-ojs-journals"
+import { useGetHomeStats } from "@/src/features/home-stats"
+import { Skeleton } from "@/components/ui/skeleton"
+import { HomeStatsSkeleton } from "@/components/skeletons/home-stats-skeleton"
+import { JournalCardSkeleton } from "@/components/skeletons/journal-card-skeleton"
 
 export default function HomePage() {
-  const { data: ojsData, isLoading } = useGetOjsJournals()
+  const { data: ojsData, isLoading: isLoadingOjs } = useGetOjsJournals()
+  const { data: stats, isLoading: isLoadingStats } = useGetHomeStats()
   const journals = ojsData?.data ?? []
 
   return (
@@ -50,32 +55,36 @@ export default function HomePage() {
         <GSAPWrapper animation="slideUp" delay={0.2}>
           <section className="border-y bg-muted/30 py-12">
             <div className="container mx-auto px-4 md:px-6">
-              <div className="grid gap-8 md:grid-cols-4">
-                <div className="text-center">
-                  <div className="mb-2 text-primary">
-                    <AnimatedCounter end={250} suffix="+" duration={2500} />
+              {isLoadingStats ? (
+                <HomeStatsSkeleton />
+              ) : (
+                <div className="grid gap-8 md:grid-cols-4">
+                  <div className="text-center">
+                    <div className="mb-2 text-primary">
+                      <AnimatedCounter end={stats?.activeJournals ?? 0} suffix="+" duration={2500} />
+                    </div>
+                    <div className="text-sm text-muted-foreground">Active Journals</div>
                   </div>
-                  <div className="text-sm text-muted-foreground">Active Journals</div>
-                </div>
-                <div className="text-center">
-                  <div className="mb-2 text-secondary">
-                    <AnimatedCounter end={15000} suffix="+" duration={2500} />
+                  <div className="text-center">
+                    <div className="mb-2 text-secondary">
+                      <AnimatedCounter end={stats?.publishedArticles ?? 0} suffix="+" duration={2500} />
+                    </div>
+                    <div className="text-sm text-muted-foreground">Published Articles</div>
                   </div>
-                  <div className="text-sm text-muted-foreground">Published Articles</div>
-                </div>
-                <div className="text-center">
-                  <div className="mb-2 text-primary">
-                    <AnimatedCounter end={50000} suffix="+" duration={2500} />
+                  <div className="text-center">
+                    <div className="mb-2 text-primary">
+                      <AnimatedCounter end={stats?.researchers ?? 0} suffix="+" duration={2500} />
+                    </div>
+                    <div className="text-sm text-muted-foreground">Researchers</div>
                   </div>
-                  <div className="text-sm text-muted-foreground">Researchers</div>
-                </div>
-                <div className="text-center">
-                  <div className="mb-2 text-secondary">
-                    <AnimatedCounter end={120} suffix="+" duration={2500} />
+                  <div className="text-center">
+                    <div className="mb-2 text-secondary">
+                      <AnimatedCounter end={stats?.countries ?? 0} suffix="+" duration={2500} />
+                    </div>
+                    <div className="text-sm text-muted-foreground">Countries</div>
                   </div>
-                  <div className="text-sm text-muted-foreground">Countries</div>
                 </div>
-              </div>
+              )}
             </div>
           </section>
         </GSAPWrapper>
@@ -94,9 +103,11 @@ export default function HomePage() {
                 </Button>
               </div>
 
-              {isLoading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              {isLoadingOjs ? (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {[...Array(6)].map((_, i) => (
+                    <JournalCardSkeleton key={i} />
+                  ))}
                 </div>
               ) : journals.length > 0 ? (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

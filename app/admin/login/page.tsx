@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import Link from "next/link"
 import Image from "next/image"
 
+import { client } from "@/src/lib/rpc"
+
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -23,16 +25,14 @@ export default function AdminLoginPage() {
     setError(null)
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+      const response = await client.auth.login.$post({
+        json: { email, password },
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Authentication failed")
+        throw new Error((data as any).error || "Authentication failed")
       }
 
       if (data.requiresVerification) {
