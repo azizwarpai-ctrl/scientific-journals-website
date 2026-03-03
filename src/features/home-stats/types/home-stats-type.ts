@@ -1,4 +1,4 @@
-import { HomeStats } from "../schemas/home-stats-schema"
+import type { HomeStats } from "../schemas/home-stats-schema"
 
 export type { HomeStats }
 

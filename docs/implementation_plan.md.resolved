@@ -19,7 +19,7 @@
 
 ### Folder Structure
 ```
-d:\scientific-journals-website\
+./
 ├── app/                          # Next.js App Router pages
 │   ├── api/[[...route]]/route.ts # Hono catch-all API handler
 │   ├── admin/                    # 17 admin page files
@@ -63,7 +63,7 @@ d:\scientific-journals-website\
 - Feature-based structure is mostly consistent across 5 modules
 - Hono server setup is well-structured with CORS, logger, error handling, 404 handler
 - API route handler exports GET/POST/PATCH/DELETE (compliant with API-01)
-- [AppType](file:///d:/scientific-journals-website/src/server/app.ts#74-75) is correctly exported for RPC typing
+- [AppType](src/server/app.ts#L74-L75) is correctly exported for RPC typing
 - Prisma singleton uses lazy initialization (`ENV-02` compliant)
 - Admin dashboard uses server-side rendering with direct Prisma calls (correct for RSC)
 - Tests exist for schemas, serialization, pagination, API routes, and auth
@@ -79,7 +79,7 @@ d:\scientific-journals-website\
 | **FEAT-SERVER-04** | UUID required for identifiers | ❌ VIOLATED | All 9 Prisma models use `BigInt @id @default(autoincrement())` |
 | **UI-01** | Shared components only | ⚠️ PARTIAL | Google Translate widget is a custom non-standard component, not a shared UI primitive |
 | **UI-02** | Visual consistency | ⚠️ PARTIAL | Translation button has inconsistent styling vs. rest of navbar |
-| **FEAT-API-02** | React Query required | ⚠️ PARTIAL | OJS hook ([use-get-ojs-journals.ts](file:///d:/scientific-journals-website/src/features/ojs/api/use-get-ojs-journals.ts)), login page, verify-code page use raw `fetch` instead of RPC client |
+| **FEAT-API-02** | React Query required | ⚠️ PARTIAL | OJS hook ([use-get-ojs-journals.ts](src/features/ojs/api/use-get-ojs-journals.ts)), login page, verify-code page use raw `fetch` instead of RPC client |
 | **FEAT-SERVER-02** | Zod validation required | ⚠️ PARTIAL | OJS route (`/ojs/journals`) has no Zod validation |
 | **NAME-01** | Kebab-case naming | ✅ COMPLIANT | All files use kebab-case |
 | **ARCH-01** | Feature-based structure | ✅ COMPLIANT | All features under `src/features/` |
@@ -93,8 +93,8 @@ d:\scientific-journals-website\
 
 1. **🔴 Homepage Numbers Hardcoded** — Stats `250+`, `15000+`, `50000+`, `120+` are static values in `app/page.tsx` lines 56–77, not connected to any database
 2. **🔴 RPC Client Typed as `any`** — `src/lib/rpc.ts` line 9: `export const client: any = hc<AppType>(...)` — destroys end-to-end type safety
-3. **🔴 Hardcoded Credentials in `init.ts`** — Email `ellarousi@gmail.com` with password `WMssg_k2` and `www.alshebani88@gmail.com` with password `00000000` hardcoded in database seed
-4. **🔴 OTP Only Logs to Console** — `console.log()` in auth route.ts lines 47, 152 — no email delivery configured
+3. **🔴 Hardcoded Credentials in `init.ts`** — Sensitive emails and passwords were hardcoded in database seed (now redacted/removed)
+4. **🔴 OTP Only Logs to Console** — `console.log()` in auth route.ts — insecure for production
 
 ### High Priority Issues
 
@@ -314,7 +314,7 @@ src/features/home-stats/
 
 ### 4. 🟠 Translation Button — Fix Design + Lifecycle
 **Violates**: UI-01, UI-02
-**Affected files**: [google-translate.tsx](file:///d:/scientific-journals-website/components/google-translate.tsx), [navbar.tsx](file:///d:/scientific-journals-website/components/navbar.tsx)
+**Affected files**: [google-translate.tsx](components/google-translate.tsx), [navbar.tsx](components/navbar.tsx)
 
 **Root cause hypothesis**: 
 - The Google Translate widget injects an external `<script>` tag during `useEffect`
@@ -366,7 +366,7 @@ components/
 ---
 
 ### 6. 🟠 Fix Fake "Total Authors" Dashboard Stat
-**Affected file**: [dashboard page.tsx](file:///d:/scientific-journals-website/app/admin/dashboard/page.tsx)
+**Affected file**: [dashboard page.tsx](app/admin/dashboard/page.tsx)
 
 **Root cause**: Line 106 calculates `Math.ceil(submissions * 0.7)` — a fabricated number.
 
@@ -376,18 +376,17 @@ components/
 
 ### 7. 🟠 OTP System — Console-Only, No Email
 **Violates**: Production readiness
-**Affected file**: [auth route.ts](file:///d:/scientific-journals-website/src/features/auth/server/route.ts)
+**Affected file**: [auth route.ts](src/features/auth/server/route.ts)
 
 **Current state**: Lines 47, 152 — `console.log()` only
 
-**Fix strategy** (without adding new dependencies per DEP-01):
-- Document in the plan that a proper email service (e.g., SMTP via `nodemailer`) is **BLOCKED** by `DEP-01`
-- The current console.log approach should be clearly marked as "development-only"
-- Add `// TODO(PROD): Replace with email service` annotations
-- Add an env var `OTP_DELIVERY_METHOD=console|email` for future flexibility
+**Fix strategy**:
+- Set `OTP_DELIVERY_METHOD=disabled` in production as a fail-closed fallback until an email provider is approved.
+- When `disabled`, the authentication flow must return a clear actionable error to the user.
+- Add `// TODO(PROD): Replace with email service` annotations.
 
 > [!IMPORTANT]
-> Implementing actual email delivery requires `nodemailer` or similar package, which would violate **DEP-01** (no new dependencies without approval). This item is **BLOCKED** pending dependency approval.
+> Actual email delivery (via `nodemailer`) is **BLOCKED** by **DEP-01**. In production without an approved provider, the system must fail closed.
 
 ---
 
@@ -415,7 +414,7 @@ components/
 ---
 
 ### 10. 🟡 Register Should Require OTP
-**Affected file**: [auth route.ts](file:///d:/scientific-journals-website/src/features/auth/server/route.ts)
+**Affected file**: [auth route.ts](src/features/auth/server/route.ts)
 
 **Current**: Registration creates session immediately at line 177 without OTP
 **Fix**: Apply same OTP flow as login — generate code → verify → create session
@@ -423,15 +422,15 @@ components/
 ---
 
 ### 11. 🟡 OTP Should Use Cryptographically Secure Random
-**Affected file**: [auth route.ts](file:///d:/scientific-journals-website/src/features/auth/server/route.ts)
+**Affected file**: [auth route.ts](src/features/auth/server/route.ts)
 
 **Current**: `Math.floor(100000 + Math.random() * 900000)` — predictable
-**Fix**: Use `crypto.randomInt(100000, 999999)` from Node.js built-in `crypto` module (no new dependency needed)
+**Fix**: Use `crypto.randomInt(100000, 1000000)` from Node.js built-in `crypto` module (ensures 6-digit range 100000-999999).
 
 ---
 
 ### 12. 🟡 Fix `loading.tsx`
-**Affected file**: [loading.tsx](file:///d:/scientific-journals-website/app/loading.tsx)
+**Affected file**: [loading.tsx](app/loading.tsx)
 
 **Fix**: Replace `return null` with proper skeleton loading component
 

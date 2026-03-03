@@ -3,10 +3,10 @@ import { z } from "zod"
 export const homeStatsSchema = z.object({
     success: z.boolean(),
     data: z.object({
-        activeJournals: z.number(),
-        publishedArticles: z.number(),
-        researchers: z.number(),
-        countries: z.number(),
+        activeJournals: z.number().int().nonnegative(),
+        publishedArticles: z.number().int().nonnegative(),
+        researchers: z.number().int().nonnegative(),
+        countries: z.number().int().nonnegative(),
     }),
 })
 

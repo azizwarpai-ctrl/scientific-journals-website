@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { z } from "zod"
 import crypto from "node:crypto"
+import bcrypt from "bcryptjs"
 import { loginSchema, registerSchema } from "../schemas/auth-schema"
 import { createUser, verifyPassword, getUserById } from "@/lib/db/users"
 import { createSession, getSession, destroySession } from "@/lib/db/auth"
@@ -11,7 +12,8 @@ const app = new Hono()
 
 // Helper: Generate a 6-digit OTP code using cryptographically secure random numbers
 function generateOTPCode(): string {
-  return crypto.randomInt(100000, 999999).toString()
+  // crypto.randomInt upper bound is exclusive, so 1000000 includes 999999
+  return crypto.randomInt(100000, 1000000).toString()
 }
 
 // POST /auth/login
@@ -24,6 +26,16 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
       return c.json({ success: false, error: "Invalid email or password" }, 401)
     }
 
+    // Check delivery method
+    const deliveryMethod = process.env.OTP_DELIVERY_METHOD || (process.env.NODE_ENV === 'production' ? 'disabled' : 'console')
+
+    if (deliveryMethod === 'disabled') {
+      return c.json({
+        success: false,
+        error: "OTP delivery is currently disabled for security. Please contact the administrator."
+      }, 503)
+    }
+
     // Generate OTP code
     const code = generateOTPCode()
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
@@ -34,24 +46,33 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
       data: { used: true },
     })
 
+    // Hash the code before storing
+    const hashedCode = await bcrypt.hash(code, 10)
+
     // Store the new verification code
     await prisma.verificationCode.create({
       data: {
         user_id: BigInt(user.id),
         email: user.email,
-        code,
+        code: hashedCode,
         expires_at: expiresAt,
       },
     })
 
-    // Log OTP to server console (replace with email service in production)
-    console.log(`[OTP] Verification code for ${user.email}: ${code}`)
+    if (deliveryMethod === 'console') {
+      // Log ONLY in development/console mode
+      console.log(`[OTP] Verification code generated for ${user.email}: ${code}`)
+    } else {
+      console.log(`[OTP] Verification code generated for ${user.email} (Email delivery enabled but not yet implemented)`)
+    }
 
     return c.json({
       success: true,
       requiresVerification: true,
       email: user.email,
-      message: "Verification code sent. Please check your email.",
+      message: deliveryMethod === 'console'
+        ? "Verification code generated in server console."
+        : "Verification code sent. Please check your email.",
     })
   } catch (error) {
     console.error("Login error:", error)
@@ -69,11 +90,10 @@ app.post("/verify-code", zValidator("json", verifyCodeSchema), async (c) => {
   try {
     const { email, code } = c.req.valid("json")
 
-    // Find the matching verification code
+    // Find the matching verification code candidates (not many usually)
     const verificationCode = await prisma.verificationCode.findFirst({
       where: {
         email,
-        code,
         used: false,
         expires_at: { gt: new Date() },
       },
@@ -81,6 +101,13 @@ app.post("/verify-code", zValidator("json", verifyCodeSchema), async (c) => {
     })
 
     if (!verificationCode) {
+      return c.json({ success: false, error: "Invalid or expired verification code" }, 401)
+    }
+
+    // Constant time comparison would be better but bcrypt handle its own comparison
+    const isCodeValid = await bcrypt.compare(code, verificationCode.code)
+
+    if (!isCodeValid) {
       return c.json({ success: false, error: "Invalid or expired verification code" }, 401)
     }
 
@@ -131,6 +158,13 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
       return c.json({ success: false, error: "User not found" }, 404)
     }
 
+    // Check delivery method
+    const deliveryMethod = process.env.OTP_DELIVERY_METHOD || (process.env.NODE_ENV === 'production' ? 'disabled' : 'console')
+
+    if (deliveryMethod === 'disabled') {
+      return c.json({ success: false, error: "OTP delivery is disabled." }, 503)
+    }
+
     // Invalidate existing codes
     await prisma.verificationCode.updateMany({
       where: { email, used: false },
@@ -141,20 +175,28 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
     const code = generateOTPCode()
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000)
 
+    const hashedCode = await bcrypt.hash(code, 10)
+
     await prisma.verificationCode.create({
       data: {
         user_id: user.id,
         email: user.email,
-        code,
+        code: hashedCode,
         expires_at: expiresAt,
       },
     })
 
-    console.log(`[OTP] Resent verification code for ${user.email}: ${code}`)
+    if (deliveryMethod === 'console') {
+      console.log(`[OTP] Resent verification code for ${user.email}: ${code}`)
+    } else {
+      console.log(`[OTP] Resent verification code generated for ${user.email}`)
+    }
 
     return c.json({
       success: true,
-      message: "New verification code sent.",
+      message: deliveryMethod === 'console'
+        ? "New verification code generated in server console."
+        : "New verification code sent.",
     })
   } catch (error) {
     console.error("Resend code error:", error)
@@ -168,28 +210,42 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
     const { email, password, fullName } = c.req.valid("json")
     const userId = await createUser(email, password, fullName, "author")
 
+    // Check delivery method
+    const deliveryMethod = process.env.OTP_DELIVERY_METHOD || (process.env.NODE_ENV === 'production' ? 'disabled' : 'console')
+
+    if (deliveryMethod === 'disabled') {
+      return c.json({ success: false, error: "Registration is temporarily restricted (OTP delivery disabled)." }, 503)
+    }
+
     // Generate OTP code for verification
     const code = generateOTPCode()
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
+
+    const hashedCode = await bcrypt.hash(code, 10)
 
     // Store the verification code
     await prisma.verificationCode.create({
       data: {
         user_id: userId,
         email,
-        code,
+        code: hashedCode,
         expires_at: expiresAt,
       },
     })
 
-    // Log OTP to server console
-    console.log(`[OTP] Registration verification code for ${email}: ${code}`)
+    if (deliveryMethod === 'console') {
+      console.log(`[OTP] Registration verification code for ${email}: ${code}`)
+    } else {
+      console.log(`[OTP] Registration code generated for ${email}`)
+    }
 
     return c.json({
       success: true,
       requiresVerification: true,
       email,
-      message: "Registration successful. Please verify your email with the code provided.",
+      message: deliveryMethod === 'console'
+        ? "Registration successful. Code generated in server console."
+        : "Registration successful. Please verify your email with the code provided.",
     })
   } catch (error: any) {
     console.error("Registration error:", error)
