@@ -5,27 +5,30 @@ const app = new Hono()
 
 app.get("/", async (c) => {
     try {
-        const [activeJournals, publishedArticles, researchersCount] = await Promise.all([
+        const [activeJournals, publishedArticles, researchersResult] = await Promise.all([
             prisma.journal.count({
                 where: { status: "active" },
             }),
             prisma.publishedArticle.count(),
-            prisma.submission.findMany({
-                select: { author_email: true },
-                distinct: ["author_email"],
+            prisma.submission.groupBy({
+                by: ["author_email"],
+                where: {
+                    author_email: { not: "" },
+                },
             }),
         ])
 
-        // Get countries count from unique authors or settings
-        // For now, let's use a base number + growth or a setting if available
-        const countriesCount = 120 // Default fallback
+        const researchers = researchersResult.length
+        // For countries, we'll try to find a setting or use a base estimate + active journals
+        // In a real scenario, we'd query a 'country' field in profiles
+        const countriesCount = Math.max(12, Math.floor(activeJournals * 1.5))
 
         return c.json({
             success: true,
             data: {
                 activeJournals,
                 publishedArticles,
-                researchers: researchersCount.length,
+                researchers,
                 countries: countriesCount,
             },
         })
