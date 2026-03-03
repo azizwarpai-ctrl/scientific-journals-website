@@ -6,7 +6,7 @@ import { Search, Menu, X, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { GoogleTranslate } from "@/components/google-translate"
+import { LanguageSwitcher } from "@/components/language-switcher"
 import { useState } from "react"
 
 export function Navbar() {
@@ -57,7 +57,7 @@ export function Navbar() {
             />
           </div>
           <div className="hidden lg:block">
-            <GoogleTranslate />
+            <LanguageSwitcher />
           </div>
           <ThemeToggle />
           <Button variant="outline" size="sm" asChild className="hidden md:flex bg-transparent">
