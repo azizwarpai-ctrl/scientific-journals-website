@@ -1,6 +1,8 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { z } from "zod"
+import crypto from "node:crypto"
+import bcrypt from "bcryptjs"
 import { loginSchema, registerSchema } from "../schemas/auth-schema"
 import { createUser, verifyPassword, getUserById } from "@/lib/db/users"
 import { createSession, getSession, destroySession } from "@/lib/db/auth"
@@ -8,9 +10,15 @@ import { prisma } from "@/lib/db/config"
 
 const app = new Hono()
 
-// Helper: Generate a 6-digit OTP code
+// Helper: Get OTP delivery method based on environment
+const getOtpDeliveryMethod = () => {
+  return (process.env.OTP_DELIVERY_METHOD || (process.env.NODE_ENV === "production" ? "disabled" : "console")) as "console" | "email" | "disabled"
+}
+
+// Helper: Generate a 6-digit OTP code using cryptographically secure random numbers
 function generateOTPCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString()
+  // crypto.randomInt upper bound is exclusive, so 1000000 includes 999999
+  return crypto.randomInt(100000, 1000000).toString()
 }
 
 // POST /auth/login
@@ -23,6 +31,16 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
       return c.json({ success: false, error: "Invalid email or password" }, 401)
     }
 
+    // Check delivery method
+    const deliveryMethod = getOtpDeliveryMethod()
+
+    if (deliveryMethod === 'disabled') {
+      return c.json({
+        success: false,
+        error: "OTP delivery is currently disabled for security. Please contact the administrator."
+      }, 503)
+    }
+
     // Generate OTP code
     const code = generateOTPCode()
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
@@ -33,24 +51,33 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
       data: { used: true },
     })
 
+    // Hash the code before storing
+    const hashedCode = await bcrypt.hash(code, 10)
+
     // Store the new verification code
     await prisma.verificationCode.create({
       data: {
         user_id: BigInt(user.id),
         email: user.email,
-        code,
+        code: hashedCode,
         expires_at: expiresAt,
       },
     })
 
-    // Log OTP to server console (replace with email service in production)
-    console.log(`[OTP] Verification code for ${user.email}: ${code}`)
+    if (deliveryMethod === 'console') {
+      // Log ONLY in development/console mode (showing only masked/no code)
+      console.log(`[OTP] Verification generated for ${user.email}`)
+    } else {
+      console.log(`[OTP] Verification generated for ${user.email} (Email delivery enabled but not yet implemented)`)
+    }
 
     return c.json({
       success: true,
       requiresVerification: true,
       email: user.email,
-      message: "Verification code sent. Please check your email.",
+      message: deliveryMethod === 'console'
+        ? "Verification code generated in server console."
+        : "Email delivery not yet implemented. Please check server logs.",
     })
   } catch (error) {
     console.error("Login error:", error)
@@ -68,18 +95,53 @@ app.post("/verify-code", zValidator("json", verifyCodeSchema), async (c) => {
   try {
     const { email, code } = c.req.valid("json")
 
-    // Find the matching verification code
+    // Find the latest active verification code
     const verificationCode = await prisma.verificationCode.findFirst({
       where: {
         email,
-        code,
         used: false,
         expires_at: { gt: new Date() },
       },
       orderBy: { created_at: "desc" },
-    })
+    }) as any
 
     if (!verificationCode) {
+      return c.json({ success: false, error: "Invalid or expired verification code" }, 401)
+    }
+
+    // Check if locked
+    if (verificationCode.locked_until && new Date() < verificationCode.locked_until) {
+      return c.json({ success: false, error: "Invalid or expired verification code" }, 401)
+    }
+
+    // Constant time comparison would be better but bcrypt handle its own comparison
+    const isCodeValid = await bcrypt.compare(code, verificationCode.code)
+
+    if (!isCodeValid) {
+      // Increment attempts
+      const newAttempts = (verificationCode.attempts || 0) + 1
+
+      // Escalating lockout policy
+      let lockoutMinutes = 0
+      if (newAttempts >= 15) {
+        lockoutMinutes = 24 * 60 // 24 hours
+      } else if (newAttempts >= 10) {
+        lockoutMinutes = 60 // 1 hour
+      } else if (newAttempts >= 5) {
+        lockoutMinutes = 15 // 15 minutes
+      }
+
+      const lockoutTime = lockoutMinutes > 0 ? new Date(Date.now() + lockoutMinutes * 60 * 1000) : null
+
+      await prisma.verificationCode.update({
+        where: { id: verificationCode.id },
+        data: {
+          attempts: newAttempts,
+          last_failed_at: new Date(),
+          locked_until: lockoutTime,
+        } as any,
+      })
+
       return c.json({ success: false, error: "Invalid or expired verification code" }, 401)
     }
 
@@ -130,6 +192,13 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
       return c.json({ success: false, error: "User not found" }, 404)
     }
 
+    // Check delivery method
+    const deliveryMethod = getOtpDeliveryMethod()
+
+    if (deliveryMethod === 'disabled') {
+      return c.json({ success: false, error: "OTP delivery is disabled." }, 503)
+    }
+
     // Invalidate existing codes
     await prisma.verificationCode.updateMany({
       where: { email, used: false },
@@ -140,20 +209,28 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
     const code = generateOTPCode()
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000)
 
+    const hashedCode = await bcrypt.hash(code, 10)
+
     await prisma.verificationCode.create({
       data: {
         user_id: user.id,
         email: user.email,
-        code,
+        code: hashedCode,
         expires_at: expiresAt,
       },
     })
 
-    console.log(`[OTP] Resent verification code for ${user.email}: ${code}`)
+    if (deliveryMethod === 'console') {
+      console.log(`[OTP] Resent verification for ${user.email}`)
+    } else {
+      console.log(`[OTP] Resent verification generated for ${user.email} (Email delivery enabled but not yet implemented)`)
+    }
 
     return c.json({
       success: true,
-      message: "New verification code sent.",
+      message: deliveryMethod === 'console'
+        ? "New verification code generated in server console."
+        : "Email delivery not yet implemented.",
     })
   } catch (error) {
     console.error("Resend code error:", error)
@@ -164,21 +241,47 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
 // POST /auth/register
 app.post("/register", zValidator("json", registerSchema), async (c) => {
   try {
+    // Check delivery method BEFORE creating user
+    const deliveryMethod = getOtpDeliveryMethod()
+
+    if (deliveryMethod === 'disabled') {
+      return c.json({ success: false, error: "Registration is temporarily restricted (OTP delivery disabled)." }, 503)
+    }
+
     const { email, password, fullName } = c.req.valid("json")
     const userId = await createUser(email, password, fullName, "author")
 
-    const user = {
-      id: userId.toString(),
-      email,
-      full_name: fullName,
-      role: "author",
-    }
+    // Generate OTP code for verification
+    const code = generateOTPCode()
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
 
-    await createSession(user)
+    const hashedCode = await bcrypt.hash(code, 10)
+
+    // Store the verification code
+    await prisma.verificationCode.create({
+      data: {
+        user_id: userId,
+        email,
+        code: hashedCode,
+        expires_at: expiresAt,
+      },
+    })
+
+    if (deliveryMethod === 'console') {
+      // Log ONLY in development/console mode (showing only masked/no code)
+      // We can log a small hash for correlation if needed, but never the code itself
+      console.log(`[OTP] Registration verification generated for ${email}`)
+    } else {
+      console.log(`[OTP] Registration code generated for ${email} (Email delivery enabled but not yet implemented)`)
+    }
 
     return c.json({
       success: true,
-      user: { id: user.id, email: user.email, role: user.role },
+      requiresVerification: true,
+      email,
+      message: deliveryMethod === 'console'
+        ? "Registration successful. Code generated in server console."
+        : "Registration successful. Email delivery pending implementation.",
     })
   } catch (error: any) {
     console.error("Registration error:", error)

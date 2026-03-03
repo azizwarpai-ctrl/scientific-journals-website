@@ -18,7 +18,8 @@ export default async function AdminDashboardPage() {
     acceptedCount,
     rejectedCount,
     pendingReviewsCount,
-    publishedCount
+    publishedCount,
+    authorsCountResult
   ] = await Promise.all([
     prisma.journal.count(),
     prisma.submission.count(),
@@ -26,7 +27,13 @@ export default async function AdminDashboardPage() {
     prisma.submission.count({ where: { status: 'accepted' } }),
     prisma.submission.count({ where: { status: 'rejected' } }),
     prisma.review.count({ where: { review_status: 'pending' } }),
-    prisma.publishedArticle.count()
+    prisma.publishedArticle.count(),
+    prisma.submission.groupBy({
+      by: ['author_email'],
+      where: {
+        author_email: { not: "" },
+      },
+    })
   ])
 
   const stats = {
@@ -36,7 +43,8 @@ export default async function AdminDashboardPage() {
     accepted_count: acceptedCount,
     rejected_count: rejectedCount,
     pending_reviews_count: pendingReviewsCount,
-    published_articles_count: publishedCount
+    published_articles_count: publishedCount,
+    authors_count: authorsCountResult.length
   }
 
   const recentSubmissions = await prisma.submission.findMany({
@@ -103,7 +111,7 @@ export default async function AdminDashboardPage() {
     },
     {
       title: "Total Authors",
-      value: Math.ceil((Number(stats.submissions_count) || 0) * 0.7),
+      value: Number(stats.authors_count) || 0,
       icon: Users,
       color: "text-indigo-600 dark:text-indigo-400",
       bgColor: "bg-indigo-100 dark:bg-indigo-900/20",
