@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Languages } from "lucide-react"
 
 declare global {
   interface Window {
@@ -10,30 +12,77 @@ declare global {
 }
 
 export function GoogleTranslate() {
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [error, setError] = useState(false)
+
   useEffect(() => {
+    // Only run on client
+    if (typeof window === "undefined") return
+
+    const checkScriptLoaded = () => {
+      if (window.google && window.google.translate) {
+        setIsLoaded(true)
+        return true
+      }
+      return false
+    }
+
+    if (checkScriptLoaded()) return
+
+    window.googleTranslateElementInit = () => {
+      setIsLoaded(true)
+    }
+
     const addScript = () => {
       const script = document.createElement("script")
       script.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"
       script.async = true
+      script.onerror = () => setError(true)
       document.body.appendChild(script)
     }
 
-    window.googleTranslateElementInit = () => {
-      new window.google.translate.TranslateElement(
-        {
-          pageLanguage: "en",
-          includedLanguages: "en,ar,fr,it,es",
-          layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE,
-          autoDisplay: false,
-        },
-        "google_translate_element",
-      )
+    // Check if script already exists
+    const existingScript = document.querySelector('script[src*="translate.google.com"]')
+    if (!existingScript) {
+      addScript()
+    } else if (window.google && window.google.translate) {
+      setIsLoaded(true)
     }
 
-    if (!document.querySelector('script[src*="translate.google.com"]')) {
-      addScript()
-    }
+    // Initialize the widget if it hasn't been yet
+    const timer = setInterval(() => {
+      if (window.google && window.google.translate && window.google.translate.TranslateElement) {
+        new window.google.translate.TranslateElement(
+          {
+            pageLanguage: "en",
+            includedLanguages: "en,ar,fr,it,es",
+            layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE,
+            autoDisplay: false,
+          },
+          "google_translate_element",
+        )
+        setIsLoaded(true)
+        clearInterval(timer)
+      }
+    }, 1000)
+
+    return () => clearInterval(timer)
   }, [])
 
-  return <div id="google_translate_element" className="inline-block" style={{ minHeight: "40px" }}></div>
+  if (error) return null
+
+  return (
+    <div className="flex items-center gap-2 min-h-[40px]">
+      {!isLoaded && (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border bg-background/50 animate-pulse">
+          <Languages className="h-4 w-4 text-muted-foreground" />
+          <Skeleton className="h-4 w-16" />
+        </div>
+      )}
+      <div
+        id="google_translate_element"
+        className={`transition-opacity duration-300 ${isLoaded ? "opacity-100" : "opacity-0 absolute -z-10"}`}
+      ></div>
+    </div>
+  )
 }

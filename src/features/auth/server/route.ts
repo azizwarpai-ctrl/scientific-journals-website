@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { z } from "zod"
+import crypto from "node:crypto"
 import { loginSchema, registerSchema } from "../schemas/auth-schema"
 import { createUser, verifyPassword, getUserById } from "@/lib/db/users"
 import { createSession, getSession, destroySession } from "@/lib/db/auth"
@@ -8,9 +9,9 @@ import { prisma } from "@/lib/db/config"
 
 const app = new Hono()
 
-// Helper: Generate a 6-digit OTP code
+// Helper: Generate a 6-digit OTP code using cryptographically secure random numbers
 function generateOTPCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString()
+  return crypto.randomInt(100000, 999999).toString()
 }
 
 // POST /auth/login
@@ -167,18 +168,28 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
     const { email, password, fullName } = c.req.valid("json")
     const userId = await createUser(email, password, fullName, "author")
 
-    const user = {
-      id: userId.toString(),
-      email,
-      full_name: fullName,
-      role: "author",
-    }
+    // Generate OTP code for verification
+    const code = generateOTPCode()
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
 
-    await createSession(user)
+    // Store the verification code
+    await prisma.verificationCode.create({
+      data: {
+        user_id: userId,
+        email,
+        code,
+        expires_at: expiresAt,
+      },
+    })
+
+    // Log OTP to server console
+    console.log(`[OTP] Registration verification code for ${email}: ${code}`)
 
     return c.json({
       success: true,
-      user: { id: user.id, email: user.email, role: user.role },
+      requiresVerification: true,
+      email,
+      message: "Registration successful. Please verify your email with the code provided.",
     })
   } catch (error: any) {
     console.error("Registration error:", error)

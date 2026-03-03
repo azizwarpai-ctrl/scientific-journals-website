@@ -6,6 +6,7 @@ import { solutionRouter } from "@/src/features/solutions/server"
 import { authRouter } from "@/src/features/auth/server"
 import { messageRouter } from "@/src/features/messages/server"
 import { ojsRouter } from "@/src/features/ojs/server"
+import { homeStatsRouter } from "@/src/features/home-stats/server"
 
 const apiApp = new Hono()
     .route("/journals", journalRouter)
@@ -13,6 +14,7 @@ const apiApp = new Hono()
     .route("/auth", authRouter)
     .route("/messages", messageRouter)
     .route("/ojs", ojsRouter)
+    .route("/home-stats", homeStatsRouter)
 
 const app = new Hono().basePath("/api")
 
