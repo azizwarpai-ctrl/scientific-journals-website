@@ -10,18 +10,18 @@ app.get("/", async (c) => {
                 where: { status: "active" },
             }),
             prisma.publishedArticle.count(),
-            prisma.submission.groupBy({
-                by: ["author_email"],
-                where: {
-                    author_email: { not: "" },
-                },
-            }),
+            prisma.$queryRaw<{ count: string }[]>`
+                SELECT CAST(COUNT(DISTINCT author_email) AS CHAR) as count 
+                FROM Submission 
+                WHERE author_email != ''
+            `,
         ])
 
-        const researchers = researchersResult.length
+        const researchers = parseInt(researchersResult[0]?.count || "0")
         // For countries, we'll try to find a setting or use a base estimate + active journals
         // In a real scenario, we'd query a 'country' field in profiles
-        const countriesCount = Math.max(12, Math.floor(activeJournals * 1.5))
+        // Synthetic KPI: Rename to reflect estimation
+        const countriesEstimated = Math.max(12, Math.floor(activeJournals * 1.5))
 
         return c.json({
             success: true,
@@ -29,7 +29,7 @@ app.get("/", async (c) => {
                 activeJournals,
                 publishedArticles,
                 researchers,
-                countries: countriesCount,
+                countriesEstimated,
             },
         })
     } catch (error) {
