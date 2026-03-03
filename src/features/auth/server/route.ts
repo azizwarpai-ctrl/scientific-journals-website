@@ -95,7 +95,7 @@ app.post("/verify-code", zValidator("json", verifyCodeSchema), async (c) => {
   try {
     const { email, code } = c.req.valid("json")
 
-    // Find the matching verification code candidates (not many usually)
+    // Find the latest active verification code
     const verificationCode = await prisma.verificationCode.findFirst({
       where: {
         email,
@@ -103,9 +103,14 @@ app.post("/verify-code", zValidator("json", verifyCodeSchema), async (c) => {
         expires_at: { gt: new Date() },
       },
       orderBy: { created_at: "desc" },
-    })
+    }) as any
 
     if (!verificationCode) {
+      return c.json({ success: false, error: "Invalid or expired verification code" }, 401)
+    }
+
+    // Check if locked
+    if (verificationCode.locked_until && new Date() < verificationCode.locked_until) {
       return c.json({ success: false, error: "Invalid or expired verification code" }, 401)
     }
 
@@ -113,6 +118,30 @@ app.post("/verify-code", zValidator("json", verifyCodeSchema), async (c) => {
     const isCodeValid = await bcrypt.compare(code, verificationCode.code)
 
     if (!isCodeValid) {
+      // Increment attempts
+      const newAttempts = (verificationCode.attempts || 0) + 1
+
+      // Escalating lockout policy
+      let lockoutMinutes = 0
+      if (newAttempts >= 15) {
+        lockoutMinutes = 24 * 60 // 24 hours
+      } else if (newAttempts >= 10) {
+        lockoutMinutes = 60 // 1 hour
+      } else if (newAttempts >= 5) {
+        lockoutMinutes = 15 // 15 minutes
+      }
+
+      const lockoutTime = lockoutMinutes > 0 ? new Date(Date.now() + lockoutMinutes * 60 * 1000) : null
+
+      await prisma.verificationCode.update({
+        where: { id: verificationCode.id },
+        data: {
+          attempts: newAttempts,
+          last_failed_at: new Date(),
+          locked_until: lockoutTime,
+        } as any,
+      })
+
       return c.json({ success: false, error: "Invalid or expired verification code" }, 401)
     }
 
