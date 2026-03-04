@@ -1,6 +1,6 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
-import { ojsQuery, isOjsConfigured } from "./ojs-client"
+import { ojsQuery, isOjsConfigured, ojsHealthCheck } from "./ojs-client"
 import { ojsJournalsResponseSchema } from "../schemas/ojs-schema"
 import type { OjsJournal } from "../schemas/ojs-schema"
 
@@ -73,6 +73,12 @@ app.get("/journals", async (c) => {
             500
         )
     }
+})
+
+// GET /ojs/health — Connection health check for monitoring
+app.get("/health", async (c) => {
+    const status = await ojsHealthCheck()
+    return c.json(status, status.ok ? 200 : 503)
 })
 
 export { app as ojsRouter }
