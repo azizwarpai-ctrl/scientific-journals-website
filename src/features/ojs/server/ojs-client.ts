@@ -56,6 +56,7 @@ export async function ojsQuery<T = any>(sql: string, params?: any[]): Promise<T[
                 1045, // ER_ACCESS_DENIED_ERROR
                 1044, // ER_DBACCESS_DENIED_ERROR
                 1049, // ER_BAD_DB_ERROR
+                1129, // ER_HOST_IS_BLOCKED (too many connection errors)
             ]
             if (nonRetryable.includes(err.errno)) {
                 console.error(`[OJS] Non-retryable error (attempt ${attempt}/${maxRetries}):`, err.message)
