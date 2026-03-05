@@ -46,13 +46,13 @@ function isProxyConfigured(): boolean {
 function mapOjsJournalToJournal(ojs: any): any {
   return {
     id: String(ojs.journal_id),
-    title: ojs.name || ojs.settings?.name || "Untitled",
+    title: ojs.name || ojs.settings?.name || "Currently unavailable",
     abbreviation: ojs.abbreviation || ojs.settings?.acronym || null,
     issn: ojs.settings?.printIssn || null,
     e_issn: ojs.settings?.onlineIssn || null,
     description: ojs.description || ojs.settings?.description || null,
     field: mapLocaleToField(ojs.primary_locale),
-    publisher: ojs.settings?.publisherInstitution || "DigitoPub",
+    publisher: ojs.settings?.publisherInstitution || null,
     editor_in_chief: ojs.settings?.contactName || null,
     frequency: null,
     submission_fee: 0,

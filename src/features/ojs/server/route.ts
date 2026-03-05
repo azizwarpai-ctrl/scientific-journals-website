@@ -76,6 +76,7 @@ async function fetchJournalsFromProxy(): Promise<OjsJournal[]> {
         enabled: Boolean(row.enabled),
         name: row.name,
         description: row.description,
+        thumbnail_url: row.thumbnail_url || null,
     }))
 }
 
