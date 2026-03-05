@@ -7,6 +7,7 @@ export const ojsJournalSchema = z.object({
     enabled: z.boolean(),
     name: z.string().nullable(),
     description: z.string().nullable(),
+    thumbnail_url: z.string().nullable().optional(),
 })
 
 export const ojsJournalsResponseSchema = z.object({

@@ -109,14 +109,14 @@ export default function JournalDetailPage() {
                     {journal.field}
                   </span>
                   <span className="inline-block rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80 backdrop-blur-sm">
-                    {journal.issn || journal.e_issn || "ISSN N/A"}
+                    {journal.issn || journal.e_issn || "ISSN Currently unavailable"}
                   </span>
                 </div>
                 <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl lg:text-6xl text-balance leading-tight">
                   {journal.title}
                 </h1>
                 <p className="max-w-xl text-lg text-slate-300 leading-relaxed text-pretty">
-                  {journal.description || "A premier peer-reviewed journal dedicated to advancing research in its field."}
+                  {journal.description || "Currently unavailable"}
                 </p>
 
                 <div className="flex flex-wrap gap-4 pt-4">
@@ -139,10 +139,10 @@ export default function JournalDetailPage() {
               </div>
             </div>
           </div>
-        </section>
+        </section >
 
         {/* Content Section */}
-        <section className="py-12 md:py-20 lg:py-24">
+        < section className="py-12 md:py-20 lg:py-24" >
           <div className="container mx-auto px-4 md:px-6">
             <div className="grid gap-12 lg:grid-cols-3">
               <div className="lg:col-span-2">
@@ -175,7 +175,7 @@ export default function JournalDetailPage() {
                         <h2>Journal Information</h2>
                       </div>
                       <p className="text-lg leading-relaxed text-muted-foreground">
-                        {journal.description || "No description available."}
+                        {journal.description || "Currently unavailable"}
                       </p>
 
                       <div className="mt-8 grid gap-6 sm:grid-cols-2">
@@ -184,7 +184,7 @@ export default function JournalDetailPage() {
                             <Calendar className="h-5 w-5 text-primary" />
                           </div>
                           <h4 className="mb-2 font-bold">Frequency</h4>
-                          <p className="text-sm text-muted-foreground">{journal.frequency || "Periodic"}</p>
+                          <p className="text-sm text-muted-foreground">{journal.frequency || "Currently unavailable"}</p>
                         </div>
                         <div className="rounded-xl border bg-slate-50 p-6 dark:bg-slate-900/50">
                           <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -203,9 +203,9 @@ export default function JournalDetailPage() {
                       </div>
                       <div className="grid gap-y-4 text-sm sm:grid-cols-2 sm:gap-x-12">
                         {[
-                          { label: "ISSN (Print)", value: journal.issn || "N/A" },
-                          { label: "ISSN (Online)", value: journal.e_issn || "N/A" },
-                          { label: "Publisher", value: journal.publisher || "dis Scientific" },
+                          { label: "ISSN (Print)", value: journal.issn || "Currently unavailable" },
+                          { label: "ISSN (Online)", value: journal.e_issn || "Currently unavailable" },
+                          { label: "Publisher", value: journal.publisher || "Currently unavailable" },
                           { label: "Language", value: "English" },
                           { label: "Open Access", value: "Yes" },
                           { label: "Peer Review", value: "Double-blind" },
@@ -298,11 +298,11 @@ export default function JournalDetailPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </section>
-      </main>
+          </div >
+        </section >
+      </main >
 
       <Footer />
-    </div>
+    </div >
   )
 }

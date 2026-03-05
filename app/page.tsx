@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { BookOpen, Zap } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { AnimatedCounter } from "@/components/animated-counter"
 import { useGetOjsJournals } from "@/src/features/ojs/api/use-get-ojs-journals"
@@ -116,9 +117,25 @@ export default function HomePage() {
                     <GSAPWrapper key={journal.journal_id} animation="slideUp" delay={0.4 + idx * 0.1}>
                       <Card className="transition-shadow hover:shadow-lg overflow-hidden">
                         <div className="relative h-64 w-full overflow-hidden bg-gradient-to-br from-primary/20 to-secondary/20">
-                          <div className="flex h-full items-center justify-center">
-                            <BookOpen className="h-16 w-16 text-primary/40" />
-                          </div>
+                          {journal.thumbnail_url ? (
+                            <Image
+                              src={journal.thumbnail_url}
+                              alt={journal.name || "Journal"}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center">
+                              <Image
+                                src="/images/logodigitopub.png"
+                                alt="DigitoPub"
+                                width={120}
+                                height={120}
+                                className="opacity-60"
+                              />
+                            </div>
+                          )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
                           <div className="absolute bottom-4 left-4 right-4">
                             <span className="inline-block rounded-full bg-primary/90 px-3 py-1 text-xs font-medium text-primary-foreground backdrop-blur-sm">
@@ -129,7 +146,7 @@ export default function HomePage() {
                         <CardContent className="pt-6">
                           <h3 className="mb-2 font-semibold text-balance">{journal.name || journal.path}</h3>
                           <p className="mb-4 text-sm text-muted-foreground line-clamp-2">
-                            {journal.description || "No description available"}
+                            {journal.description || "Currently unavailable"}
                           </p>
                           <div className="flex items-center justify-between">
                             <Button size="sm" variant="outline" asChild>
