@@ -8,6 +8,93 @@ import { journalCreateSchema, journalUpdateSchema, journalIdParamSchema } from "
 
 const app = new Hono()
 
+// ─── PHP Proxy helper ───────────────────────────────────────────────
+
+const OJS_BASE_URL = "https://submitmanager.com/api"
+
+async function fetchFromProxy(action: string, params: Record<string, string> = {}): Promise<any> {
+  const url = process.env.OJS_API_URL || `${OJS_BASE_URL}/api.php`
+  const apiKey = process.env.OJS_API_KEY || ""
+
+  const searchParams = new URLSearchParams({ action, ...params })
+  const separator = url.includes("?") ? "&" : "?"
+  const fullUrl = `${url}${separator}${searchParams.toString()}`
+
+  const response = await fetch(fullUrl, {
+    headers: { "X-API-KEY": apiKey },
+    signal: AbortSignal.timeout(15000),
+  })
+
+  if (!response.ok) {
+    throw new Error(`OJS proxy returned ${response.status}`)
+  }
+
+  const json = await response.json() as any
+  if (!json.success) {
+    throw new Error(json.error || "OJS proxy error")
+  }
+
+  return json
+}
+
+function isProxyConfigured(): boolean {
+  return !!(process.env.OJS_API_URL || process.env.OJS_API_KEY)
+}
+
+// ─── Field mapping: OJS → Journal interface ─────────────────────────
+
+function mapOjsJournalToJournal(ojs: any): any {
+  return {
+    id: String(ojs.journal_id),
+    title: ojs.name || ojs.settings?.name || "Untitled",
+    abbreviation: ojs.abbreviation || ojs.settings?.acronym || null,
+    issn: ojs.settings?.printIssn || null,
+    e_issn: ojs.settings?.onlineIssn || null,
+    description: ojs.description || ojs.settings?.description || null,
+    field: mapLocaleToField(ojs.primary_locale),
+    publisher: ojs.settings?.publisherInstitution || "DigitoPub",
+    editor_in_chief: ojs.settings?.contactName || null,
+    frequency: null,
+    submission_fee: 0,
+    publication_fee: 0,
+    cover_image_url: buildThumbnailUrl(ojs),
+    website_url: ojs.path ? `https://submitmanager.com/${ojs.path}` : null,
+    status: ojs.enabled ? "active" : "inactive",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    created_by: null,
+    ojs_id: String(ojs.journal_id),
+  }
+}
+
+function mapLocaleToField(locale: string | null): string {
+  const fieldMap: Record<string, string> = {
+    en: "Multidisciplinary",
+    en_US: "Multidisciplinary",
+    fr_FR: "Multidisciplinaire",
+    ar: "متعدد التخصصات",
+  }
+  return fieldMap[locale || "en"] || "Multidisciplinary"
+}
+
+function buildThumbnailUrl(ojs: any): string | null {
+  const thumbnail = ojs.thumbnail || ojs.settings?.journalThumbnail
+  if (!thumbnail) return null
+  // OJS stores thumbnail as JSON with uploadName, or as a direct path
+  if (typeof thumbnail === "string") {
+    if (thumbnail.startsWith("http")) return thumbnail
+    return `https://submitmanager.com/public/journals/${ojs.journal_id}/${thumbnail}`
+  }
+  // If it's a JSON object with uploadName
+  try {
+    const parsed = typeof thumbnail === "object" ? thumbnail : JSON.parse(thumbnail)
+    if (parsed.uploadName) {
+      return `https://submitmanager.com/public/journals/${ojs.journal_id}/${parsed.uploadName}`
+    }
+  } catch { /* not JSON */ }
+  return null
+}
+
 const JOURNAL_SELECT = {
   id: true,
   title: true,
@@ -30,11 +117,25 @@ const JOURNAL_SELECT = {
   ojs_id: true,
 } as const
 
-// GET /journals - List all journals (public, paginated)
+// ─── GET /journals — Public listing ─────────────────────────────────
+
 app.get("/", async (c) => {
   try {
-    const pagination = parsePagination(c)
+    // Try PHP proxy first (OJS data on SiteGround)
+    if (isProxyConfigured()) {
+      const json = await fetchFromProxy("journals")
+      const journals = (json.data || []).map(mapOjsJournalToJournal)
+      return c.json({
+        success: true,
+        data: journals,
+        total: journals.length,
+        limit: journals.length,
+        offset: 0,
+      }, 200)
+    }
 
+    // Fallback: Prisma (Hostinger local DB)
+    const pagination = parsePagination(c)
     const [journals, total] = await Promise.all([
       prisma.journal.findMany({
         select: JOURNAL_SELECT,
@@ -44,7 +145,6 @@ app.get("/", async (c) => {
       }),
       prisma.journal.count(),
     ])
-
     return c.json(paginatedResponse(serializeMany(journals), total, pagination), 200)
   } catch (error) {
     console.error("Error fetching journals:", error)
@@ -52,11 +152,28 @@ app.get("/", async (c) => {
   }
 })
 
-// GET /journals/:id - Get single journal (public)
+// ─── GET /journals/:id — Public detail ──────────────────────────────
+
 app.get("/:id", zValidator("param", journalIdParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
 
+    // Try PHP proxy first (OJS journal detail)
+    if (isProxyConfigured()) {
+      try {
+        const json = await fetchFromProxy("journal", { id })
+        const journal = mapOjsJournalToJournal(json.data)
+        return c.json({ success: true, data: journal }, 200)
+      } catch (proxyErr: any) {
+        // If proxy returns 404, pass through
+        if (proxyErr.message?.includes("404")) {
+          return c.json({ success: false, error: "Journal not found" }, 404)
+        }
+        throw proxyErr
+      }
+    }
+
+    // Fallback: Prisma
     const journal = await prisma.journal.findUnique({
       where: { id: BigInt(id) },
       select: JOURNAL_SELECT,
@@ -73,7 +190,8 @@ app.get("/:id", zValidator("param", journalIdParamSchema), async (c) => {
   }
 })
 
-// POST /journals - Create journal (admin only)
+// ─── POST /journals — Admin create (Prisma only) ────────────────────
+
 app.post("/", requireAdmin, zValidator("json", journalCreateSchema), async (c) => {
   try {
     const session = (c as any).get("session")
@@ -112,7 +230,8 @@ app.post("/", requireAdmin, zValidator("json", journalCreateSchema), async (c) =
   }
 })
 
-// PATCH /journals/:id - Update journal (admin only)
+// ─── PATCH /journals/:id — Admin update (Prisma only) ───────────────
+
 app.patch("/:id", requireAdmin, zValidator("param", journalIdParamSchema), zValidator("json", journalUpdateSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
@@ -150,7 +269,8 @@ app.patch("/:id", requireAdmin, zValidator("param", journalIdParamSchema), zVali
   }
 })
 
-// DELETE /journals/:id - Delete journal (admin only)
+// ─── DELETE /journals/:id — Admin delete (Prisma only) ──────────────
+
 app.delete("/:id", requireAdmin, zValidator("param", journalIdParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
