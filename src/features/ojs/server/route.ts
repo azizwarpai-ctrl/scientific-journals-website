@@ -20,21 +20,41 @@ function getOjsMode(): "http" | "direct" | "none" {
     return "none"
 }
 
-// ─── HTTP Proxy Fetch ────────────────────────────────────────────────
+// ─── HTTP Proxy Fetch (Generic) ─────────────────────────────────────
 
-async function fetchFromProxy(): Promise<OjsJournal[]> {
-    const url = process.env.OJS_API_URL!
+/**
+ * Fetches data from the OJS PHP proxy API.
+ * 
+ * API key is sent ONLY via the X-API-KEY header (never as a query param)
+ * to prevent it from being logged in server access logs.
+ */
+async function fetchFromOjsProxy<T = any>(
+    action: string,
+    params: Record<string, string | number> = {},
+    timeoutMs = 15000
+): Promise<T> {
+    const baseUrl = process.env.OJS_API_URL!
     const apiKey = process.env.OJS_API_KEY || ""
-    const separator = url.includes("?") ? "&" : "?"
-    const fullUrl = `${url}${separator}key=${encodeURIComponent(apiKey)}`
 
-    const response = await fetch(fullUrl, {
-        headers: { "X-API-KEY": apiKey },
-        signal: AbortSignal.timeout(15000), // 15s timeout
+    // Build URL with action and optional params
+    const url = new URL(baseUrl)
+    url.searchParams.set("action", action)
+    for (const [key, value] of Object.entries(params)) {
+        url.searchParams.set(key, String(value))
+    }
+
+    const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+            "X-API-KEY": apiKey,
+            "Accept": "application/json",
+        },
+        signal: AbortSignal.timeout(timeoutMs),
     })
 
     if (!response.ok) {
-        throw new Error(`OJS proxy returned ${response.status}: ${response.statusText}`)
+        const body = await response.text().catch(() => "")
+        throw new Error(`OJS proxy returned ${response.status}: ${response.statusText} — ${body}`)
     }
 
     const json = await response.json() as any
@@ -43,7 +63,13 @@ async function fetchFromProxy(): Promise<OjsJournal[]> {
         throw new Error(`OJS proxy error: ${json.error || "Unknown error"}`)
     }
 
-    return (json.data || []).map((row: any) => ({
+    return json as T
+}
+
+async function fetchJournalsFromProxy(): Promise<OjsJournal[]> {
+    const result = await fetchFromOjsProxy<{ data: any[] }>("journals")
+
+    return (result.data || []).map((row: any) => ({
         journal_id: row.journal_id,
         path: row.path,
         primary_locale: row.primary_locale,
@@ -109,7 +135,7 @@ app.get("/journals", async (c) => {
         }
 
         const journals = mode === "http"
-            ? await fetchFromProxy()
+            ? await fetchJournalsFromProxy()
             : await fetchFromDatabase()
 
         const responsePayload = { success: true as const, data: journals, configured: true as const }
@@ -133,6 +159,44 @@ app.get("/journals", async (c) => {
     }
 })
 
+// GET /ojs/stats — Aggregate statistics from OJS
+app.get("/stats", async (c) => {
+    try {
+        const mode = getOjsMode()
+
+        if (mode === "none") {
+            return c.json({ success: true, data: null, configured: false }, 200)
+        }
+
+        if (mode === "http") {
+            const result = await fetchFromOjsProxy<{ data: any }>("stats")
+            return c.json({ success: true, data: result.data, configured: true }, 200)
+        }
+
+        // Direct mode — run queries
+        const { ojsQuery } = await import("./ojs-client")
+        const [journals] = await ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM journals WHERE enabled = 1")
+        const [submissions] = await ojsQuery<{ total: number; published: number }>(
+            "SELECT COUNT(*) as total, SUM(CASE WHEN status = 3 THEN 1 ELSE 0 END) as published FROM submissions"
+        )
+        const [users] = await ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM users WHERE disabled = 0")
+
+        return c.json({
+            success: true,
+            configured: true,
+            data: {
+                active_journals: journals.count,
+                total_submissions: submissions.total,
+                published_submissions: submissions.published,
+                registered_users: users.count,
+            },
+        }, 200)
+    } catch (error) {
+        console.error("Error fetching OJS stats:", error)
+        return c.json({ success: false, configured: true, error: "Failed to fetch OJS stats" }, 500)
+    }
+})
+
 // GET /ojs/health
 app.get("/health", async (c) => {
     const mode = getOjsMode()
@@ -144,22 +208,16 @@ app.get("/health", async (c) => {
     if (mode === "http") {
         const start = Date.now()
         try {
-            const url = process.env.OJS_API_URL!
-            const apiKey = process.env.OJS_API_KEY || ""
-            const sep = url.includes("?") ? "&" : "?"
-            const fullUrl = `${url}${sep}key=${encodeURIComponent(apiKey)}`
-            const res = await fetch(fullUrl, {
-                headers: { "X-API-KEY": apiKey },
-                signal: AbortSignal.timeout(10000),
-            })
+            const result = await fetchFromOjsProxy<{ data: any }>("health", {}, 10000)
             return c.json({
-                ok: res.ok,
+                ok: true,
                 configured: true,
                 mode: "http",
                 latencyMs: Date.now() - start,
-                status: res.status,
-                error: res.ok ? null : `HTTP ${res.status}`,
-            }, res.ok ? 200 : 503)
+                status: 200,
+                error: null,
+                remote: result.data,
+            }, 200)
         } catch (err: any) {
             return c.json({
                 ok: false,

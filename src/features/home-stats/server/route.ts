@@ -1,46 +1,69 @@
 import { Hono } from "hono"
-import { prisma } from "@/lib/db/config"
 
 const app = new Hono()
 
+const OJS_BASE_URL = "https://submitmanager.com/api"
+
 app.get("/", async (c) => {
     try {
-        const [activeJournals, publishedArticles, researchersResult] = await Promise.all([
-            prisma.journal.count({
-                where: { status: "active" },
-            }),
-            prisma.publishedArticle.count(),
-            prisma.$queryRaw<{ count: string }[]>`
-                SELECT CAST(COUNT(DISTINCT author_email) AS CHAR) as count 
-                FROM Submission 
-                WHERE author_email != ''
-            `,
-        ])
+        // Use PHP proxy for stats (OJS data on SiteGround)
+        const url = process.env.OJS_API_URL || `${OJS_BASE_URL}/api.php`
+        const apiKey = process.env.OJS_API_KEY || ""
 
-        const researchers = parseInt(researchersResult[0]?.count || "0")
-        // For countries, we'll try to find a setting or use a base estimate + active journals
-        // In a real scenario, we'd query a 'country' field in profiles
-        // Synthetic KPI: Rename to reflect estimation
-        const countriesEstimated = Math.max(12, Math.floor(activeJournals * 1.5))
+        const separator = url.includes("?") ? "&" : "?"
+        const fullUrl = `${url}${separator}action=stats`
+
+        const response = await fetch(fullUrl, {
+            headers: { "X-API-KEY": apiKey },
+            signal: AbortSignal.timeout(15000),
+        })
+
+        if (!response.ok) {
+            throw new Error(`Stats proxy returned ${response.status}`)
+        }
+
+        const json = await response.json() as any
+        if (!json.success) {
+            throw new Error(json.error || "Failed to fetch stats")
+        }
+
+        const stats = json.data
 
         return c.json({
             success: true,
             data: {
-                activeJournals,
-                publishedArticles,
-                researchers,
-                countriesEstimated,
+                activeJournals: stats.active_journals ?? 0,
+                publishedArticles: stats.published_submissions ?? 0,
+                researchers: stats.distinct_authors ?? 0,
+                countriesEstimated: stats.countries_represented ?? Math.max(12, (stats.active_journals ?? 0) * 2),
             },
         })
     } catch (error) {
         console.error("Error fetching home stats:", error)
-        return c.json(
-            {
-                success: false,
-                error: "Failed to fetch home statistics",
-            },
-            500
-        )
+
+        // Fallback: try Prisma if proxy fails
+        try {
+            const { prisma } = await import("@/lib/db/config")
+            const [activeJournals, publishedArticles] = await Promise.all([
+                prisma.journal.count({ where: { status: "active" } }),
+                prisma.publishedArticle.count(),
+            ])
+
+            return c.json({
+                success: true,
+                data: {
+                    activeJournals,
+                    publishedArticles,
+                    researchers: 0,
+                    countriesEstimated: Math.max(12, activeJournals * 2),
+                },
+            })
+        } catch {
+            return c.json(
+                { success: false, error: "Failed to fetch home statistics" },
+                500
+            )
+        }
     }
 })
 
