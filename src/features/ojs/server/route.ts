@@ -25,8 +25,10 @@ function getOjsMode(): "http" | "direct" | "none" {
 async function fetchFromProxy(): Promise<OjsJournal[]> {
     const url = process.env.OJS_API_URL!
     const apiKey = process.env.OJS_API_KEY || ""
+    const separator = url.includes("?") ? "&" : "?"
+    const fullUrl = `${url}${separator}key=${encodeURIComponent(apiKey)}`
 
-    const response = await fetch(url, {
+    const response = await fetch(fullUrl, {
         headers: { "X-API-KEY": apiKey },
         signal: AbortSignal.timeout(15000), // 15s timeout
     })
@@ -144,7 +146,9 @@ app.get("/health", async (c) => {
         try {
             const url = process.env.OJS_API_URL!
             const apiKey = process.env.OJS_API_KEY || ""
-            const res = await fetch(url, {
+            const sep = url.includes("?") ? "&" : "?"
+            const fullUrl = `${url}${sep}key=${encodeURIComponent(apiKey)}`
+            const res = await fetch(fullUrl, {
                 headers: { "X-API-KEY": apiKey },
                 signal: AbortSignal.timeout(10000),
             })
