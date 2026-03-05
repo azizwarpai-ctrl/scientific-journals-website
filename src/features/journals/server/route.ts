@@ -93,7 +93,6 @@ function buildThumbnailUrl(ojs: any): string | null {
   if (ojs.journal_id) {
     return `${apiUrl}?action=image&journal_id=${ojs.journal_id}&type=thumbnail`
   }
-
   return null
 }
 
