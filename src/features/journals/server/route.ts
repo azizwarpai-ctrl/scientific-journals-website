@@ -78,20 +78,22 @@ function mapLocaleToField(locale: string | null): string {
 }
 
 function buildThumbnailUrl(ojs: any): string | null {
-  const thumbnail = ojs.thumbnail || ojs.settings?.journalThumbnail
-  if (!thumbnail) return null
-  // OJS stores thumbnail as JSON with uploadName, or as a direct path
-  if (typeof thumbnail === "string") {
-    if (thumbnail.startsWith("http")) return thumbnail
-    return `https://submitmanager.com/public/journals/${ojs.journal_id}/${thumbnail}`
+  // Use the pre-parsed thumbnail_url from the PHP proxy
+  if (ojs.thumbnail_url) return ojs.thumbnail_url
+
+  // For journal detail responses, check settings
+  if (ojs.settings?.journalThumbnail) {
+    const thumb = ojs.settings.journalThumbnail
+    if (typeof thumb === "string" && thumb.startsWith("http")) return thumb
   }
-  // If it's a JSON object with uploadName
-  try {
-    const parsed = typeof thumbnail === "object" ? thumbnail : JSON.parse(thumbnail)
-    if (parsed.uploadName) {
-      return `https://submitmanager.com/public/journals/${ojs.journal_id}/${parsed.uploadName}`
-    }
-  } catch { /* not JSON */ }
+
+  // Fallback: use the image proxy endpoint
+  const apiUrl = process.env.OJS_API_URL || `${OJS_BASE_URL}/api.php`
+  const apiKey = process.env.OJS_API_KEY || ""
+  if (ojs.journal_id) {
+    return `${apiUrl}?action=image&journal_id=${ojs.journal_id}&type=thumbnail`
+  }
+
   return null
 }
 
