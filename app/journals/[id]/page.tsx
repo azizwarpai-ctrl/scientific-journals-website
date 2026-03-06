@@ -36,7 +36,7 @@ export default function JournalDetailPage() {
         <Navbar />
         <main className="flex-1">
           <div className="container mx-auto py-12 px-4">
-            <Skeleton className="h-[400px] w-full rounded-xl mb-12" />
+            <Skeleton className="h-96 w-full rounded-xl mb-12" />
             <div className="grid gap-8 lg:grid-cols-3">
               <div className="lg:col-span-2 space-y-8">
                 <Skeleton className="h-64 w-full" />
@@ -93,7 +93,7 @@ export default function JournalDetailPage() {
 
           <div className="container relative z-10 mx-auto px-4 md:px-6">
             <div className="grid gap-8 md:grid-cols-[1fr_2fr] md:items-center">
-              <div className="mx-auto w-full max-w-[280px] overflow-hidden rounded-lg shadow-2xl md:mx-0">
+              <div className="mx-auto w-full max-w-72 overflow-hidden rounded-lg shadow-2xl md:mx-0">
                 <Image
                   src={journal.cover_image_url || "/images/logodigitopub.png"}
                   alt={journal.title}
