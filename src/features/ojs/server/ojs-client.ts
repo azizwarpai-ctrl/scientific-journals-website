@@ -19,6 +19,7 @@ function getPool(): Pool {
             throw new Error("OJS database is not configured. Set OJS_DATABASE_* env vars.")
         }
 
+        // Apply external hosting connection options like ssl and allowPublicKeyRetrieval
         pool = mysql.createPool({
             host: process.env.OJS_DATABASE_HOST,
             port: parseInt(process.env.OJS_DATABASE_PORT || "3306"),
@@ -31,7 +32,10 @@ function getPool(): Pool {
             queueLimit: 10,
             enableKeepAlive: true,
             keepAliveInitialDelay: 30000,
-        })
+            ssl: { rejectUnauthorized: false },
+            flags: ['+LOCAL_FILES'],
+            allowPublicKeyRetrieval: true,
+        } as any)
     }
     return pool
 }
