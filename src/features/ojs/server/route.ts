@@ -92,16 +92,9 @@ async function fetchJournalsFromProxy(): Promise<OjsJournal[]> {
 async function fetchFromDatabase(): Promise<OjsJournal[]> {
     // Dynamic import to avoid loading mysql2 when using HTTP mode
     const { ojsQuery } = await import("./ojs-client")
+    const { mapOjsJournalRow } = await import("./ojs-mappers")
 
-    const rows = await ojsQuery<{
-        journal_id: number
-        path: string
-        primary_locale: string
-        enabled: number
-        name: string | null
-        description: string | null
-        thumbnail: string | null
-    }>(`
+    const rows = await ojsQuery<any>(`
         SELECT
             j.journal_id,
             j.path,
@@ -130,15 +123,7 @@ async function fetchFromDatabase(): Promise<OjsJournal[]> {
         ? new URL(process.env.OJS_API_URL).origin
         : "https://submitmanager.com"
 
-    return rows.map((row) => ({
-        journal_id: row.journal_id,
-        path: row.path,
-        primary_locale: row.primary_locale,
-        enabled: row.enabled === 1,
-        name: row.name,
-        description: row.description,
-        thumbnail_url: row.thumbnail ? `${baseUrl}/public/journals/${row.journal_id}/${row.thumbnail}` : null,
-    }))
+    return rows.map((row) => mapOjsJournalRow(row, baseUrl))
 }
 
 // ─── Routes ──────────────────────────────────────────────────────────

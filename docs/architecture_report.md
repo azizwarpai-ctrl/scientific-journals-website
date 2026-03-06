@@ -506,14 +506,22 @@ export default function ReviewsPage() {
 }
 ```
 
-### Other Potential Violations
+### Prisma Audit Results
 
-| File | Likely Violation |
-|------|-----------------|
-| `app/admin/submissions/` | May use direct Prisma; should go through feature API |
-| `app/admin/journals/` | May bypass Hono layer |
-| `app/admin/dashboard/` | May aggregate data directly |
-| `app/admin/messages/` | Check if it uses the `messages` feature or bypasses it |
+The following files in `app/admin/` currently bypass the Hono API layer and query Prisma directly. They must be refactored into designated feature modules:
+
+| Offending File | Required Action |
+|----------------|-----------------|
+| `app/admin/authors/page.tsx` | Move to `src/features/authors` |
+| `app/admin/messages/page.tsx` | Move to `src/features/messages` |
+| `app/admin/messages/[id]/page.tsx` | Move to `src/features/messages` |
+| `app/admin/dashboard/page.tsx` | Create dashboard aggregation API hook |
+| `app/admin/faq/page.tsx` | Move to `src/features/solutions` / `faq` |
+| `app/admin/journals/page.tsx` | Move to `src/features/journals` |
+| `app/admin/submissions/page.tsx` | Move to `src/features/submissions` |
+| `app/admin/submissions/[id]/page.tsx` | Move to `src/features/submissions` |
+| `app/admin/settings/page.tsx` | Move to `src/features/settings` |
+| `app/admin/analytics/page.tsx` | Move to `src/features/analytics` |
 
 > [!NOTE]
 > A full audit requires inspecting each `app/admin/**/page.tsx` for direct Prisma imports. The pattern to look for is: `import { prisma } from "@/lib/db/config"`.
@@ -590,3 +598,223 @@ gitgraph
 | 🟢 P2 | Refactor `app/admin/reviews/page.tsx` into feature module | `refactor/admin-reviews-feature` |
 | 🔵 P3 | Remove `as any` from RPC client when Hono fixes type inference | Ongoing |
 | 🔵 P3 | Audit all `app/admin/**/page.tsx` for direct Prisma usage | `refactor/admin-*-feature` |
+
+---
+
+## 11. Environment Variables & Next.js Runtime Validation
+
+Unlike traditional setups where the application and database share a local network, DigitoPub / Submit Manager connects **directly to a remote OJS MySQL server** over the public internet. 
+
+Because the architecture has eliminated the PHP proxy intermediary to improve latency and type safety, the Node.js API must authenticate directly with SiteGround.
+
+### Required Environment Configuration
+To enable the OJS integration, the following variables MUST be present and uncommented in the `.env` file:
+
+```env
+OJS_DATABASE_HOST="gparm12.siteground.biz"
+OJS_DATABASE_PORT="3306"
+OJS_DATABASE_NAME="dbkgvcunttgs97"
+OJS_DATABASE_USER="ua9oxq3q2pzvz"
+OJS_DATABASE_PASSWORD="<password>"
+```
+
+**Configuration Constraints:**
+- **Host:** Must strictly point to the SiteGround server mapping (`gparm12.siteground.biz`).
+- **Port:** Standard MySQL TCP port `3306`.
+- **Credentials:** Must exactly match the specific SiteGround MySQL user assigned to `dbkgvcunttgs97`.
+- **Network Rule:** The outbound IP address of the server running this Next.js application **must be whitelisted** in the SiteGround Remote MySQL settings. If the IP changes (e.g., dynamic Vercel deployments), the connection will silently time out or instantly reject.
+
+---
+
+## 12. Why Use a TSX Script for Connection Testing?
+
+While engineers typically use the standard `mysql` CLI tool to test database credentials, this project explicitly relies on a standalone **TSX TypeScript script** (`scripts/diagnose-ojs-connection.ts`) for pre-deployment validation.
+
+Relying solely on the `mysql` CLI or waiting for the application to crash at runtime is insufficient for a production-grade external integration. The TSX script provides critical operational advantages:
+
+### 1. Environment Parity
+The TSX script executes inside the exact same Node.js runtime and loads the exact same `.env` variables as the Next.js API. If the `mysql` CLI works but the TSX script fails, it immediately isolates the issue to the Node environment (e.g., missing env vars, unsupported cipher suites) rather than the database itself.
+
+### 2. Direct mysql2 Client Validation
+The script strictly verifies the **`mysql2` client configuration**. Hosted MySQL servers (like SiteGround) often require specific driver flags that the standard CLI handles automatically but Node.js does not. For example, the script explicitly tests `allowPublicKeyRetrieval: true` and SSL rejection parameters which are mandatory for this specific architecture.
+
+### 3. Better Diagnostic Output
+When a remote connection fails, native Node.js driver errors are notoriously opaque. The TSX script is designed to catch and translate specific MySQL/TCP error codes into human-readable, actionable instructions:
+- **`ER_ACCESS_DENIED_ERROR` (1045):** Identifies credential mismatches and actively extracts the rejected IP address from the error string, instructing the developer to whitelist it in SiteGround.
+- **`ER_DBACCESS_DENIED_ERROR` (1044) / `ER_BAD_DB_ERROR` (1049):** Confirms network access succeeded but the specific user lacks permissions mapping to the OJS schema.
+- **`ER_HOST_IS_BLOCKED` (1129):** Warns that SiteGround's firewall has temporarily banned the IP due to too many failed attempts (requires a MySQL host flush).
+
+### 4. Network-Layer Debugging
+Before even attempting a MySQL login, the TSX script performs raw infrastructure checks:
+- **DNS Resolution:** Confirms `gparm12.siteground.biz` resolves successfully.
+- **TCP Socket Check:** Pings port `3306` with a strict timeout to definitively prove whether a firewall is dropping the packets.
+
+### 5. Safe Testing Outside the API
+Running diagnostics inside a standalone TSX script prevents polluting the production Next.js API logs, avoids triggering automated WAF rate limits, and ensures raw database error strings are never accidentally leaked to end users via API responses.
+
+### 6. Pre-Deployment Verification
+In a CI/CD pipeline, the TSX script acts as a final sanity check. The build process can execute this script as a blocking step to ensure the Vercel/Node environment successfully negotiates with SiteGround *before* swapping the traffic to the new deployment.
+
+---
+
+## 13. What a Successful Test Confirms
+
+When the TSX diagnostic script runs and exits with a success code, it validates the entire integration spine. It guarantees:
+
+1. Environment variables are loaded optimally in Node.js.
+2. The server's outbound IP successfully traverses the SiteGround firewall.
+3. The internal `mysql2` driver successfully authenticates the credentials over TLS/SSL.
+4. The user has the necessary `SELECT` privileges granted.
+5. Critical OJS tables (`journals`, `journal_settings`, `submissions`, `users`) physically exist in the target schema.
+6. The application-level SQL `JOIN` queries required by the feature layer execute without syntax errors.
+
+Once this script passes, developers can act with absolute confidence that the `GET /api/ojs/journals` and `GET /api/ojs/health` Hono endpoints will function flawlessly in production.
+
+---
+
+## 11. Deployment Architecture
+
+The DigitoPub / Submit Manager project utilizes a hybrid deployment model, serving as a unified Next.js full-stack application connecting to an external classic lamp-stack managed database.
+
+### Hosting Environment
+- **Frontend & API:** Hosted on a modern Edge/Node.js capable environment (e.g., Vercel, AWS Amplify, or a managed Node VPS). 
+- **Hono inside Next.js:** The Hono API is mounted directly inside the Next.js `app/api/[[...route]]/route.ts` Edge/Node catch-all route, running as serverless functions.
+- **External Database:** SiteGround shared/managed hosting (`gparm12.siteground.biz`) hosting the legacy OJS application and exposing its MySQL database (`dbkgvcunttgs97`) to the Next.js application.
+
+### Network & Connectivity
+- **IP Whitelisting:** The Next.js hosting environment's static outbound IP (or NAT Gateway IP) **must** be explicitly whitelisted in the SiteGround Site Tools (Remote MySQL) panel.
+- **SSL/TLS:** The `mysql2` connection uses `ssl: { rejectUnauthorized: false }` by default to encrypt traffic over the public internet, preventing MITM credential sniffing.
+- **Connection Pooling:** The Node.js environment leverages `mysql2` `createPool()` to multiplex requests over a small, persistent set of TCP connections (e.g., `connectionLimit: 3`) to avoid exhausting SiteGround's shared connection limits.
+
+### Failover Strategy
+If the OJS MySQL database goes completely offline or blocks the IP, the system attempts to gracefully degrade:
+- The `/api/home-stats` endpoint falls back to reading strictly from the internal Prisma database.
+- The `isOjsConfigured()` helper functions as a soft breaker, allowing the application to boot even if environment variables are removed.
+
+### Deployment Topology
+
+```mermaid
+graph TD
+    subgraph Next.js Hosting Environment [Next.js Hosting Environment]
+        UI[React UI Components]
+        API[Hono API Serverless Route]
+        Pool[mysql2 Connection Pool]
+        UI -->|Fetch / RPC| API
+        API --> Pool
+    end
+
+    subgraph SiteGround [SiteGround Hosting]
+        SG_FW[SiteGround Firewall & IP Whitelist]
+        OJS_DB[(OJS MySQL Database)]
+        SG_FW --> OJS_DB
+    end
+    
+    Pool -->|Public Internet over TLS/SSL| SG_FW
+```
+
+---
+
+## 12. Environment Configuration Strategy
+
+Environment variables govern the behavior, connectivity, and fallback modes of the application. 
+
+### Local Development (`.env.local`)
+Developers use a local `.env` or `.env.local` containing local mock credentials, or a safe development proxy key if testing HTTP fallbacks. Never commit this file.
+
+### Production (`.env.production`)
+Production secrets must be managed securely through the hosting provider's Vault/Environment settings (e.g., Vercel Environment Variables). 
+
+### Recommended Naming Conventions
+The application enforces strict isolation for external database mapping:
+
+| Variable | Description |
+|----------|-------------|
+| `OJS_DATABASE_HOST` | Hostname (e.g., `gparm12.siteground.biz`) |
+| `OJS_DATABASE_NAME` | Database identifier |
+| `OJS_DATABASE_USER` | Authenticated remote user |
+| `OJS_DATABASE_PASSWORD` | Secure password |
+| `OJS_DATABASE_PORT` | `3306` (TCP) |
+| `OJS_API_URL` | (Optional) Fallback PHP proxy URL |
+| `OJS_API_KEY` | (Optional) Shared secret for PHP proxy |
+
+### Safely Handling the PHP Proxy Fallback
+If the application must fall back to the legacy PHP proxy, the `OJS_API_URL` and `OJS_API_KEY` are used. The API key must **never** be exposed to the client bundle (`NEXT_PUBLIC_...`). The Hono backend strips these and uses them exclusively in the `X-API-KEY` server-to-server header.
+
+---
+
+## 13. Monitoring and Health Checks
+
+Comprehensive observability ensures the link between the Next.js runtime and SiteGround remains stable.
+
+### System Observability
+The primary diagnostic tool is the **`/api/ojs/health`** endpoint. 
+
+* **Responsibilities:** It verifies DNS resolution, TCP socket connectivity, MySQL authentication, and raw query permissions without executing expensive business logic.
+* **Latency Monitoring:** Automatically measures and returns execution time. Standard DB queries should yield ~50-150ms round-trip latency. Values reliably over 500ms indicate connection pool starvation or SiteGround throttling.
+
+### Diagnostics Guide
+When an outage occurs, operators should consult the health payload:
+* **`ENOTFOUND` / DNS failure:** Hostname changed or DNS provider is down.
+* **`ECONNREFUSED` / Timeout:** SiteGround firewall dropped the packet. The Vercel/Next.js dynamic IP shifted and must be re-whitelisted.
+* **`ER_ACCESS_DENIED_ERROR`:** Credentials rotated, or SiteGround's MySQL daemon rejected the specific user@IP combination. 
+* **`ER_BAD_DB_ERROR`:** Schema migrated or database renamed on the host.
+
+---
+
+## 14. Security Considerations
+
+Connecting to a shared hosting MySQL database over the public internet introduces inherent risks.
+
+### Exposing Credentials
+Database credentials exist in the server environment variables. They are safe provided the Node.js runtime is secure. **Do not** prefix these variables with `NEXT_PUBLIC_`.
+
+### IP Whitelisting Risks
+Shared hosting firewalls depend on static IPs. If the Next.js host runs on dynamic serverless IPs, the whitelist must either allow wide subnets (high risk) or use a static NAT Gateway (recommended).
+
+### Preventing SQL Injection
+By utilizing `mysql2`'s `execute()` or parameterized `query(sql, [params...])` syntaxes, SQL injection is mathematically prevented at the driver level. Zod schemas provide the first line of defense rejecting malformed inputs before they hit the database logic.
+
+### Rate Limiting and Endpoint Protection
+Public endpoints like `/api/home-stats` are exposed. Next.js middleware or a WAF (Web Application Firewall) should enforce rate limiting to prevent malicious actors from DDoS-ing the SiteGround database through the Next.js API layer.
+
+---
+
+## 15. Performance Optimization Strategy
+
+A direct SQL connection to a remote continent or provider introduces unavoidable latency; therefore, aggressive caching is required.
+
+### Caching Strategy
+1. **In-Memory TTL Cache (Server-Side):**
+   High-traffic, static endpoints like `/api/home-stats` and `/api/ojs/journals` must use simple module-level memory caching (e.g., 5-minute TTLs). This ensures 99% of requests resolve instantly without ever waking the connection pool.
+2. **TanStack Query (Client-Side):**
+   The React frontend uses a 5-minute `staleTime`, suppressing duplicate identical fetches as users navigate between pages.
+
+### Database Query Optimization
+Avoid querying `SELECT *` from OJS. Explicitly select only necessary columns. Avoid loading massive `TEXT` objects (`description`) if they are only rendered on detail pages, not list grids.
+
+### Connection Pool Tuning
+Shared hosting providers often enforce strict `max_connections` (e.g., 10-20 per user). The Next.js pool is limited to `connectionLimit: 3`. This enforces application-side queuing rather than triggering total rejection from SiteGround.
+
+---
+
+## 16. Future Extension Plan
+
+The Domain-Driven Feature Architecture supports infinite horizontal expansion without cluttering the global scope.
+
+### Feature Pipeline
+* **OJS Submissions Integration:** A new `src/features/ojs-submissions` module can be mounted exactly like the journals feature, providing paginated GET routes for article lists.
+* **Analytics Dashboards:** A dedicated `admin-analytics` module can securely query historical metrics and protected endpoints.
+* **Multi-Journal Aggregation:** By querying the `journals` table dynamically, the system can parse the `path` column to serve uniquely themed multi-tenant sub-areas without duplicating codebases.
+
+Because validation (Zod) and business logic (Mappers) are completely siloed inside feature folders, adding "Submissions" will have absolutely zero chance of breaking the "Journals" endpoints.
+
+---
+
+## 17. Technical Risks and Mitigation
+
+| Risk | Description | Mitigation Strategy |
+|------|-------------|---------------------|
+| **SiteGround Instability** | Shared hosts frequently restart MySQL or drop persistent connections, throwing `Connection Lost` errors. | `mysql2` pool configuration inherently rebuilds dropped connections. Graceful `try/catch` and fallbacks (Prisma) handle hard outages. |
+| **IP Whitelist Flapping** | Serverless providers (like Vercel) change outbound IPs. SiteGround will silently `ER_ACCESS_DENIED`. | Deploy a proxy/NAT instance with a dedicated Static IP, or revert to the PHP proxy (`OJS_API_URL`) via environment variable swap. |
+| **OJS Schema Drift** | If OJS upgrades (e.g., OJS 3.3 to 3.4), table column names (`journalThumbnail`) might change. | Zod mappers (`ojs-mappers.ts`) will immediately throw strict validation errors instead of silently failing, pinpointing exactly which column changed. |
+| **RPC Type Limitations** | Hono's `hc<AppType>` using `as any` due to TS performance bottlenecks on massive object trees. | Monitor Hono releases for TS performance updates; manually enforce client-side type assumptions using standard TypeScript interfaces as boundaries. |
