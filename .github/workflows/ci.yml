@@ -41,6 +41,6 @@ jobs:
           NEXT_PUBLIC_APP_URL: http://localhost:3000
 
       - name: Run tests
-        run: bun test
+        run: bun run test
         env:
           DATABASE_URL: mysql://user:pass@localhost:3306/db
