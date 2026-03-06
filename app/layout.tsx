@@ -1,5 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
+
+export const dynamic = "force-dynamic"
 import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"

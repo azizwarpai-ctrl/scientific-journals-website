@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { Button } from "@/components/ui/button"
 
 export default function GlobalError({
     error,
@@ -11,14 +10,37 @@ export default function GlobalError({
     reset: () => void
 }) {
     return (
-        <html>
+        <html lang="en">
             <body>
-                <div className="flex min-h-screen flex-col items-center justify-center p-4 text-center">
-                    <h2 className="mb-4 text-2xl font-bold">Something went wrong!</h2>
-                    <p className="mb-8 text-muted-foreground">
-                        {error.message || "A global application error has occurred."}
+                <div style={{
+                    display: 'flex',
+                    minHeight: '100vh',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '1rem',
+                    textAlign: 'center',
+                    fontFamily: 'sans-serif'
+                }}>
+                    <h2 style={{ marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                        Something went wrong!
+                    </h2>
+                    <p style={{ marginBottom: '2rem', color: '#666' }}>
+                        {error?.message || "A global application error has occurred."}
                     </p>
-                    <Button onClick={() => reset()}>Try again</Button>
+                    <button
+                        onClick={() => reset()}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            backgroundColor: '#000',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '0.375rem',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        Try again
+                    </button>
                 </div>
             </body>
         </html>

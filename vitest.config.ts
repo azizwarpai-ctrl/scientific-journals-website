@@ -32,6 +32,6 @@ export default defineConfig({
             '@/src': path.resolve(__dirname, './src'),
             '@/lib': path.resolve(__dirname, './lib'),
         },
-        conditions: ['import', 'module', 'default'],
+        conditions: ['import', 'module', 'node', 'default'],
     },
 })
