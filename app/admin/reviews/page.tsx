@@ -3,9 +3,11 @@ import { getSession } from "@/lib/db/auth"
 import { prisma } from "@/lib/db/config"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Eye, Plus } from "lucide-react"
 import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
+
+export const dynamic = "force-dynamic"
 
 export default async function ReviewsPage() {
   const session = await getSession()
