@@ -72,7 +72,13 @@ export async function ojsQuery<T = any>(sql: string, params?: any[]): Promise<T[
             }
         } finally {
             if (conn) {
-                try { (conn as any).release?.() ?? conn.end() } catch { /* ignore release errors */ }
+                try {
+                    if ((conn as any).release) {
+                        (conn as any).release()
+                    } else {
+                        conn.end()
+                    }
+                } catch { /* ignore release errors */ }
             }
         }
     }
