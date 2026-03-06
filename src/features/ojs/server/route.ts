@@ -83,7 +83,7 @@ async function fetchJournalsFromProxy(): Promise<OjsJournal[]> {
 // ─── Direct MySQL Fetch ──────────────────────────────────────────────
 
 async function fetchFromDatabase(): Promise<OjsJournal[]> {
-    // Dynamic import to avoid loading mariadb when using HTTP mode
+    // Dynamic import to avoid loading mysql2 when using HTTP mode
     const { ojsQuery } = await import("./ojs-client")
 
     const rows = await ojsQuery<{
@@ -135,9 +135,11 @@ app.get("/journals", async (c) => {
             return c.json({ success: true, data: [], configured: false }, 200)
         }
 
+        const start = Date.now()
         const journals = mode === "http"
             ? await fetchJournalsFromProxy()
             : await fetchFromDatabase()
+        const latencyMs = Date.now() - start
 
         const responsePayload = { success: true as const, data: journals, configured: true as const }
 
@@ -150,7 +152,7 @@ app.get("/journals", async (c) => {
             )
         }
 
-        return c.json(validated.data, 200)
+        return c.json({ ...validated.data, latencyMs }, 200)
     } catch (error) {
         console.error("Error fetching OJS journals:", error)
         return c.json(
@@ -175,16 +177,19 @@ app.get("/stats", async (c) => {
         }
 
         // Direct mode — run queries
+        const start = Date.now()
         const { ojsQuery } = await import("./ojs-client")
         const [journals] = await ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM journals WHERE enabled = 1")
         const [submissions] = await ojsQuery<{ total: number; published: number }>(
             "SELECT COUNT(*) as total, SUM(CASE WHEN status = 3 THEN 1 ELSE 0 END) as published FROM submissions"
         )
         const [users] = await ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM users WHERE disabled = 0")
+        const latencyMs = Date.now() - start
 
         return c.json({
             success: true,
             configured: true,
+            latencyMs,
             data: {
                 active_journals: journals.count,
                 total_submissions: submissions.total,
@@ -198,7 +203,7 @@ app.get("/stats", async (c) => {
     }
 })
 
-// GET /ojs/health
+// GET /ojs/health — Full diagnostic endpoint for the debug page
 app.get("/health", async (c) => {
     const mode = getOjsMode()
 
@@ -214,6 +219,7 @@ app.get("/health", async (c) => {
                 ok: true,
                 configured: true,
                 mode: "http",
+                connectionTest: true,
                 latencyMs: Date.now() - start,
                 status: 200,
                 error: null,
@@ -224,16 +230,20 @@ app.get("/health", async (c) => {
                 ok: false,
                 configured: true,
                 mode: "http",
+                connectionTest: false,
                 latencyMs: Date.now() - start,
                 error: err.message,
             }, 503)
         }
     }
 
-    // Direct mode health check
-    const { ojsHealthCheck } = await import("./ojs-client")
-    const status = await ojsHealthCheck()
-    return c.json({ ...status, mode: "direct" }, status.ok ? 200 : 503)
+    // Direct mode — full diagnostic
+    const { ojsDiagnostic } = await import("./ojs-client")
+    const diagnostic = await ojsDiagnostic()
+    return c.json(
+        { ...diagnostic, mode: "direct" },
+        diagnostic.ok ? 200 : 503
+    )
 })
 
 export { app as ojsRouter }

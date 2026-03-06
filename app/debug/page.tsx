@@ -21,6 +21,12 @@ interface JournalCheck {
     publisher: string
 }
 
+interface DiagnosticStep {
+    label: string
+    ok: boolean
+    detail: string
+}
+
 export default function DebugPage() {
     const [results, setResults] = useState<EndpointResult[]>([])
     const [loading, setLoading] = useState(true)
@@ -77,6 +83,11 @@ export default function DebugPage() {
     const statsResult = results.find(r => r.name === "Home Stats")
     const stats = statsResult?.data?.data
 
+    // Health / Diagnostic data
+    const healthResult = results.find(r => r.name === "OJS Health")
+    const healthData = healthResult?.data
+    const diagnosticSteps = parseDiagnosticSteps(healthData)
+
     return (
         <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif", maxWidth: 1200, margin: "0 auto", padding: "2rem 1rem", background: "#0f172a", color: "#e2e8f0", minHeight: "100vh" }}>
             <h1 style={{ color: "#38bdf8", borderBottom: "2px solid #1e3a5f", paddingBottom: "0.5rem" }}>
@@ -86,8 +97,78 @@ export default function DebugPage() {
 
             {loading && <p style={{ color: "#fbbf24", fontSize: "1.2rem" }}>⏳ Running tests...</p>}
 
-            {/* Section 1: Endpoint Status */}
-            <h2 style={{ color: "#22d3ee", marginTop: "2rem" }}>1. API Endpoint Status</h2>
+            {/* Section 1: OJS Database Diagnostic (step-by-step) */}
+            {!loading && healthData && (
+                <>
+                    <h2 style={{ color: "#22d3ee", marginTop: "2rem" }}>1. OJS Database Connection Diagnostic</h2>
+                    <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "1.5rem", marginTop: "1rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
+                            <span style={{ fontSize: "2rem" }}>{healthData.ok ? "✅" : "❌"}</span>
+                            <div>
+                                <div style={{ fontSize: "1.2rem", fontWeight: "bold", color: healthData.ok ? "#4ade80" : "#f87171" }}>
+                                    {healthData.ok ? "Connection Successful" : "Connection Failed"}
+                                </div>
+                                <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
+                                    Mode: {healthData.mode || "—"} | Total latency: {healthData.latencyMs ?? "—"}ms
+                                </div>
+                            </div>
+                        </div>
+
+                        {healthData.error && (
+                            <div style={{ background: "#7f1d1d", border: "1px solid #991b1b", borderRadius: 6, padding: "0.75rem 1rem", marginBottom: "1rem", color: "#fecaca", fontSize: "0.9rem" }}>
+                                <strong>Error:</strong> {healthData.error}
+                            </div>
+                        )}
+
+                        {/* Step-by-step results */}
+                        <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                            <thead>
+                                <tr style={{ background: "#0f172a" }}>
+                                    <th style={thStyle}>Step</th>
+                                    <th style={thStyle}>Status</th>
+                                    <th style={thStyle}>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {diagnosticSteps.map((step, i) => (
+                                    <tr key={i} style={{ borderBottom: "1px solid #334155" }}>
+                                        <td style={tdStyle}><strong>{step.label}</strong></td>
+                                        <td style={tdStyle}>
+                                            <span style={{ ...badgeStyle, background: step.ok ? "#14532d" : "#7f1d1d", color: step.ok ? "#bbf7d0" : "#fecaca" }}>
+                                                {step.ok ? "✓ PASS" : "✗ FAIL"}
+                                            </span>
+                                        </td>
+                                        <td style={{ ...tdStyle, fontSize: "0.85rem", color: "#cbd5e1" }}>{step.detail}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+
+                        {/* Server info if available */}
+                        {healthData.steps?.queryTest?.ok && (
+                            <div style={{ marginTop: "1rem", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem" }}>
+                                {[
+                                    { label: "MySQL Version", value: healthData.steps?.mysqlAuth?.mysqlVersion },
+                                    { label: "Database", value: healthData.steps?.queryTest?.databaseName },
+                                    { label: "Tables Visible", value: healthData.steps?.queryTest?.tablesVisible },
+                                    { label: "Journal Count", value: healthData.steps?.queryTest?.journalCount },
+                                    { label: "Sample Journal", value: healthData.steps?.queryTest?.sampleJournal },
+                                ].map(item => (
+                                    <div key={item.label} style={{ background: "#0f172a", borderRadius: 6, padding: "0.75rem" }}>
+                                        <div style={{ color: "#64748b", fontSize: "0.75rem", textTransform: "uppercase" }}>{item.label}</div>
+                                        <div style={{ color: "#e2e8f0", fontWeight: 600, fontSize: "0.95rem", marginTop: 2 }}>
+                                            {item.value ?? "—"}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
+
+            {/* Section 2: Endpoint Status */}
+            <h2 style={{ color: "#22d3ee", marginTop: "2rem" }}>2. API Endpoint Status</h2>
             <table style={{ borderCollapse: "collapse", width: "100%", marginTop: "1rem" }}>
                 <thead>
                     <tr style={{ background: "#1e293b" }}>
@@ -117,10 +198,10 @@ export default function DebugPage() {
                 </tbody>
             </table>
 
-            {/* Section 2: Stats Analysis */}
+            {/* Section 3: Stats Analysis */}
             {stats && (
                 <>
-                    <h2 style={{ color: "#22d3ee", marginTop: "2rem" }}>2. Homepage Stats</h2>
+                    <h2 style={{ color: "#22d3ee", marginTop: "2rem" }}>3. Homepage Stats</h2>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginTop: "1rem" }}>
                         {[
                             { label: "Active Journals", value: stats.activeJournals },
@@ -139,10 +220,10 @@ export default function DebugPage() {
                 </>
             )}
 
-            {/* Section 3: Journals Table (from /api/journals) */}
+            {/* Section 4: Journals Table (from /api/journals) */}
             {journalChecks.length > 0 && (
                 <>
-                    <h2 style={{ color: "#22d3ee", marginTop: "2rem" }}>3. Journals from /api/journals ({journalChecks.length} total)</h2>
+                    <h2 style={{ color: "#22d3ee", marginTop: "2rem" }}>4. Journals from /api/journals ({journalChecks.length} total)</h2>
                     <table style={{ borderCollapse: "collapse", width: "100%", marginTop: "1rem" }}>
                         <thead>
                             <tr style={{ background: "#1e293b" }}>
@@ -185,10 +266,10 @@ export default function DebugPage() {
                 </>
             )}
 
-            {/* Section 4: OJS Journals Thumbnail Check */}
+            {/* Section 5: OJS Journals Thumbnail Check */}
             {ojsJournals.length > 0 && (
                 <>
-                    <h2 style={{ color: "#22d3ee", marginTop: "2rem" }}>4. OJS Journals from /api/ojs/journals (Homepage Source)</h2>
+                    <h2 style={{ color: "#22d3ee", marginTop: "2rem" }}>5. OJS Journals from /api/ojs/journals (Homepage Source)</h2>
                     <table style={{ borderCollapse: "collapse", width: "100%", marginTop: "1rem" }}>
                         <thead>
                             <tr style={{ background: "#1e293b" }}>
@@ -221,8 +302,8 @@ export default function DebugPage() {
                 </>
             )}
 
-            {/* Section 5: Summary */}
-            <h2 style={{ color: "#22d3ee", marginTop: "2rem" }}>5. Summary</h2>
+            {/* Section 6: Summary */}
+            <h2 style={{ color: "#22d3ee", marginTop: "2rem" }}>6. Summary</h2>
             <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "1.5rem", marginTop: "1rem" }}>
                 <p>Journals from /api/journals: <strong>{journalChecks.length}</strong></p>
                 <p>Journals missing images: <strong style={{ color: journalChecks.filter(j => !j.hasImage).length > 0 ? "#f87171" : "#4ade80" }}>{journalChecks.filter(j => !j.hasImage).length}</strong></p>
@@ -231,8 +312,8 @@ export default function DebugPage() {
                 <p>Stats Active Journals: <strong style={{ color: stats?.activeJournals === 0 ? "#f87171" : "#4ade80" }}>{stats?.activeJournals ?? "N/A"}</strong></p>
             </div>
 
-            {/* Section 6: Raw Responses */}
-            <h2 style={{ color: "#22d3ee", marginTop: "2rem" }}>6. Raw API Responses</h2>
+            {/* Section 7: Raw Responses */}
+            <h2 style={{ color: "#22d3ee", marginTop: "2rem" }}>7. Raw API Responses</h2>
             {results.map(r => (
                 <details key={r.name} style={{ marginTop: "0.5rem" }}>
                     <summary style={{ cursor: "pointer", color: "#94a3b8", padding: "0.5rem", background: "#1e293b", borderRadius: 4 }}>
@@ -254,6 +335,82 @@ export default function DebugPage() {
             </button>
         </div>
     )
+}
+
+/**
+ * Parse the diagnostic steps from the health endpoint response
+ * into a flat list for the step-by-step UI table.
+ */
+function parseDiagnosticSteps(data: any): DiagnosticStep[] {
+    if (!data?.steps) return []
+
+    const steps: DiagnosticStep[] = []
+    const s = data.steps
+
+    // Step 1: Environment
+    if (s.envCheck) {
+        steps.push({
+            label: "1. Environment Variables",
+            ok: s.envCheck.ok,
+            detail: s.envCheck.ok
+                ? `Host: ${s.envCheck.host} | Port: ${s.envCheck.port} | DB: ${s.envCheck.database} | User: ${s.envCheck.user}`
+                : "Missing required OJS_DATABASE_* env vars",
+        })
+    }
+
+    // Step 2: DNS
+    if (s.dnsResolution) {
+        steps.push({
+            label: "2. DNS Resolution",
+            ok: s.dnsResolution.ok,
+            detail: s.dnsResolution.ok
+                ? `Resolved to: ${s.dnsResolution.addresses?.join(", ")}`
+                : s.dnsResolution.error || "DNS lookup failed",
+        })
+    } else if (s.envCheck && !s.envCheck.ok) {
+        steps.push({ label: "2. DNS Resolution", ok: false, detail: "Skipped (env vars missing)" })
+    }
+
+    // Step 3: TCP
+    if (s.tcpConnection) {
+        steps.push({
+            label: "3. TCP Port (3306)",
+            ok: s.tcpConnection.ok,
+            detail: s.tcpConnection.ok
+                ? `Port open (${s.tcpConnection.latencyMs}ms)`
+                : s.tcpConnection.error || "TCP connection failed",
+        })
+    } else if (s.dnsResolution && !s.dnsResolution.ok) {
+        steps.push({ label: "3. TCP Port (3306)", ok: false, detail: "Skipped (DNS failed)" })
+    }
+
+    // Step 4: MySQL Auth
+    if (s.mysqlAuth) {
+        steps.push({
+            label: "4. MySQL Authentication",
+            ok: s.mysqlAuth.ok,
+            detail: s.mysqlAuth.ok
+                ? `Version: ${s.mysqlAuth.mysqlVersion} | User: ${s.mysqlAuth.authenticatedAs}`
+                : s.mysqlAuth.error || "Authentication failed",
+        })
+    } else if (s.tcpConnection && !s.tcpConnection.ok) {
+        steps.push({ label: "4. MySQL Authentication", ok: false, detail: "Skipped (TCP failed)" })
+    }
+
+    // Step 5: Queries
+    if (s.queryTest) {
+        steps.push({
+            label: "5. Query & Privileges",
+            ok: s.queryTest.ok,
+            detail: s.queryTest.ok
+                ? `DB: ${s.queryTest.databaseName} | ${s.queryTest.tablesVisible} tables | ${s.queryTest.journalCount} journals`
+                : s.queryTest.error || "Query test failed",
+        })
+    } else if (s.mysqlAuth && !s.mysqlAuth.ok) {
+        steps.push({ label: "5. Query & Privileges", ok: false, detail: "Skipped (auth failed)" })
+    }
+
+    return steps
 }
 
 const thStyle: React.CSSProperties = { borderBottom: "2px solid #334155", padding: "8px 12px", textAlign: "left", color: "#94a3b8" }
