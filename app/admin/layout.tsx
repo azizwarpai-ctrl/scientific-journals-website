@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+export const dynamic = "force-dynamic"
 import { usePathname } from "next/navigation"
 import { AdminSidebar } from "@/components/admin-sidebar"
 import { AdminHeader } from "@/components/admin-header"
