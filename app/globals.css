@@ -1,3 +1,4 @@
+/* biome-ignore all: PostCSS/Tailwind directives are not fully supported by Biome */
 @import "tailwindcss";
 @import "tw-animate-css";
 
