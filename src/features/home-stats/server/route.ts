@@ -7,36 +7,6 @@ const app = new Hono()
 const CACHE_TTL = 5 * 60 * 1000
 let statsCache = { data: null as any, expiresAt: 0 }
 
-const OJS_BASE_URL = "https://submitmanager.com/api"
-
-/**
- * Fetch from the PHP proxy using the same pattern as the working journals route.
- */
-async function fetchFromProxy(action: string, params: Record<string, string> = {}): Promise<any> {
-    const url = process.env.OJS_API_URL || `${OJS_BASE_URL}/api.php`
-    const apiKey = process.env.OJS_API_KEY || ""
-
-    const searchParams = new URLSearchParams({ action, ...params })
-    const separator = url.includes("?") ? "&" : "?"
-    const fullUrl = `${url}${separator}${searchParams.toString()}`
-
-    const response = await fetch(fullUrl, {
-        headers: { "X-API-KEY": apiKey },
-        signal: AbortSignal.timeout(15000),
-    })
-
-    if (!response.ok) {
-        throw new Error(`OJS proxy returned ${response.status}`)
-    }
-
-    const json = await response.json() as any
-    if (!json.success) {
-        throw new Error(json.error || "OJS proxy error")
-    }
-
-    return json
-}
-
 app.get("/", async (c) => {
     try {
         if (statsCache.data && Date.now() < statsCache.expiresAt) {
@@ -65,63 +35,29 @@ app.get("/", async (c) => {
             return c.json({ success: true, data: directData })
         }
 
-        // Strategy 2: Try PHP proxy stats endpoint
-        const statsResult = await fetchFromProxy("stats")
-        const stats = statsResult.data
+        // Strategy 2: Prisma fallback (when OJS is not configured)
+        const { prisma } = await import("@/lib/db/config")
+        const [activeJournals, publishedArticles] = await Promise.all([
+            prisma.journal.count({ where: { status: "active" } }),
+            prisma.publishedArticle.count(),
+        ])
 
-        const proxyData = {
-            activeJournals: stats.active_journals ?? 0,
-            publishedArticles: stats.published_submissions ?? 0,
-            researchers: stats.distinct_authors ?? 0,
-            countriesEstimated: stats.countries_represented ?? Math.max(12, (stats.active_journals ?? 0) * 2),
+        const fallbackData = {
+            activeJournals,
+            publishedArticles,
+            researchers: 0,
+            countriesEstimated: Math.max(12, activeJournals * 2),
         }
 
-        statsCache = { data: proxyData, expiresAt: Date.now() + CACHE_TTL }
-        return c.json({ success: true, data: proxyData })
-    } catch (statsError) {
-        console.error("Stats fetch failed, trying proxy journals count fallback:", statsError)
+        statsCache = { data: fallbackData, expiresAt: Date.now() + CACHE_TTL }
+        return c.json({ success: true, data: fallbackData })
 
-        // Strategy 3: Count journals from the proxy's journals endpoint
-        try {
-            const journalsResult = await fetchFromProxy("journals")
-            const journals = journalsResult.data || []
-            const activeCount = journals.filter((j: any) => j.enabled).length
-
-            const fallbackData = {
-                activeJournals: activeCount,
-                publishedArticles: 0,
-                researchers: 0,
-                countriesEstimated: Math.max(12, activeCount * 2),
-            }
-
-            return c.json({ success: true, data: fallbackData })
-        } catch (journalsFallbackError) {
-            console.error("Journals fallback also failed:", journalsFallbackError)
-
-            // Strategy 4: Prisma fallback
-            try {
-                const { prisma } = await import("@/lib/db/config")
-                const [activeJournals, publishedArticles] = await Promise.all([
-                    prisma.journal.count({ where: { status: "active" } }),
-                    prisma.publishedArticle.count(),
-                ])
-
-                return c.json({
-                    success: true,
-                    data: {
-                        activeJournals,
-                        publishedArticles,
-                        researchers: 0,
-                        countriesEstimated: Math.max(12, activeJournals * 2),
-                    },
-                })
-            } catch {
-                return c.json(
-                    { success: false, error: "Failed to fetch home statistics" },
-                    500
-                )
-            }
-        }
+    } catch (error) {
+        console.error("Failed to fetch home statistics:", error)
+        return c.json(
+            { success: false, error: "Failed to fetch home statistics" },
+            500
+        )
     }
 })
 
