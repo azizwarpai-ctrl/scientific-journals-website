@@ -115,7 +115,7 @@ export default function NewFAQPage() {
               <Textarea
                 id="answer"
                 placeholder="Provide a detailed answer..."
-                className="min-h-[200px]"
+                className="min-h-52"
                 value={formData.answer}
                 onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
                 required

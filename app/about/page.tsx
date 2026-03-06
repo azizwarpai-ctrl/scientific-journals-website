@@ -162,12 +162,12 @@ export default function AboutPage() {
               <div className="space-y-4 text-muted-foreground leading-relaxed">
                 <p>
                   Our visual branding reflects our philosophy of digital growth and intellectual connectivity. The dis
-                  identity—featuring gradient blue and orange tones—symbolizes the organic growth of knowledge rooted in
+                  identity—featuring gradient blue and slate tones—symbolizes the organic growth of knowledge rooted in
                   technological innovation.
                 </p>
                 <p>
                   The color palette represents the interconnection of ideas, researchers, and data. The dual-tone of
-                  deep blue and vibrant orange conveys both academic reliability and forward-looking creativity.
+                  deep blue and cool slate conveys both academic reliability and forward-looking creativity.
                   Together, they capture our vision: a vibrant ecosystem where science and technology evolve in harmony
                   to advance open, ethical, and impactful scholarly communication.
                 </p>
