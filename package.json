@@ -90,14 +90,18 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@next/eslint-plugin-next": "^16.1.6",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^25.0.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
     "@vitest/coverage-v8": "^4.0.18",
     "dotenv": "^17.2.3",
     "eslint": "^10.0.2",
     "eslint-config-next": "^16.1.6",
+    "eslint-plugin-unused-imports": "^4.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^5",
     "vitest": "^4.0.18"
