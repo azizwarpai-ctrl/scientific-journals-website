@@ -22,8 +22,8 @@ const cache = {
  * 3. Neither configured — returns { configured: false }
  */
 function getOjsMode(): "http" | "direct" | "none" {
-    if (process.env.OJS_API_URL) return "http"
     if (process.env.OJS_DATABASE_HOST && process.env.OJS_DATABASE_NAME && process.env.OJS_DATABASE_USER) return "direct"
+    if (process.env.OJS_API_URL) return "http"
     return "none"
 }
 
