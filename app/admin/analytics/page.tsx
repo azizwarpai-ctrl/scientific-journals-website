@@ -97,8 +97,8 @@ export default async function AnalyticsPage() {
       title: "Published Articles",
       value: publishedCount || 0,
       icon: TrendingUp,
-      color: "text-orange-600 dark:text-orange-400",
-      bgColor: "bg-orange-100 dark:bg-orange-900/20",
+      color: "text-secondary-foreground dark:text-secondary-foreground",
+      bgColor: "bg-secondary/10 dark:bg-secondary/20",
     },
     {
       title: "Total Reviews",

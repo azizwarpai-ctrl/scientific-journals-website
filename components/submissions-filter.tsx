@@ -35,7 +35,7 @@ export function SubmissionsFilter() {
         />
       </div>
       <Select value={status} onValueChange={setStatus}>
-        <SelectTrigger className="w-full sm:w-[200px]">
+        <SelectTrigger className="w-full sm:w-52">
           <SelectValue placeholder="Filter by status" />
         </SelectTrigger>
         <SelectContent>

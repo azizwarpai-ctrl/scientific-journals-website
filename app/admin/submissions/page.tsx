@@ -100,7 +100,7 @@ async function SubmissionsList({ searchParams }: { searchParams: { status?: stri
                       className={`inline-flex rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap ${submission.status === "submitted"
                         ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
                         : submission.status === "under_review"
-                          ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
+                          ? "bg-secondary/10 text-secondary dark:bg-secondary/20 dark:text-secondary-foreground"
                           : submission.status === "revision_required"
                             ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400"
                             : submission.status === "accepted"
@@ -197,7 +197,7 @@ export default async function SubmissionsPage({
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-muted-foreground">Under Review</div>
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{statusCounts.under_review}</div>
+            <div className="text-2xl font-bold text-secondary dark:text-secondary-foreground">{statusCounts.under_review}</div>
           </CardContent>
         </Card>
         <Card>

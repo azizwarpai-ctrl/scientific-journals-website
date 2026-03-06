@@ -72,7 +72,13 @@ export async function ojsQuery<T = any>(sql: string, params?: any[]): Promise<T[
             }
         } finally {
             if (conn) {
-                try { (conn as any).release?.() ?? conn.end() } catch { /* ignore release errors */ }
+                try {
+                    if ((conn as any).release) {
+                        await (conn as any).release()
+                    } else {
+                        await conn.end()
+                    }
+                } catch { /* ignore release errors */ }
             }
         }
     }
@@ -98,7 +104,7 @@ export async function ojsHealthCheck(): Promise<{
     try {
         const conn = await getPool().getConnection()
         await conn.query("SELECT 1")
-        conn.release()
+        await conn.release()
         return { ok: true, configured: true, latencyMs: Date.now() - start, error: null }
     } catch (err: any) {
         return { ok: false, configured: true, latencyMs: Date.now() - start, error: err.message }

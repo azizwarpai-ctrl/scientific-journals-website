@@ -154,7 +154,7 @@ export default function ContactPage() {
                         <Textarea
                           id="message"
                           placeholder="Tell us how we can help..."
-                          className="min-h-[150px]"
+                          className="min-h-40"
                           value={formData.message}
                           onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                           required

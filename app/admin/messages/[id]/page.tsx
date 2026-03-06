@@ -94,7 +94,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
                 <Textarea
                   id="response"
                   placeholder="Type your response here..."
-                  className="min-h-[150px]"
+                  className="min-h-40"
                   defaultValue={message.response || ""}
                 />
               </div>

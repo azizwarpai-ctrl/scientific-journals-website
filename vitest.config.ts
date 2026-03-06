@@ -20,6 +20,11 @@ export default defineConfig({
             ],
         },
         testTimeout: 10000,
+        server: {
+            deps: {
+                inline: ['zod'],
+            },
+        },
     },
     resolve: {
         alias: {
@@ -27,5 +32,6 @@ export default defineConfig({
             '@/src': path.resolve(__dirname, './src'),
             '@/lib': path.resolve(__dirname, './lib'),
         },
+        conditions: ['import', 'module', 'node', 'default'],
     },
 })

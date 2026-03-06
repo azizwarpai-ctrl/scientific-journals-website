@@ -3,9 +3,11 @@ import { getSession } from "@/lib/db/auth"
 import { prisma } from "@/lib/db/config"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Eye, Plus } from "lucide-react"
 import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
+
+export const dynamic = "force-dynamic"
 
 export default async function ReviewsPage() {
   const session = await getSession()
@@ -51,12 +53,12 @@ export default async function ReviewsPage() {
           <h1 className="text-3xl font-bold">Review Management</h1>
           <p className="text-muted-foreground mt-1">Manage peer reviews and reviewer assignments</p>
         </div>
-        <Button asChild>
-          <Link href="/admin/reviews/new">
+        <Link href="/admin/reviews/new">
+          <Button>
             <Plus className="mr-2 h-4 w-4" />
             Assign Reviewer
-          </Link>
-        </Button>
+          </Button>
+        </Link>
       </div>
 
       {/* Stats Cards */}
@@ -143,12 +145,12 @@ export default async function ReviewsPage() {
                         {review.review_status.replace("_", " ")}
                       </Badge>
 
-                      <Button asChild size="sm" variant="outline" className="bg-transparent">
-                        <Link href={`/admin/submissions/${review.submission_id}`}>
+                      <Link href={`/admin/submissions/${review.submission_id}`}>
+                        <Button size="sm" variant="outline" className="bg-transparent">
                           <Eye className="mr-2 h-4 w-4" />
                           View Submission
-                        </Link>
-                      </Button>
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 </div>

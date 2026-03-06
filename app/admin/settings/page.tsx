@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Settings } from "lucide-react"
 
+export const dynamic = "force-dynamic"
+
 export default async function SettingsPage() {
   const session = await getSession()
 
