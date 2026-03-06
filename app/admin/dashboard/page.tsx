@@ -78,8 +78,8 @@ export default async function AdminDashboardPage() {
       title: "Under Review",
       value: Number(stats.under_review_count) || 0,
       icon: Clock,
-      color: "text-orange-600 dark:text-orange-400",
-      bgColor: "bg-orange-100 dark:bg-orange-900/20",
+      color: "text-secondary dark:text-secondary-foreground",
+      bgColor: "bg-secondary/10 dark:bg-secondary/20",
     },
     {
       title: "Pending Reviews",
@@ -169,7 +169,7 @@ export default async function AdminDashboardPage() {
                       className={`rounded-full px-3 py-1 text-xs font-medium ${submission.status === "submitted"
                         ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
                         : submission.status === "under_review"
-                          ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
+                          ? "bg-secondary/10 text-secondary dark:bg-secondary/20 dark:text-secondary-foreground"
                           : submission.status === "accepted"
                             ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
                             : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"

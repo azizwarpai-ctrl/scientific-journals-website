@@ -69,7 +69,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
           className={`text-sm px-3 py-1 ${submission.status === "submitted"
             ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200"
             : submission.status === "under_review"
-              ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400 border-orange-200"
+              ? "bg-secondary/10 text-secondary dark:bg-secondary/20 dark:text-secondary-foreground border-secondary/20"
               : submission.status === "accepted"
                 ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200"
                 : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400 border-gray-200"

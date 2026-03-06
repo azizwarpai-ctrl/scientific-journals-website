@@ -160,7 +160,7 @@ export default function TechnicalSupportPage() {
                       <Textarea
                         id="message"
                         placeholder="Please describe the technical issue in detail, including any error messages, steps to reproduce, and what you expected to happen..."
-                        className="min-h-[150px] resize-none"
+                        className="min-h-40 resize-none"
                         value={formData.message}
                         onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                         required

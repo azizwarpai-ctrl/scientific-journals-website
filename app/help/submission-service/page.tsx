@@ -127,7 +127,7 @@ export default function SubmissionServicePage() {
                       <Textarea
                         id="description"
                         placeholder="Please provide detailed information about your submission issue or service request..."
-                        className="min-h-[180px]"
+                        className="min-h-48"
                         value={formData.description}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                         required

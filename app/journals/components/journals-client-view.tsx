@@ -80,7 +80,7 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
 
             <div className="flex gap-2">
               <Select value={selectedField} onValueChange={setSelectedField}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-44">
                   <SlidersHorizontal className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Filter by field" />
                 </SelectTrigger>
@@ -95,7 +95,7 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
               </Select>
 
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-44">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
