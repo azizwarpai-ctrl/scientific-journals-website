@@ -1,14 +1,10 @@
 import type React from "react"
 import type { Metadata } from "next"
 
-export const dynamic = "force-dynamic"
-import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
 import { QueryProvider } from "@/components/query-provider"
 import "./globals.css"
-
-const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "DigitoPub - Scientific Journals Platform",
@@ -39,7 +35,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} font-sans antialiased`}>
+      <body className={`font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -55,3 +51,4 @@ export default function RootLayout({
     </html>
   )
 }
+
