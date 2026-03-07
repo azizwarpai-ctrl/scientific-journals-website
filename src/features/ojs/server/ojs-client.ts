@@ -32,7 +32,10 @@ function getPool(): Pool {
             queueLimit: 10,
             enableKeepAlive: true,
             keepAliveInitialDelay: 30000,
-            ssl: { rejectUnauthorized: false },
+            ssl: {
+                rejectUnauthorized: false,
+                minVersion: 'TLSv1.2'
+            },
             flags: ['+LOCAL_FILES'],
             allowPublicKeyRetrieval: true,
         } as any)
