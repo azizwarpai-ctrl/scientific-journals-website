@@ -1,32 +1,33 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { RefreshCcw, Activity, Server, ShieldCheck, ShieldAlert, Network, Database } from "lucide-react"
-import { runOjsDiagnosticAction } from "./actions"
 
 const DEBUG = process.env.NODE_ENV !== "production" || true // Force debug for this specialized page
 
 export default function SystemStatusPage() {
     const [data, setData] = useState<any>(null)
-    const [isPending, startTransition] = useTransition()
+    const [isPending, setIsPending] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
-    const executeDiagnostic = () => {
+    const executeDiagnostic = async () => {
+        setIsPending(true)
         setError(null)
-        startTransition(async () => {
-            try {
-                const res = await runOjsDiagnosticAction()
-                setData(res)
-                if (res.error && !res.ok && res.error !== "Access denied for user...") {
-                    setError(res.error)
-                }
-            } catch (err: any) {
-                setError(err.message)
+        try {
+            const res = await fetch("/api/debug-db?ts=" + Date.now())
+            const json = await res.json()
+            setData(json)
+            if (json.error && !json.ok && json.error !== "Access denied for user...") {
+                setError(json.error)
             }
-        })
+        } catch (err: any) {
+            setError(err.message)
+        } finally {
+            setIsPending(false)
+        }
     }
 
     useEffect(() => {
