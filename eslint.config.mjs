@@ -20,6 +20,7 @@ export default [
             'submit_manger_api/**',
             'server.js',
             '**/*.cjs',
+            'vitest.config.ts',
         ],
     },
     // Base configuration for JS/TS files
