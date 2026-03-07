@@ -97,7 +97,8 @@ export default function DebugOjsPage() {
                                 ? (DEBUG ? steps.envCheck.database : "***" + steps.envCheck.database.slice(-4))
                                 : "Missing"
                         },
-                        { label: "User", value: steps.envCheck?.user ? (DEBUG ? steps.envCheck.user : "***" + steps.envCheck.user.slice(-4)) : "Missing" }
+                        { label: "User", value: steps.envCheck?.user ? (DEBUG ? steps.envCheck.user : "***" + steps.envCheck.user.slice(-4)) : "Missing" },
+                        { label: "Outbound IP", value: steps.envCheck?.outboundIp }
                     ]}
                 />
 

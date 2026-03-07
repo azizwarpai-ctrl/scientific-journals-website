@@ -133,7 +133,7 @@ export interface OjsDiagnosticResult {
     ok: boolean
     configured: boolean
     steps: {
-        envCheck: { ok: boolean; host: string | null; port: number; database: string | null; user: string | null }
+        envCheck: { ok: boolean; host: string | null; port: number; database: string | null; user: string | null; outboundIp: string | null }
         dnsResolution: { ok: boolean; addresses: string[]; error: string | null } | null
         tcpConnection: { ok: boolean; latencyMs: number; error: string | null } | null
         mysqlAuth: {
@@ -176,9 +176,16 @@ export async function ojsDiagnostic(): Promise<OjsDiagnosticResult> {
     const database = process.env.OJS_DATABASE_NAME || ""
     const user = process.env.OJS_DATABASE_USER || ""
 
+    let outboundIp: string | null = null
+    try {
+        const ipRes = await fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(3000) })
+        const ipJson = (await ipRes.json()) as { ip: string }
+        outboundIp = ipJson.ip || null
+    } catch { /* ignore */ }
+
     // Step 1: Environment check
     const envOk = !!(host && database && user)
-    const envCheck = { ok: envOk, host: host || null, port, database: database || null, user: user || null }
+    const envCheck = { ok: envOk, host: host || null, port, database: database || null, user: user || null, outboundIp }
 
     if (!envOk) {
         return {
