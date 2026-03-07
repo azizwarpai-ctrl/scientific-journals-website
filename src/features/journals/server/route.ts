@@ -8,94 +8,6 @@ import { journalCreateSchema, journalUpdateSchema, journalIdParamSchema } from "
 
 const app = new Hono()
 
-// ─── PHP Proxy helper ───────────────────────────────────────────────
-
-const OJS_BASE_URL = "https://submitmanager.com/api"
-
-async function fetchFromProxy(action: string, params: Record<string, string> = {}): Promise<any> {
-  const url = process.env.OJS_API_URL || `${OJS_BASE_URL}/api.php`
-  const apiKey = process.env.OJS_API_KEY || ""
-
-  const searchParams = new URLSearchParams({ action, ...params })
-  const separator = url.includes("?") ? "&" : "?"
-  const fullUrl = `${url}${separator}${searchParams.toString()}`
-
-  const response = await fetch(fullUrl, {
-    headers: { "X-API-KEY": apiKey },
-    signal: AbortSignal.timeout(15000),
-  })
-
-  if (!response.ok) {
-    throw new Error(`OJS proxy returned ${response.status}`)
-  }
-
-  const json = await response.json() as any
-  if (!json.success) {
-    throw new Error(json.error || "OJS proxy error")
-  }
-
-  return json
-}
-
-function isProxyConfigured(): boolean {
-  return !!(process.env.OJS_API_URL || process.env.OJS_API_KEY)
-}
-
-// ─── Field mapping: OJS → Journal interface ─────────────────────────
-
-function mapOjsJournalToJournal(ojs: any): any {
-  return {
-    id: String(ojs.journal_id),
-    title: ojs.name || ojs.settings?.name || "Currently unavailable",
-    abbreviation: ojs.abbreviation || ojs.settings?.acronym || null,
-    issn: ojs.settings?.printIssn || null,
-    e_issn: ojs.settings?.onlineIssn || null,
-    description: ojs.description || ojs.settings?.description || null,
-    field: mapLocaleToField(ojs.primary_locale),
-    publisher: ojs.settings?.publisherInstitution || null,
-    editor_in_chief: ojs.settings?.contactName || null,
-    frequency: null,
-    submission_fee: 0,
-    publication_fee: 0,
-    cover_image_url: buildThumbnailUrl(ojs),
-    website_url: ojs.path ? `https://submitmanager.com/${ojs.path}` : null,
-    status: ojs.enabled ? "active" : "inactive",
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    created_by: null,
-    ojs_id: String(ojs.journal_id),
-  }
-}
-
-function mapLocaleToField(locale: string | null): string {
-  const fieldMap: Record<string, string> = {
-    en: "Multidisciplinary",
-    en_US: "Multidisciplinary",
-    fr_FR: "Multidisciplinaire",
-    ar: "متعدد التخصصات",
-  }
-  return fieldMap[locale || "en"] || "Multidisciplinary"
-}
-
-function buildThumbnailUrl(ojs: any): string | null {
-  // Use the pre-parsed thumbnail_url from the PHP proxy
-  if (ojs.thumbnail_url) return ojs.thumbnail_url
-
-  // For journal detail responses, check settings
-  if (ojs.settings?.journalThumbnail) {
-    const thumb = ojs.settings.journalThumbnail
-    if (typeof thumb === "string" && thumb.startsWith("http")) return thumb
-  }
-
-  // Fallback: use the image proxy endpoint
-  const apiUrl = process.env.OJS_API_URL || `${OJS_BASE_URL}/api.php`
-  const apiKey = process.env.OJS_API_KEY || ""
-  if (ojs.journal_id) {
-    return `${apiUrl}?action=image&journal_id=${ojs.journal_id}&type=thumbnail`
-  }
-  return null
-}
-
 const JOURNAL_SELECT = {
   id: true,
   title: true,
@@ -118,24 +30,10 @@ const JOURNAL_SELECT = {
   ojs_id: true,
 } as const
 
-// ─── GET /journals — Public listing ─────────────────────────────────
+// ─── GET /journals — Public listing (Prisma only) ───────────────────
 
 app.get("/", async (c) => {
   try {
-    // Try PHP proxy first (OJS data on SiteGround)
-    if (isProxyConfigured()) {
-      const json = await fetchFromProxy("journals")
-      const journals = (json.data || []).map(mapOjsJournalToJournal)
-      return c.json({
-        success: true,
-        data: journals,
-        total: journals.length,
-        limit: journals.length,
-        offset: 0,
-      }, 200)
-    }
-
-    // Fallback: Prisma (Hostinger local DB)
     const pagination = parsePagination(c)
     const [journals, total] = await Promise.all([
       prisma.journal.findMany({
@@ -159,22 +57,6 @@ app.get("/:id", zValidator("param", journalIdParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
 
-    // Try PHP proxy first (OJS journal detail)
-    if (isProxyConfigured()) {
-      try {
-        const json = await fetchFromProxy("journal", { id })
-        const journal = mapOjsJournalToJournal(json.data)
-        return c.json({ success: true, data: journal }, 200)
-      } catch (proxyErr: any) {
-        // If proxy returns 404, pass through
-        if (proxyErr.message?.includes("404")) {
-          return c.json({ success: false, error: "Journal not found" }, 404)
-        }
-        throw proxyErr
-      }
-    }
-
-    // Fallback: Prisma
     const journal = await prisma.journal.findUnique({
       where: { id: BigInt(id) },
       select: JOURNAL_SELECT,
