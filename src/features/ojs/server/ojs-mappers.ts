@@ -16,7 +16,8 @@ export const ojsJournalRowSchema = z.object({
 export type OjsJournalRow = z.infer<typeof ojsJournalRowSchema>
 
 /** Maps a raw DB row to the application domain model */
-export function mapOjsJournalRow(row: OjsJournalRow, baseUrl: string): OjsJournal {
+export function mapOjsJournalRow(rawRow: unknown, baseUrl: string): OjsJournal {
+    const row = ojsJournalRowSchema.parse(rawRow);
     return ojsJournalSchema.parse({
         journal_id: row.journal_id,
         path: row.path,
