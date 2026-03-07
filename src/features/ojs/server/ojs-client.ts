@@ -136,23 +136,37 @@ export interface OjsDiagnosticResult {
         envCheck: { ok: boolean; host: string | null; port: number; database: string | null; user: string | null }
         dnsResolution: { ok: boolean; addresses: string[]; error: string | null } | null
         tcpConnection: { ok: boolean; latencyMs: number; error: string | null } | null
-        mysqlAuth: { ok: boolean; mysqlVersion: string | null; authenticatedAs: string | null; error: string | null } | null
-        queryTest: { ok: boolean; databaseName: string | null; tablesVisible: number | null; journalCount: number | null; sampleJournal: string | null; error: string | null } | null
+        mysqlAuth: {
+            ok: boolean;
+            mysqlVersion: string | null;
+            authenticatedAs: string | null;
+            sourceIp: string | null;
+            authPlugin: string | null;
+            error: string | null;
+            code?: string;
+            errno?: number;
+            sqlState?: string;
+        } | null
+        queryTest: {
+            ok: boolean;
+            databaseName: string | null;
+            tablesVisible: number | null;
+            journalCount: number | null;
+            sampleJournal: string | null;
+            error: string | null;
+            code?: string;
+            errno?: number;
+            sqlState?: string;
+        } | null
     }
     latencyMs: number
     error: string | null
+    mode: string
 }
 
 /**
  * Full diagnostic check for the OJS connection.
  * Mirrors the CLI diagnose-ojs-connection.ts steps but accessible via HTTP.
- * 
- * Steps:
- *   1. Environment variable check
- *   2. DNS resolution
- *   3. TCP port connectivity
- *   4. MySQL authentication
- *   5. Query execution & privilege check
  */
 export async function ojsDiagnostic(): Promise<OjsDiagnosticResult> {
     const start = Date.now()
@@ -161,7 +175,6 @@ export async function ojsDiagnostic(): Promise<OjsDiagnosticResult> {
     const port = parseInt(process.env.OJS_DATABASE_PORT || "3306")
     const database = process.env.OJS_DATABASE_NAME || ""
     const user = process.env.OJS_DATABASE_USER || ""
-    const password = process.env.OJS_DATABASE_PASSWORD || ""
 
     // Step 1: Environment check
     const envOk = !!(host && database && user)
@@ -174,6 +187,7 @@ export async function ojsDiagnostic(): Promise<OjsDiagnosticResult> {
             steps: { envCheck, dnsResolution: null, tcpConnection: null, mysqlAuth: null, queryTest: null },
             latencyMs: Date.now() - start,
             error: "Missing required OJS_DATABASE_* environment variables",
+            mode: "direct"
         }
     }
 
@@ -186,6 +200,7 @@ export async function ojsDiagnostic(): Promise<OjsDiagnosticResult> {
             steps: { envCheck, dnsResolution: dnsResult, tcpConnection: null, mysqlAuth: null, queryTest: null },
             latencyMs: Date.now() - start,
             error: `DNS resolution failed: ${dnsResult.error}`,
+            mode: "direct"
         }
     }
 
@@ -198,6 +213,7 @@ export async function ojsDiagnostic(): Promise<OjsDiagnosticResult> {
             steps: { envCheck, dnsResolution: dnsResult, tcpConnection: tcpResult, mysqlAuth: null, queryTest: null },
             latencyMs: Date.now() - start,
             error: `TCP connection failed: ${tcpResult.error}`,
+            mode: "direct"
         }
     }
 
@@ -206,14 +222,20 @@ export async function ojsDiagnostic(): Promise<OjsDiagnosticResult> {
     try {
         conn = await getPool().getConnection()
 
-        // Auth info
+        // Auth & Metadata info
         const [versionRows] = await conn.query<RowDataPacket[]>("SELECT VERSION() as version")
         const mysqlVersion = versionRows[0]?.version || null
 
         const [userRows] = await conn.query<RowDataPacket[]>("SELECT CURRENT_USER() as user")
         const authenticatedAs = userRows[0]?.user || null
 
-        const mysqlAuth = { ok: true, mysqlVersion, authenticatedAs, error: null }
+        const [ipRows] = await conn.query<RowDataPacket[]>("SELECT SUBSTRING_INDEX(USER(), '@', -1) as ip")
+        const sourceIp = ipRows[0]?.ip || null
+
+        const [pluginRows] = await conn.query<RowDataPacket[]>("SHOW VARIABLES LIKE 'default_authentication_plugin'")
+        const authPlugin = pluginRows[0]?.Value || null
+
+        const mysqlAuth = { ok: true, mysqlVersion, authenticatedAs, sourceIp, authPlugin, error: null }
 
         // Query tests
         const [dbRows] = await conn.query<RowDataPacket[]>("SELECT DATABASE() as db")
@@ -247,14 +269,19 @@ export async function ojsDiagnostic(): Promise<OjsDiagnosticResult> {
             steps: { envCheck, dnsResolution: dnsResult, tcpConnection: tcpResult, mysqlAuth, queryTest },
             latencyMs: Date.now() - start,
             error: null,
+            mode: "direct"
         }
     } catch (err: any) {
         const code = err.code || "UNKNOWN"
         let errorMsg = err.message
+        let sourceIpFromErr: string | null = null
 
         if (code === "ER_ACCESS_DENIED_ERROR") {
             const ipMatch = err.message?.match(/'[^']*'@'([^']+)'/)
-            errorMsg = `Access denied for user '${user}'.${ipMatch ? ` Your IP: ${ipMatch[1]} — whitelist it in SiteGround Remote MySQL.` : ""}`
+            if (ipMatch) {
+                sourceIpFromErr = ipMatch[1]
+                errorMsg = `Access denied for user '${user}'. Your IP: ${sourceIpFromErr} — whitelist it in SiteGround Remote MySQL.`
+            }
         } else if (err.message?.includes("Unknown database")) {
             errorMsg = `Database '${database}' does not exist. Check the name in SiteGround MySQL panel.`
         }
@@ -266,11 +293,22 @@ export async function ojsDiagnostic(): Promise<OjsDiagnosticResult> {
                 envCheck,
                 dnsResolution: dnsResult,
                 tcpConnection: tcpResult,
-                mysqlAuth: { ok: false, mysqlVersion: null, authenticatedAs: null, error: errorMsg },
+                mysqlAuth: {
+                    ok: false,
+                    mysqlVersion: null,
+                    authenticatedAs: null,
+                    sourceIp: sourceIpFromErr,
+                    authPlugin: null,
+                    error: errorMsg,
+                    code: err.code,
+                    errno: err.errno,
+                    sqlState: err.sqlState
+                },
                 queryTest: null,
             },
             latencyMs: Date.now() - start,
             error: errorMsg,
+            mode: "direct"
         }
     } finally {
         if (conn) {
