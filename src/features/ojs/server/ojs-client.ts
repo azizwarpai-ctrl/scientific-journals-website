@@ -38,6 +38,14 @@ function getPool(): Pool {
             },
             flags: ['+LOCAL_FILES'],
             allowPublicKeyRetrieval: true,
+            authSwitchHandler: function ({ pluginName, pluginData }: any, cb: any) {
+                // If the server asks for mysql_native_password, but we KNOW it's caching_sha2_password
+                if (pluginName === 'mysql_native_password' || pluginName === 'caching_sha2_password') {
+                    // Let the internal mysql2 handler process it automatically based on its capabilities
+                    return cb();
+                }
+                cb(new Error(`Unknown auth plugin: ${pluginName}`));
+            }
         } as any)
     }
     return pool
@@ -45,7 +53,7 @@ function getPool(): Pool {
 
 /**
  * Execute a query against the OJS database with retry logic.
- * 
+ *
  * Uses exponential backoff: 1s → 2s → 4s (3 attempts max).
  */
 export async function ojsQuery<T = RowDataPacket>(sql: string, params?: any[]): Promise<T[]> {
@@ -188,7 +196,7 @@ export async function ojsDiagnostic(): Promise<OjsDiagnosticResult> {
 
     // Step 1: Environment check
     const envOk = !!(host && database && user)
-    const envCheck = { ok: envOk, host: host || null, port, database: database || null, user: user || null, outboundIp }
+    const envCheck = { ok: envOk, host: host || null, port, database: database || null, user: user || null, pwLength: process.env.OJS_DATABASE_PASSWORD ? process.env.OJS_DATABASE_PASSWORD.length : 0, outboundIp }
 
     if (!envOk) {
         return {

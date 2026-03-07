@@ -102,6 +102,7 @@ export default function SystemStatusPage() {
                             { label: "Target Port", value: steps.envCheck?.port },
                             { label: "Database Name", value: steps.envCheck?.database },
                             { label: "Target User", value: steps.envCheck?.user },
+                            { label: "Password Length", value: steps.envCheck?.pwLength },
                             { label: "Originating Outbound IP", value: steps.envCheck?.outboundIp }
                         ]}
                     />
