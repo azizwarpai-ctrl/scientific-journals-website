@@ -10,13 +10,13 @@ import Image from "next/image"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { AnimatedCounter } from "@/components/animated-counter"
 import { useGetOjsJournals } from "@/src/features/ojs/api/use-get-ojs-journals"
-import { useGetHomeStats } from "@/src/features/home-stats"
+import { useGetMetrics } from "@/src/features/metrics"
 import { HomeStatsSkeleton } from "@/components/skeletons/home-stats-skeleton"
 import { JournalCardSkeleton } from "@/components/skeletons/journal-card-skeleton"
 
 export default function HomePage() {
   const { data: ojsData, isLoading: isLoadingOjs, isError: isErrorOjs } = useGetOjsJournals()
-  const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetHomeStats()
+  const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetMetrics()
 
   const journals = ojsData?.data
 
