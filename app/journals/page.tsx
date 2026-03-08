@@ -3,20 +3,22 @@
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { JournalsClientView } from "./components/journals-client-view"
-import { useGetJournals } from "@/src/features/journals"
+import { useGetOjsJournals } from "@/src/features/ojs/api/use-get-ojs-journals"
 import { Loader2 } from "lucide-react"
 
 export default function JournalsPage() {
-  const { data: journals = [], isLoading, error } = useGetJournals()
+  const { data: response, isLoading, error } = useGetOjsJournals()
+  
+  const journals = response?.data || []
 
   // Format the journals for the client view
-  const formattedJournals = journals.map((j) => ({
-    id: j.id,
-    title: j.title || "Currently unavailable",
-    issn: j.issn || "Currently unavailable",
-    field: j.field || "Currently unavailable",
-    publisher: j.publisher || "Currently unavailable",
-    coverImage: j.cover_image_url || "/images/logodigitopub.png",
+  const formattedJournals = journals.map((j: any) => ({
+    id: j.journal_id,
+    title: j.name || j.path || "Currently unavailable",
+    issn: "N/A",
+    field: "Science", 
+    publisher: "DigitoPub",
+    coverImage: j.thumbnail_url || "/images/logodigitopub.png",
   }))
 
   return (
