@@ -9,7 +9,7 @@ import type { OjsJournal } from "@/src/features/ojs/schemas/ojs-schema"
 
 export default function JournalsPage() {
   const { data: response, isLoading, error } = useGetOjsJournals()
-  
+
   const journals: OjsJournal[] = response?.data || []
 
   // Format the journals for the client view
@@ -17,6 +17,11 @@ export default function JournalsPage() {
     id: j.journal_id,
     title: j.name || j.path || "Currently unavailable",
     coverImage: j.thumbnail_url || "/images/logodigitopub.png",
+    description: j.description || null,
+    issn: j.issn || j.e_issn || null,
+    publisher: j.publisher || null,
+    field: null,
+    path: j.path || null,
   }))
 
   return (
