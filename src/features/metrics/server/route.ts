@@ -1,6 +1,4 @@
 import { Hono } from "hono"
-import { zValidator } from "@hono/zod-validator"
-import { z } from "zod"
 import { ojsQuery, isOjsConfigured } from "@/src/features/ojs/server/ojs-client"
 import { prisma } from "@/lib/db/config"
 
@@ -16,11 +14,13 @@ export const metricsRouter = new Hono()
                         "SELECT SUM(status=3) as published FROM submissions"
                     )
                     const [users] = await ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM users WHERE disabled = 0")
+                    const [countries] = await ojsQuery<{ count: number }>("SELECT COUNT(DISTINCT country) as count FROM users WHERE country IS NOT NULL AND country != ''")
 
                     return c.json({
                         activeJournals: journals?.count || 0,
                         publishedArticles: submissions?.published || 0,
                         researchers: users?.count || 0,
+                        countriesEstimated: countries?.count || 0,
                     })
                 }
 
@@ -33,6 +33,7 @@ export const metricsRouter = new Hono()
                     activeJournals: totalJournals,
                     publishedArticles: totalArticles,
                     researchers: totalResearchers,
+                    countriesEstimated: 0,
                 })
             } catch (error) {
                 console.error("[METRICS_GET]", error)

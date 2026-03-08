@@ -32,7 +32,10 @@ export const healthRouter = new Hono()
                     const ojsHealth = await ojsHealthCheck()
                     externalDbStatus = ojsHealth.ok ? "connected" : "error"
                     externalLatency = ojsHealth.latencyMs || 0
-                    if (!ojsHealth.ok) externalError = ojsHealth.error
+                    if (!ojsHealth.ok) {
+                        console.error("[HEALTH_OJS_ERROR]", ojsHealth.error)
+                        externalError = "Unavailable"
+                    }
                 }
 
                 const totalLatency = Date.now() - startTime
