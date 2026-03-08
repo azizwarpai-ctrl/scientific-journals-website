@@ -2,7 +2,7 @@ import { Hono } from "hono"
 import { ojsJournalsResponseSchema } from "../schemas/ojs-schema"
 import type { OjsJournal } from "../schemas/ojs-schema"
 import { mapOjsJournalRow } from "./ojs-mappers"
-import { ojsQuery, isOjsConfigured, ojsDiagnostic } from "./ojs-client"
+import { ojsQuery, isOjsConfigured, ojsHealthCheck } from "./ojs-client"
 
 const app = new Hono()
 
@@ -134,7 +134,7 @@ app.get("/health", async (c) => {
         return c.json({ ok: false, configured: false, mode: "none", error: null })
     }
 
-    const diagnostic = await ojsDiagnostic()
+    const diagnostic = await ojsHealthCheck()
     return c.json(
         { ...diagnostic, mode: "direct" },
         diagnostic.ok ? 200 : 503
