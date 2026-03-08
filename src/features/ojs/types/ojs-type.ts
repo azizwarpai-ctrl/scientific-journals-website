@@ -1,11 +1,5 @@
-export interface OjsJournal {
-    journal_id: number
-    path: string
-    primary_locale: string
-    enabled: boolean
-    name: string | null
-    description: string | null
-}
+import type { OjsJournal } from "../schemas/ojs-schema"
+export type { OjsJournal }
 
 export interface OjsJournalsResponse {
     success: boolean

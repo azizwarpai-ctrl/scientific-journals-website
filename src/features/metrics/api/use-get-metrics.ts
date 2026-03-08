@@ -5,7 +5,7 @@ export const useGetMetrics = () => {
     return useQuery({
         queryKey: ["metrics"],
         queryFn: async () => {
-            const response = await client.api.metrics.$get()
+            const response = await client.metrics.$get()
 
             if (!response.ok) {
                 throw new Error("Failed to fetch metrics")

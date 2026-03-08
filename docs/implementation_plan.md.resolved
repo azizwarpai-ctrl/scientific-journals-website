@@ -1,516 +1,488 @@
-# DigitoPub — Phase 1: Full Project Analysis & Phase 2: Remediation Plan
+# DigiPub × Submit Manager — Architectural Recovery Plan
+
+> **Prepared:** 2026-03-08 · **Status:** Phase 1–3 Complete — Pending Review
 
 ---
 
-## PHASE 1 — PROJECT STRUCTURE ANALYSIS
+## 1. System Architecture Analysis
 
-### Technology Stack
-| Layer | Technology | Version |
-|---|---|---|
-| Framework | Next.js (App Router) | 16.0.10 |
-| API Server | Hono | ^4.12.2 |
-| Validation | Zod | ^4.3.6 |
-| Data Fetching | TanStack React Query | ^5.90.21 |
-| ORM | Prisma (MariaDB adapter) | 7.2.0 |
-| Auth | jose (JWT) | ^5.9.6 |
-| CSS | Tailwind CSS v4 | ^4.2.1 |
-| UI Components | Radix UI | multiple |
-| Animation | GSAP | 3.14.2 |
+### 1.1 DigiPub Platform (Hostinger)
 
-### Folder Structure
-```
-./
-├── app/                          # Next.js App Router pages
-│   ├── api/[[...route]]/route.ts # Hono catch-all API handler
-│   ├── admin/                    # 17 admin page files
-│   ├── about/ contact/ help/ journals/ solutions/ submit-manager/
-│   ├── login/ register/
-│   ├── page.tsx                  # Homepage (client component)
-│   ├── layout.tsx                # Root layout
-│   └── loading.tsx               # Returns null ⚠️
-├── src/
-│   ├── features/                 # Feature-based modules
-│   │   ├── auth/                 # api/ server/ schemas/ types/
-│   │   ├── journals/             # api/ server/ schemas/ types/ hooks/
-│   │   ├── messages/             # api/ server/ schemas/ types/
-│   │   ├── ojs/                  # api/ server/ types/ (no schemas/)
-│   │   └── solutions/            # api/ server/ schemas/ types/
-│   ├── lib/                      # Shared utilities
-│   │   ├── auth-middleware.ts     # Hono auth middleware
-│   │   ├── pagination.ts
-│   │   ├── rpc.ts                # Hono RPC client (typed as any)
-│   │   └── serialize.ts          # BigInt serialization
-│   └── server/app.ts             # Hono app definition + route mounting
-├── components/                   # Shared UI components
-│   ├── ui/                       # 15 Radix-based primitives
-│   ├── navbar.tsx                # Includes GoogleTranslate
-│   ├── google-translate.tsx      # External script injection ⚠️
-│   ├── animated-counter.tsx      # Used for hardcoded stats ⚠️
-│   └── ...
-├── lib/db/                       # Database layer
-│   ├── config.ts                 # Prisma singleton (lazy init ✅)
-│   ├── init.ts                   # Runtime DB init + seeding ⚠️
-│   ├── auth.ts                   # JWT session management
-│   └── users.ts                  # User CRUD
-├── config/routes.ts              # Route definitions for middleware
-├── middleware.ts                  # Next.js middleware (JWT auth)
-├── prisma/schema.prisma          # 9 models, BigInt IDs
-├── tests/                        # 7 unit + 2 integration tests
-└── .env / .env.production.template
+| Layer | Technology | Key Files |
+|-------|-----------|-----------|
+| Framework | Next.js 16 (standalone SSR) | [next.config.mjs](../next.config.mjs) |
+| API Server | Hono v4.12 (8 routers) | [app.ts](../src/server/app.ts) |
+| ORM | Prisma 7.2 + MariaDB adapter | [config.ts](../lib/db/config.ts) |
+| Auth | JWT (jose) + OTP verification | [auth.ts](../lib/db/auth.ts), [middleware.ts](../middleware.ts) |
+| Frontend | React 19, TanStack Query, Radix UI | [package.json](../package.json) |
+| Database | MySQL/MariaDB — 9 Prisma models | [schema.prisma](../prisma/schema.prisma) |
+| Entry Point | Custom [server.js](../server.js) with DB init | [server.js](../server.js) |
+
+```mermaid
+graph TB
+    subgraph DigiPub["DigiPub — Hostinger"]
+        NX["Next.js 16 SSR"]
+        HONO["Hono API /api/*"]
+        PRISMA["Prisma ORM"]
+        DDB[("DigiPub MySQL DB")]
+        MW["JWT Middleware"]
+    end
+
+    subgraph OJS["Submit Manager — SiteGround"]
+        OJSAPP["OJS 3.4+ PHP/Smarty"]
+        OJSDB[("OJS MySQL DB<br/>dbkgvcunttgs97")]
+    end
+
+    Browser -->|HTTPS| NX
+    NX --> MW --> HONO
+    HONO --> PRISMA --> DDB
+    HONO -->|Direct MySQL| OJSDB
+    OJSAPP --> OJSDB
+    
+    style DDB fill:#1e3a5f,stroke:#38bdf8,color:#e2e8f0
+    style OJSDB fill:#14532d,stroke:#4ade80,color:#e2e8f0
 ```
 
-### Observations
-- Feature-based structure is mostly consistent across 5 modules
-- Hono server setup is well-structured with CORS, logger, error handling, 404 handler
-- API route handler exports GET/POST/PATCH/DELETE (compliant with API-01)
-- [AppType](src/server/app.ts#L74-L75) is correctly exported for RPC typing
-- Prisma singleton uses lazy initialization (`ENV-02` compliant)
-- Admin dashboard uses server-side rendering with direct Prisma calls (correct for RSC)
-- Tests exist for schemas, serialization, pagination, API routes, and auth
+### 1.2 Submit Manager / OJS Platform (SiteGround)
 
----
+- **Application:** Open Journal Systems (OJS) 3.4+
+- **Runtime:** PHP 8.2.30, MySQL 8.4.5
+- **Template engine:** Smarty
+- **Database:** 80+ tables following OJS EAV-style patterns (`*_settings` tables)
+- **API bridge:** A [debug.php](../submit_manger_api/debug.php) script exists at `submit_manger_api/` that queries OJS DB and renders diagnostics
 
-## ARCHITECTURE COMPLIANCE
+### 1.3 Integration Points
 
-### Violations by `rule_id`
+| # | Integration Point | Mechanism | Direction |
+|---|-------------------|-----------|-----------|
+| 1 | Journal listing on homepage | Direct MySQL query to OJS DB | OJS → DigiPub |
+| 2 | Platform statistics | Direct MySQL query to OJS DB | OJS → DigiPub |
+| 3 | OJS health check | MySQL ping to OJS DB | OJS → DigiPub |
+| 4 | Batch data sync | Cron script ([ojs-sync-cron.ts](../scripts/ojs-sync-cron.ts)) | OJS → DigiPub |
+| 5 | Journal thumbnail images | HTTP URL construction to SiteGround | OJS → DigiPub |
+| 6 | PHP debug/diagnostic | [debug.php](../submit_manger_api/debug.php) on SiteGround | Standalone |
 
-| Rule | Description | Status | Details |
-|---|---|---|---|
-| **FEAT-SERVER-04** | UUID required for identifiers | ❌ VIOLATED | All 9 Prisma models use `BigInt @id @default(autoincrement())` |
-| **UI-01** | Shared components only | ⚠️ PARTIAL | Google Translate widget is a custom non-standard component, not a shared UI primitive |
-| **UI-02** | Visual consistency | ⚠️ PARTIAL | Translation button has inconsistent styling vs. rest of navbar |
-| **FEAT-API-02** | React Query required | ⚠️ PARTIAL | OJS hook ([use-get-ojs-journals.ts](src/features/ojs/api/use-get-ojs-journals.ts)), login page, verify-code page use raw `fetch` instead of RPC client |
-| **FEAT-SERVER-02** | Zod validation required | ⚠️ PARTIAL | OJS route (`/ojs/journals`) has no Zod validation |
-| **NAME-01** | Kebab-case naming | ✅ COMPLIANT | All files use kebab-case |
-| **ARCH-01** | Feature-based structure | ✅ COMPLIANT | All features under `src/features/` |
-| **ARCH-02** | Feature structure pattern | ⚠️ PARTIAL | OJS feature missing `schemas/` directory |
-| **ENV-01** | Env vars documented | ✅ COMPLIANT | `.env.production.template` exists |
-| **ENV-02** | Lazy initialization | ✅ COMPLIANT | Both Prisma and OJS pool use lazy init |
-| **DEP-01** | No new deps without approval | ✅ COMPLIANT | No unauthorized packages detected |
-| **API-01** | Only get/post/patch/delete | ✅ COMPLIANT | Only these methods exported |
+### 1.4 Data Flow
 
-### Critical Issues
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant NextJS as DigiPub (Next.js)
+    participant HonoAPI as Hono API
+    participant DigiDB as DigiPub DB
+    participant OjsDB as OJS DB (SiteGround)
 
-1. **🔴 Homepage Numbers Hardcoded** — Stats `250+`, `15000+`, `50000+`, `120+` are static values in `app/page.tsx` lines 56–77, not connected to any database
-2. **🔴 RPC Client Typed as `any`** — `src/lib/rpc.ts` line 9: `export const client: any = hc<AppType>(...)` — destroys end-to-end type safety
-3. **🔴 Hardcoded Credentials in `init.ts`** — Sensitive emails and passwords were hardcoded in database seed (now redacted/removed)
-4. **🔴 OTP Only Logs to Console** — `console.log()` in auth route.ts — insecure for production
+    Browser->>NextJS: GET /journals
+    NextJS->>HonoAPI: /api/ojs/journals
+    HonoAPI->>HonoAPI: Check in-memory cache (5min TTL)
+    alt Cache miss
+        HonoAPI->>OjsDb: Direct MySQL query (mysql2)
+        OjsDb-->>HonoAPI: Raw journal rows
+        HonoAPI->>HonoAPI: Map + Zod validate
+        HonoAPI->>HonoAPI: Cache response
+    end
+    HonoAPI-->>NextJS: JSON response
+    NextJS-->>Browser: Rendered page
 
-### High Priority Issues
-
-5. **🟠 BigInt IDs Instead of UUID** — Entire schema uses `BigInt @default(autoincrement())`, violating `FEAT-SERVER-04`. Requires migration.
-6. **🟠 Fake Dashboard Stat** — `app/admin/dashboard/page.tsx` line 106: `Total Authors = submissions * 0.7` — purely fabricated number
-7. **🟠 No Skeleton Loaders Used** — `Skeleton` component exists in `components/ui/skeleton.tsx` but is never used anywhere. `app/loading.tsx` returns `null`.
-8. **🟠 Google Translate Hydration Issue** — External script injection in `useEffect` causes the translation widget to appear/disappear during hydration
-
----
-
-## FRONTEND ANALYSIS
-
-### UI Consistency
-- ✅ Radix UI primitives used consistently (15 in `components/ui/`)
-- ✅ Shared `Card`, `Button`, `Input`, `Label` components used across pages
-- ⚠️ Google Translate widget uses inline styles (`minHeight: "40px"`) instead of Tailwind
-- ⚠️ Error/success messages in verify-code and login pages use inline Tailwind classes for alerts instead of a shared Alert component
-
-### Shared Components Usage
-- ✅ `Navbar`, `Footer`, `AdminSidebar`, `AdminHeader` properly componentized
-- ✅ `GSAPWrapper`, `AnimatedCounter` provide animation consistently
-- ⚠️ No shared `EmptyState` component — empty states are ad-hoc inline JSX
-
-### React Query Compliance
-- ✅ `useGetJournals`, `useCreateJournal`, `useGetJournal` use RPC client via `client.journals.$get()`
-- ✅ `useLogin`, `useRegister`, `useLogout` use RPC client via `client.auth.*.$post()`
-- ❌ `useGetOjsJournals` uses raw `fetch("/api/ojs/journals")` — bypasses RPC
-- ❌ `app/admin/login/page.tsx` uses raw `fetch("/api/auth/login")` — bypasses RPC
-- ❌ `app/admin/verify-code/page.tsx` uses raw `fetch("/api/auth/verify-code")` and `fetch("/api/auth/resend-code")` — bypasses RPC
-
-### Skeleton Usage
-- `Skeleton` component defined but **never imported or used anywhere**
-- `app/loading.tsx` returns `null` — no loading UI for page transitions
-- Only `Loader2` spinner icon used for loading (journals on homepage)
-- Admin submissions page has its own `loading.tsx` (not yet inspected)
-
-### Hardcoded Values
-- ❌ `app/page.tsx` lines 56–77: `250+`, `15000+`, `50000+`, `120+` — fully static
-- ❌ `app/admin/dashboard/page.tsx` line 106: `submissions * 0.7` as "Total Authors"
-- ⚠️ OTP expiration is hardcoded to `5 * 60 * 1000` (5 minutes) — should be configurable
-
----
-
-## BACKEND ANALYSIS
-
-### Hono Routing
-- ✅ All routes registered via `app.route()` in `src/server/app.ts`
-- ✅ Mounted routes: `/journals`, `/solutions`, `/auth`, `/messages`, `/ojs`
-- ✅ Base path `/api` set correctly
-- ✅ Global CORS, logger middleware applied
-- ✅ Error handler and 404 handler present
-
-### Zod Validation
-- ✅ `journals`, `solutions`, `messages`, `auth` routes all use `zValidator()`
-- ❌ `ojs` route has **zero Zod validation** — raw SQL, no input/output validation
-
-### Feature Router Placement
-- ✅ Each feature has `server/route.ts` exporting named router
-- ✅ Re-exported via `server.ts` barrel file in each feature
-- ⚠️ OJS feature has 2 files in `server/`: `route.ts` + `ojs-client.ts`
-
-### UUID Usage
-- ❌ **ALL models use `BigInt @id @default(autoincrement())`** — violates `FEAT-SERVER-04`
-- `VerificationCode` model also uses BigInt for `id` and `user_id`
-- `verifyAdmin()` in `lib/db/auth.ts` does `BigInt(userId)` conversion
-- Serialization in `src/lib/serialize.ts` handles BigInt→string conversion
-
-### API Naming Compliance
-- ✅ All route paths use kebab-case: `/verify-code`, `/resend-code`
-- ✅ Base paths map to feature names: `/journals`, `/solutions`, `/auth`, `/messages`, `/ojs`
-
----
-
-## AUTHENTICATION REVIEW
-
-### Session Validation Logic
-- ✅ **Middleware-level protection**: `middleware.ts` uses `jose.jwtVerify()` for all admin routes
-- ✅ **Server-side protection**: `app/admin/dashboard/page.tsx` calls `getSession()` + `redirect()`
-- ✅ Cookie-based JWT with `httpOnly`, `secure` (production), `sameSite: "lax"`
-- ✅ 7-day token expiration
-- ✅ Login page redirects to dashboard if token is valid
-- ⚠️ No CSRF protection beyond sameSite cookie
-
-### Dashboard Protection
-- ✅ Middleware blocks all `/admin/*` routes without valid JWT
-- ✅ Dashboard page has server-side session check with redirect
-- ✅ Admin layout correctly excludes auth pages from sidebar/header
-- ✅ `requireAdmin` middleware enforces `admin|superadmin` role on API routes
-
-### OTP Verification System
-- ✅ 6-digit numeric OTP generated via `Math.random()` ⚠️ (not cryptographically secure)
-- ✅ 5-minute expiration enforced
-- ✅ Previous codes invalidated before generating new one
-- ✅ Code marked as `used: true` after verification
-- ✅ Resend cooldown (60s) enforced on client
-- ❌ **No email delivery** — OTP only logged to `console.log()`
-- ❌ Rate limiting missing on `/resend-code` endpoint (server-side)
-- ⚠️ Register endpoint bypasses OTP — creates session immediately
-
-### Email Templates
-- ❌ **No email templates exist** — no email service configured at all
-
-### Token Lifecycle
-- ✅ JWT issued with `setIssuedAt()` and `setExpirationTime("7d")`
-- ✅ Cookie `maxAge` matches JWT expiration (7 days)
-- ✅ Logout destroys cookie
-
----
-
-## ENVIRONMENT & CONFIGURATION
-
-### Missing Env Variables
-- ⚠️ `ALLOW_PROD_DB_INIT` — Not in template, required for `init.ts` to function
-- ⚠️ `SESSION_EXPIRY` — Defined in `.env` but never used in code (JWT uses hardcoded `"7d"`)
-
-### Lazy Initialization Issues
-- ✅ Prisma client lazy-initialized via `createPrismaClient()` function
-- ✅ OJS pool lazy-initialized via `getPool()` function
-- ✅ Both use env var checks before connecting
-- ⚠️ `init.ts` creates a separate PrismaClient instance for seeding — this is intentional but creates a second connection pool
-
----
-
-## SUMMARY OF TECHNICAL DEBT
-
-| # | Issue | Severity | Effort |
-|---|---|---|---|
-| 1 | Homepage stats hardcoded (250+, 15000+, 50000+, 120+) | 🔴 Critical | Medium |
-| 2 | RPC client typed as `any` — no type safety | 🔴 Critical | Low |
-| 3 | Hardcoded credentials in `init.ts` | 🔴 Critical | Low |
-| 4 | OTP logs to console — no email | 🔴 Critical | High |
-| 5 | BigInt IDs instead of UUID across all models | 🟠 High | Very High |
-| 6 | Translation button hydration/lifecycle issue | 🟠 High | Medium |
-| 7 | No skeleton loaders anywhere | 🟠 High | Medium |
-| 8 | Fake "Total Authors" stat on dashboard | 🟠 High | Low |
-| 9 | OJS feature missing Zod validation/schemas | 🟡 Medium | Low |
-| 10 | Raw `fetch` calls bypassing RPC in 3 pages | 🟡 Medium | Low |
-| 11 | OTP generation not cryptographically secure | 🟡 Medium | Low |
-| 12 | No rate limiting on auth endpoints | 🟡 Medium | Medium |
-| 13 | Register bypasses OTP verification | 🟡 Medium | Low |
-| 14 | `loading.tsx` returns `null` | 🟡 Medium | Low |
-| 15 | No shared Alert or EmptyState components | 🟡 Medium | Low |
-| 16 | `SESSION_EXPIRY` env var unused | 🟢 Low | Low |
-| 17 | `ALLOW_PROD_DB_INIT` not in env template | 🟢 Low | Low |
-
----
-
----
-
-# PHASE 2 — EXECUTION PLAN
-
----
-
-## CRITICAL FIXES
-
-### 1. 🔴 Create `home-stats` Feature — Replace Hardcoded Homepage Numbers
-**Violates**: ARCH-01, Feature structure rules
-**Affected folder**: `src/features/home-stats/` (NEW)
-
-**Root cause**: The homepage `app/page.tsx` (lines 56–77) embeds static numbers (`250+`, `15000+`, `50000+`, `120+`) directly in JSX. These have no connection to any database. The `AnimatedCounter` component receives hardcoded `end` props.
-
-**Fix strategy**: Create a new `home-stats` feature module that queries the actual database for live counts.
-
-**Required files**:
-```
-src/features/home-stats/
-├── server/
-│   └── route.ts               # GET /home-stats — returns counts from Prisma
-├── schemas/
-│   └── home-stats-schema.ts   # Zod response schema
-├── types/
-│   └── home-stats-type.ts     # TypeScript types
-├── api/
-│   └── use-get-home-stats.ts  # React Query hook using RPC client
-├── index.ts                   # Barrel export
-└── server.ts                  # Re-export server router
+    Note over HonoAPI,DigiDB: Admin CRUD uses Prisma → DigiPub DB
+    Note over HonoAPI,OjsDb: OJS reads use mysql2 → OJS DB
 ```
 
-**Server route logic**:
-- Query `prisma.journal.count()` for "Active Journals"
-- Query `prisma.publishedArticle.count()` for "Published Articles"  
-- Query `prisma.submission.count({ distinct: ['author_email'] })` for "Researchers"
-- Return a configurable "Countries" value from `SystemSetting` or calculate from data
-
-**Registration**: Add `homeStatsRouter` to `src/server/app.ts`
-
-**Frontend change**: Replace hardcoded `<AnimatedCounter end={250}/>` calls in `app/page.tsx` with data from `useGetHomeStats()`, with proper skeleton loading.
-
 ---
 
-### 2. 🔴 Fix RPC Client Type Safety
-**Violates**: Type safety, FEAT-API-02
-**Affected file**: [rpc.ts](file:///d:/scientific-journals-website/src/lib/rpc.ts)
+## 2. Identified Problems
 
-**Root cause**: Line 9 casts the client to `any`: `export const client: any = hc<AppType>(...)`. This was likely done to bypass build-time type inference issues with Hono.
+### 🔴 Critical Issues
 
-**Fix strategy**: 
-- Remove the `: any` cast
-- If type inference fails during build, investigate the root Hono version compatibility
-- Alternatively, extract the type explicitly and use a proper typed wrapper
+#### P1: Broken Sync Pipeline (Import References Don't Exist)
 
-**Risk**: May surface type errors in existing API hooks that were hidden by `any`
+[ojs-sync-cron.ts](../scripts/ojs-sync-cron.ts) imports from paths that do not exist:
 
----
-
-### 3. 🔴 Remove Hardcoded Credentials from `init.ts`
-**Affected file**: [init.ts](file:///d:/scientific-journals-website/lib/db/init.ts)
-
-**Fix strategy**:
-- Move admin email/password to environment variables: `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `SUPPORT_EMAIL`, `SUPPORT_PASSWORD`
-- Add these to `.env.production.template`
-- Update `init.ts` to read from `process.env`
-
----
-
-## HIGH PRIORITY FIXES
-
-### 4. 🟠 Translation Button — Fix Design + Lifecycle
-**Violates**: UI-01, UI-02
-**Affected files**: [google-translate.tsx](components/google-translate.tsx), [navbar.tsx](components/navbar.tsx)
-
-**Root cause hypothesis**: 
-- The Google Translate widget injects an external `<script>` tag during `useEffect`
-- On initial hydration, the component mounts, `useEffect` fires, the script loads asynchronously
-- The `#google_translate_element` div is initially empty (no content), causing it to appear/disappear
-- The external script replaces the div content with a `<select>` dropdown that has Google's own styling, inconsistent with the app's design
-
-**Fix strategy**:
-1. Wrap the Google Translate element in a shared UI container with consistent styling
-2. Add a loading state (shimmer/skeleton) until the translate widget is ready
-3. Use a `MutationObserver` or `onload` callback to detect when the widget has mounted
-4. Apply CSS overrides to match the app's design system (border-radius, colors, font)
-5. Ensure stable mount — no conditional rendering based on loading state that would cause flickering
-
-**Folder placement**: Keep in `components/google-translate.tsx` (it's a shared component, not feature-specific)
-
----
-
-### 5. 🟠 Custom Skeleton System
-**Violates**: UI-02 (loading consistency)
-**Affected files**: Multiple pages
-
-**Requirements**:
-- Each page should have a dedicated skeleton for its loading state
-- Empty state components should have custom empty skeleton variants
-- Must use the existing `Skeleton` primitive from `components/ui/skeleton.tsx`
-- Must NOT introduce new dependencies (`DEP-01`)
-
-**Implementation plan**:
-```
-components/
-├── skeletons/
-│   ├── home-stats-skeleton.tsx    # 4-column stat cards skeleton
-│   ├── journal-card-skeleton.tsx  # Journal card placeholder
-│   ├── dashboard-skeleton.tsx     # Admin dashboard stats + table skeleton
-│   └── page-skeleton.tsx          # Generic full-page skeleton
-├── empty-states/
-│   ├── empty-journals.tsx         # Custom empty state for journals list
-│   ├── empty-submissions.tsx      # Custom empty state for submissions
-│   └── empty-messages.tsx         # Custom empty state for messages
+```typescript
+import { getActiveJournals, getPublishedArticles } from '../lib/ojs-service';  // ❌ Does not exist
+import { closeOJSConnection, testOJSConnection } from '../lib/ojs-client';     // ❌ Does not exist
 ```
 
-**Changes**:
-- Replace `app/loading.tsx` `return null` with `<PageSkeleton />`
-- Add skeletons to homepage stats section, journal cards section
-- Add skeletons to admin dashboard page loading
-- Replace inline "No journals available yet" with `<EmptyJournals />`
+The actual OJS client lives at [src/features/ojs/server/ojs-client.ts](../src/features/ojs/server/ojs-client.ts) and exports different functions ([ojsQuery](../src/features/ojs/server/ojs-client.ts#54-98), [isOjsConfigured](../src/features/ojs/server/ojs-client.ts#8-15), [ojsHealthCheck](../src/features/ojs/server/ojs-client.ts#143-170), [closeOjsPool](../src/features/ojs/server/ojs-client.ts#171-180)). **The sync cron job is completely non-functional.**
+
+#### P2: Two Competing Integration Strategies (Architectural Split-Brain)
+
+The [.env.production.template](../.env.production.template) documents two strategies:
+- **Option A:** HTTP Proxy via PHP (`OJS_API_URL` + `OJS_API_KEY`)
+- **Option B:** Direct MySQL (`OJS_DATABASE_*`)
+
+The runtime code exclusively uses **Option B** (direct MySQL via [ojs-client.ts](../src/features/ojs/server/ojs-client.ts)), but [.env](../.env) still has both sets of credentials. The PHP proxy architecture ([debug.php](../submit_manger_api/debug.php), `config.php`, `api.php`, `.htaccess`) was designed but the Node.js consumer for it was never implemented. This creates confusion about which path is canonical.
+
+#### P3: No User Identity Mapping Between Systems
+
+DigiPub has its own `admin_users` table (Prisma), while OJS has its own `users` table. There is:
+- No shared user ID strategy
+- No SSO or token federation
+- No FK relationship or mapping table
+- No way to correlate a DigiPub admin with their OJS counterpart
+
+Authors, reviewers, and editors exist only in OJS. When DigiPub eventually needs to display reviewer assignments or author profiles, there is no identity bridge.
+
+#### P4: Raw Credentials in [.env](../.env) and Source Control
+
+The [.env](../.env) file contains plaintext production database credentials for the OJS remote database on SiteGround:
+```
+OJS_DATABASE_HOST="<REDACTED>"
+OJS_DATABASE_PASSWORD="<REDACTED>"
+```
+And admin passwords:
+```
+ADMIN_PASSWORD="<REDACTED>"
+SUPPORT_PASSWORD="<REDACTED>"
+```
+
+> [!CAUTION]
+> These credentials are checked into the repository and visible in git history. They must be rotated immediately.
 
 ---
 
-### 6. 🟠 Fix Fake "Total Authors" Dashboard Stat
-**Affected file**: [dashboard page.tsx](app/admin/dashboard/page.tsx)
+### 🟡 Significant Issues
 
-**Root cause**: Line 106 calculates `Math.ceil(submissions * 0.7)` — a fabricated number.
+#### P5: Duplicate Type Definitions
 
-**Fix**: Query `prisma.submission.findMany({ select: { author_email: true }, distinct: ['author_email'] })` and use `.length` for real author count.
+Two separate type definitions for OJS journals exist:
+- [types/ojs-type.ts](../src/features/ojs/types/ojs-type.ts) – manual TypeScript interfaces (missing `thumbnail_url`)
+- [schemas/ojs-schema.ts](../src/features/ojs/schemas/ojs-schema.ts) – Zod schemas (includes `thumbnail_url`)
+
+The [index.ts](../src/features/ojs/index.ts) re-exports from [types/ojs-type.ts](../src/features/ojs/types/ojs-type.ts), but the server route uses [schemas/ojs-schema.ts](../src/features/ojs/schemas/ojs-schema.ts). Consumers receive different type shapes depending on which import they use.
+
+#### P6: Hardcoded Submit Manager URL
+
+The OJS base URL is hardcoded in the route handler:
+```typescript
+const baseUrl = "https://submitmanager.com"  // ojs/server/route.ts:44
+```
+And in [debug.php](../submit_manger_api/debug.php):
+```php
+$siteBaseUrl = rtrim($config['site_base_url'] ?? 'https://submitmanager.com', '/');
+```
+This should be an environment variable.
+
+#### P7: Cross-Host MySQL Without IP Whitelisting Guarantee
+
+The DigiPub server on Hostinger connects to MySQL on SiteGround. This requires:
+1. SiteGround Remote MySQL to be enabled
+2. Hostinger's outbound IP to be whitelisted
+
+Hostinger's IP can change on shared hosting. If it changes, **all OJS data disappears from the homepage** with no user-visible error — only a 500 in the API that the frontend swallows to show an empty state (`{ success: true, data: [], configured: false }`).
+
+#### P8: Sync Script Uses Raw SQL Instead of Prisma
+
+The sync cron uses `prisma.$executeRaw` and `prisma.$queryRaw` for the DigiPub database, bypassing Prisma's type safety and the model layer:
+```typescript
+await prisma.$executeRaw`INSERT INTO journals (...) VALUES (...) ON DUPLICATE KEY UPDATE ...`;
+```
+This duplicates schema logic and can silently break if the Prisma schema changes.
+
+#### P9: Missing `submission_id` FK in Sync Articles
+
+The [syncArticles()](../scripts/ojs-sync-cron.ts#103-169) function inserts into `published_articles` without a required `submission_id`:
+```sql
+INSERT INTO published_articles (journal_id, doi, publication_date, ojs_publication_id, created_at)
+```
+But the Prisma schema requires `submission_id` as a non-nullable FK. This query will always fail.
+
+#### P10: In-Memory Cache Without Invalidation
+
+The OJS route handler uses a simple JS-object cache:
+```typescript
+const cache = {
+    journals: { data: null as any, expiresAt: 0 },
+    stats: { data: null as any, expiresAt: 0 }
+}
+```
+
+In a multi-instance deployment or serverless environment, this cache is per-process and uncoordinated. No manual invalidation endpoint exists. If OJS data is updated, users must wait up to 5 minutes.
+
+#### P11: SSL Configuration Bypasses Certificate Verification
+
+```typescript
+ssl: { rejectUnauthorized: false, minVersion: 'TLSv1.2' }
+```
+This makes the connection vulnerable to MITM attacks.
 
 ---
 
-### 7. 🟠 OTP System — Console-Only, No Email
-**Violates**: Production readiness
-**Affected file**: [auth route.ts](src/features/auth/server/route.ts)
+### 🟠 Moderate Issues
 
-**Current state**: Lines 47, 152 — `console.log()` only
+#### P12: Dual DB Init Mechanisms
 
-**Fix strategy**:
-- Set `OTP_DELIVERY_METHOD=disabled` in production as a fail-closed fallback until an email provider is approved.
-- When `disabled`, the authentication flow must return a clear actionable error to the user.
-- Add `// TODO(PROD): Replace with email service` annotations.
+Two separate database initialization flows exist:
+1. [server.js](../server.js) — uses `execSync('npx prisma db push')` + `execSync('npx prisma db seed')`
+2. [instrumentation.ts](../instrumentation.ts) → [lib/db/init.ts](../lib/db/init.ts) — uses `spawn('npx prisma migrate deploy')` + Prisma Client seeding
+
+Both run on startup. The [instrumentation.ts](../instrumentation.ts) path is the Next.js-recommended approach; [server.js](../server.js) is a legacy path. They can race or conflict.
+
+#### P13: JWT Secret Weakness
+
+```
+JWT_SECRET="your_jwt_secret_here_change_in_production"
+```
+The development [.env](../.env) has a placeholder that could accidentally ship to production. The 7-day expiry with no refresh token mechanism means a stolen token grants 7 days of access.
+
+#### P14: No Rate Limiting on OJS Endpoints
+
+The `/api/ojs/*` endpoints have no rate limiting. A bot could flood these endpoints, which in turn would exhaust the 3-connection MySQL pool to SiteGround.
+
+#### P15: Hono RPC Client Cast to `any`
+
+```typescript
+export const client = hc<AppType>(`${baseUrl}/api`) as any
+```
+This eliminates type safety for all frontend API calls. Any breaking API change will not be caught at compile time.
+
+---
+
+## 3. Root Cause Analysis
+
+```mermaid
+graph TD
+    RC1["No formal integration contract<br/>between DigiPub ↔ OJS"] --> P1 & P2 & P3
+    RC2["Incremental ad-hoc development<br/>without architectural oversight"] --> P5 & P6 & P8 & P12 & P15
+    RC3["Credentials management<br/>not formalized"] --> P4 & P13
+    RC4["Hosting constraints not<br/>formally documented"] --> P7 & P11
+    RC5["Sync module developed<br/>against phantom API"] --> P1 & P9
+    
+    style RC1 fill:#7f1d1d,stroke:#f87171,color:#fecaca
+    style RC2 fill:#78350f,stroke:#fbbf24,color:#fef3c7
+    style RC3 fill:#7f1d1d,stroke:#f87171,color:#fecaca
+    style RC4 fill:#78350f,stroke:#fbbf24,color:#fef3c7
+    style RC5 fill:#7f1d1d,stroke:#f87171,color:#fecaca
+```
+
+| Root Cause | Impact | Problems |
+|------------|--------|----------|
+| No integration contract between DigiPub and OJS | Every integration is ad-hoc; changes in OJS silently break DigiPub | P1, P2, P3 |
+| Incremental development without architectural review | Duplicate code, competing strategies, dead code paths | P5, P6, P8, P12, P15 |
+| No secrets management discipline | Production credentials in source code | P4, P13 |
+| Hosting constraints undocumented | Fragile cross-host MySQL; no failover | P7, P11 |
+| Sync module developed against phantom API | Entire cron job is dead code | P1, P9 |
+
+---
+
+## 4. Proposed Architecture
+
+### 4.1 Target Architecture
+
+```mermaid
+graph TB
+    subgraph DigiPub["DigiPub — Hostinger"]
+        NX["Next.js 16 SSR"]
+        HONO["Hono API"]
+        OIL["OJS Integration Layer"]
+        PRISMA["Prisma ORM"]
+        DDB[("DigiPub DB")]
+        CACHE["Cache Layer"]
+    end
+
+    subgraph Bridge["Integration Bridge — SiteGround"]
+        PHPAPI["PHP REST API<br/>(api.php + router)"]
+    end
+
+    subgraph OJS["Submit Manager — SiteGround"]
+        OJSAPP["OJS Application"]
+        OJSDB[("OJS DB")]
+    end
+
+    Browser -->|HTTPS| NX
+    NX --> HONO --> OIL
+    OIL -->|HTTP/REST| PHPAPI
+    PHPAPI -->|localhost MySQL| OJSDB
+    HONO --> PRISMA --> DDB
+    OIL --> CACHE
+    OJSAPP --> OJSDB
+    
+    style PHPAPI fill:#065f46,stroke:#34d399,color:#d1fae5
+    style OIL fill:#1e3a5f,stroke:#38bdf8,color:#e2e8f0
+```
 
 > [!IMPORTANT]
-> Actual email delivery (via `nodemailer`) is **BLOCKED** by **DEP-01**. In production without an approved provider, the system must fail closed.
+> **Key architectural decision:** Replace the cross-host direct MySQL connection with a PHP REST API bridge on SiteGround. This eliminates the IP whitelisting dependency, improves security (no remote MySQL credentials in DigiPub), and provides a stable contract boundary.
 
----
+### 4.2 Integration Layer Design
 
-## MEDIUM FIXES
+#### PHP API Bridge (SiteGround side)
 
-### 8. 🟡 OJS Feature — Add Missing Schemas + Zod Validation
-**Violates**: FEAT-SERVER-02, ARCH-02
-**Affected files**: `src/features/ojs/`
+Deploy a minimal PHP REST API on SiteGround that:
+1. Runs on the same host as OJS → connects to MySQL via `localhost`
+2. Authenticates requests via API key in `X-API-KEY` header
+3. Exposes read-only endpoints: `/journals`, `/stats`, `/health`, `/articles`
+4. Returns clean JSON — handles PHP serialized data parsing server-side
+5. Rate limits per IP
 
-**Fix**:
-- Create `src/features/ojs/schemas/ojs-schema.ts` with Zod response schema
-- Add Zod output validation to `ojs/server/route.ts`
+#### Node.js OJS Client (DigiPub side)
 
----
+Replace the direct MySQL client with an HTTP client:
 
-### 9. 🟡 Replace Raw `fetch` with RPC Client
-**Violates**: FEAT-API-02
-**Affected files**:
-- `src/features/ojs/api/use-get-ojs-journals.ts` — uses `fetch("/api/ojs/journals")`
-- `app/admin/login/page.tsx` — uses `fetch("/api/auth/login")`
-- `app/admin/verify-code/page.tsx` — uses `fetch("/api/auth/verify-code")` and `fetch("/api/auth/resend-code")`
-
-**Fix**: Replace all raw `fetch` calls with the RPC client (`client.auth.login.$post()`, etc.)
-
----
-
-### 10. 🟡 Register Should Require OTP
-**Affected file**: [auth route.ts](src/features/auth/server/route.ts)
-
-**Current**: Registration creates session immediately at line 177 without OTP
-**Fix**: Apply same OTP flow as login — generate code → verify → create session
-
----
-
-### 11. 🟡 OTP Should Use Cryptographically Secure Random
-**Affected file**: [auth route.ts](src/features/auth/server/route.ts)
-
-**Current**: `Math.floor(100000 + Math.random() * 900000)` — predictable
-**Fix**: Use `crypto.randomInt(100000, 1000000)` from Node.js built-in `crypto` module (ensures 6-digit range 100000-999999).
-
----
-
-### 12. 🟡 Fix `loading.tsx`
-**Affected file**: [loading.tsx](app/loading.tsx)
-
-**Fix**: Replace `return null` with proper skeleton loading component
-
----
-
-## REQUIRED NEW FEATURES
-
-| Feature | Path | Status |
-|---|---|---|
-| `home-stats` | `src/features/home-stats/` | NEW — Critical |
-| `skeletons` | `components/skeletons/` | NEW — High |
-| `empty-states` | `components/empty-states/` | NEW — High |
-
-## FILES TO MODIFY
-
-| File | Change |
+| Current ([ojs-client.ts](../src/features/ojs/server/ojs-client.ts)) | Proposed (`ojs-http-client.ts`) |
 |---|---|
-| `src/server/app.ts` | Register `homeStatsRouter` |
-| `src/lib/rpc.ts` | Remove `: any` cast |
-| `lib/db/init.ts` | Use env vars for credentials |
-| `app/page.tsx` | Replace hardcoded stats with `useGetHomeStats()` + skeletons |
-| `app/loading.tsx` | Add skeleton or spinner |
-| `app/admin/dashboard/page.tsx` | Fix fake "Total Authors" stat |
-| `app/admin/login/page.tsx` | Use RPC client instead of raw fetch |
-| `app/admin/verify-code/page.tsx` | Use RPC client instead of raw fetch |
-| `src/features/ojs/api/use-get-ojs-journals.ts` | Use RPC client |
-| `src/features/auth/server/route.ts` | Use `crypto.randomInt()`, add TODO for email |
-| `components/google-translate.tsx` | Fix hydration, improve styling |
-| `.env.production.template` | Add `ALLOW_PROD_DB_INIT`, `ADMIN_EMAIL`, etc. |
+| `mysql2/promise` pool | [fetch()](../src/features/ojs/server/route.ts#18-48) with retry |
+| 3 connections to remote MySQL | HTTP to PHP bridge |
+| SSL with `rejectUnauthorized: false` | Standard HTTPS |
+| Connection pool management | Stateless HTTP |
+| DNS/TCP health checks | HTTP health endpoint |
 
-## FILES TO REMOVE (CLEAN-01)
-- None identified — no orphaned or dead files found
+### 4.3 Database Integration Strategy
 
-## ARCHITECTURE REFACTOR REQUIRED? **NO**
-- The existing feature-based architecture is fundamentally sound
-- All fixes are additive or in-place corrections
-- The BigInt→UUID migration is flagged but is a **database migration** of very high effort and risk, recommended for a separate phase
+**Principle:** Each system owns its database exclusively. No cross-database writes.
 
-> [!WARNING]
-> The UUID migration (FEAT-SERVER-04) would require: new Prisma migration, data migration for all 9 tables, updating all BigInt references throughout the codebase. This is a **separate initiative** and should NOT be bundled with these fixes.
+| Data | Owned by | Consumed by | Sync strategy |
+|------|----------|-------------|---------------|
+| Journals metadata | OJS | DigiPub | Pull via API, cache 5 min |
+| Submissions | OJS | DigiPub | Pull via API on demand |
+| Published articles | OJS | DigiPub | Pull via API + periodic sync |
+| Platform stats | OJS | DigiPub | Pull via API, cache 5 min |
+| Admin users | DigiPub | DigiPub only | No sync needed |
+| Messages, FAQ | DigiPub | DigiPub only | No sync needed |
 
-## RISK ASSESSMENT
+### 4.4 User Identity Mapping
+
+**Phase 1 (minimal):** Add an `ojs_user_id` column to `admin_users`:
+```prisma
+model AdminUser {
+  // ... existing fields
+  ojs_user_id  BigInt?  @unique
+}
+```
+
+**Phase 2 (SSO):** Implement token-based SSO where DigiPub issues JWTs that OJS validates via a plugin.
+
+### 4.5 Error Handling Strategy
+
+| Scenario | Current behavior | Proposed behavior |
+|----------|-----------------|-------------------|
+| OJS DB unreachable | Silent empty response | Return cached data + `stale: true` flag; log alert |
+| API bridge 5xx | N/A (no bridge) | Retry 3× with backoff; fall back to cached |
+| Sync job fails | `process.exit(1)` | Log to `system_settings`, alert via webhook, retry |
+| Malformed OJS data | Zod throws, 500 | Log + skip bad record, return valid records |
+
+---
+
+## 5. Implementation Roadmap
+
+### Phase A — Security Hardening (Week 1)
+
+> [!CAUTION]
+> Must be done first regardless of other decisions.
+
+1. **Rotate all exposed credentials** — OJS DB password, admin passwords, JWT secret, API keys
+2. **Add [.env](../.env) to [.gitignore](../.gitignore)** if not already (verify git history for leaks)
+3. **Remove [debug.php](../submit_manger_api/debug.php)** from production or add IP restriction
+4. **Enable `rejectUnauthorized: true`** for SSL or use the PHP bridge approach
+5. **Implement rate limiting** on `/api/ojs/*` routes
+
+### Phase B — PHP API Bridge (Week 2)
+
+#### [NEW] `siteground/api/config.php`
+Externalized config with API key, DB credentials, allowed origins.
+
+#### [NEW] `siteground/api/router.php`
+Multi-endpoint router handling: `GET /journals`, `GET /stats`, `GET /health`, `GET /articles`.
+
+#### [NEW] `siteground/api/.htaccess`
+URL rewriting + security headers.
+
+### Phase C — DigiPub Integration Refactor (Week 2–3)
+
+#### [MODIFY] [ojs-client.ts](../src/features/ojs/server/ojs-client.ts)
+Replace `mysql2` pool with [fetch()](../src/features/ojs/server/route.ts#18-48)-based HTTP client targeting the PHP bridge.
+
+#### [MODIFY] [route.ts](../src/features/ojs/server/route.ts)
+Remove direct SQL queries; call the new HTTP client instead.
+
+#### [DELETE] [ojs-mappers.ts](../src/features/ojs/server/ojs-mappers.ts)
+Thumbnail parsing and row mapping move to the PHP bridge.
+
+#### [MODIFY] [ojs-type.ts](../src/features/ojs/types/ojs-type.ts)
+Consolidate with [ojs-schema.ts](../src/features/ojs/schemas/ojs-schema.ts) — single source of truth.
+
+#### [MODIFY] [ojs-sync-cron.ts](../scripts/ojs-sync-cron.ts)
+Fix broken imports; use the HTTP client; use Prisma model methods instead of raw SQL; handle `submission_id` FK requirement.
+
+### Phase D — Architecture Cleanup (Week 3)
+
+#### [MODIFY] [server.js](../server.js)
+Remove duplicate DB init; delegate entirely to [instrumentation.ts](../instrumentation.ts).
+
+#### [MODIFY] [.env.production.template](../.env.production.template)
+Remove `OJS_DATABASE_*` variables (Option B); keep only `OJS_API_URL` + `OJS_API_KEY` (Option A).
+
+#### [MODIFY] [rpc.ts](../src/lib/rpc.ts)
+Remove `as any` cast; flatten router if needed to fix Hono type inference.
+
+#### [MODIFY] [schema.prisma](../prisma/schema.prisma)
+Add `ojs_user_id` to `AdminUser` for identity mapping.
+
+### Phase E — Testing & Validation (Week 4)
+
+Add integration tests for:
+- PHP bridge endpoints (curl-based)
+- OJS HTTP client retry logic
+- Sync cron job with mock data
+- Cache invalidation and stale-data fallback
+
+---
+
+## 6. Risk Analysis
 
 | Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|
-| RPC type fix surfacing hidden type errors | High | Medium | Fix errors as they appear, all are currently masked by `any` |
-| Homepage stats API adding latency to page load | Low | Low | Use React Query staleTime and show skeleton during load |
-| Google Translate fix breaking in some browsers | Medium | Low | Test across Chrome, Firefox, Safari |
-| OTP email blocked by DEP-01 | Certain | High | Document as known limitation, proceed when approved |
+|------|-----------|--------|------------|
+| SiteGround blocks PHP API requests | Low | High | Test with cURL from Hostinger before deploying |
+| OJS DB schema changes after upgrade | Medium | High | Version-pin OJS; add schema version check in bridge |
+| Hostinger IP changes break current setup | High | Critical | **This is why the PHP bridge is needed** |
+| Production data loss during migration | Low | Critical | Take full DB backup before any schema changes |
+| Performance regression from HTTP vs MySQL | Low | Low | Response times should be similar; bridging adds ~50ms |
+
+## 7. Long-Term Scalability Strategy
+
+| Concern | Strategy |
+|---------|----------|
+| **Traffic growth** | OJS data caching at DigiPub level (5min TTL already exists); add Redis if load requires |
+| **Multiple journals** | The current schema supports multi-journal via `ojs_id` mapping |
+| **SSO** | Phase 2 JWT federation between DigiPub and OJS via custom OJS plugin |
+| **CI/CD** | Add GitHub Actions for lint, tests, and deployment; separate pipelines for DigiPub and SiteGround API |
+| **Monitoring** | Add `/api/health` aggregate endpoint that checks both DigiPub DB and OJS bridge health |
+| **Multi-environment** | Enforce [env.production.template](../.env.production.template) validation at build time |
 
 ---
 
-## VERIFICATION PLAN
+## User Review Required
+
+> [!IMPORTANT]
+> **Decision Required:** The core architectural recommendation is to **replace direct MySQL access to the OJS database with a PHP REST API bridge** deployed on SiteGround. This eliminates the Remote MySQL dependency and IP whitelisting fragility. Please confirm if this approach is acceptable before implementation begins.
+
+> [!WARNING]
+> **Credential Rotation:** Plaintext production credentials existed in the git history. You must rotate these credentials immediately on the affected systems (OJS database password, admin accounts, JWT secret, and API keys). After rotating, **purge the secrets from git history using a history-rewrite tool** (such as `git filter-repo` or BFG Repo-Cleaner). A `.env.example` template has been provisioned to document how to securely provide new credentials moving forward so that real values are never committed again.
+
+---
+
+## Verification Plan
 
 ### Automated Tests
-Existing tests to verify after changes:
+
+**Existing tests** (6 unit + 2 integration tests in `tests/`):
 ```bash
-# Run all existing tests
+# Run existing test suite
 npx vitest run
-
-# Run specific test suites
-npx vitest run tests/unit/auth-schema.test.ts
-npx vitest run tests/unit/journal-schema.test.ts
-npx vitest run tests/integration/api-routes.test.ts
-npx vitest run tests/integration/security-auth.test.ts
 ```
 
-New tests to add:
-- `tests/unit/home-stats-schema.test.ts` — Validate the home-stats Zod schema
-- `tests/unit/ojs-schema.test.ts` — Validate the new OJS Zod schema
-
-### Build Verification
-```bash
-# Verify project builds without errors after RPC type fix
-npm run build
-```
+**New tests to add:**
+1. **OJS HTTP client tests** — mock [fetch](../src/features/ojs/server/route.ts#18-48) responses, test retry logic, test stale cache fallback
+2. **Sync cron tests** — mock HTTP client, verify Prisma upsert calls
+3. **PHP bridge tests** — curl-based smoke tests against the deployed bridge
 
 ### Manual Verification
-1. **Homepage stats**: Start dev server (`npm run dev`), navigate to `/`, verify stats section shows real database numbers (or 0 if empty) with skeleton loading
-2. **Translation button**: Navigate to homepage, verify the translation widget appears consistently without flickering on page load and after navigation
-3. **Skeleton loaders**: Navigate between pages, verify skeleton loaders appear during transitions instead of blank screens
-4. **Admin dashboard**: Log in as admin, verify "Total Authors" shows a real count instead of `submissions * 0.7`
-5. **OTP flow**: Attempt login, verify OTP code appears in server console, verify the verify-code page works end-to-end
+
+1. **After PHP bridge deployment:** Execute `curl -H "X-API-KEY: <API_KEY>" https://submitmanager.com/api/api.php?action=health` and verify JSON response
+2. **After client refactor:** Navigate to DigiPub homepage and verify journals load correctly with thumbnails
+3. **After credential rotation:** Verify DigiPub can still connect and OJS data renders
+
+---
+
+> **Next Step:** Once this plan is approved, I will begin with **Phase A (Security Hardening)** and **Phase B (PHP API Bridge)** in parallel.
+
