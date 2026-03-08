@@ -6,8 +6,8 @@ import { solutionRouter } from "@/src/features/solutions/server"
 import { ojsRouter } from "@/src/features/ojs/server"
 import { authRouter } from "@/src/features/auth/server"
 import { messageRouter } from "@/src/features/messages/server"
-import { metricsRouter } from "@/src/features/metrics/server/route"
-import { healthRouter } from "@/src/features/health/server/route"
+import { metricsRouter } from "@/src/features/metrics/server"
+import { healthRouter } from "@/src/features/health/server"
 import { reviewsRouter } from "@/src/features/reviews/server"
 
 const apiApp = new Hono()
