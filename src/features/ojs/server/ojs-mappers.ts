@@ -1,5 +1,6 @@
 import { z } from "zod"
 import sanitizeHtml from "sanitize-html"
+import path from "node:path"
 import { ojsJournalSchema } from "../schemas/ojs-schema"
 import type { OjsJournal } from "../schemas/ojs-schema"
 
@@ -13,7 +14,8 @@ function extractThumbnailFilename(raw: string | null): string | null {
         if (parsed?.uploadName) return parsed.uploadName;
     } catch {
         // Fallback to Regex for PHP Array serialization (e.g. a:3:{s:10:"uploadName";s:12:"filename.png"})
-        const match = raw.match(/"uploadName";(?:s:\d+:)?([^:;} \n]+)/);
+        // Improved pattern: capture everything inside the surrounding quotes
+        const match = raw.match(/"uploadName";(?:s:\d+:)?(".*?")/);
         if (match && match[1]) {
             return match[1].replace(/^"|"$/g, '');
         }
@@ -48,7 +50,9 @@ export function mapOjsJournalRow(rawRow: unknown, baseUrl: string): OjsJournal {
         ? sanitizeHtml(row.description, { allowedTags: [], allowedAttributes: {} }).trim() 
         : null;
 
-    const thumbnailFile = extractThumbnailFilename(row.thumbnail);
+    const thumbnailFileRaw = extractThumbnailFilename(row.thumbnail);
+    // Sanitize and encode the filename to prevent traversal and handle special characters
+    const thumbnailFile = thumbnailFileRaw ? encodeURIComponent(path.basename(thumbnailFileRaw)) : null;
 
     return ojsJournalSchema.parse({
         journal_id: row.journal_id,
