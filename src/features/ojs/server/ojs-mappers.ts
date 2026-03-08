@@ -7,7 +7,7 @@ import type { OjsJournal } from "../schemas/ojs-schema"
 /** Extract filename from OJS serialized PHP array or JSON */
 function extractThumbnailFilename(raw: string | null): string | null {
     if (!raw) return null;
-    
+
     // Attempt JSON parsing (some newer OJS versions store metadata as JSON)
     try {
         const parsed = JSON.parse(raw);
@@ -20,12 +20,12 @@ function extractThumbnailFilename(raw: string | null): string | null {
             return match[1].replace(/^"|"$/g, '');
         }
     }
-    
+
     // Final fallback: If it's literally just a raw filename string (no serialization)
     if (!raw.includes(':{') && !raw.startsWith('a:')) {
         return raw;
     }
-    
+
     return null;
 }
 
@@ -38,6 +38,9 @@ export const ojsJournalRowSchema = z.object({
     name: z.string().nullable(),
     description: z.string().nullable(),
     thumbnail: z.string().nullable(),
+    issn: z.string().nullable().optional(),
+    e_issn: z.string().nullable().optional(),
+    publisher: z.string().nullable().optional(),
 })
 
 export type OjsJournalRow = z.infer<typeof ojsJournalRowSchema>
@@ -45,16 +48,16 @@ export type OjsJournalRow = z.infer<typeof ojsJournalRowSchema>
 /** Maps a raw DB row to the application domain model */
 export function mapOjsJournalRow(rawRow: unknown, baseUrl: string): OjsJournal {
     const row = ojsJournalRowSchema.parse(rawRow);
-    
-    const cleanDescription = row.description 
-        ? sanitizeHtml(row.description, { allowedTags: [], allowedAttributes: {} }).trim() 
+
+    const cleanDescription = row.description
+        ? sanitizeHtml(row.description, { allowedTags: [], allowedAttributes: {} }).trim()
         : null;
 
     const thumbnailFileRaw = extractThumbnailFilename(row.thumbnail);
     // Sanitize and encode the filename to prevent traversal and handle special characters
     // Normalize backslashes to forward slashes before basename extraction
-    const thumbnailFile = thumbnailFileRaw 
-        ? encodeURIComponent(path.basename(thumbnailFileRaw.replace(/\\/g, '/'))) 
+    const thumbnailFile = thumbnailFileRaw
+        ? encodeURIComponent(path.basename(thumbnailFileRaw.replace(/\\/g, '/')))
         : null;
 
     return ojsJournalSchema.parse({
@@ -65,5 +68,8 @@ export function mapOjsJournalRow(rawRow: unknown, baseUrl: string): OjsJournal {
         name: row.name,
         description: cleanDescription || null,
         thumbnail_url: thumbnailFile ? `${baseUrl}/public/journals/${row.journal_id}/${thumbnailFile}` : null,
+        issn: row.issn || null,
+        e_issn: row.e_issn || null,
+        publisher: row.publisher || null,
     })
 }

@@ -12,10 +12,12 @@ import Image from "next/image"
 interface Journal {
   id: number
   title: string
+  description?: string | null
   issn?: string | null
   field?: string | null
   publisher?: string | null
   coverImage: string | null
+  path?: string | null
 }
 
 interface JournalsClientViewProps {
@@ -139,6 +141,11 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
                   </div>
                 </div>
                 <CardContent className="p-6">
+                  {journal.description && (
+                    <p className="mb-4 text-sm text-muted-foreground line-clamp-2">
+                      {journal.description}
+                    </p>
+                  )}
                   {journal.publisher && (
                     <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
                       <span>{journal.publisher}</span>
