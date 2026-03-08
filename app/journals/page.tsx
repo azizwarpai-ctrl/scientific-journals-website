@@ -5,19 +5,17 @@ import { Footer } from "@/components/footer"
 import { JournalsClientView } from "./components/journals-client-view"
 import { useGetOjsJournals } from "@/src/features/ojs/api/use-get-ojs-journals"
 import { Loader2 } from "lucide-react"
+import type { OjsJournal } from "@/src/features/ojs/schemas/ojs-schema"
 
 export default function JournalsPage() {
   const { data: response, isLoading, error } = useGetOjsJournals()
   
-  const journals = response?.data || []
+  const journals: OjsJournal[] = response?.data || []
 
   // Format the journals for the client view
-  const formattedJournals = journals.map((j: any) => ({
+  const formattedJournals = journals.map((j: OjsJournal) => ({
     id: j.journal_id,
     title: j.name || j.path || "Currently unavailable",
-    issn: "N/A",
-    field: "Science", 
-    publisher: "DigitoPub",
     coverImage: j.thumbnail_url || "/images/logodigitopub.png",
   }))
 
