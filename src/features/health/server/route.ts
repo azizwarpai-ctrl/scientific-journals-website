@@ -2,6 +2,18 @@ import { Hono } from "hono"
 import { prisma } from "@/lib/db/config"
 import { isOjsConfigured, ojsHealthCheck } from "@/src/features/ojs/server/ojs-client"
 
+/**
+ * Helper to race a promise against a timeout
+ */
+const runWithTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+    const timeout = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)
+    })
+    return Promise.race([promise, timeout])
+}
+
+const DEFAULT_TIMEOUT_MS = 5000
+
 export const healthRouter = new Hono()
     .get(
         "/",
@@ -14,7 +26,7 @@ export const healthRouter = new Hono()
                 let internalLatency = 0
                 try {
                     const internalStart = Date.now()
-                    await prisma.$queryRaw`SELECT 1`
+                    await runWithTimeout(prisma.$queryRaw`SELECT 1`, DEFAULT_TIMEOUT_MS)
                     internalLatency = Date.now() - internalStart
                     internalDbStatus = "connected"
                 } catch (e) {
@@ -28,12 +40,18 @@ export const healthRouter = new Hono()
                 let externalError = null
 
                 if (isOjsConfigured()) {
-                    const ojsHealth = await ojsHealthCheck()
-                    externalDbStatus = ojsHealth.ok ? "connected" : "error"
-                    externalLatency = ojsHealth.latencyMs || 0
-                    if (!ojsHealth.ok) {
-                        console.error("[HEALTH_OJS_ERROR]", ojsHealth.error)
-                        externalError = "Unavailable"
+                    try {
+                        const ojsHealth = await runWithTimeout(ojsHealthCheck(), DEFAULT_TIMEOUT_MS)
+                        externalDbStatus = ojsHealth.ok ? "connected" : "error"
+                        externalLatency = ojsHealth.latencyMs || 0
+                        if (!ojsHealth.ok) {
+                            console.error("[HEALTH_OJS_ERROR]", ojsHealth.error)
+                            externalError = "Unavailable"
+                        }
+                    } catch (e) {
+                        console.error("[HEALTH_OJS_TIMEOUT_ERROR]", e)
+                        externalDbStatus = "error"
+                        externalError = "Timeout"
                     }
                 }
 
