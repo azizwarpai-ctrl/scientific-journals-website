@@ -108,44 +108,7 @@ app.get("/journals", async (c) => {
     }
 })
 
-// GET /ojs/stats — Aggregate statistics from OJS
-app.get("/stats", async (c) => {
-    try {
-        if (!isOjsConfigured()) {
-            return c.json({ success: true, data: null, configured: false }, 200)
-        }
 
-        const start = Date.now()
-
-        if (cache.stats.data && Date.now() < cache.stats.expiresAt) {
-            return c.json({ ...cache.stats.data, latencyMs: Date.now() - start }, 200)
-        }
-
-        const [journals] = await ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM journals WHERE enabled = 1")
-        const [submissions] = await ojsQuery<{ total: number; published: number }>(
-            "SELECT COUNT(*) as total, SUM(CASE WHEN status = 3 THEN 1 ELSE 0 END) as published FROM submissions"
-        )
-        const [users] = await ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM users WHERE disabled = 0")
-
-        const directPayload = {
-            success: true,
-            configured: true,
-            data: {
-                active_journals: journals.count,
-                total_submissions: submissions.total,
-                published_submissions: submissions.published,
-                registered_users: users.count,
-            },
-        }
-
-        cache.stats = { data: directPayload, expiresAt: Date.now() + CACHE_TTL }
-
-        return c.json({ ...directPayload, latencyMs: Date.now() - start }, 200)
-    } catch (error) {
-        console.error("Error fetching OJS stats:", error)
-        return c.json({ success: false, configured: true, error: "Failed to fetch OJS stats" }, 500)
-    }
-})
 
 // GET /ojs/health — Full diagnostic endpoint for the debug page
 app.get("/health", async (c) => {
