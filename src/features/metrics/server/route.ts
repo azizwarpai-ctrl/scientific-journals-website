@@ -2,6 +2,8 @@ import { Hono } from "hono"
 import { ojsQuery, isOjsConfigured } from "@/src/features/ojs/server/ojs-client"
 import { prisma } from "@/lib/db/config"
 
+const AUTHOR_ROLE_ID = 65536 // PKP\security\Role::ROLE_ID_AUTHOR
+
 export const metricsRouter = new Hono()
     .get(
         "/",
@@ -9,41 +11,48 @@ export const metricsRouter = new Hono()
             try {
                 // If using direct MySQL DB
                 if (isOjsConfigured()) {
-                    const [journals] = await ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM journals WHERE enabled = 1")
-
-                    // Count published submissions in active journals only
-                    const [articles] = await ojsQuery<{ count: number }>(
-                        `SELECT COUNT(*) as count
-                         FROM submissions s
-                         INNER JOIN journals j ON j.journal_id = s.context_id AND j.enabled = 1
-                         WHERE s.status = 3`
-                    )
-
-                    // Count unique researchers (distinct author emails from published articles in active journals)
-                    const [researchers] = await ojsQuery<{ count: number }>(
-                        `SELECT COUNT(DISTINCT a.email) as count
-                         FROM authors a
-                         INNER JOIN publications p ON p.publication_id = a.publication_id
-                         INNER JOIN submissions s ON s.submission_id = p.submission_id AND s.status = 3
-                         INNER JOIN journals j ON j.journal_id = s.context_id AND j.enabled = 1`
-                    )
-
-                    // Count countries from geographic metrics (real visitor/access data), fallback to user countries
-                    let countriesCount = 0
-                    const [geoCountries] = await ojsQuery<{ count: number }>(
-                        "SELECT COUNT(DISTINCT country) as count FROM metrics_submission_geo_monthly WHERE country != '' AND country IS NOT NULL"
-                    )
-                    if (geoCountries?.count > 0) {
-                        countriesCount = geoCountries.count
-                    } else {
-                        // Fallback: count countries from users with the Author role (role_id = 65536)
-                        const [userCountries] = await ojsQuery<{ count: number }>(
+                    // Run independent queries concurrently
+                    const [
+                        [journals],
+                        [articles],
+                        [researchers],
+                        [geoCountries],
+                        [userCountries]
+                    ] = await Promise.all([
+                        ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM journals WHERE enabled = 1"),
+                        // Count published submissions in active journals only
+                        ojsQuery<{ count: number }>(
+                            `SELECT COUNT(*) as count
+                             FROM submissions s
+                             INNER JOIN journals j ON j.journal_id = s.context_id AND j.enabled = 1
+                             WHERE s.status = 3`
+                        ),
+                        // Count unique researchers (distinct author emails from published articles in active journals)
+                        ojsQuery<{ count: number }>(
+                            `SELECT COUNT(DISTINCT a.email) as count
+                             FROM authors a
+                             INNER JOIN publications p ON p.publication_id = a.publication_id
+                             INNER JOIN submissions s ON s.submission_id = p.submission_id AND s.status = 3
+                             INNER JOIN journals j ON j.journal_id = s.context_id AND j.enabled = 1`
+                        ),
+                        // Count countries from geographic metrics (real visitor/access data)
+                        ojsQuery<{ count: number }>(
+                            "SELECT COUNT(DISTINCT country) as count FROM metrics_submission_geo_monthly WHERE country != '' AND country IS NOT NULL"
+                        ),
+                        // Fallback: count countries from users with the Author role (role_id = AUTHOR_ROLE_ID)
+                        ojsQuery<{ count: number }>(
                             `SELECT COUNT(DISTINCT u.country) as count
                              FROM users u
                              INNER JOIN user_user_groups uug ON uug.user_id = u.user_id
-                             INNER JOIN user_groups ug ON ug.user_group_id = uug.user_group_id AND ug.role_id = 65536
+                             INNER JOIN user_groups ug ON ug.user_group_id = uug.user_group_id AND ug.role_id = ${AUTHOR_ROLE_ID}
                              WHERE u.country IS NOT NULL AND u.country != '' AND u.disabled = 0`
                         )
+                    ])
+
+                    let countriesCount = 0
+                    if (geoCountries?.count > 0) {
+                        countriesCount = geoCountries.count
+                    } else {
                         countriesCount = userCountries?.count || 0
                     }
 
