@@ -20,6 +20,7 @@ export const healthRouter = new Hono()
                     internalLatency = Date.now() - internalStart
                     internalDbStatus = "connected"
                 } catch (e) {
+                    console.error("[HEALTH_PRISMA_ERROR]", e)
                     internalDbStatus = "error"
                 }
 
