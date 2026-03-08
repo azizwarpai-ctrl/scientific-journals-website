@@ -1,6 +1,4 @@
 import { Hono } from "hono"
-import { zValidator } from "@hono/zod-validator"
-import { z } from "zod"
 import { prisma } from "@/lib/db/config"
 import { isOjsConfigured, ojsHealthCheck } from "@/src/features/ojs/server/ojs-client"
 
