@@ -52,7 +52,10 @@ export function mapOjsJournalRow(rawRow: unknown, baseUrl: string): OjsJournal {
 
     const thumbnailFileRaw = extractThumbnailFilename(row.thumbnail);
     // Sanitize and encode the filename to prevent traversal and handle special characters
-    const thumbnailFile = thumbnailFileRaw ? encodeURIComponent(path.basename(thumbnailFileRaw)) : null;
+    // Normalize backslashes to forward slashes before basename extraction
+    const thumbnailFile = thumbnailFileRaw 
+        ? encodeURIComponent(path.basename(thumbnailFileRaw.replace(/\\/g, '/'))) 
+        : null;
 
     return ojsJournalSchema.parse({
         journal_id: row.journal_id,
