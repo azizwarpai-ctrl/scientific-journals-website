@@ -10,12 +10,12 @@ import Link from "next/link"
 import Image from "next/image"
 
 interface Journal {
-  id: string
+  id: number
   title: string
-  issn: string
-  field: string
-  publisher: string
-  coverImage: string
+  issn?: string | null
+  field?: string | null
+  publisher?: string | null
+  coverImage: string | null
 }
 
 interface JournalsClientViewProps {
@@ -34,20 +34,20 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
 
         const matchesSearch =
           journal.title.toLowerCase().includes(query) ||
-          journal.issn.toLowerCase().includes(query) ||
-          journal.field.toLowerCase().includes(query) ||
-          journal.publisher.toLowerCase().includes(query)
+          (journal.issn?.toLowerCase().includes(query) ?? false) ||
+          (journal.field?.toLowerCase().includes(query) ?? false) ||
+          (journal.publisher?.toLowerCase().includes(query) ?? false)
 
         const matchesField = selectedField === "all" || journal.field === selectedField
         return matchesSearch && matchesField
       })
       .sort((a, b) => {
-        if (sortBy === "year") return b.id.localeCompare(a.id)
+        if (sortBy === "id") return b.id - a.id
         return a.title.localeCompare(b.title)
       })
   }, [searchQuery, selectedField, sortBy, journals])
 
-  const fields = ["all", ...Array.from(new Set(journals.map((j) => j.field)))]
+  const fields = ["all", ...Array.from(new Set(journals.map((j) => j.field).filter(Boolean))) as string[]]
 
   return (
     <>
@@ -100,7 +100,7 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="title">Title (A-Z)</SelectItem>
-                  <SelectItem value="year">Year (Newest)</SelectItem>
+                  <SelectItem value="id">ID (Newest)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -127,19 +127,23 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-6">
-                    <div className="mb-3">
-                      <span className="inline-block rounded-full bg-primary/90 px-3 py-1.5 text-xs font-medium text-primary-foreground backdrop-blur-sm">
-                        {journal.field}
-                      </span>
-                    </div>
+                    {journal.field && (
+                      <div className="mb-3">
+                        <span className="inline-block rounded-full bg-primary/90 px-3 py-1.5 text-xs font-medium text-primary-foreground backdrop-blur-sm">
+                          {journal.field}
+                        </span>
+                      </div>
+                    )}
                     <h3 className="mb-2 text-lg font-bold text-white text-balance leading-tight">{journal.title}</h3>
-                    <p className="text-sm text-white/80">{journal.issn}</p>
+                    {journal.issn && <p className="text-sm text-white/80">{journal.issn}</p>}
                   </div>
                 </div>
                 <CardContent className="p-6">
-                  <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{journal.publisher}</span>
-                  </div>
+                  {journal.publisher && (
+                    <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
+                      <span>{journal.publisher}</span>
+                    </div>
+                  )}
                   <Button size="sm" className="w-full" asChild>
                     <Link href={`/journals/${journal.id}`}>View Journal</Link>
                   </Button>

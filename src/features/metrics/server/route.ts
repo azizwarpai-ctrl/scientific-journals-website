@@ -14,7 +14,9 @@ export const metricsRouter = new Hono()
                         "SELECT SUM(status=3) as published FROM submissions"
                     )
                     const [users] = await ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM users WHERE disabled = 0")
-                    const [countries] = await ojsQuery<{ count: number }>("SELECT COUNT(DISTINCT country) as count FROM users WHERE country IS NOT NULL AND country != ''")
+                    const [countries] = await ojsQuery<{ count: number }>(
+                        "SELECT COUNT(DISTINCT setting_value) as count FROM user_settings WHERE setting_name = 'country' AND setting_value IS NOT NULL AND setting_value != ''"
+                    )
 
                     return c.json({
                         activeJournals: journals?.count || 0,
