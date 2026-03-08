@@ -3,10 +3,11 @@ import { cors } from "hono/cors"
 import { logger } from "hono/logger"
 import { journalRouter } from "@/src/features/journals/server"
 import { solutionRouter } from "@/src/features/solutions/server"
+import { ojsRouter } from "@/src/features/ojs/server"
 import { authRouter } from "@/src/features/auth/server"
 import { messageRouter } from "@/src/features/messages/server"
-import { ojsRouter } from "@/src/features/ojs/server"
-import { homeStatsRouter } from "@/src/features/home-stats/server"
+import { metricsRouter } from "@/src/features/metrics/server"
+import { healthRouter } from "@/src/features/health/server"
 import { reviewsRouter } from "@/src/features/reviews/server"
 
 const apiApp = new Hono()
@@ -15,7 +16,8 @@ const apiApp = new Hono()
     .route("/auth", authRouter)
     .route("/messages", messageRouter)
     .route("/ojs", ojsRouter)
-    .route("/home-stats", homeStatsRouter)
+    .route("/metrics", metricsRouter)
+    .route("/health", healthRouter)
     .route("/reviews", reviewsRouter)
 
 const app = new Hono().basePath("/api")
