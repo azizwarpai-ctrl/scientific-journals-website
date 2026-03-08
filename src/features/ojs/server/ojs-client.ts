@@ -25,7 +25,7 @@ function getPool(): Pool {
             port: parseInt(process.env.OJS_DATABASE_PORT || "3306"),
             database: process.env.OJS_DATABASE_NAME,
             user: process.env.OJS_DATABASE_USER,
-            password: process.env.OJS_DATABASE_PASSWORD?.trim() || "",
+            password: process.env.OJS_DATABASE_PASSWORD?.replace(/[\r\n\s"'\\]/g, '') || "",
             connectionLimit: 3,
             connectTimeout: 10000,
             waitForConnections: true,
