@@ -9,7 +9,7 @@ import { messageRouter } from "@/src/features/messages/server"
 import { metricsRouter } from "@/src/features/metrics/server"
 import { healthRouter } from "@/src/features/health/server"
 import { reviewsRouter } from "@/src/features/reviews/server"
-import { fetchFromDatabase } from "@/src/features/ojs/server/route"
+import { fetchFromDatabase } from "@/src/features/ojs/server/ojs-service"
 import { triggerStartupSync } from "@/src/features/ojs/server/sync-ojs-journals"
 
 const apiApp = new Hono()
@@ -50,6 +50,12 @@ app.use(
 )
 app.use("/*", logger())
 
+// Ensure background startup sync fires on the first few requests if not completed
+app.use("/*", async (c, next) => {
+    triggerStartupSync(() => fetchFromDatabase(true))
+    await next()
+})
+
 // Mount API routes
 app.route("/", apiApp)
 
@@ -78,9 +84,6 @@ app.notFound((c) => {
         404
     )
 })
-
-// Initialize OJS background sync on app startup (fires once per process)
-triggerStartupSync(() => fetchFromDatabase(true))
 
 export type AppType = typeof apiApp
 export { app }
