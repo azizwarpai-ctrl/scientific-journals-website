@@ -12,13 +12,7 @@ export const metricsRouter = new Hono()
                 // If using direct MySQL DB
                 if (isOjsConfigured()) {
                     // Run independent queries concurrently
-                    const [
-                        [journals],
-                        [articles],
-                        [researchers],
-                        [geoCountries],
-                        [userCountries]
-                    ] = await Promise.all([
+                    const results = await Promise.allSettled([
                         ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM journals WHERE enabled = 1"),
                         // Count published submissions in active journals only
                         ojsQuery<{ count: number }>(
@@ -49,17 +43,31 @@ export const metricsRouter = new Hono()
                         )
                     ])
 
+                    // Safely extract results
+                    const getCount = (res: PromiseSettledResult<any[]>): number => {
+                        if (res.status === "fulfilled" && res.value && res.value.length > 0) {
+                            return res.value[0].count || 0
+                        }
+                        return 0
+                    }
+
+                    const journalsCount = getCount(results[0])
+                    const articlesCount = getCount(results[1])
+                    const researchersCount = getCount(results[2])
+                    const geoCountriesCount = getCount(results[3])
+                    const userCountriesCount = getCount(results[4])
+
                     let countriesCount = 0
-                    if (geoCountries?.count > 0) {
-                        countriesCount = geoCountries.count
+                    if (geoCountriesCount > 0) {
+                        countriesCount = geoCountriesCount
                     } else {
-                        countriesCount = userCountries?.count || 0
+                        countriesCount = userCountriesCount
                     }
 
                     return c.json({
-                        activeJournals: journals?.count || 0,
-                        publishedArticles: articles?.count || 0,
-                        researchers: researchers?.count || 0,
+                        activeJournals: journalsCount,
+                        publishedArticles: articlesCount,
+                        researchers: researchersCount,
                         countriesEstimated: countriesCount,
                     })
                 }
