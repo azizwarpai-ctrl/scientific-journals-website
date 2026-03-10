@@ -16,7 +16,8 @@ const cache = {
 
 // ─── Direct MySQL Fetch ──────────────────────────────────────────────
 
-async function fetchFromDatabase(): Promise<OjsJournal[]> {
+export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJournal[]> {
+    const enabledFilter = includeDisabled ? "" : "WHERE j.enabled = 1"
     const rows = await ojsQuery<any>(`
         SELECT
             j.journal_id,
@@ -53,7 +54,7 @@ async function fetchFromDatabase(): Promise<OjsJournal[]> {
             ON js_pub.journal_id = j.journal_id
             AND js_pub.setting_name = 'publisherInstitution'
             AND js_pub.locale = j.primary_locale
-        WHERE j.enabled = 1
+        ${enabledFilter}
         ORDER BY j.seq ASC
     `)
 
@@ -74,9 +75,6 @@ app.get("/journals", async (c) => {
         if (!isOjsConfigured()) {
             return c.json({ success: true, data: [], configured: false }, 200)
         }
-
-        // Trigger startup sync (fire-and-forget, runs only once per cold start)
-        triggerStartupSync(fetchFromDatabase)
 
         const start = Date.now()
 
@@ -129,13 +127,18 @@ app.get("/sync", async (c) => {
 
     try {
         const start = Date.now()
-        const journals = await fetchFromDatabase()
+        // Sync everything, including disabled journals, so they get marked inactive
+        const journals = await fetchFromDatabase(true)
         const result = await syncOjsJournals(journals)
+        
+        const success = result.errors === 0
+        const status = success ? 200 : 207
+
         return c.json({
-            success: true,
+            success,
             ...result,
             latencyMs: Date.now() - start,
-        }, 200)
+        }, status)
     } catch (error) {
         console.error("[OJS_SYNC] Cron sync failed:", error)
         return c.json({ success: false, error: "Sync failed" }, 500)

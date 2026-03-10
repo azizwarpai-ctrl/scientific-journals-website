@@ -9,6 +9,8 @@ import { messageRouter } from "@/src/features/messages/server"
 import { metricsRouter } from "@/src/features/metrics/server"
 import { healthRouter } from "@/src/features/health/server"
 import { reviewsRouter } from "@/src/features/reviews/server"
+import { fetchFromDatabase } from "@/src/features/ojs/server/route"
+import { triggerStartupSync } from "@/src/features/ojs/server/sync-ojs-journals"
 
 const apiApp = new Hono()
     .route("/journals", journalRouter)
@@ -76,6 +78,9 @@ app.notFound((c) => {
         404
     )
 })
+
+// Initialize OJS background sync on app startup (fires once per process)
+triggerStartupSync(() => fetchFromDatabase(true))
 
 export type AppType = typeof apiApp
 export { app }
