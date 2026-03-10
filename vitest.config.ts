@@ -5,6 +5,10 @@ export default defineConfig({
     test: {
         globals: true,
         environment: 'node',
+        env: {
+            OJS_BASE_URL: 'http://localhost:8000',
+            OJS_DATABASE_HOST: ''
+        },
         include: ['tests/**/*.test.ts'],
         coverage: {
             provider: 'v8',
