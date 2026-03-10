@@ -20,10 +20,10 @@ export default function HomePage() {
   const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetMetrics()
 
   const statConfigs = [
-    { label: "Active Journals", value: stats?.activeJournals, color: "text-primary" },
-    { label: "Published Articles", value: stats?.publishedArticles, color: "text-secondary" },
-    { label: "Researchers", value: stats?.researchers, color: "text-primary" },
-    { label: "Countries (Estimated)", value: stats?.countriesEstimated, color: "text-secondary" },
+    { label: "Active Journals", value: stats?.activeJournals, color: "text-blue-500 dark:text-blue-400" },
+    { label: "Published Articles", value: stats?.publishedArticles, color: "text-sky-500 dark:text-sky-400" },
+    { label: "Researchers", value: stats?.researchers, color: "text-indigo-500 dark:text-indigo-400" },
+    { label: "Countries (Estimated)", value: stats?.countriesEstimated, color: "text-cyan-500 dark:text-cyan-400" },
   ]
 
   return (
@@ -40,7 +40,7 @@ export default function HomePage() {
                   <Zap className="h-4 w-4" />
                   Scientific Excellence
                 </div>
-                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl text-balance">Modern Platform for Scientific Publishing</h1>
+                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl text-foreground">Modern Platform for Scientific Publishing</h1>
                 <p className="mb-8 text-lg text-muted-foreground leading-relaxed text-pretty">Comprehensive solutions for digital journals, submission management, and scientific publishing.</p>
                 <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
                   <Button size="lg" asChild>
