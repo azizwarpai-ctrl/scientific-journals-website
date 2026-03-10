@@ -1,5 +1,5 @@
 import { ojsQuery } from "./ojs-client"
-import { mapOjsJournalRow } from "./ojs-mappers"
+import { mapOjsJournalRow, type OjsJournalRow } from "./ojs-mappers"
 import type { OjsJournal } from "../schemas/ojs-schema"
 
 export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJournal[]> {
@@ -10,7 +10,7 @@ export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJou
     }
 
     const enabledFilter = includeDisabled ? "" : "WHERE j.enabled = 1"
-    const rows = await ojsQuery<any>(`
+    const rows = await ojsQuery<OjsJournalRow>(`
         SELECT
             j.journal_id,
             j.path,
