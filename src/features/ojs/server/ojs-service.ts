@@ -3,6 +3,12 @@ import { mapOjsJournalRow } from "./ojs-mappers"
 import type { OjsJournal } from "../schemas/ojs-schema"
 
 export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJournal[]> {
+    const baseUrl = process.env.OJS_BASE_URL
+
+    if (!baseUrl) {
+        throw new Error("OJS_BASE_URL environment variable is missing but required for OJS integration.")
+    }
+
     const enabledFilter = includeDisabled ? "" : "WHERE j.enabled = 1"
     const rows = await ojsQuery<any>(`
         SELECT
@@ -43,12 +49,6 @@ export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJou
         ${enabledFilter}
         ORDER BY j.seq ASC
     `)
-
-    const baseUrl = process.env.OJS_BASE_URL
-
-    if (!baseUrl) {
-        throw new Error("OJS_BASE_URL environment variable is missing but required for OJS integration.")
-    }
 
     return rows.map((row) => mapOjsJournalRow(row, baseUrl))
 }
