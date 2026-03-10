@@ -4,6 +4,7 @@ import { fetchFromDatabase } from "@/src/features/ojs/server/ojs-service"
 import mysql from "mysql2/promise"
 import type { RowDataPacket } from "mysql2/promise"
 import * as net from "node:net"
+import { getSession } from "@/lib/db/auth"
 
 export const debugRouter = new Hono()
 
@@ -323,5 +324,87 @@ debugRouter.get("/ojs-journals", async (c) => {
                 stack: error.stack
             }
         })
+    }
+})
+
+// --- 8. Auth Debug Probe ---
+debugRouter.get("/auth-session", async (c) => {
+    try {
+        const session = await getSession()
+        const cookieHeader = c.req.header("cookie") || ""
+        const hasAuthToken = cookieHeader.includes("auth_token=")
+        
+        return c.json({
+            status: "ok",
+            sessionActive: !!session,
+            session,
+            cookiesDetected: {
+                auth_token: hasAuthToken,
+                raw: process.env.NODE_ENV === "development" ? cookieHeader : "hidden"
+            }
+        })
+    } catch (error: any) {
+        return c.json({ status: "error", error: error.message }, 500)
+    }
+})
+
+// --- 9. OJS URL / Connectivity Probe ---
+debugRouter.get("/ping-ojs", async (c) => {
+    const ojsUrl = process.env.OJS_BASE_URL
+    if (!ojsUrl) {
+        return c.json({ status: "error", error: "OJS_BASE_URL is not set in environment" }, 400)
+    }
+
+    try {
+        const start = Date.now()
+        // Simple HEAD request to minimize payload
+        const res = await fetch(ojsUrl, { method: "HEAD", redirect: "follow" })
+        const latencyMs = Date.now() - start
+        
+        return c.json({
+            status: "ok",
+            url: ojsUrl,
+            httpStatus: res.status,
+            httpStatusText: res.statusText,
+            redirected: res.redirected,
+            finalUrl: res.url,
+            latencyMs
+        })
+    } catch (error: any) {
+        return c.json({ status: "error", url: ojsUrl, error: error.message }, 500)
+    }
+})
+
+// --- 10. Submission Flow Tester ---
+debugRouter.get("/submission-flow", async (c) => {
+    const ojsUrl = process.env.OJS_BASE_URL
+    if (!ojsUrl) {
+        return c.json({ status: "error", error: "OJS_BASE_URL is not set" }, 400)
+    }
+    
+    try {
+        // Attempt a GET against a typical OJS submission URL to trace redirects
+        // Usually /index.php/journal/submission/wizard or /index.php/index/login
+        const targetUrl = ojsUrl.endsWith('/') ? `${ojsUrl}index.php/index/login` : `${ojsUrl}/index.php/index/login`
+        
+        const start = Date.now()
+        const res = await fetch(targetUrl, { redirect: "manual" }) // Catch the first redirect
+        const latencyMs = Date.now() - start
+        
+        const isRedirect = [301, 302, 303, 307, 308].includes(res.status)
+        const location = res.headers.get("location")
+        
+        return c.json({
+            status: "ok",
+            targetUrl,
+            httpStatus: res.status,
+            isRedirect,
+            redirectLocation: location,
+            latencyMs,
+            recommendation: isRedirect && location?.includes("login") ? "Requires authentication to submit." : "Page exists or handles state directly."
+        })
+    } catch (error: any) {
+        console.error("[DEBUG_SUBMISSION_FLOW]", error)
+        return c.json({ status: "error", error: error.message }, 500)
     }
 })
