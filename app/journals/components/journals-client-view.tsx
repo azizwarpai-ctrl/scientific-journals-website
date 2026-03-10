@@ -10,14 +10,13 @@ import Link from "next/link"
 import Image from "next/image"
 
 interface Journal {
-  id: number
+  id: string
   title: string
   description?: string | null
   issn?: string | null
   field?: string | null
   publisher?: string | null
   coverImage: string | null
-  path?: string | null
 }
 
 interface JournalsClientViewProps {
@@ -44,7 +43,12 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
         return matchesSearch && matchesField
       })
       .sort((a, b) => {
-        if (sortBy === "id") return b.id - a.id
+        if (sortBy === "id") {
+          const numA = Number(a.id)
+          const numB = Number(b.id)
+          if (isFinite(numA) && isFinite(numB)) return numB - numA
+          return b.id.localeCompare(a.id)
+        }
         return a.title.localeCompare(b.title)
       })
   }, [searchQuery, selectedField, sortBy, journals])
