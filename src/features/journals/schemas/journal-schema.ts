@@ -20,7 +20,7 @@ export const journalCreateSchema = z.object({
 export const journalUpdateSchema = journalCreateSchema.partial()
 
 export const journalIdParamSchema = z.object({
-  id: z.string().regex(/^\d+$/, "Invalid journal ID"),
+  id: z.string().min(1, "Journal ID is required"),
 })
 
 export type JournalCreate = z.infer<typeof journalCreateSchema>

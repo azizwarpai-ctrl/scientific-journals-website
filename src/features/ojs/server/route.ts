@@ -3,6 +3,7 @@ import { ojsJournalsResponseSchema } from "../schemas/ojs-schema"
 import type { OjsJournal } from "../schemas/ojs-schema"
 import { mapOjsJournalRow } from "./ojs-mappers"
 import { ojsQuery, isOjsConfigured, ojsHealthCheck } from "./ojs-client"
+import { syncOjsJournals, triggerStartupSync } from "./sync-ojs-journals"
 
 const app = new Hono()
 
@@ -74,6 +75,9 @@ app.get("/journals", async (c) => {
             return c.json({ success: true, data: [], configured: false }, 200)
         }
 
+        // Trigger startup sync (fire-and-forget, runs only once per cold start)
+        triggerStartupSync(fetchFromDatabase)
+
         const start = Date.now()
 
         if (cache.journals.data && Date.now() < cache.journals.expiresAt) {
@@ -108,7 +112,34 @@ app.get("/journals", async (c) => {
     }
 })
 
+// GET /ojs/sync — Cron-triggered synchronization endpoint
+// Protected by CRON_SECRET query parameter
+app.get("/sync", async (c) => {
+    const secret = c.req.query("secret")
+    const cronSecret = process.env.CRON_SECRET
 
+    if (!cronSecret || secret !== cronSecret) {
+        return c.json({ success: false, error: "Unauthorized" }, 401)
+    }
+
+    if (!isOjsConfigured()) {
+        return c.json({ success: false, error: "OJS not configured" }, 503)
+    }
+
+    try {
+        const start = Date.now()
+        const journals = await fetchFromDatabase()
+        const result = await syncOjsJournals(journals)
+        return c.json({
+            success: true,
+            ...result,
+            latencyMs: Date.now() - start,
+        }, 200)
+    } catch (error) {
+        console.error("[OJS_SYNC] Cron sync failed:", error)
+        return c.json({ success: false, error: "Sync failed" }, 500)
+    }
+})
 
 // GET /ojs/health — Full diagnostic endpoint for the debug page
 app.get("/health", async (c) => {
@@ -124,3 +155,4 @@ app.get("/health", async (c) => {
 })
 
 export { app as ojsRouter }
+

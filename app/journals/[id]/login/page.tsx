@@ -7,25 +7,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BookOpen, User, UserCog, Shield } from "lucide-react"
+import { BookOpen, User, UserCog, Shield, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useGetJournal, useJournalId } from "@/src/features/journals"
 
-const journalNames: Record<string, string> = {
-  "1": "Journal of Digitodontics",
-  "2": "Open Journal of Biomedical Research",
-}
-
-export default function JournalLoginPage({ params }: { params: { id: string } }) {
-  const [id, setId] = useState<string>("")
+export default function JournalLoginPage() {
+  const id = useJournalId()
+  const { data: journal, isLoading } = useGetJournal(id)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
 
-  useEffect(() => {
-    setId(params.id)
-  }, [params])
-
-  const journalName = journalNames[id] || "Journal"
+  const journalName = journal?.title || "Journal"
 
   const handleLogin = (role: string) => {
     console.log(`Logging in as ${role} with email: ${email}`)
@@ -34,6 +27,18 @@ export default function JournalLoginPage({ params }: { params: { id: string } })
 
   if (!id) {
     return null
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </main>
+        <Footer />
+      </div>
+    )
   }
 
   return (

@@ -57,10 +57,19 @@ app.get("/:id", zValidator("param", journalIdParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
 
-    const journal = await prisma.journal.findUnique({
-      where: { id: BigInt(id) },
+    // First try lookup by ojs_id (for OJS-sourced navigation)
+    let journal = await prisma.journal.findUnique({
+      where: { ojs_id: id },
       select: JOURNAL_SELECT,
     })
+
+    // Fallback to internal BigInt id (for admin-created journals)
+    if (!journal && /^\d+$/.test(id)) {
+      journal = await prisma.journal.findUnique({
+        where: { id: BigInt(id) },
+        select: JOURNAL_SELECT,
+      })
+    }
 
     if (!journal) {
       return c.json({ success: false, error: "Journal not found" }, 404)

@@ -9,16 +9,14 @@ import Link from "next/link"
 import Image from "next/image"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { AnimatedCounter } from "@/components/animated-counter"
-import { useGetOjsJournals } from "@/src/features/ojs/api/use-get-ojs-journals"
+import { useGetJournals } from "@/src/features/journals"
 import { useGetMetrics } from "@/src/features/metrics"
 import { HomeStatsSkeleton } from "@/components/skeletons/home-stats-skeleton"
 import { JournalCardSkeleton } from "@/components/skeletons/journal-card-skeleton"
 
 export default function HomePage() {
-  const { data: ojsData, isLoading: isLoadingOjs, isError: isErrorOjs } = useGetOjsJournals()
+  const { data: journals = [], isLoading: isLoadingOjs, isError: isErrorOjs } = useGetJournals()
   const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetMetrics()
-
-  const journals = ojsData?.data
 
   const statConfigs = [
     { label: "Active Journals", value: stats?.activeJournals, color: "text-primary" },
@@ -114,13 +112,13 @@ export default function HomePage() {
               ) : journals && journals.length > 0 ? (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                   {journals.slice(0, 6).map((journal: any, idx: number) => (
-                    <GSAPWrapper key={journal.journal_id} animation="slideUp" delay={0.4 + idx * 0.1}>
+                    <GSAPWrapper key={journal.id} animation="slideUp" delay={0.4 + idx * 0.1}>
                       <Card className="transition-shadow hover:shadow-lg overflow-hidden">
                         <div className="relative h-64 w-full overflow-hidden bg-gradient-to-br from-primary/20 to-secondary/20">
-                          {journal.thumbnail_url ? (
+                          {journal.cover_image_url ? (
                             <Image
-                              src={journal.thumbnail_url}
-                              alt={journal.name || "Journal"}
+                              src={journal.cover_image_url}
+                              alt={journal.title || "Journal"}
                               fill
                               className="object-cover"
                               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -138,19 +136,21 @@ export default function HomePage() {
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
                           <div className="absolute bottom-4 left-4 right-4">
-                            <span className="inline-block rounded-full bg-primary/90 px-3 py-1 text-xs font-medium text-primary-foreground backdrop-blur-sm">
-                              {journal.primary_locale}
-                            </span>
+                            {journal.field && (
+                              <span className="inline-block rounded-full bg-primary/90 px-3 py-1 text-xs font-medium text-primary-foreground backdrop-blur-sm">
+                                {journal.field}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <CardContent className="pt-6">
-                          <h3 className="mb-2 font-semibold text-balance">{journal.name || journal.path}</h3>
+                          <h3 className="mb-2 font-semibold text-balance">{journal.title}</h3>
                           <p className="mb-4 text-sm text-muted-foreground line-clamp-2">
                             {journal.description || "Currently unavailable"}
                           </p>
                           <div className="flex items-center justify-between">
                             <Button size="sm" variant="outline" asChild>
-                              <Link href={`/journals/${journal.journal_id}`}>View Details</Link>
+                              <Link href={`/journals/${journal.ojs_id || journal.id}`}>View Details</Link>
                             </Button>
                           </div>
                         </CardContent>
