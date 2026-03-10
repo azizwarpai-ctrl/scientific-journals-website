@@ -205,3 +205,16 @@ model VerificationCode {
   @@index([code])
   @@map("verification_codes")
 }
+
+model OjsSsoToken {
+  id         String   @id @default(uuid())
+  token      String   @unique @db.VarChar(128)
+  email      String   @db.VarChar(255)
+  expires_at DateTime
+  used       Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  @@index([token])
+  @@index([email])
+  @@map("ojs_sso_tokens")
+}
