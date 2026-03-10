@@ -52,7 +52,9 @@ app.use("/*", logger())
 
 // Ensure background startup sync fires on the first few requests if not completed
 app.use("/*", async (c, next) => {
-    triggerStartupSync(() => fetchFromDatabase(true))
+    if (!c.req.path.includes("/ojs/sync")) {
+        triggerStartupSync(() => fetchFromDatabase(true))
+    }
     await next()
 })
 
