@@ -35,7 +35,7 @@ const JOURNAL_SELECT = {
 app.get("/", async (c) => {
   try {
     const pagination = parsePagination(c)
-    const [journals, total] = await Promise.all([
+    let [journals, total] = await Promise.all([
       prisma.journal.findMany({
         select: JOURNAL_SELECT,
         orderBy: { created_at: "desc" },
@@ -44,6 +44,36 @@ app.get("/", async (c) => {
       }),
       prisma.journal.count(),
     ])
+
+    // If local Prisma is empty but OJS is configured, block and await a sync before returning.
+    // This prevents the "No journals available yet" empty state on the very first visit after a cold start.
+    if (total === 0) {
+      const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
+      if (isOjsConfigured()) {
+        const { fetchFromDatabase } = await import("@/src/features/ojs/server/ojs-service")
+        const { syncOjsJournals } = await import("@/src/features/ojs/server/sync-ojs-journals")
+        try {
+          const ojsData = await fetchFromDatabase(true)
+          await syncOjsJournals(ojsData)
+          
+          // Re-query after sync
+          const [newJournals, newTotal] = await Promise.all([
+            prisma.journal.findMany({
+              select: JOURNAL_SELECT,
+              orderBy: { created_at: "desc" },
+              take: pagination.limit,
+              skip: pagination.offset,
+            }),
+            prisma.journal.count(),
+          ])
+          journals = newJournals
+          total = newTotal
+        } catch (syncError) {
+          console.error("Inline sync fallback failed:", syncError)
+        }
+      }
+    }
+
     return c.json(paginatedResponse(serializeMany(journals), total, pagination), 200)
   } catch (error) {
     console.error("Error fetching journals:", error)
