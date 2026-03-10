@@ -121,7 +121,7 @@ export default function JournalDetailPage() {
 
                 <div className="flex flex-wrap gap-4 pt-4">
                   <Button size="lg" className="rounded-full px-8 shadow-lg shadow-primary/20" asChild>
-                    <Link href={`#`}>Submit Manuscript</Link>
+                    <Link href={`/api/ojs/sso/redirect`}>Submit Manuscript</Link>
                   </Button>
                   {journal.website_url && (
                     <Button
@@ -268,7 +268,7 @@ export default function JournalDetailPage() {
                   <h3 className="mb-6 text-xl font-bold border-b border-white/10 pb-4">Quick Actions</h3>
                   <div className="space-y-4">
                     <Button variant="outline" className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white" asChild>
-                      <Link href={`#`}>
+                      <Link href={`/api/ojs/sso/redirect`}>
                         Submit Now <ChevronRight className="h-4 w-4" />
                       </Link>
                     </Button>
