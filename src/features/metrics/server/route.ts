@@ -57,6 +57,10 @@ export const metricsRouter = new Hono()
                     const geoCountriesCount = getCount(results[3])
                     const userCountriesCount = getCount(results[4])
 
+                    const queryErrors = results
+                        .filter((r) => r.status === "rejected")
+                        .map((r) => (r as PromiseRejectedResult).reason?.message || String((r as PromiseRejectedResult).reason))
+
                     let countriesCount = 0
                     if (geoCountriesCount > 0) {
                         countriesCount = geoCountriesCount
@@ -69,6 +73,7 @@ export const metricsRouter = new Hono()
                         publishedArticles: articlesCount,
                         researchers: researchersCount,
                         countriesEstimated: countriesCount,
+                        debugErrors: queryErrors.length > 0 ? queryErrors : undefined,
                     })
                 }
 
