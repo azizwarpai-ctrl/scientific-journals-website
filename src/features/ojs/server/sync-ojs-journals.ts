@@ -79,7 +79,13 @@ export function triggerStartupSync(fetchFn: () => Promise<OjsJournal[]>) {
     // Fire-and-forget: don't block the request
     fetchFn()
         .then((journals) => syncOjsJournals(journals))
-        .then((result) => console.log(`[OJS_SYNC] Startup sync done:`, result))
+        .then((result) => {
+            console.log(`[OJS_SYNC] Startup sync done:`, result)
+            if (result.errors > 0) {
+                console.warn(`[OJS_SYNC] Startup sync completed with ${result.errors} errors, allowing retry.`)
+                hasRunStartupSync = false // Allow retry on next request if it partially failed
+            }
+        })
         .catch((err) => {
             console.error(`[OJS_SYNC] Startup sync failed:`, err)
             hasRunStartupSync = false // Allow retry on next request if it transiently failed
