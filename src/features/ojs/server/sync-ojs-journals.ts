@@ -15,39 +15,52 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
     let synced = 0
     let errors = 0
     const baseUrl = process.env.OJS_BASE_URL || ""
+    const BATCH_SIZE = 10
 
-    for (const journal of ojsJournals) {
-        try {
-            await prisma.journal.upsert({
-                where: { ojs_id: String(journal.journal_id) },
-                update: {
-                    title: journal.name || journal.path,
-                    description: journal.description || null,
-                    cover_image_url: journal.thumbnail_url || null,
-                    issn: journal.issn || null,
-                    e_issn: journal.e_issn || null,
-                    publisher: journal.publisher || null,
-                    website_url: baseUrl ? `${baseUrl}/${journal.path}` : null,
-                    status: journal.enabled ? "active" : "inactive",
-                    updated_at: new Date(),
-                },
-                create: {
-                    ojs_id: String(journal.journal_id),
-                    title: journal.name || journal.path,
-                    description: journal.description || null,
-                    field: "Science",
-                    cover_image_url: journal.thumbnail_url || null,
-                    issn: journal.issn || null,
-                    e_issn: journal.e_issn || null,
-                    publisher: journal.publisher || null,
-                    website_url: baseUrl ? `${baseUrl}/${journal.path}` : null,
-                    status: journal.enabled ? "active" : "inactive",
-                },
-            })
-            synced++
-        } catch (err) {
-            errors++
-            console.error(`[OJS_SYNC] Failed to upsert journal ${journal.journal_id}:`, err)
+    for (let i = 0; i < ojsJournals.length; i += BATCH_SIZE) {
+        const batch = ojsJournals.slice(i, i + BATCH_SIZE)
+        const results = await Promise.allSettled(
+            batch.map((journal) =>
+                prisma.journal.upsert({
+                    where: { ojs_id: String(journal.journal_id) },
+                    update: {
+                        title: journal.name || journal.path,
+                        description: journal.description || null,
+                        cover_image_url: journal.thumbnail_url || null,
+                        issn: journal.issn || null,
+                        e_issn: journal.e_issn || null,
+                        publisher: journal.publisher || null,
+                        website_url: baseUrl ? `${baseUrl}/${journal.path}` : null,
+                        status: journal.enabled ? "active" : "inactive",
+                        updated_at: new Date(),
+                    },
+                    create: {
+                        ojs_id: String(journal.journal_id),
+                        title: journal.name || journal.path,
+                        description: journal.description || null,
+                        field: "Uncategorized",
+                        cover_image_url: journal.thumbnail_url || null,
+                        issn: journal.issn || null,
+                        e_issn: journal.e_issn || null,
+                        publisher: journal.publisher || null,
+                        website_url: baseUrl ? `${baseUrl}/${journal.path}` : null,
+                        status: journal.enabled ? "active" : "inactive",
+                    },
+                })
+            )
+        )
+
+        for (let j = 0; j < results.length; j++) {
+            if (results[j].status === "fulfilled") {
+                synced++
+            } else {
+                errors++
+                const journal = batch[j]
+                console.error(
+                    `[OJS_SYNC] Failed to upsert journal ${journal.journal_id} (${journal.path}):`,
+                    (results[j] as PromiseRejectedResult).reason
+                )
+            }
         }
     }
 

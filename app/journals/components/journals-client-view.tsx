@@ -43,7 +43,12 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
         return matchesSearch && matchesField
       })
       .sort((a, b) => {
-        if (sortBy === "id") return b.id.localeCompare(a.id)
+        if (sortBy === "id") {
+          const numA = Number(a.id)
+          const numB = Number(b.id)
+          if (isFinite(numA) && isFinite(numB)) return numB - numA
+          return b.id.localeCompare(a.id)
+        }
         return a.title.localeCompare(b.title)
       })
   }, [searchQuery, selectedField, sortBy, journals])

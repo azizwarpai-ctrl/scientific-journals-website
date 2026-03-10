@@ -10,6 +10,7 @@ import Image from "next/image"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { AnimatedCounter } from "@/components/animated-counter"
 import { useGetJournals } from "@/src/features/journals"
+import type { Journal } from "@/src/features/journals"
 import { useGetMetrics } from "@/src/features/metrics"
 import { HomeStatsSkeleton } from "@/components/skeletons/home-stats-skeleton"
 import { JournalCardSkeleton } from "@/components/skeletons/journal-card-skeleton"
@@ -107,11 +108,11 @@ export default function HomePage() {
                 <div className="text-center py-12 text-destructive">
                   <BookOpen className="mx-auto mb-4 h-12 w-12 opacity-50" />
                   <p className="text-lg font-medium">Connection Error</p>
-                  <p className="mt-1 text-sm">Could not fetch journals from the OJS database.</p>
+                  <p className="mt-1 text-sm">Could not fetch journals from the synchronized internal database.</p>
                 </div>
               ) : journals && journals.length > 0 ? (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {journals.slice(0, 6).map((journal: any, idx: number) => (
+                  {journals.slice(0, 6).map((journal: Journal, idx: number) => (
                     <GSAPWrapper key={journal.id} animation="slideUp" delay={0.4 + idx * 0.1}>
                       <Card className="transition-shadow hover:shadow-lg overflow-hidden">
                         <div className="relative h-64 w-full overflow-hidden bg-gradient-to-br from-primary/20 to-secondary/20">

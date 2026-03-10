@@ -113,12 +113,13 @@ app.get("/journals", async (c) => {
 })
 
 // GET /ojs/sync — Cron-triggered synchronization endpoint
-// Protected by CRON_SECRET query parameter
+// Protected by Authorization: Bearer <CRON_SECRET> header
 app.get("/sync", async (c) => {
-    const secret = c.req.query("secret")
+    const authHeader = c.req.header("authorization")
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null
     const cronSecret = process.env.CRON_SECRET
 
-    if (!cronSecret || secret !== cronSecret) {
+    if (!cronSecret || token !== cronSecret) {
         return c.json({ success: false, error: "Unauthorized" }, 401)
     }
 
