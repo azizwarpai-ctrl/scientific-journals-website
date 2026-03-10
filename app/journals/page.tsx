@@ -12,7 +12,7 @@ export default function JournalsPage() {
 
   // Format the journals for the client view
   const formattedJournals = journals.map((j: Journal) => ({
-    id: j.ojs_id || String(j.id),
+    id: j.ojs_id || j.id,
     title: j.title || "Currently unavailable",
     coverImage: j.cover_image_url || "/images/logodigitopub.png",
     description: j.description || null,
