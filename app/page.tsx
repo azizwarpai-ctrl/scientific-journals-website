@@ -19,6 +19,10 @@ export default function HomePage() {
   const { data: journals = [], isLoading: isLoadingOjs, isError: isErrorOjs } = useGetJournals()
   const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetMetrics()
 
+  // Debugging
+  console.log("stats", stats)
+  console.log("journals", journals);
+
   const statConfigs = [
     { label: "Active Journals", value: stats?.activeJournals, color: "text-blue-500 dark:text-blue-400" },
     { label: "Published Articles", value: stats?.publishedArticles, color: "text-sky-500 dark:text-sky-400" },
