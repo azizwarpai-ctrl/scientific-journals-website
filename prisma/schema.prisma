@@ -46,6 +46,7 @@ model Journal {
   updated_at      DateTime @default(now()) @updatedAt
   created_by      BigInt?
   ojs_id          String?  @unique @db.VarChar(50)
+  ojs_path        String?  @db.VarChar(100)
 
   creator            AdminUser?         @relation("CreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
   submissions        Submission[]

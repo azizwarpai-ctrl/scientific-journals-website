@@ -20,13 +20,19 @@ ssoRouter.get("/redirect", async (c) => {
             return c.json({ error: "OJS_BASE_URL is not configured" }, 500)
         }
 
+        // Optional: journal path for deep-linking to specific journal submission
+        const journalPath = c.req.query("journalPath") || ""
+
         // 1. Verify Next.js authenticated session
         const session = await getSession()
         if (!session) {
             // Unauthenticated? Boot them to Next.js login with a returnUrl to come back here.
             const loginUrl = new URL(c.req.url)
             loginUrl.pathname = "/login"
-            loginUrl.searchParams.set("returnUrl", "/api/ojs/sso/redirect")
+            const returnPath = journalPath
+                ? `/api/ojs/sso/redirect?journalPath=${encodeURIComponent(journalPath)}`
+                : "/api/ojs/sso/redirect"
+            loginUrl.searchParams.set("returnUrl", returnPath)
             return c.redirect(loginUrl.toString())
         }
 
@@ -72,7 +78,9 @@ ssoRouter.get("/redirect", async (c) => {
         // 4. Issue Redirect Pivot
         // SiteGround must host this small PHP script at the root.
         const ssoReturnDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
-        const redirectUrl = `${ssoReturnDomain}/sso_login.php?token=${token}`
+        // Build redirect URL with journal-specific submission path if provided
+        const afterLoginPath = journalPath ? `/${journalPath}/submission` : ""
+        const redirectUrl = `${ssoReturnDomain}/sso_login.php?token=${token}${afterLoginPath ? `&redirect=${encodeURIComponent(afterLoginPath)}` : ""}`
 
         return c.redirect(redirectUrl)
 
