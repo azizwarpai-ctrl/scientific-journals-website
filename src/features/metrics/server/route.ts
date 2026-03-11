@@ -40,6 +40,14 @@ export const metricsRouter = new Hono()
                              INNER JOIN user_user_groups uug ON uug.user_id = u.user_id
                              INNER JOIN user_groups ug ON ug.user_group_id = uug.user_group_id AND ug.role_id = ${AUTHOR_ROLE_ID}
                              WHERE u.country IS NOT NULL AND u.country != '' AND u.disabled = 0`
+                        ),
+                        // Fallback: count distinct countries from journal settings
+                        ojsQuery<{ count: number }>(
+                            `SELECT COUNT(DISTINCT js.setting_value) as count
+                             FROM journal_settings js
+                             INNER JOIN journals j ON j.journal_id = js.journal_id AND j.enabled = 1
+                             WHERE js.setting_name = 'country'
+                             AND js.setting_value IS NOT NULL AND js.setting_value != ''`
                         )
                     ])
 
@@ -56,16 +64,23 @@ export const metricsRouter = new Hono()
                     const researchersCount = getCount(results[2])
                     const geoCountriesCount = getCount(results[3])
                     const userCountriesCount = getCount(results[4])
+                    const journalCountriesCount = getCount(results[5])
 
                     const queryErrors = results
                         .filter((r) => r.status === "rejected")
                         .map((r) => (r as PromiseRejectedResult).reason?.message || String((r as PromiseRejectedResult).reason))
 
+                    // Cascading fallback: geo metrics → user countries → journal settings → active journals
                     let countriesCount = 0
                     if (geoCountriesCount > 0) {
                         countriesCount = geoCountriesCount
-                    } else {
+                    } else if (userCountriesCount > 0) {
                         countriesCount = userCountriesCount
+                    } else if (journalCountriesCount > 0) {
+                        countriesCount = journalCountriesCount
+                    } else {
+                        // Minimum floor: assume at least 1 country per active journal
+                        countriesCount = journalsCount
                     }
 
                     return c.json({

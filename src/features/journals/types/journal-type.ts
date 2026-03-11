@@ -18,6 +18,7 @@ export interface Journal {
   updated_at: string
   created_by: string | null
   ojs_id: string | null
+  ojs_path: string | null
 }
 
 export interface JournalResponse {

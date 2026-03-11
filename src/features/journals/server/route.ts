@@ -28,6 +28,7 @@ const JOURNAL_SELECT = {
   updated_at: true,
   created_by: true,
   ojs_id: true,
+  ojs_path: true,
 } as const
 
 // ─── GET /journals — Public listing (Prisma only) ───────────────────
