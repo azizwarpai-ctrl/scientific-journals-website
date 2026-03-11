@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -76,6 +77,8 @@ export default function JournalDetailPage() {
   }
 
   // Build the submission URL with the journal path for deep-linking
+  const [activeTab, setActiveTab] = useState("about")
+
   const submitUrl = journal.ojs_path
     ? `/api/ojs/sso/redirect?journalPath=${encodeURIComponent(journal.ojs_path)}`
     : `/api/ojs/sso/redirect`
@@ -160,7 +163,7 @@ export default function JournalDetailPage() {
                       className="rounded-full border-white/20 px-8 text-white hover:bg-white/10"
                       asChild
                     >
-                      <Link href={journal.website_url} target="_blank">
+                      <Link href={journal.website_url} target="_blank" rel="noopener noreferrer">
                         Official Website <ExternalLink className="ml-2 h-4 w-4" />
                       </Link>
                     </Button>
@@ -176,7 +179,7 @@ export default function JournalDetailPage() {
           <div className="container mx-auto px-4 md:px-6">
             <div className="grid gap-12 lg:grid-cols-3">
               <div className="lg:col-span-2">
-                <Tabs defaultValue="about" className="space-y-8">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
                   <TabsList className="inline-flex h-auto w-full justify-start gap-4 bg-transparent p-0 border-b">
                     <TabsTrigger
                       value="about"
@@ -303,14 +306,16 @@ export default function JournalDetailPage() {
                         Submit Now <ChevronRight className="h-4 w-4" />
                       </Link>
                     </Button>
-                    <Button variant="outline" className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white" asChild>
-                      <Link href="#author">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white"
+                      onClick={() => setActiveTab("author")}
+                    >
                         Guidelines <ChevronRight className="h-4 w-4" />
-                      </Link>
                     </Button>
                     {journal.website_url && (
                       <Button variant="outline" className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white" asChild>
-                        <Link href={journal.website_url} target="_blank">
+                        <Link href={journal.website_url} target="_blank" rel="noopener noreferrer">
                           Visit Journal <ExternalLink className="h-4 w-4" />
                         </Link>
                       </Button>
