@@ -86,7 +86,7 @@ ssoRouter.get("/redirect", async (c) => {
 
     } catch (error: any) {
         console.error("[OJS_SSO_REDIRECT_ERROR]", error)
-        return c.json({ error: "Internal SSO provider error", details: error.message }, 500)
+        return c.json({ error: "Internal SSO provider error" }, 500)
     }
 })
 
@@ -97,31 +97,48 @@ ssoRouter.get("/validate", async (c) => {
     if (!token) return c.json({ valid: false, error: "Missing token" }, 400)
 
     try {
-        const ssoToken = await prisma.ojsSsoToken.findUnique({
-            where: { token }
+        // Atomic conditional update: set used=true only when the token exists,
+        // is not yet consumed, and has not expired. This prevents TOCTOU races.
+        const result = await prisma.ojsSsoToken.updateMany({
+            where: {
+                token,
+                used: false,
+                expires_at: { gt: new Date() },
+            },
+            data: { used: true },
         })
 
-        if (!ssoToken) {
-            return c.json({ valid: false, error: "Token not found" })
+        // If no rows were affected, the token is invalid for some reason.
+        // Determine why by looking up the token.
+        if (result.count === 0) {
+            const existingToken = await prisma.ojsSsoToken.findUnique({
+                where: { token },
+                select: { used: true, expires_at: true },
+            })
+
+            if (!existingToken) {
+                return c.json({ valid: false, error: "Token not found" }, 404)
+            }
+            if (existingToken.used) {
+                return c.json({ valid: false, error: "Token already consumed" }, 410)
+            }
+            if (new Date() > existingToken.expires_at) {
+                return c.json({ valid: false, error: "Token expired" }, 410)
+            }
+
+            // Fallback: should not reach here, but be safe
+            return c.json({ valid: false, error: "Token invalid" }, 400)
         }
 
-        if (ssoToken.used) {
-            return c.json({ valid: false, error: "Token already consumed" })
-        }
-
-        if (new Date() > ssoToken.expires_at) {
-            return c.json({ valid: false, error: "Token expired" })
-        }
-
-        // Consume the one-time token
-        await prisma.ojsSsoToken.update({
+        // Token was consumed atomically. Now fetch the email.
+        const consumedToken = await prisma.ojsSsoToken.findUnique({
             where: { token },
-            data: { used: true }
+            select: { email: true },
         })
 
         return c.json({
             valid: true,
-            email: ssoToken.email
+            email: consumedToken!.email,
         })
 
     } catch (error: any) {

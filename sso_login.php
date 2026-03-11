@@ -17,17 +17,24 @@ if (!$token) {
     die("Access Denied: Missing SSO Token");
 }
 
+// Read optional redirect path for journal-specific deep-linking
+$redirect = $_GET['redirect'] ?? null;
+// Validate redirect: must start with '/' and not contain protocol/host (prevents open redirect)
+if ($redirect && (!str_starts_with($redirect, '/') || str_contains($redirect, '//'))) {
+    $redirect = null;
+}
+
 // 1. Verify the token with the Main Next.js API
 // In production, this URL should be https://digitopub.com/api/ojs/sso/validate
 $nextJsApiUrl = "https://digitopub.com"; // Adjust if necessary
 $validationUrl = rtrim($nextJsApiUrl, '/') . "/api/ojs/sso/validate?token=" . urlencode($token);
 
-// We use context options to ignore SSL errors if connecting locally, 
-// though production should have valid SSL.
+// TLS verification enabled for production security.
+// If a custom CA bundle is needed, set the cafile option.
 $context = stream_context_create([
     "ssl" => [
-        "verify_peer" => false,
-        "verify_peer_name" => false
+        "verify_peer" => true,
+        "verify_peer_name" => true
     ]
 ]);
 
@@ -73,8 +80,14 @@ import('lib.pkp.classes.log.SubmissionEventLogEntry');
 // If we had a specific submission, we could log it. For now, a generic user log.
 
 // 4. Redirect to the Submission Wizard
-// We default to the index context, but if a journal path was passed, we could route there.
-$submissionUrl = $request->url('index', 'submission', 'wizard');
+// Use the redirect param for journal-specific deep-linking, or fall back to index submission wizard.
+if ($redirect) {
+    // Build full URL from OJS base + the validated redirect path
+    $baseUrl = $request->getBaseUrl();
+    $submissionUrl = rtrim($baseUrl, '/') . $redirect;
+} else {
+    $submissionUrl = $request->url('index', 'submission', 'wizard');
+}
 
 header("Location: $submissionUrl");
 exit;

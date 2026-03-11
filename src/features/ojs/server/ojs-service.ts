@@ -18,7 +18,12 @@ export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJou
             j.enabled,
             js_name.setting_value AS name,
             js_desc.setting_value AS description,
-            COALESCE(js_cover.setting_value, js_thumb.setting_value) AS thumbnail,
+            COALESCE(
+                js_cover_loc.setting_value,
+                js_cover_def.setting_value,
+                js_thumb_loc.setting_value,
+                js_thumb_def.setting_value
+            ) AS thumbnail,
             js_issn.setting_value AS issn,
             js_eissn.setting_value AS e_issn,
             js_pub.setting_value AS publisher,
@@ -34,14 +39,30 @@ export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJou
             ON js_desc.journal_id = j.journal_id
             AND js_desc.setting_name = 'description'
             AND js_desc.locale = j.primary_locale
-        LEFT JOIN journal_settings js_cover
-            ON js_cover.journal_id = j.journal_id
-            AND js_cover.setting_name = 'homepageImage'
-            AND js_cover.locale = j.primary_locale
-        LEFT JOIN journal_settings js_thumb
-            ON js_thumb.journal_id = j.journal_id
-            AND js_thumb.setting_name = 'journalThumbnail'
-            AND (js_thumb.locale = j.primary_locale OR js_thumb.locale = '')
+        -- Cover image: prefer localized homepageImage, fallback to default homepageImage
+        LEFT JOIN journal_settings js_cover_loc
+            ON js_cover_loc.journal_id = j.journal_id
+            AND js_cover_loc.setting_name = 'homepageImage'
+            AND js_cover_loc.locale = j.primary_locale
+        LEFT JOIN journal_settings js_cover_def
+            ON js_cover_def.journal_id = j.journal_id
+            AND js_cover_def.setting_name = 'homepageImage'
+            AND js_cover_def.locale = ''
+            AND js_cover_loc.setting_value IS NULL
+        -- Thumbnail: prefer localized, fallback to default
+        LEFT JOIN journal_settings js_thumb_loc
+            ON js_thumb_loc.journal_id = j.journal_id
+            AND js_thumb_loc.setting_name = 'journalThumbnail'
+            AND js_thumb_loc.locale = j.primary_locale
+            AND js_cover_loc.setting_value IS NULL
+            AND js_cover_def.setting_value IS NULL
+        LEFT JOIN journal_settings js_thumb_def
+            ON js_thumb_def.journal_id = j.journal_id
+            AND js_thumb_def.setting_name = 'journalThumbnail'
+            AND js_thumb_def.locale = ''
+            AND js_cover_loc.setting_value IS NULL
+            AND js_cover_def.setting_value IS NULL
+            AND js_thumb_loc.setting_value IS NULL
         LEFT JOIN journal_settings js_issn
             ON js_issn.journal_id = j.journal_id
             AND js_issn.setting_name = 'printIssn'
@@ -67,7 +88,6 @@ export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJou
             AND js_country.setting_name = 'country'
             AND js_country.locale = ''
         ${enabledFilter}
-        GROUP BY j.journal_id
         ORDER BY j.seq ASC
     `)
 
