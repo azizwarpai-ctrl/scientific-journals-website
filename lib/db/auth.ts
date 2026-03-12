@@ -7,7 +7,7 @@ export function getJwtSecret() {
   
   const isProduction = process.env.NODE_ENV === "production";
   const isServer = typeof window === "undefined";
-  const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build" || process.env.NEXT_PHASE === "phase-production-server";
+  const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
 
   if (!secret) {
     if (isProduction && isServer && !isBuildPhase) {
