@@ -46,6 +46,7 @@ model Journal {
   updated_at      DateTime @default(now()) @updatedAt
   created_by      BigInt?
   ojs_id          String?  @unique @db.VarChar(50)
+  ojs_path        String?  @db.VarChar(100)
 
   creator            AdminUser?         @relation("CreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
   submissions        Submission[]
@@ -204,4 +205,17 @@ model VerificationCode {
   @@index([email])
   @@index([code])
   @@map("verification_codes")
+}
+
+model OjsSsoToken {
+  id         String   @id @default(uuid())
+  token      String   @unique @db.VarChar(128)
+  email      String   @db.VarChar(255)
+  expires_at DateTime
+  used       Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  @@index([token])
+  @@index([email])
+  @@map("ojs_sso_tokens")
 }

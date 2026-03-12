@@ -1,6 +1,6 @@
 "use client"
 
-import { use } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -14,6 +14,9 @@ import {
   ExternalLink,
   ChevronRight,
   Globe,
+  Send,
+  User,
+  Building,
 } from "lucide-react";
 
 import { useGetJournal, useJournalId } from "@/src/features/journals"
@@ -27,6 +30,7 @@ import { Card, CardContent } from "@/components/ui/card"
 
 export default function JournalDetailPage() {
   const id = useJournalId()
+  const [activeTab, setActiveTab] = useState("about")
 
   const { data: journal, isLoading, error } = useGetJournal(id)
 
@@ -73,37 +77,46 @@ export default function JournalDetailPage() {
     )
   }
 
+  // Build the submission URL with the journal path for deep-linking
+  const submitUrl = journal.ojs_path
+    ? `/api/ojs/sso/redirect?journalPath=${encodeURIComponent(journal.ojs_path)}`
+    : null;
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
 
       <main className="flex-1">
-        {/* Hero Section */}
-        <section className="relative overflow-hidden bg-slate-900 py-16 text-white md:py-24">
+        {/* Hero Section — Compact: Cover + Title + Metadata + Actions */}
+        <section className="relative overflow-hidden bg-slate-900 py-12 text-white md:py-16">
           <div className="absolute inset-0 z-0">
-            <Image
-              src={journal.cover_image_url || "/images/imegjournal.jpg"}
-              alt={journal.title}
-              fill
-              className="object-cover opacity-20 blur-sm"
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-transparent" />
+            {journal.cover_image_url && (
+              <Image
+                src={journal.cover_image_url}
+                alt=""
+                fill
+                className="object-cover opacity-10 blur-md"
+                priority
+              />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/90 to-slate-950/70" />
           </div>
 
           <div className="container relative z-10 mx-auto px-4 md:px-6">
-            <div className="grid gap-8 md:grid-cols-[1fr_2fr] md:items-center">
-              <div className="mx-auto w-full max-w-72 overflow-hidden rounded-lg shadow-2xl md:mx-0">
+            <div className="grid gap-8 md:grid-cols-[auto_1fr] md:items-start">
+              {/* Cover Image — Fixed size, not dominant */}
+              <div className="mx-auto w-48 flex-shrink-0 overflow-hidden rounded-lg shadow-2xl md:mx-0 md:w-56">
                 <Image
                   src={journal.cover_image_url || "/images/logodigitopub.png"}
                   alt={journal.title}
-                  width={400}
-                  height={560}
+                  width={224}
+                  height={312}
                   className="h-auto w-full object-cover"
                 />
               </div>
 
-              <div className="space-y-6">
+              {/* Title + Metadata Badges + Actions */}
+              <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
                   <span className="inline-block rounded-full bg-primary/20 px-3 py-1 text-xs font-semibold text-primary backdrop-blur-sm">
                     {journal.field}
@@ -112,17 +125,38 @@ export default function JournalDetailPage() {
                     {journal.issn || journal.e_issn || "ISSN Currently unavailable"}
                   </span>
                 </div>
-                <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl lg:text-6xl text-balance leading-tight">
+                <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl md:text-4xl text-balance leading-tight">
                   {journal.title}
                 </h1>
-                <p className="max-w-xl text-lg text-slate-300 leading-relaxed text-pretty">
-                  {journal.description || "Currently unavailable"}
-                </p>
 
-                <div className="flex flex-wrap gap-4 pt-4">
-                  <Button size="lg" className="rounded-full px-8 shadow-lg shadow-primary/20" asChild>
-                    <Link href={`#`}>Submit Manuscript</Link>
-                  </Button>
+                {/* Compact metadata row */}
+                <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
+                  {journal.publisher && (
+                    <span className="flex items-center gap-1.5">
+                      <Building className="h-3.5 w-3.5 opacity-70" /> {journal.publisher}
+                    </span>
+                  )}
+                  {journal.editor_in_chief && (
+                    <span className="flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5 opacity-70" /> {journal.editor_in_chief}
+                    </span>
+                  )}
+                  {journal.frequency && (
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5 opacity-70" /> {journal.frequency}
+                    </span>
+                  )}
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex flex-wrap gap-3 pt-2">
+                  {submitUrl && (
+                    <Button size="lg" className="rounded-full px-8 shadow-lg shadow-primary/20" asChild>
+                      <Link href={submitUrl}>
+                        <Send className="mr-2 h-4 w-4" /> Submit Manuscript
+                      </Link>
+                    </Button>
+                  )}
                   {journal.website_url && (
                     <Button
                       size="lg"
@@ -130,7 +164,7 @@ export default function JournalDetailPage() {
                       className="rounded-full border-white/20 px-8 text-white hover:bg-white/10"
                       asChild
                     >
-                      <Link href={journal.website_url} target="_blank">
+                      <Link href={journal.website_url} target="_blank" rel="noopener noreferrer">
                         Official Website <ExternalLink className="ml-2 h-4 w-4" />
                       </Link>
                     </Button>
@@ -139,14 +173,14 @@ export default function JournalDetailPage() {
               </div>
             </div>
           </div>
-        </section >
+        </section>
 
         {/* Content Section */}
-        < section className="py-12 md:py-20 lg:py-24" >
+        <section className="py-12 md:py-20 lg:py-24">
           <div className="container mx-auto px-4 md:px-6">
             <div className="grid gap-12 lg:grid-cols-3">
               <div className="lg:col-span-2">
-                <Tabs defaultValue="about" className="space-y-8">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
                   <TabsList className="inline-flex h-auto w-full justify-start gap-4 bg-transparent p-0 border-b">
                     <TabsTrigger
                       value="about"
@@ -169,6 +203,7 @@ export default function JournalDetailPage() {
                   </TabsList>
 
                   <TabsContent value="about" className="space-y-12">
+                    {/* Full description — Only shown here, not in the hero */}
                     <div className="prose prose-slate max-w-none dark:prose-invert">
                       <div className="flex items-center gap-2 text-primary font-bold mb-4">
                         <Info className="h-5 w-5" />
@@ -206,7 +241,7 @@ export default function JournalDetailPage() {
                           { label: "ISSN (Print)", value: journal.issn || "Currently unavailable" },
                           { label: "ISSN (Online)", value: journal.e_issn || "Currently unavailable" },
                           { label: "Publisher", value: journal.publisher || "Currently unavailable" },
-                          { label: "Language", value: "English" },
+                          { label: "Editor-in-Chief", value: journal.editor_in_chief || "Currently unavailable" },
                           { label: "Open Access", value: "Yes" },
                           { label: "Peer Review", value: "Double-blind" },
                         ].map((item, idx) => (
@@ -267,21 +302,27 @@ export default function JournalDetailPage() {
                 <div className="rounded-2xl border bg-slate-950 p-8 text-white shadow-xl shadow-slate-200 dark:shadow-none">
                   <h3 className="mb-6 text-xl font-bold border-b border-white/10 pb-4">Quick Actions</h3>
                   <div className="space-y-4">
-                    <Button variant="outline" className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white" asChild>
-                      <Link href={`#`}>
-                        Submit Now <ChevronRight className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <Button variant="outline" className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white" asChild>
-                      <Link href="#">
+                    {submitUrl && (
+                      <Button variant="outline" className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white" asChild>
+                        <Link href={submitUrl}>
+                          Submit Now <ChevronRight className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white"
+                      onClick={() => setActiveTab("author")}
+                    >
                         Guidelines <ChevronRight className="h-4 w-4" />
-                      </Link>
                     </Button>
-                    <Button variant="outline" className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white" asChild>
-                      <Link href="#">
-                        Editorial Board <ChevronRight className="h-4 w-4" />
-                      </Link>
-                    </Button>
+                    {journal.website_url && (
+                      <Button variant="outline" className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white" asChild>
+                        <Link href={journal.website_url} target="_blank" rel="noopener noreferrer">
+                          Visit Journal <ExternalLink className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -298,11 +339,11 @@ export default function JournalDetailPage() {
                 </div>
               </div>
             </div>
-          </div >
-        </section >
-      </main >
+          </div>
+        </section>
+      </main>
 
       <Footer />
-    </div >
+    </div>
   )
 }
