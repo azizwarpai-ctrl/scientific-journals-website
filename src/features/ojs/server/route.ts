@@ -5,6 +5,7 @@ import { mapOjsJournalRow } from "./ojs-mappers"
 import { ojsQuery, isOjsConfigured, ojsHealthCheck } from "./ojs-client"
 import { syncOjsJournals } from "./sync-ojs-journals"
 import { fetchFromDatabase } from "./ojs-service"
+import { ssoRouter } from "./sso-route"
 
 const app = new Hono()
 
@@ -105,6 +106,9 @@ app.get("/health", async (c) => {
         diagnostic.ok ? 200 : 503
     )
 })
+
+// Mount SSO router
+app.route("/sso", ssoRouter)
 
 export { app as ojsRouter }
 

@@ -381,10 +381,17 @@ debugRouter.get("/submission-flow", async (c) => {
     }
     
     try {
-        const targetUrl = ojsUrl.endsWith('/') ? `${ojsUrl}index.php/index/login` : `${ojsUrl}/index.php/index/login`
+        const origin = new URL(c.req.url).origin
+        const sampleJournalPath = "sample"
+        const targetUrl = `${origin}/api/ojs/sso/redirect?journalPath=${sampleJournalPath}`
         
         const start = Date.now()
-        const res = await fetch(targetUrl, { redirect: "manual" })
+        const res = await fetch(targetUrl, { 
+            redirect: "manual",
+            headers: {
+                cookie: c.req.header("cookie") || ""
+            }
+        })
         const latencyMs = Date.now() - start
         
         const isRedirect = [301, 302, 303, 307, 308].includes(res.status)
@@ -398,7 +405,9 @@ debugRouter.get("/submission-flow", async (c) => {
                 isRedirect,
                 redirectLocation: location,
                 latencyMs,
-                recommendation: isRedirect && location?.includes("login") ? "Requires authentication to submit." : "Page exists or handles state directly."
+                recommendation: isRedirect && (location?.includes("sso_login.php") || location?.includes("login")) 
+                    ? "Redirect logic verified. Points to: " + (location || "unknown")
+                    : "No redirect detected. Ensure OJS_BASE_URL is correct and app is authenticated."
             }
         })
     } catch (error: any) {

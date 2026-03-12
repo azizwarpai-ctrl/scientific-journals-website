@@ -1,15 +1,10 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { isPublicRoute, isAdminRoute } from "@/config/routes"
+import { getJwtSecret } from "@/lib/db/auth"
 import * as jose from "jose"
 
-function getJwtSecret() {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    return new TextEncoder().encode("default-development-secret-change-me")
-  }
-  return new TextEncoder().encode(secret)
-}
+
 
 const JWT_SECRET = getJwtSecret()
 

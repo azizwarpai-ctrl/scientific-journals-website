@@ -2,17 +2,25 @@ import { cookies } from "next/headers"
 import { prisma } from "./config"
 import * as jose from "jose"
 
-function getJwtSecret() {
+export function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
+  
+  const isProduction = process.env.NODE_ENV === "production";
+  const isServer = typeof window === "undefined";
+  const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build" || process.env.NEXT_PHASE === "phase-production-server";
+
   if (!secret) {
-    // During build or in development, we can use a fallback to prevent crashes.
-    // In production runtime, this will still fail when a session is actually attempted.
-    if (process.env.NODE_ENV === "production" && typeof window === "undefined" && !process.env.NEXT_PHASE) {
-       console.warn("Warning: JWT_SECRET is missing. Session functionality will fail.")
+    if (isProduction && isServer && !isBuildPhase) {
+       throw new Error("JWT_SECRET is required in production");
     }
-    return new TextEncoder().encode("default-development-secret-change-me")
+    
+    if (isProduction) {
+       console.warn("Warning: JWT_SECRET is missing during build or startup. Session functionality will fail.");
+    }
+
+    return new TextEncoder().encode("default-development-secret-change-me");
   }
-  return new TextEncoder().encode(secret)
+  return new TextEncoder().encode(secret);
 }
 
 const JWT_SECRET = getJwtSecret()
