@@ -5,9 +5,6 @@ import { getJwtSecret } from "@/lib/db/auth"
 import * as jose from "jose"
 
 
-
-const JWT_SECRET = getJwtSecret()
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -26,6 +23,7 @@ export async function middleware(request: NextRequest) {
   // Special case: Login page with valid token -> redirect to dashboard
   if (pathname === "/admin/login" && token) {
     try {
+      const JWT_SECRET = getJwtSecret()
       await jose.jwtVerify(token, JWT_SECRET)
       return NextResponse.redirect(new URL("/admin/dashboard", request.url))
     } catch {
@@ -48,6 +46,7 @@ export async function middleware(request: NextRequest) {
     }
 
     try {
+      const JWT_SECRET = getJwtSecret()
       await jose.jwtVerify(token, JWT_SECRET)
       return NextResponse.next()
     } catch (error) {
