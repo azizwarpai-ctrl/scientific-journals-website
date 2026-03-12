@@ -2,10 +2,28 @@ import { cookies } from "next/headers"
 import { prisma } from "./config"
 import * as jose from "jose"
 
-if (!process.env.JWT_SECRET) {
-  throw new Error("JWT_SECRET environment variable is required")
+export function getJwtSecret() {
+  const secret = process.env.JWT_SECRET;
+  
+  const isProduction = process.env.NODE_ENV === "production";
+  const isServer = typeof window === "undefined";
+  const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+
+  if (!secret) {
+    if (isProduction && isServer && !isBuildPhase) {
+       throw new Error("JWT_SECRET is required in production");
+    }
+    
+    if (isProduction) {
+       console.warn("Warning: JWT_SECRET is missing during build or startup. Session functionality will fail.");
+    }
+
+    return new TextEncoder().encode("default-development-secret-change-me");
+  }
+  return new TextEncoder().encode(secret);
 }
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
+
+const JWT_SECRET = getJwtSecret()
 
 export interface User {
   id: string
