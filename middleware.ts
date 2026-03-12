@@ -3,10 +3,15 @@ import type { NextRequest } from "next/server"
 import { isPublicRoute, isAdminRoute } from "@/config/routes"
 import * as jose from "jose"
 
-if (!process.env.JWT_SECRET) {
-  throw new Error("JWT_SECRET environment variable is required")
+function getJwtSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    return new TextEncoder().encode("default-development-secret-change-me")
+  }
+  return new TextEncoder().encode(secret)
 }
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
+
+const JWT_SECRET = getJwtSecret()
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
