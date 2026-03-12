@@ -27,10 +27,6 @@ export const ADMIN_ROUTES = [
   "/admin/messages",
   "/admin/faq",
   "/admin/settings",
-  "/debug",
-  "/debug/auth",
-  "/debug/ojs",
-  "/debug/submission-flow",
 ]
 
 export const API_ROUTES = ["/api"]
