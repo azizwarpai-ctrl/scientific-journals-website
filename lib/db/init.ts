@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client'
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
 import bcrypt from 'bcryptjs'
 import { spawn } from 'child_process'
+import path from 'path'
 
 // Keep track of initialization to ensure it only runs once per Node process
 let isInitialized = false
@@ -28,10 +29,11 @@ export async function initializeDatabase() {
     console.log('[DB Init] Starting secure runtime database initialization...')
 
     try {
-      // 3. Migrate database using npx prisma migrate deploy (non-blocking)
+      // 3. Migrate database using direct prisma binary (non-blocking, avoids npx path issues)
       console.log('[DB Init] Executing Prisma migrations...')
       await new Promise<void>((resolve, reject) => {
-        const proc = spawn('npx', ['--no-install', 'prisma', 'migrate', 'deploy'], {
+        const prismaPath = path.join(process.cwd(), 'node_modules', '.bin', 'prisma')
+        const proc = spawn(prismaPath, ['migrate', 'deploy'], {
           env: { ...process.env },
           shell: true,
           stdio: 'pipe'
