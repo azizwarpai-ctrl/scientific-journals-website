@@ -1,8 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
 import bcrypt from 'bcryptjs'
-import { spawn } from 'child_process'
-import path from 'path'
 
 // Keep track of initialization to ensure it only runs once per Node process
 let isInitialized = false
@@ -26,46 +24,12 @@ export async function initializeDatabase() {
   }
 
   initializationPromise = (async () => {
-    console.log('[DB Init] Starting secure runtime database initialization...')
+    // NOTE: Database migrations are handled at build time via `prisma migrate deploy`
+    // in the build script. This runtime init only handles seeding with Prisma Client.
+    console.log('[DB Init] Starting runtime database seeding...')
 
     try {
-      // 3. Migrate database using direct node invocation (non-blocking, avoids npx and symlink issues)
-      console.log('[DB Init] Executing Prisma migrations...')
-      await new Promise<void>((resolve, reject) => {
-        const prismaPath = path.join(process.cwd(), 'node_modules', 'prisma', 'build', 'index.js')
-        const proc = spawn(process.execPath, [prismaPath, 'migrate', 'deploy'], {
-          env: { ...process.env },
-          shell: true,
-          stdio: 'pipe'
-        })
-
-        proc.stdout?.on('data', (data) => {
-          const chunk = data.toString().trim()
-          if (chunk) console.log(`[DB Init] Migration: ${chunk}`)
-        })
-        proc.stderr?.on('data', (data) => {
-          const chunk = data.toString().trim()
-          if (chunk) console.error(`[DB Init] Migration Error: ${chunk}`)
-        })
-
-        const timeout = setTimeout(() => {
-          proc.kill()
-          reject(new Error('Database migration timed out after 10 minutes.'))
-        }, 600000)
-
-        proc.on('close', (code) => {
-          clearTimeout(timeout)
-          if (code === 0) {
-            console.log('[DB Init] Migration completed successfully.')
-            resolve()
-          } else {
-            console.error('[DB Init] Migration failed.')
-            reject(new Error(`Prisma migrate exited with code ${code}`))
-          }
-        })
-      })
-
-      // 4. Seed database programmatically using Prisma Client directly
+      // Seed database programmatically using Prisma Client directly
       console.log('[DB Init] Initializing Seed Client...')
       const dbUrl = process.env.DATABASE_URL
       let config: any = {
