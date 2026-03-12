@@ -30,6 +30,7 @@ import { Card, CardContent } from "@/components/ui/card"
 
 export default function JournalDetailPage() {
   const id = useJournalId()
+  const [activeTab, setActiveTab] = useState("about")
 
   const { data: journal, isLoading, error } = useGetJournal(id)
 
@@ -77,8 +78,6 @@ export default function JournalDetailPage() {
   }
 
   // Build the submission URL with the journal path for deep-linking
-  const [activeTab, setActiveTab] = useState("about")
-
   const submitUrl = journal.ojs_path
     ? `/api/ojs/sso/redirect?journalPath=${encodeURIComponent(journal.ojs_path)}`
     : `/api/ojs/sso/redirect`

@@ -201,7 +201,11 @@ debugRouter.get("/full-database-diagnostic", async (c) => {
     
     const fetchProbe = async (path: string) => {
         try {
-            const res = await fetch(`${origin}/api/debug/${path}`)
+            const res = await fetch(`${origin}/api/debug/${path}`, {
+                headers: {
+                    cookie: c.req.header("cookie") || ""
+                }
+            })
             return await res.json()
         } catch (e: any) {
             return { error: `Fetch to ${path} failed: ${e.message}` }
@@ -330,7 +334,7 @@ debugRouter.get("/auth-session", async (c) => {
                 session,
                 cookiesDetected: {
                     auth_token: hasAuthToken,
-                    raw: process.env.NODE_ENV === "development" ? cookieHeader : "hidden"
+                    raw: "redacted"
                 }
             }
         })
