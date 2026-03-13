@@ -25,151 +25,156 @@ export async function initializeDatabase() {
 
   initializationPromise = (async () => {
     // Database schema migrations are executed here synchronously to ensure Hostinger applies them
-    console.log('[DB Init] Starting runtime database schema migrations...')
-    try {
-      // Execute the migration programmatically because Hostinger bypasses package.json scripts
-      const cp = await import('child_process');
-      const util = await import('util');
-      const path = await import('path');
-      const execAsync = util.promisify(cp.exec);
-      
-      // Augment PATH to ensure 'node' and 'npx' are available in the shell
-      const executablePath = process.execPath;
-      const binDir = path.dirname(executablePath);
-      process.env.PATH = process.env.PATH ? `${process.env.PATH}:${binDir}` : binDir;
-      
-      let stdoutStr = '';
-      try {
-        // Strategy 1: Try local node_modules
-        const { stdout, stderr } = await execAsync(`"${executablePath}" ./node_modules/prisma/build/index.js migrate deploy`);
-        stdoutStr = stdout;
-        if (stderr) console.error(`[DB Init] Migration stderr (local): ${stderr}`);
-      } catch (localErr) {
-        console.warn(`[DB Init] Local prisma CLI failed or missing. Falling back to npx... (${(localErr as Error).message})`);
-        // Strategy 2: Fall back to npx (downloads prisma if missing)
-        const { stdout, stderr } = await execAsync(`npx --yes prisma migrate deploy`);
-        stdoutStr = stdout;
-        if (stderr) console.error(`[DB Init] Migration stderr (npx): ${stderr}`);
-      }
-      console.log(`[DB Init] Migration Output:\n${stdoutStr}`);
-    } catch (migrateErr) {
-      console.error('[DB Init] CRITICAL: Schema migration failed:', migrateErr);
+    console.log('[DB Init] Starting runtime database schema migrations (Raw SQL Mode)...')
+
+    // 1. Initialize Prisma Client early so we can run raw SQL migrations
+    console.log('[DB Init] Initializing Prisma Client for migrations...')
+    const dbUrl = process.env.DATABASE_URL
+    let config: any = {
+      host: process.env.DATABASE_HOST || 'localhost',
+      port: parseInt(process.env.DATABASE_PORT || '3306'),
+      user: process.env.DATABASE_USER || 'root',
+      password: process.env.DATABASE_PASSWORD || '',
+      database: process.env.DATABASE_NAME || 'scientific_journals_db',
+      connectionLimit: 5,
     }
-    
-    console.log('[DB Init] Starting runtime database seeding...')
+
+    if (dbUrl) {
+      try {
+        const url = new URL(dbUrl)
+        config = {
+          host: url.hostname,
+          port: parseInt(url.port) || 3306,
+          user: url.username,
+          password: decodeURIComponent(url.password),
+          database: url.pathname.substring(1),
+          connectionLimit: 5,
+        }
+      } catch (e) {
+        console.warn('[DB Init] Failed to parse DATABASE_URL, falling back to individual env vars')
+      }
+    }
+
+    const adapter = new PrismaMariaDb(config)
+    const prisma = new PrismaClient({ adapter })
 
     try {
-      // Seed database programmatically using Prisma Client directly
-      console.log('[DB Init] Initializing Seed Client...')
-      const dbUrl = process.env.DATABASE_URL
-      let config: any = {
-        host: process.env.DATABASE_HOST || 'localhost',
-        port: parseInt(process.env.DATABASE_PORT || '3306'),
-        user: process.env.DATABASE_USER || 'root',
-        password: process.env.DATABASE_PASSWORD || '',
-        database: process.env.DATABASE_NAME || 'scientific_journals_db',
-        connectionLimit: 5,
-      }
-
-      if (dbUrl) {
-        try {
-          const url = new URL(dbUrl)
-          config = {
-            host: url.hostname,
-            port: parseInt(url.port) || 3306,
-            user: url.username,
-            password: decodeURIComponent(url.password),
-            database: url.pathname.substring(1),
-            connectionLimit: 5,
-          }
-        } catch (e) {
-          console.warn('[DB Init] Failed to parse DATABASE_URL, falling back to individual env vars')
-        }
-      }
-
-      const adapter = new PrismaMariaDb(config)
-      const prisma = new PrismaClient({ adapter })
+      // --- RAW SQL SCHEMA MIGRATIONS ---
+      // Because `prisma migrate deploy` requires `prisma/migrations` files which are not checked into Git,
+      // and `prisma db push` cannot be reliably run via PM2/node_modules in a production shell,
+      // we execute the missing schema structure explicitly via native Prisma SQL.
 
       try {
-        const maskEmail = (email: string) => {
-          const [name, domain] = email.split('@')
-          if (!domain) return email
-          return `${name.charAt(0)}${'*'.repeat(5)}@${domain}`
+        await prisma.$executeRawUnsafe('ALTER TABLE `journals` ADD COLUMN `ojs_path` VARCHAR(100) NULL;')
+        console.log('[DB Init] Applied schema patch: Added ojs_path to journals')
+      } catch (e: any) {
+        if (!e.message.includes('Duplicate column name')) {
+          console.error('[DB Init] Failed to add ojs_path column:', e.message)
         }
-
-        const adminEmail = process.env.ADMIN_EMAIL
-        const adminPasswordRaw = process.env.ADMIN_PASSWORD
-        const supportEmail = process.env.SUPPORT_EMAIL
-        const supportPasswordRaw = process.env.SUPPORT_PASSWORD
-
-        if (!adminEmail || !adminPasswordRaw || !supportEmail || !supportPasswordRaw) {
-          throw new Error('[DB Init] CRITICAL: Missing required seed credentials.')
-        }
-
-        console.log(`[DB Init] Atomic seeding of privileged accounts...`)
-
-        // Atomic Upsert for Super Admin
-        const adminHash = await bcrypt.hash(adminPasswordRaw, 10)
-        await prisma.adminUser.upsert({
-          where: { email: adminEmail },
-          update: {
-            password_hash: adminHash,
-            role: 'superadmin' // Ensure role is correct if email matches
-          },
-          create: {
-            email: adminEmail,
-            password_hash: adminHash,
-            full_name: 'Super Administrator',
-            role: 'superadmin',
-          }
-        })
-        console.log(`[DB Init] Super Admin (${maskEmail(adminEmail)}) synchronized.`)
-
-        // Atomic Upsert for Support User
-        const supportHash = await bcrypt.hash(supportPasswordRaw, 10)
-        await prisma.adminUser.upsert({
-          where: { email: supportEmail },
-          update: {
-            password_hash: supportHash,
-            role: 'support'
-          },
-          create: {
-            email: supportEmail,
-            password_hash: supportHash,
-            full_name: 'Technical Support',
-            role: 'support',
-          }
-        })
-        console.log(`[DB Init] Support User (${maskEmail(supportEmail)}) synchronized.`)
-
-        // Idempotent per-key settings seeding
-        const defaultSettings = [
-          { key: 'site_name', value: 'DigitoPub Scientific Journals', desc: 'The name of the platform' },
-          { key: 'contact_email', value: 'support@digstobob.com', desc: 'Primary contact email' }
-        ]
-
-        console.log('[DB Init] ⚙️ Synchronizing system settings...')
-        for (const setting of defaultSettings) {
-          await prisma.systemSetting.upsert({
-            where: { setting_key: setting.key },
-            update: {}, // Don't overwrite existing values if key exists
-            create: {
-              setting_key: setting.key,
-              setting_value: JSON.stringify(setting.value),
-              description: setting.desc
-            }
-          })
-        }
-
-        console.log('[DB Init] ✅ Database initialization completed successfully.')
-        isInitialized = true
-      } finally {
-        await prisma.$disconnect()
       }
+
+      try {
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS \`ojs_sso_tokens\` (
+            \`id\` VARCHAR(191) NOT NULL,
+            \`token\` VARCHAR(128) NOT NULL,
+            \`email\` VARCHAR(255) NOT NULL,
+            \`expires_at\` DATETIME(3) NOT NULL,
+            \`used\` BOOLEAN NOT NULL DEFAULT false,
+            \`created_at\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+            UNIQUE INDEX \`ojs_sso_tokens_token_key\`(\`token\`),
+            INDEX \`ojs_sso_tokens_token_idx\`(\`token\`),
+            INDEX \`ojs_sso_tokens_email_idx\`(\`email\`),
+            PRIMARY KEY (\`id\`)
+          ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        `)
+        console.log('[DB Init] Applied schema patch: Synchronized ojs_sso_tokens table')
+      } catch (e: any) {
+        console.error('[DB Init] Failed to create ojs_sso_tokens table:', e.message)
+      }
+
+      // --- END MIGRATIONS ---
+
+      console.log('[DB Init] Starting runtime database seeding...')
+
+      const maskEmail = (email: string) => {
+        const [name, domain] = email.split('@')
+        if (!domain) return email
+        return `${name.charAt(0)}${'*'.repeat(5)}@${domain}`
+      }
+
+      const adminEmail = process.env.ADMIN_EMAIL
+      const adminPasswordRaw = process.env.ADMIN_PASSWORD
+      const supportEmail = process.env.SUPPORT_EMAIL
+      const supportPasswordRaw = process.env.SUPPORT_PASSWORD
+
+      if (!adminEmail || !adminPasswordRaw || !supportEmail || !supportPasswordRaw) {
+        throw new Error('[DB Init] CRITICAL: Missing required seed credentials.')
+      }
+
+      console.log(`[DB Init] Atomic seeding of privileged accounts...`)
+
+      // Atomic Upsert for Super Admin
+      const adminHash = await bcrypt.hash(adminPasswordRaw, 10)
+      await prisma.adminUser.upsert({
+        where: { email: adminEmail },
+        update: {
+          password_hash: adminHash,
+          role: 'superadmin' // Ensure role is correct if email matches
+        },
+        create: {
+          email: adminEmail,
+          password_hash: adminHash,
+          full_name: 'Super Administrator',
+          role: 'superadmin',
+        }
+      })
+      console.log(`[DB Init] Super Admin (${maskEmail(adminEmail)}) synchronized.`)
+
+      // Atomic Upsert for Support User
+      const supportHash = await bcrypt.hash(supportPasswordRaw, 10)
+      await prisma.adminUser.upsert({
+        where: { email: supportEmail },
+        update: {
+          password_hash: supportHash,
+          role: 'support'
+        },
+        create: {
+          email: supportEmail,
+          password_hash: supportHash,
+          full_name: 'Technical Support',
+          role: 'support',
+        }
+      })
+      console.log(`[DB Init] Support User (${maskEmail(supportEmail)}) synchronized.`)
+
+      // Idempotent per-key settings seeding
+      const defaultSettings = [
+        { key: 'site_name', value: 'DigitoPub Scientific Journals', desc: 'The name of the platform' },
+        { key: 'contact_email', value: 'support@digstobob.com', desc: 'Primary contact email' }
+      ]
+
+      console.log('[DB Init] ⚙️ Synchronizing system settings...')
+      for (const setting of defaultSettings) {
+        await prisma.systemSetting.upsert({
+          where: { setting_key: setting.key },
+          update: {}, // Don't overwrite existing values if key exists
+          create: {
+            setting_key: setting.key,
+            setting_value: JSON.stringify(setting.value),
+            description: setting.desc
+          }
+        })
+      }
+
+      console.log('[DB Init] ✅ Database initialization completed successfully.')
+      isInitialized = true
     } catch (error) {
       console.error('[DB Init] ❌ Initialization process failed:', error)
       initializationPromise = null // Allow retry if it failed
       throw error
+    } finally {
+      await prisma.$disconnect()
     }
   })()
 
