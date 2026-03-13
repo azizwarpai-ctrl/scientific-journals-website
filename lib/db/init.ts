@@ -32,8 +32,10 @@ export async function initializeDatabase() {
       const util = await import('util');
       const execAsync = util.promisify(cp.exec);
       
-      // Use explicit binary path instead of npx to avoid "command not found" errors in PM2/Hostinger
-      const { stdout, stderr } = await execAsync('node ./node_modules/prisma/build/index.js migrate deploy');
+      // Use process.execPath instead of 'node' to guarantee we use the current running Node binary, 
+      // preventing "command not found" errors when PATH is restricted on shared hosting.
+      const executablePath = process.execPath;
+      const { stdout, stderr } = await execAsync(`"${executablePath}" ./node_modules/prisma/build/index.js migrate deploy`);
       console.log(`[DB Init] Migration Output:\n${stdout}`);
       if (stderr) console.error(`[DB Init] Migration stderr: ${stderr}`);
     } catch (migrateErr) {
