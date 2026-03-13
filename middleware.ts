@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { isPublicRoute, isAdminRoute } from "@/config/routes"
-import { getJwtSecret } from "@/lib/db/auth"
+import { getJwtSecret } from "@/lib/db/auth-edge"
 import * as jose from "jose"
 
 
