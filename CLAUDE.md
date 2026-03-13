@@ -19,6 +19,7 @@ bun run test:coverage # Run tests with coverage
 bunx prisma generate # Generate Prisma client
 bunx prisma studio   # Open Prisma Studio GUI
 bun run ojs:sync     # Sync data from OJS database
+bun run test path/to/test.test.ts  # Run a single test file
 ```
 
 ## Architecture
@@ -45,17 +46,28 @@ src/features/{feature}/
 └── components/        # Feature-specific React components
 ```
 
+### App Router (Pages)
+
+Pages use Next.js App Router in `app/` directory:
+- `app/admin/` - Admin dashboard pages (protected by middleware)
+- `app/api/` - API route handlers that mount the Hono app
+- Root layout: `app/layout.tsx` with ThemeProvider
+
 ### Database (Prisma + MySQL)
 
 - Schema: `prisma/schema.prisma` - MySQL with BigInt auto-increment IDs
 - Client: `lib/db/config.ts` - Uses PrismaMariaDb adapter
+- Auth: `lib/db/auth.ts` - JWT session management
 - **Important**: All BigInt fields must be serialized using `serializeRecord()` or `serializeMany()` from `src/lib/serialize.ts` before returning JSON responses
 
 ### Authentication
 
 - JWT-based auth using `jose` library
+- Session management in `lib/db/auth.ts`
+- Route configuration in `config/routes.ts`:
+  - `PUBLIC_ROUTES` - Routes accessible without authentication
+  - `ADMIN_ROUTES` - Routes requiring admin/superadmin role
 - Middleware in `middleware.ts` protects admin routes
-- Route definitions in `config/routes.ts` (PUBLIC_ROUTES, ADMIN_ROUTES)
 - Auth middleware helpers in `src/lib/auth-middleware.ts`:
   - `requireAuth` - Requires valid session
   - `requireAdmin` - Requires admin or superadmin role
