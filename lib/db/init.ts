@@ -24,8 +24,22 @@ export async function initializeDatabase() {
   }
 
   initializationPromise = (async () => {
-    // NOTE: Database migrations are handled at build time via `prisma migrate deploy`
-    // in the build script. This runtime init only handles seeding with Prisma Client.
+    // Database schema migrations are executed here synchronously to ensure Hostinger applies them
+    console.log('[DB Init] Starting runtime database schema migrations...')
+    try {
+      // Execute the migration programmatically because Hostinger bypasses package.json scripts
+      const cp = await import('child_process');
+      const util = await import('util');
+      const execAsync = util.promisify(cp.exec);
+      
+      // Use explicit binary path instead of npx to avoid "command not found" errors in PM2/Hostinger
+      const { stdout, stderr } = await execAsync('node ./node_modules/prisma/build/index.js migrate deploy');
+      console.log(`[DB Init] Migration Output:\n${stdout}`);
+      if (stderr) console.error(`[DB Init] Migration stderr: ${stderr}`);
+    } catch (migrateErr) {
+      console.error('[DB Init] CRITICAL: Schema migration failed:', migrateErr);
+    }
+    
     console.log('[DB Init] Starting runtime database seeding...')
 
     try {
