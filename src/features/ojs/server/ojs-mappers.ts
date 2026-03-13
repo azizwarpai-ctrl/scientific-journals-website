@@ -68,7 +68,8 @@ export function mapOjsJournalRow(row: OjsJournalRow, baseUrl: string): OjsJourna
         enabled: row.enabled === 1,   // int → boolean
         name: row.name,
         description: cleanDescription || null,
-        thumbnail_url: imageFile ? `${baseUrl}/public/journals/${row.journal_id}/${imageFile}` : null,
+        // Hostinger specifies OJS is stored in the /ojs/ subdirectory, not the web root.
+        thumbnail_url: imageFile ? `${baseUrl}/ojs/public/journals/${row.journal_id}/${imageFile}` : null,
         issn: row.issn || null,
         e_issn: row.e_issn || null,
         publisher: row.publisher || null,
