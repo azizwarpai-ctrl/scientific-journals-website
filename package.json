@@ -9,7 +9,7 @@
   "scripts": {
     "build": "prisma generate && node -e \"if(process.env.DATABASE_URL){const{execSync}=require('child_process');console.log('Running migrations...');execSync('prisma migrate deploy',{stdio:'inherit'})}else{console.log('Skipping migrations (no DATABASE_URL)')}\" && next build",
     "dev": "next dev",
-    "start": "next start",
+    "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "postinstall": "prisma generate",
     "lint": "eslint .",
     "test": "vitest run",
