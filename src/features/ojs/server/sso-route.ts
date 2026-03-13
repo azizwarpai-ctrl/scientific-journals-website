@@ -27,13 +27,11 @@ ssoRouter.get("/redirect", async (c) => {
         const session = await getSession()
         if (!session) {
             // Unauthenticated? Boot them to Next.js login with a returnUrl to come back here.
-            const loginUrl = new URL(c.req.url)
-            loginUrl.pathname = "/login"
+            // We use a relative path instead of parsing c.req.url to prevent leaking the internal 0.0.0.0 proxy address
             const returnPath = journalPath
                 ? `/api/ojs/sso/redirect?journalPath=${encodeURIComponent(journalPath)}`
                 : "/api/ojs/sso/redirect"
-            loginUrl.searchParams.set("returnUrl", returnPath)
-            return c.redirect(loginUrl.toString())
+            return c.redirect(`/login?returnUrl=${encodeURIComponent(returnPath)}`)
         }
 
         const email = session.email
