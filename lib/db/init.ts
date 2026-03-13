@@ -30,14 +30,28 @@ export async function initializeDatabase() {
       // Execute the migration programmatically because Hostinger bypasses package.json scripts
       const cp = await import('child_process');
       const util = await import('util');
+      const path = await import('path');
       const execAsync = util.promisify(cp.exec);
       
-      // Use process.execPath instead of 'node' to guarantee we use the current running Node binary, 
-      // preventing "command not found" errors when PATH is restricted on shared hosting.
+      // Augment PATH to ensure 'node' and 'npx' are available in the shell
       const executablePath = process.execPath;
-      const { stdout, stderr } = await execAsync(`"${executablePath}" ./node_modules/prisma/build/index.js migrate deploy`);
-      console.log(`[DB Init] Migration Output:\n${stdout}`);
-      if (stderr) console.error(`[DB Init] Migration stderr: ${stderr}`);
+      const binDir = path.dirname(executablePath);
+      process.env.PATH = process.env.PATH ? `${process.env.PATH}:${binDir}` : binDir;
+      
+      let stdoutStr = '';
+      try {
+        // Strategy 1: Try local node_modules
+        const { stdout, stderr } = await execAsync(`"${executablePath}" ./node_modules/prisma/build/index.js migrate deploy`);
+        stdoutStr = stdout;
+        if (stderr) console.error(`[DB Init] Migration stderr (local): ${stderr}`);
+      } catch (localErr) {
+        console.warn(`[DB Init] Local prisma CLI failed or missing. Falling back to npx... (${(localErr as Error).message})`);
+        // Strategy 2: Fall back to npx (downloads prisma if missing)
+        const { stdout, stderr } = await execAsync(`npx --yes prisma migrate deploy`);
+        stdoutStr = stdout;
+        if (stderr) console.error(`[DB Init] Migration stderr (npx): ${stderr}`);
+      }
+      console.log(`[DB Init] Migration Output:\n${stdoutStr}`);
     } catch (migrateErr) {
       console.error('[DB Init] CRITICAL: Schema migration failed:', migrateErr);
     }
