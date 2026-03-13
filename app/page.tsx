@@ -1,5 +1,6 @@
 "use client"
 
+import Spline from '@splinetool/react-spline/next'
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -37,23 +38,36 @@ export default function HomePage() {
       <main className="flex-1">
         {/* Hero Section */}
         <GSAPWrapper animation="fadeIn">
-          <section className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-20 md:py-32">
-            <div className="container mx-auto px-4 md:px-6">
+          <section className="relative flex min-h-[90vh] items-center overflow-hidden bg-slate-950 py-20 md:py-32">
+            {/* 3D Universe Spline Background */}
+            <div className="absolute inset-0 z-0">
+              <Spline scene="https://prod.spline.design/UEU7hUtqsbqKkshk/scene.splinecode" />
+              {/* Gradient overlays to ensure text readability */}
+              <div className="absolute inset-0 bg-gradient-to-b from-slate-950/40 via-transparent to-slate-950" />
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/20 to-slate-950/80" />
+            </div>
+
+            <div className="container relative z-10 mx-auto px-4 md:px-6">
               <div className="mx-auto max-w-3xl text-center">
-                <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
-                  <Zap className="h-4 w-4" />
+                <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-sky-300 backdrop-blur-md">
+                  <Zap className="h-4 w-4 text-sky-400" />
                   Scientific Excellence
                 </div>
-                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl text-foreground">Modern Platform for Scientific Publishing</h1>
-                <p className="mb-8 text-lg text-muted-foreground leading-relaxed text-pretty">Comprehensive solutions for digital journals, submission management, and scientific publishing.</p>
+                <h1 className="mb-6 text-5xl font-extrabold tracking-tight text-white md:text-7xl drop-shadow-2xl">
+                  Modern Platform for <br className="hidden md:block" />
+                  <span className="bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent">Scientific Publishing</span>
+                </h1>
+                <p className="mb-8 text-xl leading-relaxed text-slate-300 text-pretty drop-shadow-md">
+                  Comprehensive solutions for digital journals, submission management, and global scientific distribution.
+                </p>
                 <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
-                  <Button size="lg" asChild>
+                  <Button size="lg" className="rounded-full px-8 shadow-lg shadow-sky-500/20" asChild>
                     <Link href="/journals">
                       <BookOpen className="mr-2 h-5 w-5" />
                       Explore Journals
                     </Link>
                   </Button>
-                  <Button size="lg" variant="outline" asChild>
+                  <Button size="lg" variant="outline" className="rounded-full border-white/20 bg-white/5 px-8 text-white backdrop-blur-md hover:bg-white/10 hover:text-white" asChild>
                     <Link href="/about">Learn More</Link>
                   </Button>
                 </div>
