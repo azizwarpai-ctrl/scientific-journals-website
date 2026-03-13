@@ -3,7 +3,7 @@ const { parse } = require('url')
 const next = require('next')
 
 const dev = process.env.NODE_ENV !== 'production'
-const hostname = 'localhost'
+const hostname = '0.0.0.0'
 const port = process.env.PORT || 3000
 
 // NOTE: Database migrations are now handled at build time via `prisma migrate deploy`
