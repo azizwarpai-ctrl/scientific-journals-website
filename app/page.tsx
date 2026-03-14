@@ -1,7 +1,6 @@
 "use client"
 
-import { Suspense, lazy } from 'react'
-const Spline = lazy(() => import('@splinetool/react-spline'))
+import { SplineScene } from "@/components/spline-scene"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -21,7 +20,6 @@ export default function HomePage() {
   const { data: journals = [], isLoading: isLoadingOjs, isError: isErrorOjs } = useGetJournals()
   const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetMetrics()
 
-
   const statConfigs = [
     { label: "Active Journals", value: stats?.activeJournals, color: "text-blue-500 dark:text-blue-400" },
     { label: "Published Articles", value: stats?.publishedArticles, color: "text-sky-500 dark:text-sky-400" },
@@ -37,14 +35,12 @@ export default function HomePage() {
         {/* Hero Section */}
         <GSAPWrapper animation="fadeIn">
           <section className="relative flex min-h-[90vh] items-center overflow-hidden bg-slate-950 py-20 md:py-32">
-            {/* 3D Universe Spline Background */}
-            <div className="absolute inset-0 z-0">
-              <Suspense fallback={<div className="absolute inset-0 bg-slate-950" />}>
-                <Spline scene="https://prod.spline.design/UEU7hUtqsbqKkshk/scene.splinecode" />
-              </Suspense>
-              {/* Gradient overlays to ensure text readability */}
-              <div className="absolute inset-0 bg-gradient-to-b from-slate-950/40 via-transparent to-slate-950" />
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/20 to-slate-950/80" />
+            {/* 3D Scene — anchored to lower-right quadrant as background */}
+            <div className="absolute bottom-0 right-0 z-0 h-[80%] w-[60%] md:h-full md:w-[55%]">
+              <SplineScene />
+              {/* Gradient masks so the 3D fades into the dark hero on left & top edges */}
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/60 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-transparent to-transparent" />
             </div>
 
             <div className="container relative z-10 mx-auto px-4 md:px-6">
