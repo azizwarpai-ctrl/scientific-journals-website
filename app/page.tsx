@@ -36,15 +36,15 @@ export default function HomePage() {
         <GSAPWrapper animation="fadeIn">
           <section className="relative flex min-h-[90vh] items-center overflow-hidden bg-slate-950 py-20 md:py-32">
             {/* 3D Scene — anchored to lower-right quadrant as background */}
-            <div className="absolute bottom-0 right-0 z-0 h-[80%] w-[60%] md:h-full md:w-[55%]">
+            <div className="absolute bottom-0 right-0 z-0 h-[80%] w-[60%] md:h-full md:w-[55%] pointer-events-auto cursor-grab active:cursor-grabbing">
               <SplineScene />
               {/* Gradient masks so the 3D fades into the dark hero on left & top edges */}
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/60 to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/60 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-transparent to-transparent pointer-events-none" />
             </div>
 
-            <div className="container relative z-10 mx-auto px-4 md:px-6">
-              <div className="mx-auto max-w-3xl text-center">
+            <div className="container relative z-10 mx-auto px-4 md:px-6 pointer-events-none">
+              <div className="mx-auto max-w-3xl text-center pointer-events-auto">
                 <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-sky-300 backdrop-blur-md">
                   <Zap className="h-4 w-4 text-sky-400" />
                   Scientific Excellence
