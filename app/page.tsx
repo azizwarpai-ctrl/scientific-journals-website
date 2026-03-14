@@ -23,9 +23,10 @@ export default function HomePage() {
 
   // Scroll animations for the 3D Spline model
   const { scrollY } = useScroll()
-  // Pin the model via parallax (y exactly matches scrollY) so it stays in frame, and scale it up.
-  const splineY = useTransform(scrollY, [0, 1000], [0, 1000])
-  const splineScale = useTransform(scrollY, [0, 1000], [1, 2.5])
+  // Pin the model via parallax (y closely follows scrollY), so it smoothly reaches the Journals section
+  const splineY = useTransform(scrollY, [0, 1000], [0, 700])
+  const splineX = useTransform(scrollY, [0, 1000], [0, 150]) // Scrolls slightly to the right
+  const splineScale = useTransform(scrollY, [0, 1000], [1, 1.3]) // Smoother, lower-angle zoom
 
   const statConfigs = [
     { label: "Active Journals", value: stats?.activeJournals, color: "text-blue-500 dark:text-blue-400" },
@@ -44,8 +45,8 @@ export default function HomePage() {
           <section className="relative flex min-h-[90vh] items-center bg-slate-50 dark:bg-slate-950 py-20 md:py-32 transition-colors duration-500">
             {/* 3D Scene — anchored to lower-right quadrant as background */}
             <motion.div 
-              style={{ y: splineY, scale: splineScale }}
-              className="absolute -bottom-[15%] -right-[10%] z-0 h-[110%] w-[100%] md:h-[130%] md:w-[80%] pointer-events-none origin-bottom-right"
+              style={{ y: splineY, x: splineX, scale: splineScale }}
+              className="absolute -bottom-[5%] -right-[5%] z-0 h-[100%] w-[100%] md:h-[120%] md:w-[70%] pointer-events-none origin-center"
             >
               <SplineScene />
             </motion.div>
