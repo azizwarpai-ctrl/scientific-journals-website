@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import * as THREE from "three"
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import SplineLoader from "@splinetool/loader"
 
 /**
@@ -26,6 +27,9 @@ export function SplineScene() {
     )
     camera.position.set(4.94, 36.42, 2291.96)
     camera.quaternion.setFromEuler(new THREE.Euler(0, 0, 0))
+    // Zoom in to make the figure larger
+    camera.zoom = 2.5
+    camera.updateProjectionMatrix()
 
     // --- Scene ---
     const scene = new THREE.Scene()
@@ -44,8 +48,11 @@ export function SplineScene() {
     renderer.setClearAlpha(1)
     container.appendChild(renderer.domElement)
 
-    // Make the canvas non-interactive (pointer events pass through)
-    renderer.domElement.style.pointerEvents = "none"
+    // --- Orbit Controls ---
+    const controls = new OrbitControls(camera, renderer.domElement)
+    controls.enableDamping = true
+    controls.dampingFactor = 0.125
+    controls.enableZoom = false // Prevent scroll-to-zoom so page scrolling works normally
 
     // --- Load Spline Scene ---
     const loader = new SplineLoader()
@@ -60,6 +67,7 @@ export function SplineScene() {
     let animationId: number
     function animate() {
       animationId = requestAnimationFrame(animate)
+      controls.update() // required for damping
       renderer.render(scene, camera)
     }
     animate()
@@ -84,6 +92,7 @@ export function SplineScene() {
     return () => {
       window.removeEventListener("resize", onResize)
       cancelAnimationFrame(animationId)
+      controls.dispose()
       renderer.dispose()
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement)
@@ -96,7 +105,6 @@ export function SplineScene() {
       ref={containerRef}
       className="absolute inset-0"
       aria-hidden="true"
-      style={{ pointerEvents: "none" }}
     />
   )
 }
