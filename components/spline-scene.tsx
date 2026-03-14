@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 
 // Dynamically import Spline without SSR. This prevents hydration mismatches and uses the 
 // official Spline React component for perfect animations and rendering quality.
-const Spline = dynamic(() => import('@splinetool/react-spline/next'), {
+const Spline = dynamic(() => import('@splinetool/react-spline'), {
   ssr: false,
   loading: () => <div className="absolute inset-0 bg-transparent" />
 })
