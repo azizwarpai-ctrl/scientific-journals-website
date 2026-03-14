@@ -10,8 +10,8 @@ DigitoPub is a scientific journal publishing platform built with Next.js 16, Rea
 
 ```bash
 bun run dev          # Start development server
-bun run build        # Build for production (runs prisma generate first)
-bun run start        # Start production server
+bun run build        # Build for production (runs prisma generate + migrate deploy)
+bun run start        # Start production server (with auto migrations)
 bun run lint         # Run ESLint
 bun run test         # Run Vitest tests
 bun run test:watch   # Run tests in watch mode
@@ -50,8 +50,15 @@ src/features/{feature}/
 
 Pages use Next.js App Router in `app/` directory:
 - `app/admin/` - Admin dashboard pages (protected by middleware)
-- `app/api/` - API route handlers that mount the Hono app
+- `app/api/[[...route]]/route.ts` - Mounts the Hono app at `/api/*`
 - Root layout: `app/layout.tsx` with ThemeProvider
+
+### API Routes (Hono RPC)
+
+The API is built with Hono and mounted via Next.js catch-all route:
+- Main app: `src/server/app.ts` - Composes all feature routers with `/api` base path
+- Mount point: `app/api/[[...route]]/route.ts` - Exports Hono handler for Next.js
+- Client: `src/lib/rpc.ts` - Type-safe `hc` client for frontend consumption
 
 ### Database (Prisma + MySQL)
 
@@ -82,10 +89,12 @@ Read-only integration with Open Journal Systems database:
 
 ### Frontend Patterns
 
-- **State Management**: TanStack Query for server state
+- **State Management**: TanStack Query v5 for server state with 5-minute staleTime default
+- **API Client**: Use `client` from `src/lib/rpc.ts` for type-safe Hono RPC calls. Pattern: `client.feature.method.$get()`
 - **Styling**: Tailwind CSS 4 with Radix UI components in `components/ui/`
 - **Theme**: `next-themes` with ThemeProvider in root layout
 - **Path aliases**: `@/*` maps to project root, `@/src/*` to src directory
+- **Validation**: Zod v4 with `@hono/zod-validator` for API request validation
 
 ## Key Conventions
 
@@ -117,11 +126,14 @@ Read-only integration with Open Journal Systems database:
 ## Environment Variables
 
 Required:
-- `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD`
-- `JWT_SECRET`
+- `DATABASE_URL` or `DATABASE_HOST/PORT/NAME/USER/PASSWORD` - MySQL connection
+- `JWT_SECRET` - Secret for JWT signing
+- `NEXT_PUBLIC_APP_URL` - Public URL for the app
+- `ALLOWED_ORIGINS` - CORS allowed origins (comma-separated)
 
 Optional (OJS integration):
-- `OJS_DATABASE_HOST`, `OJS_DATABASE_NAME`, `OJS_DATABASE_USER`, `OJS_DATABASE_PASSWORD`
+- `OJS_DATABASE_HOST`, `OJS_DATABASE_PORT`, `OJS_DATABASE_NAME`, `OJS_DATABASE_USER`, `OJS_DATABASE_PASSWORD`
+- `OJS_BASE_URL`, `OJS_SYNC_ENABLED`
 
 ## Testing
 
