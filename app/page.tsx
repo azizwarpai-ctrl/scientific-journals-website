@@ -36,11 +36,8 @@ export default function HomePage() {
         <GSAPWrapper animation="fadeIn">
           <section className="relative flex min-h-[90vh] items-center overflow-hidden bg-slate-950 py-20 md:py-32">
             {/* 3D Scene — anchored to lower-right quadrant as background */}
-            <div className="absolute bottom-0 right-0 z-0 h-[80%] w-[60%] md:h-full md:w-[55%] pointer-events-auto cursor-grab active:cursor-grabbing">
+            <div className="absolute -bottom-[15%] -right-[10%] z-0 h-[110%] w-[100%] md:h-[130%] md:w-[80%] pointer-events-auto cursor-grab active:cursor-grabbing">
               <SplineScene />
-              {/* Gradient masks so the 3D fades into the dark hero on left & top edges */}
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/60 to-transparent pointer-events-none" />
-              <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-transparent to-transparent pointer-events-none" />
             </div>
 
             <div className="container relative z-10 mx-auto px-4 md:px-6 pointer-events-none">
