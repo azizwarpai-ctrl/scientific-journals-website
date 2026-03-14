@@ -1,6 +1,7 @@
 "use client"
 
-import Spline from '@splinetool/react-spline/next'
+import { Suspense, lazy } from 'react'
+const Spline = lazy(() => import('@splinetool/react-spline'))
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -20,9 +21,6 @@ export default function HomePage() {
   const { data: journals = [], isLoading: isLoadingOjs, isError: isErrorOjs } = useGetJournals()
   const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetMetrics()
 
-  // Debugging
-  console.log("stats", stats)
-  console.log("journals", journals);
 
   const statConfigs = [
     { label: "Active Journals", value: stats?.activeJournals, color: "text-blue-500 dark:text-blue-400" },
@@ -41,7 +39,9 @@ export default function HomePage() {
           <section className="relative flex min-h-[90vh] items-center overflow-hidden bg-slate-950 py-20 md:py-32">
             {/* 3D Universe Spline Background */}
             <div className="absolute inset-0 z-0">
-              <Spline scene="https://prod.spline.design/UEU7hUtqsbqKkshk/scene.splinecode" />
+              <Suspense fallback={<div className="absolute inset-0 bg-slate-950" />}>
+                <Spline scene="https://prod.spline.design/UEU7hUtqsbqKkshk/scene.splinecode" />
+              </Suspense>
               {/* Gradient overlays to ensure text readability */}
               <div className="absolute inset-0 bg-gradient-to-b from-slate-950/40 via-transparent to-slate-950" />
               <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/20 to-slate-950/80" />
