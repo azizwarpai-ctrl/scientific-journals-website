@@ -27,8 +27,8 @@ export function SplineScene() {
     )
     camera.position.set(4.94, 36.42, 2291.96)
     camera.quaternion.setFromEuler(new THREE.Euler(0, 0, 0))
-    // Zoom in to make the figure larger
-    camera.zoom = 2.5
+    // Zoom in to make the figure significantly larger
+    camera.zoom = 4.2
     camera.updateProjectionMatrix()
 
     // --- Scene ---
