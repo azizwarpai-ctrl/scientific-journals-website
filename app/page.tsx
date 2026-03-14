@@ -36,7 +36,7 @@ export default function HomePage() {
         <GSAPWrapper animation="fadeIn">
           <section className="relative flex min-h-[90vh] items-center overflow-hidden bg-slate-950 py-20 md:py-32">
             {/* 3D Scene — anchored to lower-right quadrant as background */}
-            <div className="absolute -bottom-[15%] -right-[10%] z-0 h-[110%] w-[100%] md:h-[130%] md:w-[80%] pointer-events-auto cursor-grab active:cursor-grabbing">
+            <div className="absolute -bottom-[15%] -right-[10%] z-0 h-[110%] w-[100%] md:h-[130%] md:w-[80%] pointer-events-none">
               <SplineScene />
             </div>
 
