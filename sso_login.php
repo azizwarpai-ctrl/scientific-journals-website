@@ -40,8 +40,8 @@ $token = $_GET['token'] ?? null;
 $redirect = $_GET['redirect'] ?? '/index.php/index/submission/wizard';
 
 // Validate $redirect to prevent open redirects
-// Only allow relative paths starting with a single slash, filtering for safe characters
-if (!is_string($redirect) || !preg_match('/^\/[a-zA-Z0-9\._\-\/]+$/', $redirect) || strpos($redirect, '//') === 0) {
+// Only allow relative paths starting with a single slash, filtering for safe characters (including query fragments for OJS)
+if (!is_string($redirect) || !preg_match('/^\/[a-zA-Z0-9\._\-\/\?\=\&\%\#]+$/', $redirect) || strpos($redirect, '//') === 0) {
     $redirect = '/index.php/index/submission/wizard';
 }
 
@@ -88,8 +88,10 @@ if (!$user) {
 $request = Application::get()->getRequest();
 $sessionManager = SessionManager::getManager();
 
-// Acquire a lock to prevent race conditions during session destruction/re-initialization
-$lockHandle = fopen(sys_get_temp_dir() . '/ojs_sso_session.lock', 'w');
+// Acquire a unique lock per installation to prevent race conditions during session destruction/re-initialization
+// Unique suffix is a hash of the current directory to avoid collisions in multi-tenant shared temp folders
+$lockFile = sys_get_temp_dir() . '/ojs_sso_session_' . substr(md5(__DIR__), 0, 10) . '.lock';
+$lockHandle = fopen($lockFile, 'w');
 if ($lockHandle) {
     flock($lockHandle, LOCK_EX);
 }

@@ -56,7 +56,7 @@ ssoRouter.get("/redirect", async (c) => {
             }
         })
 
-        // 4. Ensure the user exists in OJS Database
+        // 2. Ensure the user exists in OJS Database (Check & Provision)
         // If they do not exist, we auto-provision them directly into the OJS backend over HTTP.
         if (existingOjsUser.length === 0) {
             // We need full details from the Next.js database to provision effectively
@@ -91,7 +91,7 @@ ssoRouter.get("/redirect", async (c) => {
             }
         }
 
-        // 4. Issue Redirect Pivot
+        // 5. Issue Redirect Pivot
         // SiteGround must host this small PHP script at the root.
         const ssoReturnDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
         // Build redirect URL with journal-specific submission path if provided
