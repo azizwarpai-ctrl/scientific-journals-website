@@ -1,13 +1,10 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, SlidersHorizontal } from "lucide-react"
-import Link from "next/link"
-import Image from "next/image"
+import { JournalCard } from "@/src/features/journals/components/journal-card"
 
 interface Journal {
   id: string
@@ -122,44 +119,16 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredJournals.map((journal) => (
-              <Card key={journal.id} className="group overflow-hidden transition-all hover:shadow-xl">
-                <div className="relative h-80 w-full overflow-hidden">
-                  <Image
-                    src={journal.coverImage || "/images/logodigitopub.png"}
-                    alt={journal.title}
-                    width={500}
-                    height={500}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-6">
-                    {journal.field && (
-                      <div className="mb-3">
-                        <span className="inline-block rounded-full bg-primary/90 px-3 py-1.5 text-xs font-medium text-primary-foreground backdrop-blur-sm">
-                          {journal.field}
-                        </span>
-                      </div>
-                    )}
-                    <h3 className="mb-2 text-lg font-bold text-white text-balance leading-tight">{journal.title}</h3>
-                    {journal.issn && <p className="text-sm text-white/80">{journal.issn}</p>}
-                  </div>
-                </div>
-                <CardContent className="p-6">
-                  {journal.description && (
-                    <p className="mb-4 text-sm text-muted-foreground line-clamp-2">
-                      {journal.description}
-                    </p>
-                  )}
-                  {journal.publisher && (
-                    <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
-                      <span>{journal.publisher}</span>
-                    </div>
-                  )}
-                  <Button size="sm" className="w-full" asChild>
-                    <Link href={`/journals/${journal.id}`}>View Journal</Link>
-                  </Button>
-                </CardContent>
-              </Card>
+              <JournalCard
+                key={journal.id}
+                id={journal.id.toString()}
+                title={journal.title}
+                description={journal.description}
+                issn={journal.issn}
+                field={journal.field}
+                publisher={journal.publisher}
+                coverImage={journal.coverImage}
+              />
             ))}
           </div>
 

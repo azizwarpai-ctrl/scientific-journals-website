@@ -4,10 +4,9 @@ import { SplineScene } from "@/components/spline-scene"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { BookOpen, Zap } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
+import { JournalCard } from "@/src/features/journals/components/journal-card"
 import { motion, useScroll, useTransform } from "framer-motion"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { AnimatedCounter } from "@/components/animated-counter"
@@ -136,48 +135,15 @@ export default function HomePage() {
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                   {journals.slice(0, 6).map((journal: Journal, idx: number) => (
                     <GSAPWrapper key={journal.id} animation="slideUp" delay={0.4 + idx * 0.1}>
-                      <Card className="transition-shadow hover:shadow-lg overflow-hidden">
-                        <div className="relative h-64 w-full overflow-hidden bg-gradient-to-br from-primary/20 to-secondary/20">
-                          {journal.cover_image_url ? (
-                            <Image
-                              src={journal.cover_image_url}
-                              alt={journal.title || "Journal"}
-                              fill
-                              className="object-cover"
-                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center">
-                              <Image
-                                src="/images/logodigitopub.png"
-                                alt="DigitoPub"
-                                width={120}
-                                height={120}
-                                className="opacity-60"
-                              />
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-                          <div className="absolute bottom-4 left-4 right-4">
-                            {journal.field && (
-                              <span className="inline-block rounded-full bg-primary/90 px-3 py-1 text-xs font-medium text-primary-foreground backdrop-blur-sm">
-                                {journal.field}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <CardContent className="pt-6">
-                          <h3 className="mb-2 font-semibold text-balance">{journal.title}</h3>
-                          <p className="mb-4 text-sm text-muted-foreground line-clamp-2">
-                            {journal.description || "Currently unavailable"}
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <Button size="sm" variant="outline" asChild>
-                              <Link href={`/journals/${journal.ojs_id || journal.id}`}>View Details</Link>
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
+                      <JournalCard
+                        id={journal.id.toString()}
+                        title={journal.title}
+                        description={journal.description || "Currently unavailable"}
+                        field={journal.field}
+                        coverImage={journal.cover_image_url}
+                        ojsId={journal.ojs_id}
+                        variant="featured"
+                      />
                     </GSAPWrapper>
                   ))}
                 </div>
