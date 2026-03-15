@@ -85,9 +85,22 @@ ssoRouter.get("/redirect", async (c) => {
             })
 
             if (!success) {
-                console.error("[OJS_SSO] Failed to auto-provision user:", error)
-                await prisma.ojsSsoToken.delete({ where: { token } })
-                return c.json({ error: "Failed to provision OJS synchronization" }, 500)
+                console.warn("[OJS_SSO] Provisioning returned failure, performing final re-check:", error)
+                
+                // Final re-check: maybe the user was created by a concurrent request 
+                // that we didn't catch via the 409 handler (e.g. if the bridge doesn't support 409 yet)
+                const finalCheck = await ojsQuery<{ user_id: number }>(
+                    `SELECT user_id FROM users WHERE email = ?`,
+                    [email]
+                )
+
+                if (finalCheck.length === 0) {
+                    console.error("[OJS_SSO] Provisioning failed and user still missing in OJS:", error)
+                    await prisma.ojsSsoToken.delete({ where: { token } })
+                    return c.json({ error: "Failed to provision OJS synchronization" }, 500)
+                }
+                
+                console.info("[OJS_SSO] User confirmed exists in OJS after provisioning failure fallback.")
             }
         }
 
