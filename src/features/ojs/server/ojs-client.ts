@@ -233,6 +233,10 @@ export async function provisionUser(payload: OjsUserProvisionData): Promise<{ su
 
             if (!response.ok) {
                 const errText = await response.text();
+                // 409 Conflict means the user already exists, which is a success for idempotency
+                if (response.status === 409) {
+                    return { success: true };
+                }
                 // 401/403 shouldn't be retried
                 if (response.status === 401 || response.status === 403) {
                      return { success: false, error: `Auth Error: ${errText}` };
