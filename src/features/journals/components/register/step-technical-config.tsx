@@ -13,11 +13,11 @@ import {
   FormMessage,
   FormDescription,
 } from "@/components/ui/form"
-import { useJournalRegistrationStore } from "../../stores/journal-registration-store"
+import { useJournalRegistrationStore } from "@/src/features/journals/stores/journal-registration-store"
 import {
   technicalConfigSchema,
   type TechnicalConfigValues,
-} from "../../schemas/journal-registration-schemas"
+} from "@/src/features/journals/schemas/journal-registration-schemas"
 
 export function StepTechnicalConfig() {
   const { technicalConfig, setTechnicalConfig, nextStep, prevStep, markStepCompleted } =

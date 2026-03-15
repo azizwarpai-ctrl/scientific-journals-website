@@ -76,16 +76,17 @@ export function StepPolicyAgreements() {
               control={form.control}
               name={policy.name}
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-lg border p-4 shadow-sm transition-colors hover:bg-muted/30">
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-4 border rounded-md bg-background">
                   <FormControl>
                     <Checkbox
+                      id={policy.name}
                       checked={field.value}
                       onCheckedChange={field.onChange}
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel className="text-sm font-medium cursor-pointer">
-                      {policy.label} *
+                    <FormLabel htmlFor={policy.name} className="text-base font-semibold cursor-pointer">
+                      {policy.label}
                     </FormLabel>
                     <p className="text-xs text-muted-foreground leading-relaxed">
                       {policy.description}

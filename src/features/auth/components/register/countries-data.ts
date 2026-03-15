@@ -198,7 +198,9 @@ export const ALL_COUNTRIES = [
   { code: "ZW", name: "Zimbabwe" },
 ] as const
 
+const prioritizedSet = new Set(PRIORITIZED_COUNTRIES.map(p => p.code))
+
 export const COUNTRIES = [
   ...PRIORITIZED_COUNTRIES,
-  ...ALL_COUNTRIES.filter(c => !PRIORITIZED_COUNTRIES.some(p => (p.code as string) === (c.code as string)))
+  ...ALL_COUNTRIES.filter(c => !prioritizedSet.has(c.code as any))
 ] as const

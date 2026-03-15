@@ -218,8 +218,14 @@ export const useRegistrationStore = create<RegistrationStore>()(
       }),
       // Rehydrate the Set from the persisted array
       onRehydrateStorage: () => (state) => {
-        if (state && Array.isArray(state.completedSteps)) {
-          state.completedSteps = new Set(state.completedSteps as unknown as number[])
+        if (state) {
+          if (Array.isArray(state.completedSteps)) {
+            state.completedSteps = new Set(state.completedSteps as unknown as number[])
+          }
+          if (!state.personalInfo?.password) {
+            state.currentStep = 0
+            state.completedSteps = new Set<number>()
+          }
         }
       },
     }

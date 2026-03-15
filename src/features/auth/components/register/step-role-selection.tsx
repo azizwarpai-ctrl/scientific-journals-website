@@ -86,20 +86,32 @@ export function StepRoleSelection() {
           name="primaryRole"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="sr-only">Primary Role</FormLabel>
+              <FormLabel id="primary-role-label" className="sr-only">Primary Role</FormLabel>
               <FormControl>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div
+                  className="grid gap-3 sm:grid-cols-2"
+                  role="radiogroup"
+                  aria-labelledby="primary-role-label"
+                >
                   {ROLE_OPTIONS.map((role) => {
                     const Icon = role.icon
                     const isSelected = field.value === role.value
 
                     return (
-                      <button
+                      <div
                         key={role.value}
-                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        tabIndex={isSelected ? 0 : -1}
                         onClick={() => field.onChange(role.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault()
+                            field.onChange(role.value)
+                          }
+                        }}
                         className={cn(
-                          "flex items-start gap-3 rounded-lg border-2 p-4 text-left transition-all duration-200",
+                          "flex items-start gap-3 rounded-lg border-2 p-4 text-left transition-all duration-200 cursor-pointer",
                           isSelected
                             ? "border-primary bg-primary/5 shadow-sm"
                             : "border-muted hover:border-muted-foreground/30 hover:bg-muted/50"
@@ -128,7 +140,7 @@ export function StepRoleSelection() {
                             {role.description}
                           </p>
                         </div>
-                      </button>
+                      </div>
                     )
                   })}
                 </div>

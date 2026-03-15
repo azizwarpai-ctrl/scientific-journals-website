@@ -273,24 +273,34 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
     if (!success) {
       // Rollback: Delete the local adminUser since OJS provisioning failed
       await prisma.adminUser.delete({ where: { id: BigInt(userId) } })
-      return c.json({ success: false, error: error || "OJS Provisioning failed" }, 500)
+      console.error("[OJS Provisioning Error]", error)
+      return c.json({ success: false, error: "OJS Provisioning failed" }, 500)
     }
 
-    // Generate OTP code for verification
-    const code = generateOTPCode()
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
+    try {
+      // Generate OTP code for verification
+      const code = generateOTPCode()
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
 
-    const hashedCode = await bcrypt.hash(code, 10)
+      const hashedCode = await bcrypt.hash(code, 10)
 
-    // Store the verification code
-    await prisma.verificationCode.create({
-      data: {
-        user_id: BigInt(userId),
-        email,
-        code: hashedCode,
-        expires_at: expiresAt,
-      },
-    })
+      // Store the verification code
+      await prisma.verificationCode.create({
+        data: {
+          user_id: BigInt(userId),
+          email,
+          code: hashedCode,
+          expires_at: expiresAt,
+        },
+      })
+    } catch (otpError) {
+      console.error("OTP generation/storage failed:", otpError)
+      // Rollback: local Auth
+      await prisma.adminUser.delete({ where: { id: BigInt(userId) } })
+      // Ideally trigger an OJS background rollback job or API here in the future
+      console.error(`[CRITICAL] Orphaned OJS user created for ${email} due to OTP failure. Manual cleanup required.`)
+      return c.json({ success: false, error: "Registration failed during setup" }, 500)
+    }
 
     if (deliveryMethod === 'console') {
       // Log ONLY in development/console mode (showing only masked/no code)

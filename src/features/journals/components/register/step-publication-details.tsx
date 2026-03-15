@@ -20,11 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useJournalRegistrationStore } from "../../stores/journal-registration-store"
+import { useJournalRegistrationStore } from "@/src/features/journals/stores/journal-registration-store"
 import {
   publicationDetailsSchema,
   type PublicationDetailsValues,
-} from "../../schemas/journal-registration-schemas"
+} from "@/src/features/journals/schemas/journal-registration-schemas"
 
 export function StepPublicationDetails() {
   const { publicationDetails, setPublicationDetails, nextStep, prevStep, markStepCompleted } =

@@ -108,6 +108,10 @@ const TOTAL_STEPS = 7
 // Store
 // ═══════════════════════════════════════════════════════════════
 
+function isNumberArray(arr: any): arr is number[] {
+  return Array.isArray(arr) && arr.every((item) => typeof item === "number")
+}
+
 export const useJournalRegistrationStore = create<JournalRegistrationStore>()(
   persist(
     (set, get) => ({
@@ -191,11 +195,11 @@ export const useJournalRegistrationStore = create<JournalRegistrationStore>()(
         publicationDetails: state.publicationDetails,
         technicalConfig: state.technicalConfig,
         termsAgreements: state.termsAgreements,
-        completedSteps: Array.from(state.completedSteps),
+        completedSteps: Array.from(state.completedSteps), // Persistence stores completedSteps as an array, rehydrate it to a Set
       }),
       onRehydrateStorage: () => (state) => {
-        if (state && Array.isArray(state.completedSteps)) {
-          state.completedSteps = new Set(state.completedSteps as unknown as number[])
+        if (state && isNumberArray(state.completedSteps)) {
+          state.completedSteps = new Set(state.completedSteps)
         }
       },
     }
