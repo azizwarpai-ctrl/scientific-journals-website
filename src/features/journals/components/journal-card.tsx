@@ -27,7 +27,8 @@ export function JournalCard({
   ojsId,
   variant = "default",
 }: JournalCardProps) {
-  const href = `/journals/${ojsId ?? id}`
+  const segment = encodeURIComponent(ojsId ?? id)
+  const href = `/journals/${segment}`
   
   const imageHeight = {
     compact: "h-48",
@@ -69,8 +70,8 @@ export function JournalCard({
         )}
         
         {/* Field Badge - Positioned with Academic Authority */}
-        <div className="absolute top-4 left-4 z-10">
-          {field && (
+        {field && (
+          <div className="absolute top-4 left-4 z-10">
             <span className={cn(
               "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5",
               "bg-white/95 dark:bg-slate-950/95 backdrop-blur-md",
@@ -82,8 +83,8 @@ export function JournalCard({
               <Globe className="h-3 w-3 text-primary" />
               {field}
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* ISSN Badge - Bottom Right for Academic Credibility */}
         {issn && !isCompact && (
