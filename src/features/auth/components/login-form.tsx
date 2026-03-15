@@ -44,13 +44,13 @@ export function LoginForm({ journalTitle, journalLogoUrl, returnUrl }: LoginForm
   const defaultTitle = "Welcome Back"
   const defaultDesc = "Login to your account to access all journals"
   
-  const title = journalTitle ? `Login to ${journalTitle}` : defaultTitle
+  const title = journalTitle ? `Sign in to ${journalTitle}` : defaultTitle
   const desc = journalTitle ? "Enter your credentials to continue" : defaultDesc
 
   return (
     <div className="space-y-6">
       <div className="text-center space-y-2">
-        <div className="mb-4 flex justify-center">
+        <div className="mb-4 flex justify-center lg:hidden">
           {journalLogoUrl ? (
             <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg bg-white shadow-md">
               <img 
