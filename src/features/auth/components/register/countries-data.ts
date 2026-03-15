@@ -1,6 +1,5 @@
-/** Top countries for academic publishing, followed by full ISO 3166-1 alpha-2 list */
-export const COUNTRIES = [
-  // — Popular academic publishing countries (top of the list) —
+/** Top countries for academic publishing */
+export const PRIORITIZED_COUNTRIES = [
   { code: "US", name: "United States" },
   { code: "GB", name: "United Kingdom" },
   { code: "DE", name: "Germany" },
@@ -24,12 +23,10 @@ export const COUNTRIES = [
   { code: "IQ", name: "Iraq" },
   { code: "JO", name: "Jordan" },
   { code: "AE", name: "United Arab Emirates" },
-  // — Separator (visual hint) —
-  { code: "---", name: "────────────────────" },
-  // — Full country list (alphabetical) —
-  { code: "AF", name: "Afghanistan" },
-  { code: "AL", name: "Albania" },
-  { code: "DZ", name: "Algeria" },
+] as const
+
+/** Full country list (alphabetical) */
+export const ALL_COUNTRIES = [
   { code: "AD", name: "Andorra" },
   { code: "AO", name: "Angola" },
   { code: "AG", name: "Antigua and Barbuda" },
@@ -199,4 +196,9 @@ export const COUNTRIES = [
   { code: "YE", name: "Yemen" },
   { code: "ZM", name: "Zambia" },
   { code: "ZW", name: "Zimbabwe" },
+] as const
+
+export const COUNTRIES = [
+  ...PRIORITIZED_COUNTRIES,
+  ...ALL_COUNTRIES.filter(c => !PRIORITIZED_COUNTRIES.some(p => (p.code as string) === (c.code as string)))
 ] as const

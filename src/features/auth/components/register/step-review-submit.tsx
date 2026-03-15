@@ -2,12 +2,12 @@
 
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
-import { useRegistrationStore } from "../../stores/registration-store"
-import { COUNTRIES } from "./countries-data"
+import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
+import { COUNTRIES } from "@/src/features/auth/components/register/countries-data"
 import { useMutation } from "@tanstack/react-query"
 import { client } from "@/src/lib/rpc"
 import { useRouter } from "next/navigation"
-import type { RegistrationPayload } from "../../schemas/registration-schemas"
+import type { RegistrationPayload } from "@/src/features/auth/schemas/registration-schemas"
 
 const ROLE_LABELS: Record<string, string> = {
   author: "Author",
@@ -58,20 +58,7 @@ export function StepReviewSubmit() {
   const registerMutation = useMutation({
     mutationFn: async (payload: RegistrationPayload) => {
       const response = await client.auth.register.$post({
-        json: {
-          email: payload.email,
-          password: payload.password,
-          fullName: `${payload.firstName} ${payload.lastName}`.trim(),
-          // Extended fields
-          country: payload.country,
-          phone: payload.phone || undefined,
-          affiliation: payload.affiliation,
-          department: payload.department || undefined,
-          orcid: payload.orcid || undefined,
-          biography: payload.biography || undefined,
-          primaryRole: payload.primaryRole,
-          interestedJournalIds: payload.interestedJournalIds,
-        },
+        json: payload,
       })
       const data = await response.json()
       if (!response.ok) {
@@ -87,10 +74,10 @@ export function StepReviewSubmit() {
       setSubmitting(false)
       setSubmissionError(error.message)
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       setSubmitting(false)
-      reset()
-      router.push("/admin/dashboard")
+      // Do not format form state `reset()` here, preserve email context for verify step
+      router.push(`/auth/verify-code?email=${encodeURIComponent(data.email || getPayload().email)}`)
       router.refresh()
     },
   })

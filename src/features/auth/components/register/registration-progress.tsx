@@ -2,8 +2,8 @@
 
 import { cn } from "@/lib/utils"
 import { Check } from "lucide-react"
-import { REGISTRATION_STEPS } from "../../schemas/registration-schemas"
-import { useRegistrationStore } from "../../stores/registration-store"
+import { REGISTRATION_STEPS } from "@/src/features/auth/schemas/registration-schemas"
+import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
 
 export function RegistrationProgress() {
   const { currentStep, completedSteps, setStep } = useRegistrationStore()
@@ -34,19 +34,19 @@ export function RegistrationProgress() {
                 {/* Step circle */}
                 <button
                   type="button"
+                  aria-label={`Step ${index + 1}: ${step.label}`}
                   disabled={!isClickable}
                   onClick={() => isClickable && setStep(index)}
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-semibold transition-all duration-200",
-                    isActive &&
-                      "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/25",
-                    isCompleted &&
-                      !isActive &&
-                      "border-primary bg-primary/10 text-primary cursor-pointer hover:bg-primary/20",
-                    !isActive &&
-                      !isCompleted &&
-                      "border-muted-foreground/30 text-muted-foreground/50 cursor-not-allowed"
-                  )}
+                  className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 
+                    ${
+                      isActive
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : isCompleted
+                          ? "border-primary bg-background text-primary"
+                          : "border-muted-foreground/30 bg-background text-muted-foreground"
+                    }
+                    ${isClickable ? "cursor-pointer hover:border-primary/80 transition-colors" : "cursor-not-allowed"}
+                  `}
                   aria-current={isActive ? "step" : undefined}
                 >
                   {isCompleted && !isActive ? (
