@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import { getSession } from "@/lib/db/auth"
 import { prisma } from "@/lib/db/config"
 import { ojsQuery, isOjsConfigured } from "./ojs-client"
+import { provisionOjsUser } from "./ojs-user-service"
 import crypto from "crypto"
 
 export const ssoRouter = new Hono()
@@ -44,21 +45,34 @@ ssoRouter.get("/redirect", async (c) => {
         )
 
         // If they do not exist, we auto-provision them directly into the OJS MySQL backend.
-        // For OJS 3.x, users require basic fields. 
-        // Note: Password generation is complex in OJS (SHA1 with salt), but we don't care because they use SSO.
-        // We use a dummy impossible hash to technically fulfill the non-null requirement.
         if (existingOjsUser.length === 0) {
-            const username = email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "") + "_" + crypto.randomBytes(4).toString("hex")
-            const dummyPassword = crypto.randomUUID()
-            
-            await ojsQuery(
-                `INSERT INTO users (username, password, email, disabled, inline_help, date_registered, date_last_login) 
-                 VALUES (?, ?, ?, 0, 1, NOW(), NOW())`,
-                [username, dummyPassword, email]
-            )
+            // We need full details from the Next.js database to provision effectively
+            const localUser = await prisma.adminUser.findUnique({
+                where: { email }
+            })
 
-            // Typically OJS users need to be associated with a user_group (like 'Author') 
-            // We'll leave that to the OJS PHP receiver script or assume OJS defaults for now.
+            if (!localUser) {
+                return c.json({ error: "Local user record not found for active session" }, 404)
+            }
+
+            const nameParts = localUser.full_name.split(" ")
+            const firstName = nameParts[0] || "User"
+            const lastName = nameParts.slice(1).join(" ") || "Name"
+
+            const { success, error } = await provisionOjsUser({
+                email: localUser.email,
+                firstName,
+                lastName,
+                country: localUser.country || "US", // Fallback if missing
+                affiliation: localUser.affiliation || "Independent",
+                biography: localUser.biography || "",
+                orcid: localUser.orcid || ""
+            })
+
+            if (!success) {
+                console.error("[OJS_SSO] Failed to auto-provision user:", error)
+                return c.json({ error: "Failed to provision OJS synchronization" }, 500)
+            }
         }
 
         // 3. Generate the Next.js SSO Tracking Token
