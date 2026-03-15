@@ -3,8 +3,18 @@ import type { RegistrationPayload } from "@/src/features/auth/schemas/registrati
 import crypto from "crypto"
 import type { RowDataPacket } from "mysql2"
 
+export interface OjsUserProvisionData {
+    email: string
+    firstName: string
+    lastName: string
+    country: string
+    affiliation: string
+    biography?: string
+    orcid?: string
+}
+
 // We try the PHP Bridge first, but fall back to raw MySQL inserts if the bridge isn't available
-export async function provisionOjsUser(payload: RegistrationPayload): Promise<{ success: boolean; error?: string }> {
+export async function provisionOjsUser(payload: OjsUserProvisionData): Promise<{ success: boolean; error?: string }> {
     if (!isOjsConfigured()) {
         console.warn("[OJS] Not configured, skipping OJS user provisioning")
         return { success: false, error: "OJS not configured" }
