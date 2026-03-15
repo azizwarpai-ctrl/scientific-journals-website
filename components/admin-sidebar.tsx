@@ -53,6 +53,11 @@ const sidebarItems = [
     icon: HelpCircle,
   },
   {
+    title: "About Page",
+    href: "/admin/about",
+    icon: FileText,
+  },
+  {
     title: "Authors",
     href: "/admin/authors",
     icon: Users,
