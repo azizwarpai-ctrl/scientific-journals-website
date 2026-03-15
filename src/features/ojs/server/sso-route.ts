@@ -44,7 +44,20 @@ ssoRouter.get("/redirect", async (c) => {
             [email]
         )
 
-        // If they do not exist, we auto-provision them directly into the OJS MySQL backend.
+        // 3. Generate the Next.js SSO Tracking Token
+        const token = crypto.randomBytes(32).toString("hex")
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes valid
+
+        await prisma.ojsSsoToken.create({
+            data: {
+                token,
+                email,
+                expires_at: expiresAt,
+            }
+        })
+
+        // 4. Ensure the user exists in OJS Database
+        // If they do not exist, we auto-provision them directly into the OJS backend over HTTP.
         if (existingOjsUser.length === 0) {
             // We need full details from the Next.js database to provision effectively
             const localUser = await prisma.adminUser.findUnique({
@@ -52,12 +65,13 @@ ssoRouter.get("/redirect", async (c) => {
             })
 
             if (!localUser) {
+                await prisma.ojsSsoToken.delete({ where: { token } })
                 return c.json({ error: "Local user record not found for active session" }, 404)
             }
 
-            const nameParts = localUser.full_name.split(" ")
+            const nameParts = localUser.full_name.trim().split(/\s+/)
             const firstName = nameParts[0] || "User"
-            const lastName = nameParts.slice(1).join(" ") || "Name"
+            const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : ""
 
             const { success, error } = await provisionOjsUser({
                 email: localUser.email,
@@ -71,21 +85,10 @@ ssoRouter.get("/redirect", async (c) => {
 
             if (!success) {
                 console.error("[OJS_SSO] Failed to auto-provision user:", error)
+                await prisma.ojsSsoToken.delete({ where: { token } })
                 return c.json({ error: "Failed to provision OJS synchronization" }, 500)
             }
         }
-
-        // 3. Generate the Next.js SSO Tracking Token
-        const token = crypto.randomBytes(32).toString("hex")
-        const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes valid
-
-        await prisma.ojsSsoToken.create({
-            data: {
-                token,
-                email,
-                expires_at: expiresAt,
-            }
-        })
 
         // 4. Issue Redirect Pivot
         // SiteGround must host this small PHP script at the root.
