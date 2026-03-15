@@ -36,3 +36,5 @@ submit-manager-database-schema-ojs
 # Scripts for debugging
 check-sync.ts
 test-serialize.ts
+verify-db.ts
+check_env.ts
