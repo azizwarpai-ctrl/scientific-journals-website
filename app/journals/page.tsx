@@ -10,8 +10,7 @@ import { Loader2 } from "lucide-react"
 export default function JournalsPage() {
   const { data: journals = [], isLoading, error } = useGetJournals();
 
-  // Debugging
-  console.log("journals : ", journals)
+
 
   // Format the journals for the client view
   const formattedJournals = journals.map((j: Journal) => ({
@@ -25,8 +24,7 @@ export default function JournalsPage() {
     field: j.field || null,
   }))
 
-  // Debugging
-  console.log("formattedJournals : ", formattedJournals)
+
 
   return (
     <div className="flex min-h-screen flex-col">

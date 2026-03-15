@@ -27,7 +27,7 @@ export function JournalCard({
   ojsId,
   variant = "default",
 }: JournalCardProps) {
-  const href = `/journals/${ojsId || id}`
+  const href = `/journals/${ojsId ?? id}`
   
   const imageHeight = {
     compact: "h-48",
