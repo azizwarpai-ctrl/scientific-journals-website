@@ -109,7 +109,7 @@ export function JournalCard({
       )}>
         {/* Title with Improved Typography */}
         <h3 className={cn(
-          "font-bold tracking-tight text-foreground line-clamp-2 text-balance",
+          "font-bold tracking-tight text-foreground line-clamp-2 supports-[text-wrap:balance]:text-balance",
           "group-hover:text-primary transition-colors duration-300",
           isCompact ? "text-base mb-2" : "text-lg mb-3 leading-snug"
         )}>
