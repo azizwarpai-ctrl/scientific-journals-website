@@ -12,7 +12,8 @@ const app = new Hono()
 
 // Helper: Get OTP delivery method based on environment
 const getOtpDeliveryMethod = () => {
-  return (process.env.OTP_DELIVERY_METHOD || (process.env.NODE_ENV === "production" ? "disabled" : "console")) as "console" | "email" | "disabled"
+  // Always default to 'console' if no email system is wired up yet, so registration isn't blocked in production
+  return (process.env.OTP_DELIVERY_METHOD || "console") as "console" | "email" | "disabled"
 }
 
 // Helper: Generate a 6-digit OTP code using cryptographically secure random numbers
