@@ -5,3 +5,13 @@ export { useCreateJournal } from "./api/use-create-journal"
 export { useGetJournals } from "./api/use-get-journals"
 export { useGetJournal } from "./api/use-get-journal"
 export { useJournalId } from "./hooks/use-journal-id"
+
+// Journal Registration Multi-Step Wizard
+export { 
+  journalRegistrationPayloadSchema,
+  JOURNAL_REGISTRATION_STEPS
+} from "./schemas/journal-registration-schemas"
+
+export type { JournalRegistrationPayload } from "./schemas/journal-registration-schemas"
+export { useJournalRegistrationStore } from "./stores/journal-registration-store"
+export { JournalRegistrationWizard } from "./components/register/journal-registration-wizard"
