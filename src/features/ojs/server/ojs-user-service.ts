@@ -1,6 +1,7 @@
-import { isOjsConfigured, ojsQuery } from "./ojs-client"
+import { isOjsConfigured, getOjsConnection } from "@/src/features/ojs/server/ojs-client"
 import type { RegistrationPayload } from "@/src/features/auth/schemas/registration-schemas"
 import crypto from "crypto"
+import type { RowDataPacket } from "mysql2"
 
 // We try the PHP Bridge first, but fall back to raw MySQL inserts if the bridge isn't available
 export async function provisionOjsUser(payload: RegistrationPayload): Promise<{ success: boolean; error?: string }> {
@@ -9,21 +10,25 @@ export async function provisionOjsUser(payload: RegistrationPayload): Promise<{ 
         return { success: false, error: "OJS not configured" }
     }
 
+    let conn;
     try {
+        conn = await getOjsConnection()
+        await conn.beginTransaction()
+
         // Fallback Native MySQL logic because the PHP Bridge (ojs-user-bridge.php) hasn't been written/deployed yet
         const { email, firstName, lastName, country, affiliation, biography, orcid } = payload
         const username = email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "") + "_" + crypto.randomBytes(4).toString("hex")
         const dummyPassword = crypto.randomUUID()
 
         // 1. Create the user
-        await ojsQuery(
+        await conn.execute(
             `INSERT INTO users (username, password, email, country, disabled, inline_help, date_registered, date_last_login) 
              VALUES (?, ?, ?, ?, 0, 1, NOW(), NOW())`,
             [username, dummyPassword, email, country]
         )
 
         // Find the auto-incremented user_id
-        const userRow = await ojsQuery<{ user_id: number }>(`SELECT user_id FROM users WHERE email = ?`, [email])
+        const [userRow] = await conn.execute<RowDataPacket[]>(`SELECT user_id FROM users WHERE email = ?`, [email])
         if (!userRow || userRow.length === 0) {
             throw new Error("User creation failed: ID not found")
         }
@@ -49,15 +54,19 @@ export async function provisionOjsUser(payload: RegistrationPayload): Promise<{ 
         }
 
         for (const setting of settings) {
-            await ojsQuery(
+            await conn.execute(
                 `INSERT INTO user_settings (user_id, locale, setting_name, setting_value, setting_type) VALUES (?, ?, ?, ?, ?)`,
                 [userId, locale, setting.name, setting.value, setting.type]
             )
         }
 
+        await conn.commit()
         return { success: true }
     } catch (error: any) {
+        if (conn) await conn.rollback()
         console.error("[OJS] Provisioning failed:", error.message)
         return { success: false, error: error.message }
+    } finally {
+        if (conn) conn.release()
     }
 }

@@ -178,4 +178,8 @@ export async function closeOjsPool(): Promise<void> {
     }
 }
 
+export async function getOjsConnection(): Promise<PoolConnection> {
+    return getPool().getConnection()
+}
+
 export { isOjsConfigured }
