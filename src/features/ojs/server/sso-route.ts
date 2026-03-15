@@ -2,7 +2,7 @@ import { Hono } from "hono"
 import { getSession } from "@/lib/db/auth"
 import { prisma } from "@/lib/db/config"
 import { ojsQuery, isOjsConfigured } from "./ojs-client"
-import { provisionOjsUser } from "./ojs-user-service"
+import { provisionOjsUser } from "@/src/features/ojs/server/ojs-user-service"
 import crypto from "crypto"
 
 export const ssoRouter = new Hono()

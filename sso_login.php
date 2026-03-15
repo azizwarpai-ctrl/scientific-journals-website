@@ -10,14 +10,20 @@
  */
 
 // --- CONFIGURATION ---
-// The base URL of your Next.js Digitopub application (no trailing slash)
-// E.g., 'https://digitopub.com' or 'http://localhost:3000'
-define('DIGITOPUB_BASE_URL', 'http://localhost:3000');
+$envBaseUrl = getenv('DIGITOPUB_BASE_URL') ?: ($_ENV['DIGITOPUB_BASE_URL'] ?? 'http://localhost:3000');
+$isLocalhost = strpos($envBaseUrl, 'localhost') !== false || strpos($envBaseUrl, '127.0.0.1') !== false;
+
+if (!$isLocalhost && strpos($envBaseUrl, 'https://') !== 0) {
+    die("Error: DIGITOPUB_BASE_URL must use HTTPS in non-development environments to secure SSO tokens.");
+}
+define('DIGITOPUB_BASE_URL', rtrim($envBaseUrl, '/'));
 // ---------------------
 
 // Basic error reporting
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+$isDev = getenv('APP_ENV') === 'development' || $isLocalhost;
+ini_set('display_errors', $isDev ? '1' : '0');
+ini_set('display_startup_errors', $isDev ? '1' : '0');
+ini_set('log_errors', '1');
 error_reporting(E_ALL);
 
 // Bootstrap OJS framework securely
@@ -30,6 +36,11 @@ require($bootstrapFile);
 // Parse input
 $token = $_GET['token'] ?? null;
 $redirect = $_GET['redirect'] ?? '/index.php/index/submission/wizard';
+
+// Validate $redirect to prevent open redirects (only allow relative paths starting with exactly one slash)
+if (!is_string($redirect) || strpos($redirect, '/') !== 0 || strpos($redirect, '//') === 0) {
+    $redirect = '/index.php/index/submission/wizard';
+}
 
 if (!$token) {
     die("Error: Missing SSO token.");
