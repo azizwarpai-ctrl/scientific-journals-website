@@ -136,12 +136,12 @@ export default function HomePage() {
                   {journals.slice(0, 6).map((journal: Journal, idx: number) => (
                     <GSAPWrapper key={journal.id} animation="slideUp" delay={0.4 + idx * 0.1}>
                       <JournalCard
-                        id={journal.id.toString()}
+                        id={journal.id}
+                        ojsId={journal.ojs_id}
                         title={journal.title}
                         description={journal.description || "Currently unavailable"}
                         field={journal.field}
                         coverImage={journal.cover_image_url}
-                        ojsId={journal.ojs_id}
                         variant="featured"
                       />
                     </GSAPWrapper>
