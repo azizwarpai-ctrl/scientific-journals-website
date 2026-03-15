@@ -69,9 +69,10 @@ ssoRouter.get("/redirect", async (c) => {
                 return c.json({ error: "Local user record not found for active session" }, 404)
             }
 
-            const nameParts = localUser.full_name.trim().split(/\s+/)
+            const fullName = (localUser.full_name || "").trim()
+            const nameParts = fullName.split(/\s+/)
             const firstName = nameParts[0] || "User"
-            const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : ""
+            const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : firstName
 
             const { success, error } = await provisionOjsUser({
                 email: localUser.email,
