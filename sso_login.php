@@ -37,8 +37,9 @@ require($bootstrapFile);
 $token = $_GET['token'] ?? null;
 $redirect = $_GET['redirect'] ?? '/index.php/index/submission/wizard';
 
-// Validate $redirect to prevent open redirects (only allow relative paths starting with exactly one slash)
-if (!is_string($redirect) || strpos($redirect, '/') !== 0 || strpos($redirect, '//') === 0) {
+// Validate $redirect to prevent open redirects
+// Only allow relative paths starting with a single slash, filtering for safe characters
+if (!is_string($redirect) || !preg_match('/^\/[a-zA-Z0-9\._\-\/]+$/', $redirect) || strpos($redirect, '//') === 0) {
     $redirect = '/index.php/index/submission/wizard';
 }
 
@@ -84,6 +85,13 @@ if (!$user) {
 // 3. Authenticate the User within the OJS Session Manager
 $request = Application::get()->getRequest();
 $sessionManager = SessionManager::getManager();
+
+// Acquire a lock to prevent race conditions during session destruction/re-initialization
+$lockHandle = fopen(sys_get_temp_dir() . '/ojs_sso_session.lock', 'w');
+if ($lockHandle) {
+    flock($lockHandle, LOCK_EX);
+}
+
 $session = $sessionManager->getUserSession();
 
 // If another user is currently logged in, cleanly destroy their session first
@@ -97,9 +105,21 @@ if ($session->getUserId() && $session->getUserId() !== $user->getId()) {
 $session->setUserId($user->getId());
 $session->setSessionVar('username', $user->getUsername());
 
+if ($lockHandle) {
+    flock($lockHandle, LOCK_UN);
+    fclose($lockHandle);
+}
+
 // 4. Update internal metrics
-$user->setDateLastLogin(Core::getCurrentDate());
-$userDao->updateObject($user);
+try {
+    $user->setDateLastLogin(Core::getCurrentDate());
+    $userDao->updateObject($user);
+} catch (Exception $e) {
+    error_log("OJS SSO: Failed to update user last login: " . $e->getMessage());
+    // Optionally destroy the session if we consider this failure critical for partial logins
+    // $sessionManager->destroy();
+    // die("Error: Failed to safely update user session. Please try again.");
+}
 
 // 5. Fire post-login hook to alert OJS plugins (optional but recommended for a complete setup)
 HookRegistry::call('User::login', array(&$user));

@@ -1,14 +1,5 @@
 import { isOjsConfigured, provisionUser } from "@/src/features/ojs/server/ojs-client"
-
-export interface OjsUserProvisionData {
-    email: string
-    firstName: string
-    lastName: string
-    country: string
-    affiliation: string
-    biography?: string
-    orcid?: string
-}
+import type { OjsUserProvisionData } from "../types"
 
 // We delegate user creation to the OJS API/Bridge since direct DB inserts violate read-only isolation
 export async function provisionOjsUser(payload: OjsUserProvisionData): Promise<{ success: boolean; error?: string }> {
@@ -21,10 +12,5 @@ export async function provisionOjsUser(payload: OjsUserProvisionData): Promise<{
         return { success: false, error: "Invalid payload: missing required fields" }
     }
 
-    try {
-        return await provisionUser(payload)
-    } catch (error: any) {
-        console.error("[OJS] Provisioning delegation failed:", error.message)
-        return { success: false, error: error.message }
-    }
+    return await provisionUser(payload)
 }

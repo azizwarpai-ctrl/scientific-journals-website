@@ -1,4 +1,5 @@
 import mysql from "mysql2/promise"
+import type { OjsUserProvisionData } from "../types"
 import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise"
 import * as net from "node:net"
 import * as dns from "node:dns/promises"
@@ -186,27 +187,36 @@ export async function getOjsConnection(): Promise<PoolConnection> {
  * Forwards provisioning requests to the OJS API/bridge over HTTP.
  * Implements retry logic similar to ojsQuery.
  */
-export async function provisionUser(payload: any): Promise<{ success: boolean; error?: string }> {
+export async function provisionUser(payload: OjsUserProvisionData): Promise<{ success: boolean; error?: string }> {
     const maxRetries = 3;
     let lastError: Error | null = null;
     const baseUrl = process.env.OJS_BASE_URL?.replace(/\/$/, "") || "";
+    const apiKey = process.env.OJS_API_KEY;
+
+    if (!baseUrl) {
+        throw new Error("OJS_BASE_URL is not configured.");
+    }
+    if (!apiKey) {
+        throw new Error("OJS_API_KEY is not configured.");
+    }
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
         try {
-            if (!baseUrl) {
-                throw new Error("OJS_BASE_URL is not configured.");
-            }
-            
             // Assume the PHP bridge is located here as requested by integration plan options
             const response = await fetch(`${baseUrl}/ojs-user-bridge.php`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    // Simple shared secret check (assuming configuration parity)
-                    "Authorization": `Bearer ${process.env.OJS_API_KEY || ''}`
+                    "Authorization": `Bearer ${apiKey}`
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: controller.signal
             });
+
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
                 const errText = await response.text();
@@ -218,11 +228,15 @@ export async function provisionUser(payload: any): Promise<{ success: boolean; e
             }
             return { success: true };
         } catch (err: any) {
+            clearTimeout(timeoutId);
             lastError = err;
-            if (err.message.includes("OJS_BASE_URL")) {
-                 return { success: false, error: err.message };
+            
+            if (err.name === 'AbortError') {
+                console.warn(`[OJS Bridge] Provisioning timed out (attempt ${attempt}/${maxRetries})`);
+            } else {
+                console.warn(`[OJS Bridge] Provisioning failed (attempt ${attempt}/${maxRetries}): ${err.message}`);
             }
-            console.warn(`[OJS Bridge] Provisioning failed (attempt ${attempt}/${maxRetries}): ${err.message}`);
+
             if (attempt < maxRetries) {
                 const delay = Math.pow(2, attempt - 1) * 1000;
                 await new Promise(res => setTimeout(res, delay));
