@@ -6,9 +6,25 @@ export const loginSchema = z.object({
 })
 
 export const registerSchema = z.object({
+  // Personal info (Step 1)
+  firstName: z.string().min(1, "First name is required").max(100),
+  lastName: z.string().min(1, "Last name is required").max(100),
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  fullName: z.string().min(1, "Full name is required").max(255),
+  password: z.string().min(6, "Password must be at least 6 characters").max(128),
+  country: z.string().min(1, "Country is required").max(90),
+  phone: z.string().max(32).optional().or(z.literal("")),
+  // Academic info (Step 2)
+  affiliation: z.string().min(1, "Affiliation is required").max(255),
+  department: z.string().max(255).optional().or(z.literal("")),
+  orcid: z.string().optional().or(z.literal("")),
+  biography: z.string().max(2000).optional().or(z.literal("")),
+  // Role (Step 3)
+  primaryRole: z.enum(["author", "reviewer", "editor", "reader"] as const),
+  interestedJournalIds: z.array(z.string()).optional(),
+  // Agreements (Step 4)
+  termsOfService: z.boolean(),
+  privacyPolicy: z.boolean(),
+  publishingEthics: z.boolean(),
 })
 
 const registerFormBaseSchema = z.object({

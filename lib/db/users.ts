@@ -1,15 +1,35 @@
 import { prisma } from "./config"
 import bcrypt from "bcryptjs"
 
-export async function createUser(email: string, password: string, fullName: string, role = "author") {
-  const hashedPassword = await bcrypt.hash(password, 10)
+interface CreateUserParams {
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+  role?: string
+  country?: string
+  phone?: string
+  affiliation?: string
+  department?: string
+  orcid?: string
+  biography?: string
+}
+
+export async function createUser(params: CreateUserParams) {
+  const hashedPassword = await bcrypt.hash(params.password, 10)
 
   const user = await prisma.adminUser.create({
     data: {
-      email,
-      full_name: fullName,
-      role,
+      email: params.email,
+      full_name: `${params.firstName} ${params.lastName}`.trim(),
+      role: params.role || "author",
       password_hash: hashedPassword,
+      country: params.country || null,
+      phone: params.phone || null,
+      affiliation: params.affiliation || null,
+      department: params.department || null,
+      orcid: params.orcid || null,
+      biography: params.biography || null,
     },
   })
 
