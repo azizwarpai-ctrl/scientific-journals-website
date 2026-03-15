@@ -105,7 +105,36 @@ npm run db:seed
 
 ## 🔗 OJS Integration
 
-The platform integrates with Open Journal Systems (OJS) for read-only data access.
+The platform integrates with Open Journal Systems (OJS) for read-only data access and single sign-on (SSO).
+
+### SSO Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant DP as Digitopub (Next.js)
+    participant API as Next.js API
+    participant Bridge as OJS HTTP Bridge
+    participant SSO as sso_login.php
+    participant OJS as OJS App (submitmanager.com)
+
+    U->>DP: Click "Submit Manuscript"
+    DP->>API: GET /api/ojs/sso/redirect
+    API->>API: Verify JWT session
+    alt Not authenticated
+        API-->>DP: Redirect to /login
+    end
+    API->>Bridge: Check & Auto-provision user (HTTPS)
+    API->>API: Generate 32-byte Token & Save (5m TTL)
+    API-->>U: 302 Redirect to submitmanager.com/sso_login.php?token=xxx
+    U->>SSO: GET /sso_login.php?token=xxx
+    SSO->>API: GET /api/ojs/sso/validate?token=xxx (Internal cURL)
+    API->>API: Atomic token consume
+    API-->>SSO: {valid: true, email: "user@example.com"}
+    SSO->>OJS: Bootstrap OJS SessionManager
+    SSO->>OJS: Bind Session to User ID
+    SSO-->>U: 302 Redirect to journal submission wizard
+```
 
 ### Setup OJS Integration
 
