@@ -2,11 +2,13 @@
 /**
  * OJS SSO Receiver Script for Digitopub
  * 
+ * Target Deployment: submitmanager.com (OJS Instance)
+ * 
  * INSTRUCTIONS:
- * 1. Upload this file (`sso_login.php`) to the ROOT directory of your SiteGround OJS installation.
- *    (It should sit next to OJS's `index.php` and `config.inc.php`).
- * 2. Update the `DIGITOPUB_BASE_URL` constant below to match your live Next.js app URL.
- * 3. Ensure the server's firewall allows outbound cURL requests to the Next.js API.
+ * 1. Upload this finalized script (`sso_login.php`) to the ROOT directory of the `submitmanager.com` OJS installation.
+ *    (It MUST sit next to OJS's `index.php` and `config.inc.php`).
+ * 2. Ensure DIGITOPUB_BASE_URL (the Next.js main API) is configured correctly in the server environment.
+ * 3. Ensure the server's firewall allows outbound HTTPS cURL requests back to the Next.js API for token validation.
  */
 
 // --- CONFIGURATION ---
