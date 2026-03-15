@@ -1,12 +1,13 @@
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
-import type {
-  PersonalInfoValues,
-  AcademicInfoValues,
-  RoleSelectionValues,
-  PolicyAgreementsValues,
-  RegistrationPayload,
-} from "../schemas/registration-schemas"
+import {
+  REGISTRATION_STEPS,
+  type PersonalInfoValues,
+  type AcademicInfoValues,
+  type RoleSelectionValues,
+  type PolicyAgreementsValues,
+  type RegistrationPayload,
+} from "@/src/features/auth/schemas/registration-schemas"
 
 // ═══════════════════════════════════════════════════════════════
 // Store State
@@ -87,7 +88,7 @@ const DEFAULT_POLICY_AGREEMENTS: PolicyAgreementsValues = {
   publishingEthics: false,
 }
 
-const TOTAL_STEPS = 5
+const TOTAL_STEPS = REGISTRATION_STEPS.length
 
 // ═══════════════════════════════════════════════════════════════
 // Store
@@ -179,9 +180,9 @@ export const useRegistrationStore = create<RegistrationStore>()(
           biography: academicInfo.biography || "",
           primaryRole: roleSelection.primaryRole,
           interestedJournalIds: roleSelection.interestedJournalIds || [],
-          termsOfService: policyAgreements.termsOfService,
-          privacyPolicy: policyAgreements.privacyPolicy,
-          publishingEthics: policyAgreements.publishingEthics,
+          termsOfService: policyAgreements.termsOfService as true,
+          privacyPolicy: policyAgreements.privacyPolicy as true,
+          publishingEthics: policyAgreements.publishingEthics as true,
         }
       },
 

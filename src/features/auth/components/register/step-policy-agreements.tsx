@@ -12,11 +12,11 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { useRegistrationStore } from "../../stores/registration-store"
+import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
 import {
   policyAgreementsSchema,
   type PolicyAgreementsValues,
-} from "../../schemas/registration-schemas"
+} from "@/src/features/auth/schemas/registration-schemas"
 
 const POLICIES = [
   {

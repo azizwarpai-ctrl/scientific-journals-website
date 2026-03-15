@@ -19,12 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useRegistrationStore } from "../../stores/registration-store"
+import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
 import {
   personalInfoSchema,
   type PersonalInfoValues,
-} from "../../schemas/registration-schemas"
-import { COUNTRIES } from "./countries-data"
+} from "@/src/features/auth/schemas/registration-schemas"
+import { COUNTRIES } from "@/src/features/auth/components/register/countries-data"
 
 export function StepPersonalInfo() {
   const { personalInfo, setPersonalInfo, nextStep, markStepCompleted } =
