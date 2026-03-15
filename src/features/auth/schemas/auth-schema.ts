@@ -22,9 +22,9 @@ export const registerSchema = z.object({
   primaryRole: z.enum(["author", "reviewer", "editor", "reader"] as const),
   interestedJournalIds: z.array(z.string()).optional(),
   // Agreements (Step 4)
-  termsOfService: z.boolean(),
-  privacyPolicy: z.boolean(),
-  publishingEthics: z.boolean(),
+  termsOfService: z.literal(true, { message: "You must accept the Terms of Service" }),
+  privacyPolicy: z.literal(true, { message: "You must accept the Privacy Policy" }),
+  publishingEthics: z.literal(true, { message: "You must agree to the publishing ethics statement" }),
 })
 
 const registerFormBaseSchema = z.object({
