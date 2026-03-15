@@ -238,6 +238,8 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
   }
 })
 
+import { provisionOjsUser } from "@/src/features/ojs/server/ojs-user-service"
+
 // POST /auth/register
 app.post("/register", zValidator("json", registerSchema), async (c) => {
   try {
@@ -248,8 +250,26 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
       return c.json({ success: false, error: "Registration is temporarily restricted (OTP delivery disabled)." }, 503)
     }
 
-    const { email, password, fullName } = c.req.valid("json")
-    const userId = await createUser(email, password, fullName, "author")
+    const payload = c.req.valid("json")
+    const { email, password, firstName, lastName, primaryRole, country, phone, affiliation, department, orcid, biography } = payload
+    
+    // Create native AdminUser mapping new payload structure
+    const userId = await createUser({
+      email,
+      password,
+      firstName,
+      lastName,
+      role: primaryRole,
+      country,
+      phone,
+      affiliation,
+      department,
+      orcid,
+      biography
+    })
+
+    // Try provisioning into OJS DB
+    await provisionOjsUser(payload)
 
     // Generate OTP code for verification
     const code = generateOTPCode()
