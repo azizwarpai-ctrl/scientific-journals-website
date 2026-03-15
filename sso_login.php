@@ -11,9 +11,11 @@
 
 // --- CONFIGURATION ---
 $envBaseUrl = getenv('DIGITOPUB_BASE_URL') ?: ($_ENV['DIGITOPUB_BASE_URL'] ?? 'http://localhost:3000');
-$isLocalhost = strpos($envBaseUrl, 'localhost') !== false || strpos($envBaseUrl, '127.0.0.1') !== false;
+$parsedUrl = parse_url($envBaseUrl);
+$host = $parsedUrl['host'] ?? '';
+$isLocalhost = in_array($host, ['localhost', '127.0.0.1', '::1']);
 
-if (!$isLocalhost && strpos($envBaseUrl, 'https://') !== 0) {
+if (!$isLocalhost && ($parsedUrl['scheme'] ?? '') !== 'https') {
     die("Error: DIGITOPUB_BASE_URL must use HTTPS in non-development environments to secure SSO tokens.");
 }
 define('DIGITOPUB_BASE_URL', rtrim($envBaseUrl, '/'));

@@ -1,5 +1,5 @@
 import mysql from "mysql2/promise"
-import type { OjsUserProvisionData } from "../types"
+import type { OjsUserProvisionData } from "@/src/features/ojs/types"
 import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise"
 import * as net from "node:net"
 import * as dns from "node:dns/promises"
@@ -190,14 +190,27 @@ export async function getOjsConnection(): Promise<PoolConnection> {
 export async function provisionUser(payload: OjsUserProvisionData): Promise<{ success: boolean; error?: string }> {
     const maxRetries = 3;
     let lastError: Error | null = null;
-    const baseUrl = process.env.OJS_BASE_URL?.replace(/\/$/, "") || "";
+    const baseUrlStr = process.env.OJS_BASE_URL?.replace(/\/$/, "") || "";
     const apiKey = process.env.OJS_API_KEY;
 
-    if (!baseUrl) {
+    if (!baseUrlStr) {
         throw new Error("OJS_BASE_URL is not configured.");
     }
     if (!apiKey) {
         throw new Error("OJS_API_KEY is not configured.");
+    }
+
+    // Validate URL and enforce HTTPS for non-local hosts
+    let baseUrl: URL;
+    try {
+        baseUrl = new URL(baseUrlStr);
+    } catch (e) {
+        throw new Error(`Invalid OJS_BASE_URL: ${baseUrlStr}`);
+    }
+
+    const isLoopback = ["localhost", "127.0.0.1", "::1"].includes(baseUrl.hostname);
+    if (!isLoopback && baseUrl.protocol !== "https:") {
+        throw new Error("OJS_BASE_URL must use HTTPS for non-local environments.");
     }
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -206,7 +219,7 @@ export async function provisionUser(payload: OjsUserProvisionData): Promise<{ su
 
         try {
             // Assume the PHP bridge is located here as requested by integration plan options
-            const response = await fetch(`${baseUrl}/ojs-user-bridge.php`, {
+            const response = await fetch(`${baseUrlStr}/ojs-user-bridge.php`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
