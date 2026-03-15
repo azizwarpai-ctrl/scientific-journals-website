@@ -58,54 +58,96 @@ describe('Auth Schemas', () => {
     describe('registerSchema', () => {
         it('should accept valid registration data', () => {
             const result = registerSchema.safeParse({
+                firstName: 'John',
+                lastName: 'Doe',
                 email: 'newuser@example.com',
                 password: 'securepass123',
-                fullName: 'John Doe',
+                country: 'US',
+                affiliation: 'University of Science',
+                primaryRole: 'author',
+                termsOfService: true,
+                privacyPolicy: true,
+                publishingEthics: true,
             })
             expect(result.success).toBe(true)
         })
 
         it('should reject password shorter than 6 chars', () => {
             const result = registerSchema.safeParse({
+                firstName: 'John',
+                lastName: 'Doe',
                 email: 'newuser@example.com',
                 password: '12345',
-                fullName: 'John Doe',
+                country: 'US',
+                affiliation: 'University of Science',
+                primaryRole: 'author',
+                termsOfService: true,
+                privacyPolicy: true,
+                publishingEthics: true,
             })
             expect(result.success).toBe(false)
         })
 
         it('should accept password of exactly 6 chars', () => {
             const result = registerSchema.safeParse({
+                firstName: 'John',
+                lastName: 'Doe',
                 email: 'newuser@example.com',
                 password: '123456',
-                fullName: 'John Doe',
+                country: 'US',
+                affiliation: 'University of Science',
+                primaryRole: 'author',
+                termsOfService: true,
+                privacyPolicy: true,
+                publishingEthics: true,
             })
             expect(result.success).toBe(true)
         })
 
-        it('should reject empty fullName', () => {
+        it('should reject empty firstName', () => {
             const result = registerSchema.safeParse({
+                firstName: '',
+                lastName: 'Doe',
                 email: 'newuser@example.com',
                 password: 'securepass',
-                fullName: '',
+                country: 'US',
+                affiliation: 'University of Science',
+                primaryRole: 'author',
+                termsOfService: true,
+                privacyPolicy: true,
+                publishingEthics: true,
             })
             expect(result.success).toBe(false)
         })
 
-        it('should reject fullName exceeding 255 chars', () => {
+        it('should reject firstName exceeding 100 chars', () => {
             const result = registerSchema.safeParse({
+                firstName: 'A'.repeat(101),
+                lastName: 'Doe',
                 email: 'newuser@example.com',
                 password: 'securepass',
-                fullName: 'A'.repeat(256),
+                country: 'US',
+                affiliation: 'University of Science',
+                primaryRole: 'author',
+                termsOfService: true,
+                privacyPolicy: true,
+                publishingEthics: true,
             })
             expect(result.success).toBe(false)
         })
 
         it('should reject invalid email', () => {
             const result = registerSchema.safeParse({
+                firstName: 'John',
+                lastName: 'Doe',
                 email: 'not-valid',
                 password: 'securepass',
-                fullName: 'John Doe',
+                country: 'US',
+                affiliation: 'University of Science',
+                primaryRole: 'author',
+                termsOfService: true,
+                privacyPolicy: true,
+                publishingEthics: true,
             })
             expect(result.success).toBe(false)
         })

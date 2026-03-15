@@ -20,7 +20,7 @@ export const personalInfoSchema = z
       .min(6, "Password must be at least 6 characters")
       .max(128, "Password must be 128 characters or fewer"),
     confirmPassword: z.string().min(1, "Please confirm your password"),
-    country: z.string().min(1, "Country is required").max(90),
+    country: z.string().length(2, "Please select a valid country"),
     phone: z
       .string()
       .max(32, "Phone number must be 32 characters or fewer")
@@ -48,7 +48,7 @@ export const personalInfoBaseSchema = z.object({
     .min(6, "Password must be at least 6 characters")
     .max(128, "Password must be 128 characters or fewer"),
   confirmPassword: z.string().min(1, "Please confirm your password"),
-  country: z.string().min(1, "Country is required").max(90),
+  country: z.string().length(2, "Please select a valid country"),
   phone: z
     .string()
     .max(32, "Phone number must be 32 characters or fewer")
@@ -102,7 +102,7 @@ export type UserRole = (typeof VALID_ROLES)[number]
 
 export const roleSelectionSchema = z.object({
   primaryRole: z.enum(VALID_ROLES, {
-    message: "Please select a role",
+    error: "Please select a role",
   }),
   interestedJournalIds: z.array(z.string()).optional(),
 })
@@ -133,20 +133,21 @@ export const registrationPayloadSchema = z.object({
   lastName: z.string().min(1).max(100),
   email: z.string().email(),
   password: z.string().min(6).max(128),
-  country: z.string().min(1).max(90),
+  country: z.string().length(2),
   phone: z.string().max(32).optional().or(z.literal("")),
   // Academic
   affiliation: z.string().min(1).max(255),
   department: z.string().max(255).optional().or(z.literal("")),
-  orcid: z.string().optional().or(z.literal("")),
+  orcid: z.string().optional().or(z.literal(""))
+    .refine((val) => !val || /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/i.test(val), "ORCID must be in format 0000-0000-0000-000X"),
   biography: z.string().max(2000).optional().or(z.literal("")),
   // Role
   primaryRole: z.enum(VALID_ROLES),
   interestedJournalIds: z.array(z.string()).optional(),
   // Agreements
-  termsOfService: z.boolean(),
-  privacyPolicy: z.boolean(),
-  publishingEthics: z.boolean(),
+  termsOfService: z.literal(true, { message: "You must accept the Terms of Service" }),
+  privacyPolicy: z.literal(true, { message: "You must accept the Privacy Policy" }),
+  publishingEthics: z.literal(true, { message: "You must agree to the publishing ethics statement" }),
 })
 
 // ═══════════════════════════════════════════════════════════════
