@@ -23,9 +23,9 @@ export default function HomePage() {
   // Scroll animations for the 3D Spline model
   const { scrollY } = useScroll()
   // Pin the model via parallax (y closely follows scrollY), so it smoothly reaches the Journals section
-  const splineY = useTransform(scrollY, [0, 1000], [0, 700])
+  const splineY = useTransform(scrollY, [0, 1000], [0, 420])
   const splineX = useTransform(scrollY, [0, 1000], [0, 150]) // Scrolls slightly to the right
-  const splineScale = useTransform(scrollY, [0, 1000], [1, 1.3]) // Smoother, lower-angle zoom
+  const splineScale = useTransform(scrollY, [0, 1000], [1, 1.2]) // Smoother, lower-angle zoom
 
   const statConfigs = [
     { label: "Active Journals", value: stats?.activeJournals, color: "text-blue-500 dark:text-blue-400" },
@@ -43,7 +43,7 @@ export default function HomePage() {
         <GSAPWrapper animation="fadeIn">
           <section className="relative flex min-h-[90vh] items-center bg-slate-50 dark:bg-slate-950 py-20 md:py-32 transition-colors duration-500">
             {/* 3D Scene — anchored to lower-right quadrant as background */}
-            <motion.div 
+            <motion.div
               style={{ y: splineY, x: splineX, scale: splineScale }}
               className="absolute -bottom-[5%] -right-[5%] z-0 h-[100%] w-[100%] md:h-[120%] md:w-[70%] pointer-events-none origin-center"
             >
