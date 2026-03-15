@@ -8,6 +8,7 @@ import { JournalCard } from "@/src/features/journals/components/journal-card"
 
 interface Journal {
   id: string
+  ojs_id?: string | null
   title: string
   description?: string | null
   issn?: string | null
@@ -121,7 +122,8 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
             {filteredJournals.map((journal) => (
               <JournalCard
                 key={journal.id}
-                id={journal.id.toString()}
+                id={journal.id}
+                ojsId={journal.ojs_id}
                 title={journal.title}
                 description={journal.description}
                 issn={journal.issn}

@@ -41,7 +41,7 @@ export function JournalCard({
     <InteractiveCard 
       href={href} 
       className={cn(
-        "h-full group overflow-hidden",
+        "h-full overflow-hidden",
         "border-border/50 hover:border-primary/30",
         "shadow-sm hover:shadow-xl hover:shadow-primary/5",
         "transition-all duration-500 ease-out"
@@ -145,8 +145,8 @@ export function JournalCard({
           {/* Action Indicator */}
           <span className={cn(
             "flex items-center gap-1 text-xs font-semibold text-primary",
-            "opacity-70 group-hover:opacity-100 transition-opacity duration-300",
-            "transform group-hover:translate-x-0.5 transition-transform duration-300"
+            "opacity-70 group-hover:opacity-100 transform group-hover:translate-x-0.5",
+            "transition-all duration-300"
           )}>
             {!isCompact && "View"}
             <ExternalLink className={cn(
