@@ -269,7 +269,12 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
     })
 
     // Try provisioning into OJS DB
-    await provisionOjsUser(payload)
+    const { success, error } = await provisionOjsUser(payload)
+    if (!success) {
+      // Rollback: Delete the local adminUser since OJS provisioning failed
+      await prisma.adminUser.delete({ where: { id: BigInt(userId) } })
+      return c.json({ success: false, error: error || "OJS Provisioning failed" }, 500)
+    }
 
     // Generate OTP code for verification
     const code = generateOTPCode()
@@ -280,7 +285,7 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
     // Store the verification code
     await prisma.verificationCode.create({
       data: {
-        user_id: userId,
+        user_id: BigInt(userId),
         email,
         code: hashedCode,
         expires_at: expiresAt,

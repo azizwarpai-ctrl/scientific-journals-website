@@ -33,7 +33,7 @@ export async function createUser(params: CreateUserParams) {
     },
   })
 
-  return user.id
+  return user.id.toString()
 }
 
 export async function verifyPassword(email: string, password: string) {
