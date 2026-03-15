@@ -1,4 +1,5 @@
 import mysql from "mysql2/promise"
+import type { OjsUserProvisionData } from "@/src/features/ojs/types"
 import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise"
 import * as net from "node:net"
 import * as dns from "node:dns/promises"
@@ -180,6 +181,86 @@ export async function closeOjsPool(): Promise<void> {
 
 export async function getOjsConnection(): Promise<PoolConnection> {
     return getPool().getConnection()
+}
+
+/**
+ * Forwards provisioning requests to the OJS API/bridge over HTTP.
+ * Implements retry logic similar to ojsQuery.
+ */
+export async function provisionUser(payload: OjsUserProvisionData): Promise<{ success: boolean; error?: string }> {
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+    const baseUrlStr = process.env.OJS_BASE_URL?.replace(/\/$/, "") || "";
+    const apiKey = process.env.OJS_API_KEY;
+
+    if (!baseUrlStr) {
+        throw new Error("OJS_BASE_URL is not configured.");
+    }
+    if (!apiKey) {
+        throw new Error("OJS_API_KEY is not configured.");
+    }
+
+    // Validate URL and enforce HTTPS for non-local hosts
+    let baseUrl: URL;
+    try {
+        baseUrl = new URL(baseUrlStr);
+    } catch (e) {
+        throw new Error(`Invalid OJS_BASE_URL: ${baseUrlStr}`);
+    }
+
+    const isLoopback = ["localhost", "127.0.0.1", "::1"].includes(baseUrl.hostname);
+    if (!isLoopback && baseUrl.protocol !== "https:") {
+        throw new Error("OJS_BASE_URL must use HTTPS for non-local environments.");
+    }
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        try {
+            // Assume the PHP bridge is located here as requested by integration plan options
+            const response = await fetch(`${baseUrlStr}/ojs-user-bridge.php`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                const errText = await response.text();
+                // 409 Conflict means the user already exists, which is a success for idempotency
+                if (response.status === 409) {
+                    return { success: true };
+                }
+                // 401/403 shouldn't be retried
+                if (response.status === 401 || response.status === 403) {
+                     return { success: false, error: `Auth Error: ${errText}` };
+                }
+                throw new Error(`HTTP ${response.status}: ${errText}`);
+            }
+            return { success: true };
+        } catch (err: any) {
+            clearTimeout(timeoutId);
+            lastError = err;
+            
+            if (err.name === 'AbortError') {
+                console.warn(`[OJS Bridge] Provisioning timed out (attempt ${attempt}/${maxRetries})`);
+            } else {
+                console.warn(`[OJS Bridge] Provisioning failed (attempt ${attempt}/${maxRetries}): ${err.message}`);
+            }
+
+            if (attempt < maxRetries) {
+                const delay = Math.pow(2, attempt - 1) * 1000;
+                await new Promise(res => setTimeout(res, delay));
+            }
+        }
+    }
+    return { success: false, error: lastError?.message || "OJS provisioning failed after all retries" };
 }
 
 export { isOjsConfigured }
