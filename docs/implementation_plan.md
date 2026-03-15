@@ -31,7 +31,7 @@ graph TD
 
 **Key architectural facts:**
 - Digitopub uses its own `AdminUser` table (Prisma) for primary authentication
-- OJS integration is **read-write via direct MySQL** ([ojs-client.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/ojs/server/ojs-client.ts)) — not via OJS REST API
+- OJS integration is **read-write via direct MySQL** ([ojs-client.ts](src/features/ojs/server/ojs-client.ts)) — not via OJS REST API
 - SSO is token-based: Digitopub generates a one-time token → OJS PHP receiver validates & creates native session
 - Users auto-provisioned into OJS on first SSO redirect (username + dummy password)
 
@@ -121,7 +121,7 @@ sequenceDiagram
 
 ### Current SSO Gaps Identified
 
-1. **No role assignment on auto-provision**: When a user is auto-created in OJS ([sso-route.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/ojs/server/sso-route.ts) L50-61), they are only inserted into `users` — no `user_user_groups` record is created, meaning they have **no roles** in OJS
+1. **No role assignment on auto-provision**: When a user is auto-created in OJS ([sso-route.ts](src/features/ojs/server/sso-route.ts) L50-61), they are only inserted into `users` — no `user_user_groups` record is created, meaning they have **no roles** in OJS
 2. **No `user_settings` populated**: OJS requires `givenName`/`familyName` in `user_settings` — these are not set during auto-provision
 3. **No country field**: OJS `users.country` is left NULL during auto-provision
 
@@ -129,25 +129,25 @@ sequenceDiagram
 
 ## 4. Current Registration System Analysis
 
-### What exists: [app/register/page.tsx](file:///home/glitch/Documents/Next.JS/scientific-journals-website/app/register/page.tsx)
+### What exists: [app/register/page.tsx](app/register/page.tsx)
 
 - Single-step form: firstName, lastName, email, role (dropdown), password, confirmPassword, agreeToTerms
 - Uses React Hook Form + Zod (`registerFormSchema`)
 - Submits to `POST /api/auth/register` which creates `AdminUser` in Prisma + generates OTP
-- **Role field is decorative** — collected in form but only hardcoded `"author"` is passed to [createUser()](file:///home/glitch/Documents/Next.JS/scientific-journals-website/lib/db/users.ts#4-18)
+- **Role field is decorative** — collected in form but only hardcoded `"author"` is passed to [createUser()](lib/db/users.ts#4-18)
 - No OJS-specific fields collected: country, affiliation, locales, ORCID, biography, research interests
 - No multi-step flow
 - No bilingual (Arabic/English) support
 
-### What exists: [app/login/page.tsx](file:///home/glitch/Documents/Next.JS/scientific-journals-website/app/login/page.tsx)
+### What exists: [app/login/page.tsx](app/login/page.tsx)
 
 - Server component that extracts `returnUrl` and optional `journalPath` from search params
 - Fetches journal branding (title, logo) from Prisma when journal-specific login
-- Delegates to [LoginForm](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/auth/components/login-form.tsx#19-140) client component
+- Delegates to [LoginForm](src/features/auth/components/login-form.tsx#19-140) client component
 - Login triggers OTP flow (email + password → verify code → JWT session)
 - Functional but minimal — no bilingual labels, no clear "journal submission system" messaging
 
-### What exists: Auth schemas ([auth-schema.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/auth/schemas/auth-schema.ts))
+### What exists: Auth schemas ([auth-schema.ts](src/features/auth/schemas/auth-schema.ts))
 
 - `loginSchema`: email + password
 - `registerSchema`: email + password + fullName (API-level)
@@ -176,9 +176,9 @@ sequenceDiagram
 
 > [!IMPORTANT]
 > **OJS Integration Strategy — Research Findings**: After thorough research, OJS 3.x REST API **does NOT provide endpoints for user creation, role assignment, or journal creation**. The API covers submissions, DOIs, contexts, files, and institutions only. OJS 3.5 further removed direct user creation from the UI (replaced with invitation flow). See Section 10 below for the recommended **PHP Bridge** approach.
-
+  
 > [!WARNING]
-> **Breaking change to registration flow**: The proposed multi-step registration will fundamentally change [app/register/page.tsx](file:///home/glitch/Documents/Next.JS/scientific-journals-website/app/register/page.tsx) from a single form to a step-based wizard. The existing `registerFormSchema` and `registerSchema` will be replaced with per-step Zod schemas. Existing tests in [auth-schema.test.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/tests/unit/auth-schema.test.ts) will need updates.
+> **Breaking change to registration flow**: The proposed multi-step registration will fundamentally change [app/register/page.tsx](app/register/page.tsx) from a single form to a step-based wizard. The existing `registerFormSchema` and `registerSchema` will be replaced with per-step Zod schemas. Existing tests in [auth-schema.test.ts](tests/unit/auth-schema.test.ts) will need updates.
 
 ---
 
@@ -186,7 +186,7 @@ sequenceDiagram
 
 ### Component 1: Multi-Step Registration System
 
-#### [NEW] [registration-store.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/auth/stores/registration-store.ts)
+#### [NEW] [registration-store.ts](src/features/auth/stores/registration-store.ts)
 
 Zustand store with `persist` middleware (sessionStorage) managing all registration step data:
 - `step` (current step index)
@@ -196,7 +196,7 @@ Zustand store with `persist` middleware (sessionStorage) managing all registrati
 - `policyAgreements` (termsOfService, privacyPolicy, publishingEthics, copyrightAgreement)
 - Actions: `setStep()`, `updateStepData()`, `reset()`, `isStepValid()`
 
-#### [NEW] [registration-schemas.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/auth/schemas/registration-schemas.ts)
+#### [NEW] [registration-schemas.ts](src/features/auth/schemas/registration-schemas.ts)
 
 Per-step Zod validation schemas:
 - `personalInfoSchema` — email, firstName, lastName, password, confirmPassword, country (ISO 3166-1), phone (optional)
@@ -214,11 +214,11 @@ Per-step Zod validation schemas:
 - `registration-wizard.tsx` — orchestrator with progress bar, step navigation
 - `registration-progress.tsx` — visual step indicator component
 
-#### [MODIFY] [page.tsx](file:///home/glitch/Documents/Next.JS/scientific-journals-website/app/register/page.tsx)
+#### [MODIFY] [page.tsx](app/register/page.tsx)
 
 Replace single-form with `<RegistrationWizard />` component. The page becomes a thin wrapper.
 
-#### [MODIFY] [route.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/auth/server/route.ts)
+#### [MODIFY] [route.ts](src/features/auth/server/route.ts)
 
 Update `POST /auth/register` to:
 1. Accept expanded payload (all step data)
@@ -228,11 +228,11 @@ Update `POST /auth/register` to:
 5. Insert `user_user_groups` record (role assignment for default/selected journal)
 6. Return success with OTP flow
 
-#### [MODIFY] [auth-schema.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/auth/schemas/auth-schema.ts)
+#### [MODIFY] [auth-schema.ts](src/features/auth/schemas/auth-schema.ts)
 
 Update `registerSchema` (API-level) to accept the full expanded payload from multi-step form.
 
-#### [MODIFY] [index.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/auth/index.ts)
+#### [MODIFY] [index.ts](src/features/auth/index.ts)
 
 Export new schemas, store, and types.
 
@@ -240,7 +240,7 @@ Export new schemas, store, and types.
 
 ### Component 2: Journal Registration Wizard
 
-#### [NEW] [journal-registration-store.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/journals/stores/journal-registration-store.ts)
+#### [NEW] [journal-registration-store.ts](src/features/journals/stores/journal-registration-store.ts)
 
 Zustand store with `persist` middleware for multi-step journal registration:
 - `publisherInfo` (name, institution, country, contactEmail, website)
@@ -250,7 +250,7 @@ Zustand store with `persist` middleware for multi-step journal registration:
 - `technicalConfig` (websiteUrl, ojsPath, submissionWorkflow)
 - `termsAgreements` (ethicsConfirmation, copyrightAcceptance, platformPolicy)
 
-#### [NEW] [journal-registration-schemas.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/journals/schemas/journal-registration-schemas.ts)
+#### [NEW] [journal-registration-schemas.ts](src/features/journals/schemas/journal-registration-schemas.ts)
 
 Per-step validation including ISSN format (`^\d{4}-\d{3}[\dxX]$`), URL validation, and file constraints.
 
@@ -266,11 +266,11 @@ Per-step validation including ISSN format (`^\d{4}-\d{3}[\dxX]$`), URL validatio
 - `journal-registration-wizard.tsx`
 - `journal-registration-progress.tsx`
 
-#### [NEW] [page.tsx](file:///home/glitch/Documents/Next.JS/scientific-journals-website/app/journals/register/page.tsx)
+#### [NEW] [page.tsx](app/journals/register/page.tsx)
 
 New page route for journal registration wizard.
 
-#### [MODIFY] [routes.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/config/routes.ts)
+#### [MODIFY] [routes.ts](config/routes.ts)
 
 Add `/journals/register` to appropriate route list (admin-protected or public depending on requirements).
 
@@ -278,13 +278,13 @@ Add `/journals/register` to appropriate route list (admin-protected or public de
 
 ### Component 3: Login Page Improvements
 
-#### [MODIFY] [login-form.tsx](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/auth/components/login-form.tsx)
+#### [MODIFY] [login-form.tsx](src/features/auth/components/login-form.tsx)
 
 - Add journal-centric messaging ("Sign in to submit manuscripts, review papers, and manage journals")
 - Add role-aware callout icons (Author / Reviewer / Editor)
 - Improve visual hierarchy and branding
 
-#### [MODIFY] [page.tsx](file:///home/glitch/Documents/Next.JS/scientific-journals-website/app/login/page.tsx)
+#### [MODIFY] [page.tsx](app/login/page.tsx)
 
 - Improve layout and visual design
 - Better SSO context communication
@@ -293,27 +293,27 @@ Add `/journals/register` to appropriate route list (admin-protected or public de
 
 ### Component 4: OJS Integration Enhancements
 
-#### [MODIFY] [sso-route.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/ojs/server/sso-route.ts)
+#### [MODIFY] [sso-route.ts](src/features/ojs/server/sso-route.ts)
 
 Fix auto-provisioning to include:
 1. Set `users.country` from registration data
 2. Insert `user_settings` rows for `givenName`, `familyName`, `affiliation`
 3. Insert `user_user_groups` row mapping user to Author role for the target journal
 
-#### [NEW] [ojs-user-bridge.php](file:///home/glitch/Documents/Next.JS/scientific-journals-website/submit-manager-database-schema-ojs/ojs-user-bridge.php)
+#### [NEW] [ojs-user-bridge.php](submit-manager-database-schema-ojs/ojs-user-bridge.php)
 
-PHP bridge script (deployed alongside [sso_login.php](file:///home/glitch/Documents/Next.JS/scientific-journals-website/submit-manager-database-schema-ojs/sso_login.php) on OJS server) that uses OJS internal DAOs for safe user operations:
+PHP bridge script (deployed alongside [sso_login.php](submit-manager-database-schema-ojs/sso_login.php) on OJS server) that uses OJS internal DAOs for safe user operations:
 - `action=create_user` — creates user via `UserDAO`, inserts `user_settings`, assigns roles via `UserGroupDAO`
 - `action=assign_role` — adds `user_user_groups` entry using OJS internal APIs
 - `action=get_user_groups` — lists available role groups for a given journal context
 - Protected by shared secret token validation (same pattern as SSO)
 
-#### [NEW] [ojs-user-service.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/ojs/server/ojs-user-service.ts)
+#### [NEW] [ojs-user-service.ts](src/features/ojs/server/ojs-user-service.ts)
 
 TypeScript service layer that calls the PHP bridge via HTTP (not direct MySQL):
 - `provisionOjsUser(email, userData)` — calls PHP bridge `action=create_user`
 - `assignOjsRole(userId, journalId, roleId)` — calls PHP bridge `action=assign_role`
-- Falls back to direct MySQL via [ojsQuery()](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/ojs/server/ojs-client.ts#54-98) if PHP bridge is unavailable (graceful degradation)
+- Falls back to direct MySQL via [ojsQuery()](src/features/ojs/server/ojs-client.ts#54-98) if PHP bridge is unavailable (graceful degradation)
 
 ---
 
@@ -362,9 +362,9 @@ graph LR
 
 1. **Password handling**: Passwords never stored in sessionStorage — only in Zustand memory, cleared on submit
 2. **ISSN validation**: Strict format validation prevents injection via journal registration
-3. **OJS SQL injection**: Already mitigated by parameterized queries in [ojsQuery()](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/ojs/server/ojs-client.ts#54-98)
+3. **OJS SQL injection**: Already mitigated by parameterized queries in [ojsQuery()](src/features/ojs/server/ojs-client.ts#54-98)
 4. **SSO token** reuse: Atomic `updateMany` prevents TOCTOU race conditions (existing)
-5. **Open redirect prevention**: [sso_login.php](file:///home/glitch/Documents/Next.JS/scientific-journals-website/submit-manager-database-schema-ojs/sso_login.php) validates redirect paths (existing)
+5. **Open redirect prevention**: [sso_login.php](submit-manager-database-schema-ojs/sso_login.php) validates redirect paths (existing)
 6. **File upload limits**: Enforce on both client and server for journal cover images / policy docs
 
 ---
@@ -395,11 +395,11 @@ graph LR
 
 ### Recommended: PHP Bridge Approach (Option B)
 
-Deploy a PHP bridge script (`ojs-user-bridge.php`) alongside existing [sso_login.php](file:///home/glitch/Documents/Next.JS/scientific-journals-website/submit-manager-database-schema-ojs/sso_login.php) on the OJS server. Benefits:
+Deploy a PHP bridge script (`ojs-user-bridge.php`) alongside existing [sso_login.php](submit-manager-database-schema-ojs/sso_login.php) on the OJS server. Benefits:
 
 1. **Uses OJS internal APIs** (`UserDAO`, `UserGroupDAO`) — respects OJS business logic, password hashing, validation
 2. **Survives OJS upgrades** — DAOs are stable internal interfaces; direct SQL is not
-3. **Consistent with existing pattern** — [sso_login.php](file:///home/glitch/Documents/Next.JS/scientific-journals-website/submit-manager-database-schema-ojs/sso_login.php) already does this for sessions
+3. **Consistent with existing pattern** — [sso_login.php](submit-manager-database-schema-ojs/sso_login.php) already does this for sessions
 4. **Secured by shared secret** — same HMAC token validation as SSO
 5. **Fallback**: `ojs-user-service.ts` can degrade to direct MySQL if bridge is down
 
