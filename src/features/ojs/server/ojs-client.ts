@@ -182,4 +182,54 @@ export async function getOjsConnection(): Promise<PoolConnection> {
     return getPool().getConnection()
 }
 
+/**
+ * Forwards provisioning requests to the OJS API/bridge over HTTP.
+ * Implements retry logic similar to ojsQuery.
+ */
+export async function provisionUser(payload: any): Promise<{ success: boolean; error?: string }> {
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+    const baseUrl = process.env.OJS_BASE_URL?.replace(/\/$/, "") || "";
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            if (!baseUrl) {
+                throw new Error("OJS_BASE_URL is not configured.");
+            }
+            
+            // Assume the PHP bridge is located here as requested by integration plan options
+            const response = await fetch(`${baseUrl}/ojs-user-bridge.php`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    // Simple shared secret check (assuming configuration parity)
+                    "Authorization": `Bearer ${process.env.OJS_API_KEY || ''}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                // 401/403 shouldn't be retried
+                if (response.status === 401 || response.status === 403) {
+                     return { success: false, error: `Auth Error: ${errText}` };
+                }
+                throw new Error(`HTTP ${response.status}: ${errText}`);
+            }
+            return { success: true };
+        } catch (err: any) {
+            lastError = err;
+            if (err.message.includes("OJS_BASE_URL")) {
+                 return { success: false, error: err.message };
+            }
+            console.warn(`[OJS Bridge] Provisioning failed (attempt ${attempt}/${maxRetries}): ${err.message}`);
+            if (attempt < maxRetries) {
+                const delay = Math.pow(2, attempt - 1) * 1000;
+                await new Promise(res => setTimeout(res, delay));
+            }
+        }
+    }
+    return { success: false, error: lastError?.message || "OJS provisioning failed after all retries" };
+}
+
 export { isOjsConfigured }
