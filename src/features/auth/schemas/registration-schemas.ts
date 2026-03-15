@@ -20,7 +20,7 @@ export const personalInfoSchema = z
       .min(6, "Password must be at least 6 characters")
       .max(128, "Password must be 128 characters or fewer"),
     confirmPassword: z.string().min(1, "Please confirm your password"),
-    country: z.string().length(2, "Please select a valid country"),
+    country: z.string().regex(/^[A-Z]{2}$/, "Please select a valid country").toUpperCase(),
     phone: z
       .string()
       .max(32, "Phone number must be 32 characters or fewer")
@@ -48,7 +48,7 @@ export const personalInfoBaseSchema = z.object({
     .min(6, "Password must be at least 6 characters")
     .max(128, "Password must be 128 characters or fewer"),
   confirmPassword: z.string().min(1, "Please confirm your password"),
-  country: z.string().length(2, "Please select a valid country"),
+  country: z.string().regex(/^[A-Z]{2}$/, "Please select a valid country").toUpperCase(),
   phone: z
     .string()
     .max(32, "Phone number must be 32 characters or fewer")
@@ -133,7 +133,7 @@ export const registrationPayloadSchema = z.object({
   lastName: z.string().min(1).max(100),
   email: z.string().email(),
   password: z.string().min(6).max(128),
-  country: z.string().length(2),
+  country: z.string().regex(/^[A-Z]{2}$/).toUpperCase(),
   phone: z.string().max(32).optional().or(z.literal("")),
   // Academic
   affiliation: z.string().min(1).max(255),
@@ -145,9 +145,9 @@ export const registrationPayloadSchema = z.object({
   primaryRole: z.enum(VALID_ROLES),
   interestedJournalIds: z.array(z.string()).optional(),
   // Agreements
-  termsOfService: z.literal(true, { message: "You must accept the Terms of Service" }),
-  privacyPolicy: z.literal(true, { message: "You must accept the Privacy Policy" }),
-  publishingEthics: z.literal(true, { message: "You must agree to the publishing ethics statement" }),
+  termsOfService: z.literal(true, { error: "You must accept the Terms of Service" }),
+  privacyPolicy: z.literal(true, { error: "You must accept the Privacy Policy" }),
+  publishingEthics: z.literal(true, { error: "You must agree to the publishing ethics statement" }),
 })
 
 // ═══════════════════════════════════════════════════════════════

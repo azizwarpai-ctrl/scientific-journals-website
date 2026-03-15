@@ -1,7 +1,8 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { useJournalRegistrationStore } from "../../stores/journal-registration-store"
+import { client } from "@/src/lib/rpc"
+import { useJournalRegistrationStore } from "@/src/features/journals/stores/journal-registration-store"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle2 } from "lucide-react"
 
@@ -28,15 +29,13 @@ export function StepReviewSubmit() {
       const payload = getPayload()
 
       // Endpoint to be created in the future
-      const response = await fetch("/api/journals/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      const response = await client.journals.register.$post({
+        json: payload,
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => null)
-        throw new Error(errorData?.error || "Registration failed. Please try again.")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to register journal")
       }
 
       // Success logic: Redirect to a success page or dashboard

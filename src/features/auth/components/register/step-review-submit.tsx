@@ -48,7 +48,6 @@ export function StepReviewSubmit() {
     submissionError,
     setSubmissionError,
     getPayload,
-    reset,
   } = useRegistrationStore()
 
   const countryName =

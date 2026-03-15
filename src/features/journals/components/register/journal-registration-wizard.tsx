@@ -9,14 +9,14 @@ import { StepPublicationDetails } from "./step-publication-details"
 import { StepTechnicalConfig } from "./step-technical-config"
 import { StepTermsAgreements } from "./step-terms-agreements"
 import { StepReviewSubmit } from "./step-review-submit"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Check } from "lucide-react"
 
 export function JournalRegistrationWizard() {
   const { currentStep } = useJournalRegistrationStore()
 
   // Prevent hydration errors by not rendering until mounted
-  const [mounted, setMounted] = React.useState(false)
+  const [mounted, setMounted] = useState(false)
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -59,7 +59,7 @@ export function JournalRegistrationWizard() {
               return (
                 <li
                   key={step.id}
-                  className={`relative pb-8 ${index === JOURNAL_REGISTRATION_STEPS.length - 1 ? "" : ""}`}
+                  className="relative pb-8"
                 >
                   {index !== JOURNAL_REGISTRATION_STEPS.length - 1 ? (
                     <div
@@ -131,5 +131,3 @@ export function JournalRegistrationWizard() {
     </div>
   )
 }
-
-import React from "react"

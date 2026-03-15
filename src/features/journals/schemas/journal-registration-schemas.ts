@@ -55,16 +55,16 @@ export const editorialInfoSchema = z.object({
 // ═══════════════════════════════════════════════════════════════
 export const publicationDetailsSchema = z.object({
   frequency: z.enum(["Annually", "Biannually", "Quarterly", "Monthly", "Continuous"], {
-    message: "Please select a publication frequency",
+    error: "Please select a publication frequency",
   }),
   language: z.enum(["English", "Arabic", "Bilingual"], {
-    message: "Please select a primary language",
+    error: "Please select a primary language",
   }),
   peerReviewPolicy: z.enum(["Double-blind", "Single-blind", "Open", "Post-publication"], {
-    message: "Please select a peer review policy",
+    error: "Please select a peer review policy",
   }),
   openAccessPolicy: z.enum(["Gold", "Green", "Hybrid", "Subscription"], {
-    message: "Please select an Open Access policy",
+    error: "Please select an Open Access policy",
   }),
   publicationFee: z.number().min(0, "Fee cannot be negative"),
 })
@@ -99,40 +99,12 @@ export const termsAgreementsSchema = z.object({
 // ═══════════════════════════════════════════════════════════════
 // Combined payload for API
 // ═══════════════════════════════════════════════════════════════
-export const journalRegistrationPayloadSchema = z.object({
-  // Publisher
-  publisherName: z.string().min(1),
-  institution: z.string().min(1),
-  country: z.string().min(1),
-  publisherAddress: z.string().min(1),
-  contactEmail: z.string().email(),
-  website: z.string().optional().or(z.literal("")),
-  // Journal
-  title: z.string().min(1),
-  abbreviation: z.string().min(1),
-  printIssn: z.string().optional().or(z.literal("")),
-  onlineIssn: z.string().optional().or(z.literal("")),
-  discipline: z.string().min(1),
-  description: z.string().min(1),
-  // Editorial
-  editorInChief: z.string().min(1),
-  editorEmail: z.string().email(),
-  editorialBoardContact: z.string().email(),
-  editorialAddress: z.string().min(1),
-  // Publication
-  frequency: z.string(),
-  language: z.string(),
-  peerReviewPolicy: z.string(),
-  openAccessPolicy: z.string(),
-  publicationFee: z.number().min(0),
-  // Technical
-  requestedUrlPath: z.string().min(2),
-  customDomain: z.string().optional().or(z.literal("")),
-  // Policies
-  ethicsConfirmation: z.boolean(),
-  copyrightAcceptance: z.boolean(),
-  platformPolicy: z.boolean(),
-})
+export const journalRegistrationPayloadSchema = publisherInfoSchema
+  .merge(journalInfoSchema)
+  .merge(editorialInfoSchema)
+  .merge(publicationDetailsSchema)
+  .merge(technicalConfigSchema)
+  .merge(termsAgreementsSchema)
 
 // ═══════════════════════════════════════════════════════════════
 // Types

@@ -31,7 +31,7 @@ graph TD
 
 **Key architectural facts:**
 - Digitopub uses its own `AdminUser` table (Prisma) for primary authentication
-- OJS integration is **read-write via direct MySQL** ([ojs-client.ts](src/features/ojs/server/ojs-client.ts)) — not via OJS REST API
+- OJS integration is **read-only via `ojs-client`** ([ojs-client.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/src/features/ojs/server/ojs-client.ts)) using configuration via `OJS_DATABASE_*` environment variables
 - SSO is token-based: Digitopub generates a one-time token → OJS PHP receiver validates & creates native session
 - Users auto-provisioned into OJS on first SSO redirect (username + dummy password)
 
@@ -121,9 +121,9 @@ sequenceDiagram
 
 ### Current SSO Gaps Identified
 
-1. **No role assignment on auto-provision**: When a user is auto-created in OJS ([sso-route.ts](src/features/ojs/server/sso-route.ts) L50-61), they are only inserted into `users` — no `user_user_groups` record is created, meaning they have **no roles** in OJS
-2. **No `user_settings` populated**: OJS requires `givenName`/`familyName` in `user_settings` — these are not set during auto-provision
-3. **No country field**: OJS `users.country` is left NULL during auto-provision
+1.  **No role assignment on auto-provision**: When a user is auto-created in OJS ([sso-route.ts](src/features/ojs/server/sso-route.ts) L50-61), they are only inserted into `users` — no `user_user_groups` record is created, meaning they have **no roles** in OJS
+2.  **No `user_settings` populated**: OJS requires `givenName`/`familyName` in `user_settings` — these are not set during auto-provision
+3.  **No country field**: OJS `users.country` is left NULL during auto-provision
 
 ---
 
@@ -176,9 +176,8 @@ sequenceDiagram
 
 > [!IMPORTANT]
 > **OJS Integration Strategy — Research Findings**: After thorough research, OJS 3.x REST API **does NOT provide endpoints for user creation, role assignment, or journal creation**. The API covers submissions, DOIs, contexts, files, and institutions only. OJS 3.5 further removed direct user creation from the UI (replaced with invitation flow). See Section 10 below for the recommended **PHP Bridge** approach.
-  
 > [!WARNING]
-> **Breaking change to registration flow**: The proposed multi-step registration will fundamentally change [app/register/page.tsx](app/register/page.tsx) from a single form to a step-based wizard. The existing `registerFormSchema` and `registerSchema` will be replaced with per-step Zod schemas. Existing tests in [auth-schema.test.ts](tests/unit/auth-schema.test.ts) will need updates.
+> **Breaking change to registration flow**: The proposed multi-step registration will fundamentally change [app/register/page.tsx](file:///home/glitch/Documents/Next.JS/scientific-journals-website/app/register/page.tsx) from a single form to a step-based wizard. The existing `registerFormSchema` and `registerSchema` will be replaced with per-step Zod schemas. Existing tests in [auth-schema.test.ts](file:///home/glitch/Documents/Next.JS/scientific-journals-website/tests/unit/auth-schema.test.ts) will need updates.
 
 ---
 
@@ -389,7 +388,7 @@ graph LR
 
 | Approach | Safety | Maintainability | Complexity | Verdict |
 |----------|--------|----------------|------------|--------|
-| **A. Direct MySQL** (current) | ⚠️ Low — bypasses OJS business logic, schema changes break it | Low — SQL scattered across routes | Low | ❌ Fragile |
+| **A. Read-Only via ojs-client** (current) | ⚠️ Low — bypasses OJS business logic, schema changes break it | Low — SQL scattered across routes | Low | ❌ Fragile |
 | **B. PHP Bridge Scripts** | ✅ High — uses OJS `UserDAO`, `UserGroupDAO` internals | High — OJS handles schema compatibility | Medium | ✅ **Recommended** |
 | **C. Custom OJS Plugin** | ✅ High — proper OJS extension point | Highest — survives OJS upgrades | High | ⚪ Future option |
 

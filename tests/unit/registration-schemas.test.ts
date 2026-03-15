@@ -29,7 +29,7 @@ describe("Registration Schemas", () => {
       const data = {
         firstName: "J", lastName: "D", email: "a@b.com",
         password: "Password123!", confirmPassword: "Password123!",
-        country: "usa"
+        country: "us"
       }
       const result = personalInfoSchema.safeParse(data)
       expect(result.success).toBe(false)
