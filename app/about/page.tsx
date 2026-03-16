@@ -1,21 +1,251 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
-import { Target, Eye, Award, Globe } from "lucide-react"
+import { Target, Eye, Award, Globe, TrendingUp, BookOpen, Users, FileText, BarChart3, Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+import { useGetAboutContent } from "@/src/features/about"
+import { useGetPlatformStatistics } from "@/src/features/statistics"
+
+// Formatted Counter Component
+function FormattedCounter({ value, suffix = "", prefix = "" }: { 
+  value: number
+  suffix?: string
+  prefix?: string
+}) {
+  return (
+    <span className="tabular-nums tracking-tight">
+      {prefix}{value.toLocaleString()}{suffix}
+    </span>
+  )
+}
+
+// Radial Progress Component (Academic Style)
+function RadialProgress({ 
+  value, 
+  max, 
+  label, 
+  sublabel, 
+  color = "primary",
+  size = 120,
+  unit
+}: { 
+  value: number
+  max: number
+  label: string
+  sublabel?: string
+  color?: "primary" | "secondary" | "accent"
+  size?: number
+  unit?: string
+}) {
+  const percentage = max <= 0 ? 0 : Math.max(0, Math.min((value / max) * 100, 100))
+  const circumference = 2 * Math.PI * ((size - 8) / 2)
+  const strokeDashoffset = circumference - (percentage / 100) * circumference
+  
+  const colorClasses = {
+    primary: "stroke-primary text-primary",
+    secondary: "stroke-secondary text-secondary",
+    accent: "stroke-chart-3 text-chart-3"
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg className="transform -rotate-90" width={size} height={size}>
+          {/* Background ring */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={(size - 8) / 2}
+            fill="none"
+            className="stroke-muted"
+            strokeWidth={6}
+          />
+          {/* Progress ring */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={(size - 8) / 2}
+            fill="none"
+            className={cn("transition-all duration-1000 ease-out", colorClasses[color])}
+            strokeWidth={6}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className={cn("text-2xl font-bold", colorClasses[color].split(" ")[1])}>
+            {!unit || unit === "%" ? `${percentage.toFixed(0)}%` : `${value.toFixed(1)}${unit}`}
+          </span>
+        </div>
+      </div>
+      <div className="text-center">
+        <div className="font-semibold text-foreground">{label}</div>
+        {sublabel && <div className="text-xs text-muted-foreground">{sublabel}</div>}
+      </div>
+    </div>
+  )
+}
+
+// Horizontal Progress Bar with Academic Styling
+function MetricBar({ 
+  label, 
+  value, 
+  max, 
+  color = "bg-primary",
+  showValue = true 
+}: { 
+  label: string
+  value: number
+  max: number
+  color?: string
+  showValue?: boolean
+}) {
+  const percentage = max <= 0 ? 0 : Math.max(0, Math.min((value / max) * 100, 100))
+  
+  return (
+    <div className="group">
+      <div className="mb-2 flex justify-between text-sm">
+        <span className="font-medium text-foreground">{label}</span>
+        {showValue && (
+          <span className="font-semibold text-muted-foreground group-hover:text-primary transition-colors">
+            {value.toLocaleString()}
+          </span>
+        )}
+      </div>
+      <div className="h-2.5 w-full rounded-full bg-muted/60 overflow-hidden">
+        <div 
+          className={cn(
+            "h-full rounded-full transition-all duration-1000 ease-out relative",
+            color
+          )}
+          style={{ width: `${percentage}%` }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Stat Card with Icon
+function StatCard({ 
+  icon: Icon, 
+  value, 
+  label, 
+  suffix = ""
+}: { 
+  icon: React.ElementType
+  value: string | number
+  label: string
+  suffix?: string
+}) {
+  return (
+    <Card className="group hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 border-border/50">
+      <CardContent className="pt-6">
+        <div className="flex items-start justify-between">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
+            <Icon className="h-6 w-6 text-primary" />
+          </div>
+        </div>
+        <div className="mt-4">
+          <div className="text-3xl font-bold tracking-tight text-foreground">
+            {typeof value === 'number' ? <FormattedCounter value={value} suffix={suffix} /> : value}
+          </div>
+          <div className="text-sm text-muted-foreground mt-1">{label}</div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function AboutPage() {
+  interface QualityMetrics {
+    acceptanceRate: number;
+    avgReviewTime: number;
+  }
+
+  const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null)
+  const { data: aboutData, isLoading: isAboutLoading, isError: isAboutError } = useGetAboutContent()
+  const { data: statsData, isLoading: isStatsLoading, isError: isStatsError } = useGetPlatformStatistics()
+
+  useEffect(() => {
+    // Simulate fetching quality metrics since the API is not yet available
+    const timer = setTimeout(() => {
+      setQualityMetrics({
+        acceptanceRate: 32, // 32%
+        avgReviewTime: 2.4, // 2.4 weeks
+      })
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (isAboutLoading || isStatsLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (isAboutError || isStatsError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center text-center p-4">
+        <div className="mb-4 rounded-full bg-destructive/10 p-3 text-destructive">
+          <Target className="h-6 w-6" />
+        </div>
+        <h2 className="text-xl font-bold mb-2">Unavailable</h2>
+        <p className="text-muted-foreground">We were unable to load the page content. Please try again later.</p>
+      </div>
+    )
+  }
+
+  // Use values from CMS or fallback to sensible defaults
+  const content = aboutData || {
+    heroTitle: "About Us",
+    heroSubtitle: "",
+    missionText: "",
+    visionText: "",
+    whoWeAreText: "",
+    brandPhilosophyText: ""
+  }
+
+  // Use values from OJS DB or fallback to 0
+  const stats = statsData || {
+    totalJournals: 0,
+    totalArticles: 0,
+    totalUsers: 0,
+    countriesCount: 0
+  }
+
+  const SAMPLE_FIELD_DISTRIBUTION = [
+    { field: "Medical & Health Sciences", count: 85, color: "bg-primary", total: 85 },
+    { field: "Engineering & Technology", count: 65, color: "bg-secondary", total: 85 },
+    { field: "Life Sciences & Biology", count: 55, color: "bg-chart-3", total: 85 },
+    { field: "Social Sciences & Humanities", count: 45, color: "bg-chart-4", total: 85 },
+  ];
+
+
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-16 md:py-24">
-          <div className="container mx-auto px-4 md:px-6">
+        <section className="relative bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-16 md:py-24 overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
+          <div className="container mx-auto px-4 md:px-6 relative">
             <div className="mx-auto max-w-3xl text-center">
-              <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl text-balance">About dis</h1>
-              <p className="text-lg text-muted-foreground leading-relaxed">
-                Redefining the future of academic publishing through seamless digital integration and innovation
+              <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl text-balance">
+                {content.heroTitle}
+              </h1>
+              <p className="text-lg text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                {content.heroSubtitle}
               </p>
             </div>
           </div>
@@ -25,31 +255,26 @@ export default function AboutPage() {
         <section className="py-16">
           <div className="container mx-auto px-4 md:px-6">
             <div className="grid gap-8 md:grid-cols-2">
-              <Card>
+              <Card className="group hover:shadow-xl transition-all duration-500 border-border/50">
                 <CardContent className="pt-6">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 group-hover:scale-110 transition-transform duration-300">
                     <Target className="h-6 w-6 text-primary" />
                   </div>
                   <h2 className="mb-3 text-2xl font-bold">Our Mission</h2>
-                  <p className="text-muted-foreground leading-relaxed">
-                    To empower journals, editors, and researchers worldwide with comprehensive digital publishing
-                    solutions that uphold the highest standards of transparency, quality, and ethical scholarly
-                    communication. We bridge the gap between research creation, dissemination, and long-term
-                    preservation.
+                  <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                    {content.missionText}
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="group hover:shadow-xl transition-all duration-500 border-border/50">
                 <CardContent className="pt-6">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-secondary/10">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-secondary/10 group-hover:scale-110 transition-transform duration-300">
                     <Eye className="h-6 w-6 text-secondary" />
                   </div>
                   <h2 className="mb-3 text-2xl font-bold">Our Vision</h2>
-                  <p className="text-muted-foreground leading-relaxed">
-                    To create a vibrant ecosystem where science and technology evolve in harmony, fostering a trusted
-                    environment where scholarly work can thrive. We envision a future where every researcher has access
-                    to world-class publishing tools and global reach.
+                  <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                    {content.visionText}
                   </p>
                 </CardContent>
               </Card>
@@ -62,23 +287,8 @@ export default function AboutPage() {
           <div className="container mx-auto px-4 md:px-6">
             <div className="mx-auto max-w-4xl">
               <h2 className="mb-6 text-3xl font-bold">Who We Are</h2>
-              <div className="space-y-4 text-muted-foreground leading-relaxed">
-                <p>
-                  At dis, we redefine the future of academic publishing through seamless digital integration and
-                  innovation. As a forward-thinking scientific publisher, we provide a comprehensive suite of digital
-                  publishing and management solutions designed to empower journals, editors, and researchers worldwide.
-                </p>
-                <p>
-                  Our services include e-journal platform solutions for journal creation, hosting, and management;
-                  SubmitManager, our intuitive e-submission platform; and end-to-end e-editorial and e-review systems
-                  that streamline every stage of scholarly communication.
-                </p>
-                <p>
-                  Beyond these core services, we offer CrossRef integration (DOI, Crossmark, Similarity Check), XML and
-                  LaTeX production, ORCID author identification, citation metrics, indexing, and archiving solutions
-                  through Portico and CLOCKSS—ensuring every publication meets the highest international standards of
-                  accessibility and integrity.
-                </p>
+              <div className="space-y-4 text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                {content.whoWeAreText}
               </div>
             </div>
           </div>
@@ -95,61 +305,140 @@ export default function AboutPage() {
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <div className="mb-4 flex justify-center">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                      <Globe className="h-8 w-8 text-primary" />
+              {[
+                { icon: Globe, title: "Global Reach", desc: "Connecting researchers and institutions across 120+ countries worldwide", color: "primary" },
+                { icon: Award, title: "Quality", desc: "Adhering to rigorous COPE ethical standards and international publishing guidelines", color: "secondary" },
+                { icon: Target, title: "Transparency", desc: "Open processes and clear communication at every stage of publication", color: "primary" },
+                { icon: Eye, title: "Innovation", desc: "Leveraging cutting-edge technology to advance scholarly communication", color: "secondary" },
+              ].map((value) => (
+                <Card key={value.title} className="group hover:shadow-lg transition-all duration-300 border-border/50 hover:-translate-y-1">
+                  <CardContent className="pt-6 text-center">
+                    <div className="mb-4 flex justify-center">
+                      <div className={cn(
+                        "flex h-16 w-16 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110",
+                        value.color === "primary" ? "bg-primary/10" : "bg-secondary/10"
+                      )}>
+                        <value.icon className={cn(
+                          "h-8 w-8",
+                          value.color === "primary" ? "text-primary" : "text-secondary"
+                        )} />
+                      </div>
+                    </div>
+                    <h3 className="mb-2 font-semibold text-lg">{value.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {value.desc}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Enhanced Statistics Visualization */}
+        <section className="py-20 bg-gradient-to-b from-background via-muted/30 to-background">
+          <div className="container mx-auto px-4 md:px-6">
+            <div className="mb-12 text-center">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+                <BarChart3 className="h-4 w-4" />
+                Platform Analytics
+              </div>
+              <h2 className="mb-4 text-3xl font-bold md:text-4xl">Impact & Growth</h2>
+              <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
+                Measurable outcomes reflecting our commitment to advancing scholarly communication worldwide
+              </p>
+            </div>
+
+            {/* Key Metrics Grid */}
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-12">
+              <StatCard 
+                icon={BookOpen} 
+                value={stats.totalJournals || 0}
+                label="Active Journals" 
+              />
+              <StatCard 
+                icon={FileText} 
+                value={stats.totalArticles || 0}
+                label="Published Articles" 
+              />
+              <StatCard 
+                icon={Users} 
+                value={stats.totalUsers || 0}
+                label="Active Researchers" 
+              />
+              <StatCard 
+                icon={Globe} 
+                value={stats.countriesCount || 0}
+                label="Countries Reached" 
+              />
+            </div>
+
+            {/* Detailed Analytics */}
+            <div className="grid gap-8 lg:grid-cols-3">
+              {/* Field Distribution */}
+              <Card className="lg:col-span-2 border-border/50">
+                <CardContent className="pt-6">
+                  <div className="mb-6 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold">Journals by Field</h3>
+                      <p className="text-sm text-muted-foreground">Distribution across academic disciplines (Illustrative data)</p>
+                    </div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <BookOpen className="h-5 w-5 text-primary" />
                     </div>
                   </div>
-                  <h3 className="mb-2 font-semibold">Global Reach</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Connecting researchers and institutions across 120+ countries worldwide
-                  </p>
+                  <div className="space-y-5">
+                    {SAMPLE_FIELD_DISTRIBUTION.map((item) => (
+                      <MetricBar 
+                        key={item.field}
+                        label={item.field}
+                        value={item.count}
+                        max={item.total}
+                        color={item.color}
+                      />
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <div className="mb-4 flex justify-center">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary/10">
-                      <Award className="h-8 w-8 text-secondary" />
-                    </div>
-                  </div>
-                  <h3 className="mb-2 font-semibold">Quality</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Adhering to rigorous COPE ethical standards and international publishing guidelines
-                  </p>
-                </CardContent>
-              </Card>
 
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <div className="mb-4 flex justify-center">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                      <Target className="h-8 w-8 text-primary" />
-                    </div>
-                  </div>
-                  <h3 className="mb-2 font-semibold">Transparency</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Open processes and clear communication at every stage of publication
-                  </p>
-                </CardContent>
-              </Card>
 
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <div className="mb-4 flex justify-center">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary/10">
-                      <Eye className="h-8 w-8 text-secondary" />
+              <div className="space-y-6">
+                {/* Quality Metrics */}
+                <Card className="border-border/50">
+                  <CardContent className="pt-6">
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="text-lg font-bold">Quality Metrics</h3>
+                      <span className="text-[10px] uppercase tracking-wider font-bold bg-muted px-2 py-0.5 rounded text-muted-foreground">Sample Data</span>
                     </div>
-                  </div>
-                  <h3 className="mb-2 font-semibold">Innovation</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Leveraging cutting-edge technology to advance scholarly communication
-                  </p>
-                </CardContent>
-              </Card>
+                    {qualityMetrics ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        <RadialProgress 
+                          value={(qualityMetrics as QualityMetrics).acceptanceRate} 
+                          max={100} 
+                          label="Acceptance Rate" 
+                          sublabel="Industry avg: 30%"
+                          color="primary"
+                          size={100}
+                        />
+                        <RadialProgress 
+                          value={(qualityMetrics as QualityMetrics).avgReviewTime} 
+                          max={5} 
+                          label="Avg. Review Time" 
+                          sublabel="Weeks"
+                          color="secondary"
+                          size={100}
+                          unit="w"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center p-6 text-sm text-muted-foreground">
+                        Metrics currently unavailable
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
         </section>
@@ -159,86 +448,8 @@ export default function AboutPage() {
           <div className="container mx-auto px-4 md:px-6">
             <div className="mx-auto max-w-4xl">
               <h2 className="mb-6 text-3xl font-bold">Our Brand Philosophy</h2>
-              <div className="space-y-4 text-muted-foreground leading-relaxed">
-                <p>
-                  Our visual branding reflects our philosophy of digital growth and intellectual connectivity. The dis
-                  identity—featuring gradient blue and slate tones—symbolizes the organic growth of knowledge rooted in
-                  technological innovation.
-                </p>
-                <p>
-                  The color palette represents the interconnection of ideas, researchers, and data. The dual-tone of
-                  deep blue and cool slate conveys both academic reliability and forward-looking creativity.
-                  Together, they capture our vision: a vibrant ecosystem where science and technology evolve in harmony
-                  to advance open, ethical, and impactful scholarly communication.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Statistics Visualization */}
-        <section className="py-16">
-          <div className="container mx-auto px-4 md:px-6">
-            <div className="mb-12 text-center">
-              <h2 className="mb-4 text-3xl font-bold md:text-4xl">Platform Growth</h2>
-              <p className="text-muted-foreground">Our impact in numbers</p>
-            </div>
-
-            <div className="mx-auto max-w-4xl">
-              <div className="grid gap-8 md:grid-cols-2">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="mb-4 text-sm font-medium text-muted-foreground">Total Journals by Field</div>
-                    <div className="space-y-3">
-                      {[
-                        { field: "Medical Sciences", count: 85, color: "bg-primary" },
-                        { field: "Engineering", count: 65, color: "bg-secondary" },
-                        { field: "Life Sciences", count: 55, color: "bg-chart-3" },
-                        { field: "Social Sciences", count: 45, color: "bg-chart-4" },
-                      ].map((item, idx) => (
-                        <div key={idx}>
-                          <div className="mb-1 flex justify-between text-sm">
-                            <span>{item.field}</span>
-                            <span className="font-medium">{item.count}</span>
-                          </div>
-                          <div className="h-2 w-full rounded-full bg-muted">
-                            <div
-                              className={`h-2 rounded-full ${item.color}`}
-                              style={{ width: `${(item.count / 85) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="mb-4 text-sm font-medium text-muted-foreground">Yearly Publications Growth</div>
-                    <div className="space-y-3">
-                      {[
-                        { year: "2024", count: 4500 },
-                        { year: "2023", count: 3800 },
-                        { year: "2022", count: 2900 },
-                        { year: "2021", count: 1800 },
-                      ].map((item, idx) => (
-                        <div key={idx}>
-                          <div className="mb-1 flex justify-between text-sm">
-                            <span>{item.year}</span>
-                            <span className="font-medium">{item.count.toLocaleString()}</span>
-                          </div>
-                          <div className="h-2 w-full rounded-full bg-muted">
-                            <div
-                              className="h-2 rounded-full bg-gradient-to-r from-primary to-secondary"
-                              style={{ width: `${(item.count / 4500) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+              <div className="space-y-4 text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                {content.brandPhilosophyText}
               </div>
             </div>
           </div>
