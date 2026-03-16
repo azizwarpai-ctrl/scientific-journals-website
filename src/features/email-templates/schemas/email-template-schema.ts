@@ -6,8 +6,8 @@ export const emailTemplateCreateSchema = z.object({
     .min(1, "Name is required")
     .max(100, "Name must be 100 characters or less")
     .regex(/^[a-z0-9_-]+$/, "Name must be lowercase alphanumeric with hyphens/underscores"),
-  subject: z.string().min(1, "Subject is required").max(500),
-  html_content: z.string().min(1, "HTML content is required"),
+  subject: z.string().trim().min(1, "Subject is required").max(500),
+  html_content: z.string().trim().min(1, "HTML content is required"),
   text_content: z.string().optional(),
   variables: z.array(z.string()).optional(),
   description: z.string().max(2000).optional(),
@@ -21,8 +21,8 @@ export const emailTemplateUpdateSchema = z.object({
     .max(100)
     .regex(/^[a-z0-9_-]+$/, "Name must be lowercase alphanumeric with hyphens/underscores")
     .optional(),
-  subject: z.string().min(1).max(500).optional(),
-  html_content: z.string().min(1).optional(),
+  subject: z.string().trim().min(1).max(500).optional(),
+  html_content: z.string().trim().min(1).optional(),
   text_content: z.string().nullable().optional(),
   variables: z.array(z.string()).nullable().optional(),
   description: z.string().max(2000).nullable().optional(),

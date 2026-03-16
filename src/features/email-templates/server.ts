@@ -1,1 +1,1 @@
-export { emailTemplateRouter } from "./server/route"
+export { emailTemplateRouter } from "@/src/features/email-templates/server/route"

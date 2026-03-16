@@ -45,12 +45,17 @@ async function main() {
       'reviews',
       'published_articles',
       'system_settings',
+      'email_templates',
+      'email_logs',
     ];
     
     console.log('\n📋 Checking required tables:');
     for (const table of tables) {
       try {
-        const [rows] = await connection.execute<any>(`SHOW TABLES LIKE '${table}'`);
+        const [rows] = await connection.execute<any>(
+          `SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+          [table]
+        );
         if (rows.length > 0) {
           const [countRows] = await connection.execute<any>(`SELECT COUNT(*) as count FROM ${table}`);
           console.log(`   ✓ ${table.padEnd(20)} (${countRows[0].count} rows)`);

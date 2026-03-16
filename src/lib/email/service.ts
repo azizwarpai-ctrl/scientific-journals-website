@@ -78,8 +78,14 @@ export async function sendTemplateEmail(
     return { success: false, error: `Template "${options.templateName}" is inactive` }
   }
 
-  // Validate variables
-  const missingVars = validateVariables(template.html_content, options.variables)
+  // Validate variables (check subject, html and text fields)
+  const combinedContentForValidation = [
+    template.subject,
+    template.html_content,
+    template.text_content || "",
+  ].join("\n")
+
+  const missingVars = validateVariables(combinedContentForValidation, options.variables)
   if (missingVars.length > 0) {
     return { success: false, error: `Missing template variables: ${missingVars.join(", ")}` }
   }
@@ -109,15 +115,19 @@ export async function sendTemplateEmail(
     text: renderedText,
   })
 
-  // Update log
-  await prisma.emailLog.update({
-    where: { id: log.id },
-    data: {
-      status: result.success ? "sent" : "failed",
-      error_message: result.error || null,
-      sent_at: result.success ? new Date() : null,
-    },
-  })
+  // Update log (best effort - don't let log update failure fail the whole operation)
+  try {
+    await prisma.emailLog.update({
+      where: { id: log.id },
+      data: {
+        status: result.success ? "sent" : "failed",
+        error_message: result.error || null,
+        sent_at: result.success ? new Date() : null,
+      },
+    })
+  } catch (logError) {
+    console.warn(`[EMAIL] Failed to update log ${log.id}:`, logError)
+  }
 
   return result
 }

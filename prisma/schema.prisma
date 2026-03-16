@@ -242,7 +242,6 @@ model EmailTemplate {
 
   email_logs EmailLog[]
 
-  @@index([name])
   @@index([is_active])
   @@map("email_templates")
 }

@@ -20,54 +20,21 @@ import {
 import { Mail, Plus, Pencil, Trash2, Eye, MailCheck, MailX } from "lucide-react"
 import { toast } from "sonner"
 
-interface EmailTemplate {
-  id: string
-  name: string
-  subject: string
-  html_content: string
-  text_content: string | null
-  variables: string[] | null
-  description: string | null
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
-interface PaginatedResponse {
-  success: boolean
-  data: EmailTemplate[]
-  pagination: {
-    page: number
-    limit: number
-    total: number
-    totalPages: number
-    hasNext: boolean
-    hasPrev: boolean
-  }
-}
+import { useGetEmailTemplates } from "@/src/features/email-templates/api/use-get-email-templates"
+import { client } from "@/src/lib/rpc"
+import type { EmailTemplate } from "@/src/features/email-templates/types/email-template-type"
 
 export default function EmailTemplatesPage() {
-  const [templates, setTemplates] = useState<EmailTemplate[]>([])
-  const [loading, setLoading] = useState(true)
+  const limit = 20
+  const [page, setPage] = useState(1)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [smtpStatus, setSmtpStatus] = useState<{ smtpConfigured: boolean; provider: string } | null>(null)
 
-  const fetchTemplates = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch("/api/email-templates?limit=100")
-      if (!res.ok) throw new Error("Failed to fetch")
-      const data: PaginatedResponse = await res.json()
-      setTemplates(data.data || [])
-    } catch (error) {
-      console.error("Error fetching templates:", error)
-      toast.error("Failed to fetch email templates")
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const { data: templatesData, isLoading: loading, refetch } = useGetEmailTemplates(page, limit)
+  const templates = templatesData?.data || []
+  const pagination = templatesData?.pagination || null
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -82,19 +49,18 @@ export default function EmailTemplatesPage() {
   }, [])
 
   useEffect(() => {
-    fetchTemplates()
     fetchStatus()
-  }, [fetchTemplates, fetchStatus])
+  }, [fetchStatus])
 
   const handleDelete = async () => {
     if (!deleteId) return
 
     try {
-      const res = await fetch(`/api/email-templates/${deleteId}`, { method: "DELETE" })
+      const res = await client["email-templates"][":id"].$delete({ param: { id: deleteId } })
       if (!res.ok) throw new Error("Failed to delete")
       toast.success("Template deleted successfully")
       setDeleteId(null)
-      fetchTemplates()
+      refetch()
     } catch (error) {
       console.error("Error deleting template:", error)
       toast.error("Failed to delete template")
@@ -103,21 +69,20 @@ export default function EmailTemplatesPage() {
 
   const handleToggleActive = async (template: EmailTemplate) => {
     try {
-      const res = await fetch(`/api/email-templates/${template.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_active: !template.is_active }),
+      const res = await client["email-templates"][":id"].$patch({
+        param: { id: template.id },
+        json: { is_active: !template.is_active },
       })
       if (!res.ok) throw new Error("Failed to update")
       toast.success(`Template ${template.is_active ? "disabled" : "enabled"} successfully`)
-      fetchTemplates()
+      refetch()
     } catch (error) {
       console.error("Error toggling template:", error)
       toast.error("Failed to update template")
     }
   }
 
-  const filteredTemplates = templates.filter((t) => {
+  const filteredTemplates = templates.filter((t: EmailTemplate) => {
     const matchesSearch =
       !searchQuery ||
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -129,8 +94,8 @@ export default function EmailTemplatesPage() {
     return matchesSearch
   })
 
-  const activeCount = templates.filter((t) => t.is_active).length
-  const inactiveCount = templates.filter((t) => !t.is_active).length
+  const activeCount = templates.filter((t: EmailTemplate) => t.is_active).length
+  const inactiveCount = templates.filter((t: EmailTemplate) => !t.is_active).length
 
   return (
     <div className="space-y-6">
@@ -220,9 +185,9 @@ export default function EmailTemplatesPage() {
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList>
-              <TabsTrigger value="all">All ({templates.length})</TabsTrigger>
-              <TabsTrigger value="active">Active ({activeCount})</TabsTrigger>
-              <TabsTrigger value="inactive">Inactive ({inactiveCount})</TabsTrigger>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="active">Active</TabsTrigger>
+              <TabsTrigger value="inactive">Inactive</TabsTrigger>
             </TabsList>
 
             {["all", "active", "inactive"].map((tab) => (
@@ -230,7 +195,7 @@ export default function EmailTemplatesPage() {
                 {loading ? (
                   <div className="py-8 text-center text-muted-foreground">Loading templates...</div>
                 ) : filteredTemplates.length > 0 ? (
-                  filteredTemplates.map((template) => (
+                  filteredTemplates.map((template: EmailTemplate) => (
                     <div
                       key={template.id}
                       className="flex items-center justify-between border-b pb-4 last:border-0"
@@ -291,6 +256,33 @@ export default function EmailTemplatesPage() {
                 ) : (
                   <div className="py-8 text-center text-muted-foreground">
                     No email templates found
+                  </div>
+                )}
+
+                {/* Pagination Controls */}
+                {pagination && pagination.totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      Showing page {pagination.page} of {pagination.totalPages}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!pagination.hasPrev}
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!pagination.hasNext}
+                        onClick={() => setPage(p => p + 1)}
+                      >
+                        Next
+                      </Button>
+                    </div>
                   </div>
                 )}
               </TabsContent>

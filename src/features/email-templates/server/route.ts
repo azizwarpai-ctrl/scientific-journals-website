@@ -174,7 +174,13 @@ app.patch(
         updateData.variables = extractVariables(data.html_content)
       }
       if (data.text_content !== undefined) updateData.text_content = data.text_content
-      if (data.variables !== undefined) updateData.variables = data.variables
+      // Handle variables: if html_content changes, we always extract.
+      // If only metadata/subject changes, variables stays as is unless explicitly provided.
+      if (data.html_content !== undefined) {
+        updateData.variables = extractVariables(data.html_content)
+      } else if (data.variables !== undefined) {
+        updateData.variables = data.variables
+      }
       if (data.description !== undefined) updateData.description = data.description
       if (data.is_active !== undefined) updateData.is_active = data.is_active
 
@@ -240,13 +246,19 @@ app.post(
         return c.json({ success: false, error: "Template not found" }, 404)
       }
 
+      const combinedContentForValidation = [
+        template.subject,
+        template.html_content,
+        template.text_content || "",
+      ].join("\n")
+
+      const missingVars = validateVariables(combinedContentForValidation, variables)
+
       const renderedSubject = renderTemplate(template.subject, variables)
       const renderedHtml = renderTemplate(template.html_content, variables)
       const renderedText = template.text_content
         ? renderTemplate(template.text_content, variables)
         : null
-
-      const missingVars = validateVariables(template.html_content, variables)
 
       return c.json({
         success: true,

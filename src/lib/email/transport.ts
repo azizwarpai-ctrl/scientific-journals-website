@@ -5,6 +5,7 @@
  * Provides a singleton transporter instance.
  */
 
+import "server-only"
 import nodemailer from "nodemailer"
 import type { Transporter } from "nodemailer"
 
@@ -27,10 +28,19 @@ export function getTransporter(): Transporter | null {
   }
 
   if (!transporter) {
+    const host = process.env.SMTP_HOST
+    const portString = process.env.SMTP_PORT || "587"
+    const parsedPort = parseInt(portString, 10)
+
+    // Use explicit secure if defined, otherwise infer from port 465
+    const secure = process.env.SMTP_SECURE !== undefined
+      ? process.env.SMTP_SECURE === "true"
+      : parsedPort === 465
+
     transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || "587"),
-      secure: process.env.SMTP_SECURE === "true",
+      host,
+      port: parsedPort,
+      secure,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASSWORD,

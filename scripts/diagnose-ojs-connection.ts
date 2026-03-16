@@ -77,8 +77,8 @@ function checkEnvironment(): boolean {
     }
 
     for (const [name, value] of optional) {
-        if (!value || value === "3306") {
-            info(`${name} = "${value || "(default)"}"`)
+        if (value == null || value === "") {
+            info(`${name} = "(default)"`)
         } else {
             pass(`${name} = "${name.includes("PASSWORD") ? mask(value) : value}"`)
         }
@@ -197,7 +197,7 @@ async function checkMysqlAuth(): Promise<mariadb.Connection | null> {
         const sqlState = err.sqlState || ""
 
         switch (true) {
-            case code === "ER_ACCESS_DENIED_ERROR" || err.errno === 1045:
+            case code === "ER_ACCESS_DENIED_ERROR" || err.errno === 1045: {
                 fail(`Access denied for user '${CONFIG.user}'`)
                 info("Possible causes:")
                 info("  • Wrong password")
@@ -210,6 +210,7 @@ async function checkMysqlAuth(): Promise<mariadb.Connection | null> {
                     warn(`Your IP that needs whitelisting: ${ipMatch[1]}`)
                 }
                 break
+            }
 
             case code === "ECONNREFUSED":
                 fail("Connection refused by the database server")

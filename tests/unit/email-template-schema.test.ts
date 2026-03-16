@@ -25,6 +25,7 @@ describe('Email Template Schemas', () => {
 
     it('should default is_active to true', () => {
       const result = emailTemplateCreateSchema.safeParse(validTemplate)
+      expect(result.success).toBe(true)
       if (result.success) {
         expect(result.data.is_active).toBe(true)
       }

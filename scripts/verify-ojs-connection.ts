@@ -10,17 +10,18 @@
  * @module scripts/verify-ojs-connection
  */
 
-import { testOJSConnection, queryOJS, getOJSPoolStats } from '../lib/ojs-client';
+import { ojsHealthCheck, ojsQuery } from '../src/features/ojs/server/ojs-client';
 
 async function main() {
   console.log('🔌 Testing OJS database connection...\n');
   
   try {
     // Test basic connection
-    const connected = await testOJSConnection();
+    const health = await ojsHealthCheck();
     
-    if (!connected) {
+    if (!health.ok) {
       console.error('❌ Failed to connect to OJS database');
+      console.error(`Error: ${health.error}`);
       console.error('Please check your environment variables:');
       console.error('  - OJS_DATABASE_HOST');
       console.error('  - OJS_DATABASE_PORT');
@@ -29,43 +30,36 @@ async function main() {
       console.error('  - OJS_DATABASE_PASSWORD');
       process.exit(1);
     }
+
+    console.log(`✅ Connection successful! (Latency: ${health.latencyMs}ms)\n`);
     
     // Get database version
-    const [versionResult] = await queryOJS<any>('SELECT VERSION() as version');
-    console.log(`✅ MySQL Version: ${versionResult.version}`);
+    const versionResult = await ojsQuery<any>('SELECT VERSION() as version');
+    console.log(`✅ MySQL Version: ${versionResult[0].version}`);
     
     // Get journal count
-    const [journalCount] = await queryOJS<any>('SELECT COUNT(*) as count FROM journals');
-    console.log(`📚 Total Journals: ${journalCount.count}`);
+    const journalCount = await ojsQuery<any>('SELECT COUNT(*) as count FROM journals');
+    console.log(`📚 Total Journals: ${journalCount[0].count}`);
     
     // Get active journals count
-    const [activeJournals] = await queryOJS<any>('SELECT COUNT(*) as count FROM journals WHERE enabled = 1');
-    console.log(`✓  Active Journals: ${activeJournals.count}`);
+    const activeJournals = await ojsQuery<any>('SELECT COUNT(*) as count FROM journals WHERE enabled = 1');
+    console.log(`✓  Active Journals: ${activeJournals[0].count}`);
     
     // Get submission count
-    const [submissionCount] = await queryOJS<any>('SELECT COUNT(*) as count FROM submissions');
-    console.log(`📝 Total Submissions: ${submissionCount.count}`);
+    const submissionCount = await ojsQuery<any>('SELECT COUNT(*) as count FROM submissions');
+    console.log(`📝 Total Submissions: ${submissionCount[0].count}`);
     
     // Get published articles count
-    const [publishedCount] = await queryOJS<any>(`
+    const publishedCount = await ojsQuery<any>(`
       SELECT COUNT(*) as count 
       FROM publications p
       WHERE p.status = 3 AND p.date_published IS NOT NULL
     `);
-    console.log(`📄 Published Articles: ${publishedCount.count}`);
+    console.log(`📄 Published Articles: ${publishedCount[0].count}`);
     
     // Get user count
-    const [userCount] = await queryOJS<any>('SELECT COUNT(*) as count FROM users');
-    console.log(`👥 Total Users: ${userCount.count}`);
-    
-    // Get pool statistics
-    const poolStats = getOJSPoolStats();
-    if (poolStats) {
-      console.log('\n📊 Connection Pool Statistics:');
-      console.log(`   Total Connections: ${poolStats.totalConnections}`);
-      console.log(`   Free Connections: ${poolStats.freeConnections}`);
-      console.log(`   Queued Requests: ${poolStats.queuedRequests}`);
-    }
+    const userCount = await ojsQuery<any>('SELECT COUNT(*) as count FROM users');
+    console.log(`👥 Total Users: ${userCount[0].count}`);
     
     console.log('\n✅ All tests passed!');
     process.exit(0);
