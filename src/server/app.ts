@@ -7,7 +7,6 @@ import { ojsRouter } from "@/src/features/ojs/server"
 import { authRouter } from "@/src/features/auth/server"
 import { messageRouter } from "@/src/features/messages/server"
 import { metricsRouter } from "@/src/features/metrics/server"
-import { healthRouter } from "@/src/features/health/server"
 import { reviewsRouter } from "@/src/features/reviews/server"
 import { fetchFromDatabase } from "@/src/features/ojs/server/ojs-service"
 import { triggerStartupSync } from "@/src/features/ojs/server/sync-ojs-journals"
@@ -19,7 +18,6 @@ const apiApp = new Hono()
     .route("/messages", messageRouter)
     .route("/ojs", ojsRouter)
     .route("/metrics", metricsRouter)
-    .route("/health", healthRouter)
     .route("/reviews", reviewsRouter)
 
 
