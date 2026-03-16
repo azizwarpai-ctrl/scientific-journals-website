@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { prisma } from "@/lib/db/config"
+import { requireAdmin } from "@/src/lib/auth-middleware"
 import { aboutContentSchema, defaultAboutContent, type AboutContent } from "../schema"
 
 const SETTING_KEY = "about_page_content"
@@ -16,9 +17,15 @@ export const aboutRouter = new Hono()
         return c.json({ data: defaultAboutContent })
       }
 
-      // Parse JSON from the DB
-      const data = setting.setting_value as unknown as AboutContent
-      return c.json({ data })
+      // Validate the persisted value
+      const parsed = aboutContentSchema.safeParse(setting.setting_value)
+      if (!parsed.success) {
+        console.error("[ABOUT_GET_VALIDATION_ERROR]", parsed.error)
+        // Fallback to default if corrupted
+        return c.json({ data: defaultAboutContent })
+      }
+
+      return c.json({ data: parsed.data })
     } catch (error) {
       console.error("[ABOUT_GET_ERROR]", error)
       return c.json({ error: "Failed to fetch about content" }, 500)
@@ -26,6 +33,7 @@ export const aboutRouter = new Hono()
   })
   .put(
     "/",
+    requireAdmin,
     zValidator("json", aboutContentSchema),
     async (c) => {
       try {
@@ -41,7 +49,8 @@ export const aboutRouter = new Hono()
           }
         })
 
-        return c.json({ data: setting.setting_value as unknown as AboutContent })
+        const data = setting.setting_value as unknown as AboutContent
+        return c.json({ data })
       } catch (error) {
         console.error("[ABOUT_UPDATE_ERROR]", error)
         return c.json({ error: "Failed to update about content" }, 500)
