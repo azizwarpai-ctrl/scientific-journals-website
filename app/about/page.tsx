@@ -136,15 +136,11 @@ function StatCard({
   icon: Icon, 
   value, 
   label, 
-  trend, 
-  trendUp = true,
   suffix = ""
 }: { 
   icon: React.ElementType
   value: string | number
   label: string
-  trend?: string
-  trendUp?: boolean
   suffix?: string
 }) {
   return (
@@ -154,16 +150,6 @@ function StatCard({
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
             <Icon className="h-6 w-6 text-primary" />
           </div>
-          {trend && (
-            <span className={cn(
-              "inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full",
-              trendUp ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" 
-                      : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
-            )}>
-              <TrendingUp className={cn("h-3 w-3", !trendUp && "rotate-180")} />
-              {trend}
-            </span>
-          )}
         </div>
         <div className="mt-4">
           <div className="text-3xl font-bold tracking-tight text-foreground">
@@ -225,7 +211,12 @@ export default function AboutPage() {
     { field: "Social Sciences & Humanities", count: 45, color: "bg-chart-4", total: 85 },
   ];
 
-  const qualityMetrics: any = null
+  interface QualityMetrics {
+    acceptanceRate: number;
+    avgReviewTime: number;
+  }
+
+  let qualityMetrics: QualityMetrics | null = null
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -407,7 +398,7 @@ export default function AboutPage() {
                     {qualityMetrics ? (
                       <div className="grid grid-cols-2 gap-4">
                         <RadialProgress 
-                          value={qualityMetrics.acceptanceRate} 
+                          value={(qualityMetrics as QualityMetrics).acceptanceRate} 
                           max={100} 
                           label="Acceptance Rate" 
                           sublabel="Industry avg: 30%"
@@ -415,7 +406,7 @@ export default function AboutPage() {
                           size={100}
                         />
                         <RadialProgress 
-                          value={qualityMetrics.avgReviewTime} 
+                          value={(qualityMetrics as QualityMetrics).avgReviewTime} 
                           max={5} 
                           label="Avg. Review Time" 
                           sublabel="Weeks"
