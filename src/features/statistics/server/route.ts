@@ -18,23 +18,29 @@ export const statisticsRouter = new Hono()
         return c.json({ data: statsCache })
       }
 
-      // Query total journals (enabled = 1)
-      const journalsData = await ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM journals WHERE enabled = 1")
-      
-      // Query published articles (status = 3)
-      const articlesData = await ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM submissions WHERE status = 3")
-      
-      // Query total users
-      const usersData = await ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM users")
-      
-      // Query countries represented
-      const countriesData = await ojsQuery<{ count: number }>("SELECT COUNT(DISTINCT country) as count FROM users WHERE country IS NOT NULL AND country != ''")
-      
+      // Execute database queries in parallel
+      const queries = [
+        ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM journals WHERE enabled = 1"),
+        ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM submissions WHERE status = 3"),
+        ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM users"),
+        ojsQuery<{ count: number }>("SELECT COUNT(DISTINCT country) as count FROM users WHERE country IS NOT NULL AND country != ''")
+      ];
+
+      const results = await Promise.allSettled(queries);
+
+      const extractCount = (result: PromiseSettledResult<any[]>) => 
+        result.status === "fulfilled" ? (result.value[0]?.count || 0) : 0;
+
+      const journalsData = extractCount(results[0]);
+      const articlesData = extractCount(results[1]);
+      const usersData = extractCount(results[2]);
+      const countriesData = extractCount(results[3]);
+
       statsCache = {
-        totalJournals: journalsData[0]?.count || 0,
-        totalArticles: articlesData[0]?.count || 0,
-        totalUsers: usersData[0]?.count || 0,
-        countriesCount: countriesData[0]?.count || 0,
+        totalJournals: journalsData,
+        totalArticles: articlesData,
+        totalUsers: usersData,
+        countriesCount: countriesData,
       }
       lastFetchTime = now
 

@@ -9,12 +9,11 @@ import { cn } from "@/lib/utils"
 import { useGetAboutContent } from "@/src/features/about"
 import { useGetPlatformStatistics } from "@/src/features/statistics"
 
-// Animated Counter Component
-function AnimatedCounter({ value, suffix = "", prefix = "", duration = 2000 }: { 
+// Formatted Counter Component
+function FormattedCounter({ value, suffix = "", prefix = "" }: { 
   value: number
   suffix?: string
   prefix?: string
-  duration?: number 
 }) {
   return (
     <span className="tabular-nums tracking-tight">
@@ -39,7 +38,7 @@ function RadialProgress({
   color?: "primary" | "secondary" | "accent"
   size?: number
 }) {
-  const percentage = Math.min((value / max) * 100, 100)
+  const percentage = max <= 0 ? 0 : Math.max(0, Math.min((value / max) * 100, 100))
   const circumference = 2 * Math.PI * ((size - 8) / 2)
   const strokeDashoffset = circumference - (percentage / 100) * circumference
   
@@ -103,7 +102,7 @@ function MetricBar({
   color?: string
   showValue?: boolean
 }) {
-  const percentage = Math.min((value / max) * 100, 100)
+  const percentage = max <= 0 ? 0 : Math.max(0, Math.min((value / max) * 100, 100))
   
   return (
     <div className="group">
@@ -123,7 +122,7 @@ function MetricBar({
           )}
           style={{ width: `${percentage}%` }}
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
         </div>
       </div>
     </div>
@@ -166,7 +165,7 @@ function StatCard({
         </div>
         <div className="mt-4">
           <div className="text-3xl font-bold tracking-tight text-foreground">
-            {typeof value === 'number' ? <AnimatedCounter value={value} suffix={suffix} /> : value}
+            {typeof value === 'number' ? <FormattedCounter value={value} suffix={suffix} /> : value}
           </div>
           <div className="text-sm text-muted-foreground mt-1">{label}</div>
         </div>
@@ -176,13 +175,25 @@ function StatCard({
 }
 
 export default function AboutPage() {
-  const { data: aboutData, isLoading: isAboutLoading } = useGetAboutContent()
-  const { data: statsData, isLoading: isStatsLoading } = useGetPlatformStatistics()
+  const { data: aboutData, isLoading: isAboutLoading, isError: isAboutError } = useGetAboutContent()
+  const { data: statsData, isLoading: isStatsLoading, isError: isStatsError } = useGetPlatformStatistics()
 
   if (isAboutLoading || isStatsLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (isAboutError || isStatsError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center text-center p-4">
+        <div className="mb-4 rounded-full bg-destructive/10 p-3 text-destructive">
+          <Target className="h-6 w-6" />
+        </div>
+        <h2 className="text-xl font-bold mb-2">Unavailable</h2>
+        <p className="text-muted-foreground">We were unable to load the page content. Please try again later.</p>
       </div>
     )
   }
@@ -204,6 +215,17 @@ export default function AboutPage() {
     totalUsers: 0,
     countriesCount: 0
   }
+
+  const SAMPLE_FIELD_DISTRIBUTION = [
+    { field: "Medical & Health Sciences", count: 85, color: "bg-primary", total: 85 },
+    { field: "Engineering & Technology", count: 65, color: "bg-secondary", total: 85 },
+    { field: "Life Sciences & Biology", count: 55, color: "bg-chart-3", total: 85 },
+    { field: "Social Sciences & Humanities", count: 45, color: "bg-chart-4", total: 85 },
+  ];
+
+  // Async placeholders for quality and growth (to be hooked up later)
+  const publicationStats: any[] = []
+  const qualityMetrics: any = null
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -329,30 +351,21 @@ export default function AboutPage() {
                 icon={BookOpen} 
                 value={stats.totalJournals || 0}
                 label="Active Journals" 
-                trend="+12% this year"
-                trendUp={true}
               />
               <StatCard 
                 icon={FileText} 
                 value={stats.totalArticles || 0}
                 label="Published Articles" 
-                trend="+28% this year"
-                trendUp={true}
               />
               <StatCard 
                 icon={Users} 
                 value={stats.totalUsers || 0}
                 label="Active Researchers" 
-                trend="+15% this year"
-                trendUp={true}
               />
               <StatCard 
                 icon={Globe} 
                 value={stats.countriesCount || 0}
                 label="Countries Reached" 
-                suffix="+"
-                trend="+8 new"
-                trendUp={true}
               />
             </div>
 
@@ -364,19 +377,14 @@ export default function AboutPage() {
                   <div className="mb-6 flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-bold">Journals by Field</h3>
-                      <p className="text-sm text-muted-foreground">Distribution across academic disciplines</p>
+                      <p className="text-sm text-muted-foreground">Distribution across academic disciplines (Illustrative data)</p>
                     </div>
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                       <BookOpen className="h-5 w-5 text-primary" />
                     </div>
                   </div>
                   <div className="space-y-5">
-                    {[
-                      { field: "Medical & Health Sciences", count: 85, color: "bg-primary", total: 85 },
-                      { field: "Engineering & Technology", count: 65, color: "bg-secondary", total: 85 },
-                      { field: "Life Sciences & Biology", count: 55, color: "bg-chart-3", total: 85 },
-                      { field: "Social Sciences & Humanities", count: 45, color: "bg-chart-4", total: 85 },
-                    ].map((item, idx) => (
+                    {SAMPLE_FIELD_DISTRIBUTION.map((item, idx) => (
                       <MetricBar 
                         key={idx}
                         label={item.field}
@@ -389,57 +397,59 @@ export default function AboutPage() {
                 </CardContent>
               </Card>
 
-              {/* Growth Metrics */}
               <div className="space-y-6">
-                <Card className="border-border/50">
-                  <CardContent className="pt-6">
-                    <h3 className="text-lg font-bold mb-4">Publication Growth</h3>
-                    <div className="space-y-4">
-                      {[
-                        { year: "2024", count: 4500, growth: "+18%" },
-                        { year: "2023", count: 3800, growth: "+31%" },
-                        { year: "2022", count: 2900, growth: "+61%" },
-                        { year: "2021", count: 1800, growth: "—" },
-                      ].map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                          <div>
-                            <div className="font-semibold text-foreground">{item.year}</div>
-                            <div className="text-xs text-muted-foreground">{item.count.toLocaleString()} articles</div>
+                {publicationStats && publicationStats.length > 0 && (
+                  <Card className="border-border/50">
+                    <CardContent className="pt-6">
+                      <h3 className="text-lg font-bold mb-4">Publication Growth</h3>
+                      <div className="space-y-4">
+                        {publicationStats.map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                            <div>
+                              <div className="font-semibold text-foreground">{item.year}</div>
+                              <div className="text-xs text-muted-foreground">{item.count.toLocaleString()} articles</div>
+                            </div>
+                            <div className={cn(
+                              "text-sm font-medium",
+                              item.growth === "—" ? "text-muted-foreground" : "text-emerald-600 dark:text-emerald-400"
+                            )}>
+                              {item.growth}
+                            </div>
                           </div>
-                          <div className={cn(
-                            "text-sm font-medium",
-                            item.growth === "—" ? "text-muted-foreground" : "text-emerald-600 dark:text-emerald-400"
-                          )}>
-                            {item.growth}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Quality Metrics */}
                 <Card className="border-border/50">
                   <CardContent className="pt-6">
                     <h3 className="text-lg font-bold mb-4">Quality Metrics</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <RadialProgress 
-                        value={94} 
-                        max={100} 
-                        label="Acceptance Rate" 
-                        sublabel="Industry avg: 30%"
-                        color="primary"
-                        size={100}
-                      />
-                      <RadialProgress 
-                        value={2.4} 
-                        max={5} 
-                        label="Avg. Review Time" 
-                        sublabel="Weeks"
-                        color="secondary"
-                        size={100}
-                      />
-                    </div>
+                    {qualityMetrics ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        <RadialProgress 
+                          value={qualityMetrics.acceptanceRate} 
+                          max={100} 
+                          label="Acceptance Rate" 
+                          sublabel="Industry avg: 30%"
+                          color="primary"
+                          size={100}
+                        />
+                        <RadialProgress 
+                          value={qualityMetrics.avgReviewTime} 
+                          max={5} 
+                          label="Avg. Review Time" 
+                          sublabel="Weeks"
+                          color="secondary"
+                          size={100}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center p-6 text-sm text-muted-foreground">
+                        Metrics currently unavailable
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>

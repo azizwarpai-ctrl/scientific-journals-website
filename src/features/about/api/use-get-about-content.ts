@@ -13,5 +13,6 @@ export const useGetAboutContent = () => {
             const { data } = await response.json()
             return data as AboutContent
         },
+        staleTime: 5 * 60 * 1000,
     })
 }

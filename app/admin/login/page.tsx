@@ -37,8 +37,7 @@ export default function AdminLoginPage() {
       }
 
       if ((data as any).requiresVerification) {
-        setError("Two-factor authentication is currently unavailable. Please contact an administrator.")
-        setIsLoading(false)
+        router.push(`/admin/verify-code?email=${encodeURIComponent(email)}`)
         return
       }
       
