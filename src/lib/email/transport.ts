@@ -32,6 +32,10 @@ export function getTransporter(): Transporter | null {
     const portString = process.env.SMTP_PORT || "587"
     const parsedPort = parseInt(portString, 10)
 
+    if (isNaN(parsedPort) || !Number.isFinite(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+      throw new Error(`Invalid SMTP port: ${portString} (parsed as ${parsedPort}). Port must be a finite integer between 1 and 65535.`);
+    }
+
     // Use explicit secure if defined, otherwise infer from port 465
     const secure = process.env.SMTP_SECURE !== undefined
       ? process.env.SMTP_SECURE === "true"

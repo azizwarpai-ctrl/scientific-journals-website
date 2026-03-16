@@ -170,13 +170,7 @@ app.patch(
       if (data.subject !== undefined) updateData.subject = data.subject
       if (data.html_content !== undefined) {
         updateData.html_content = data.html_content
-        // Re-detect variables from new HTML content
-        updateData.variables = extractVariables(data.html_content)
-      }
-      if (data.text_content !== undefined) updateData.text_content = data.text_content
-      // Handle variables: if html_content changes, we always extract.
-      // If only metadata/subject changes, variables stays as is unless explicitly provided.
-      if (data.html_content !== undefined) {
+        // Detect variables from new HTML content
         updateData.variables = extractVariables(data.html_content)
       } else if (data.variables !== undefined) {
         updateData.variables = data.variables

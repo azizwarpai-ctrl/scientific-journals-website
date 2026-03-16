@@ -29,6 +29,15 @@ export function extractVariables(template: string): string[] {
 }
 
 /**
+ * Extract all unique variables across HTML content and subject.
+ */
+export function extractAllVariables(htmlContent: string, subject: string): string[] {
+  const htmlVars = extractVariables(htmlContent)
+  const subjectVars = extractVariables(subject)
+  return [...new Set([...htmlVars, ...subjectVars])]
+}
+
+/**
  * Validate that all required template variables have been provided.
  * Returns an array of missing variable names.
  */

@@ -28,11 +28,18 @@ export function TemplateDetailsCard({ form, setForm }: Props) {
             onChange={(e) =>
               setForm((prev: any) => ({
                 ...prev,
+                name: e.target.value,
+              }))
+            }
+            onBlur={(e) =>
+              setForm((prev: any) => ({
+                ...prev,
                 name: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""),
               }))
             }
             required
           />
+          <p className="text-xs text-muted-foreground">Lowercase alphanumeric with hyphens/underscores only.</p>
         </div>
 
         <div className="space-y-2">

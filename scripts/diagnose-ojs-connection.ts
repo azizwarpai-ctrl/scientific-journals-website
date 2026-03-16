@@ -383,11 +383,11 @@ async function main() {
         console.log("\n🎉 All checks passed! The OJS database is fully connected and operational.\n")
         console.log("Your .env values are correct. The application should be able to")
         console.log("fetch OJS journals at: GET /api/ojs/journals\n")
+        process.exit(0)
     } else {
         console.log("\n⚠️  Connection works but queries failed. Check table structure.\n")
+        process.exit(1)
     }
-
-    process.exit(0)
 }
 
 main().catch((err) => {

@@ -80,6 +80,6 @@ async function main() {
 }
 
 // Run if executed directly
-if (import.meta.main || !process.env.TEST_MODE) {
+if (import.meta.main) {
   main();
 }

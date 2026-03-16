@@ -66,9 +66,12 @@ export function EmailContentCard({ form, setForm, previewHtml, previewSubject }:
                 <div className="text-sm text-muted-foreground">
                   <strong>Subject:</strong> {previewSubject}
                 </div>
-                <div
-                  className="border-t pt-3"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(previewHtml) }}
+                <iframe
+                  className="w-full min-h-[500px] border-t pt-3"
+                  srcDoc={DOMPurify.sanitize(previewHtml)}
+                  sandbox=""
+                  title="Email Preview"
+                  aria-label="Email Preview Content"
                 />
               </div>
             </TabsContent>

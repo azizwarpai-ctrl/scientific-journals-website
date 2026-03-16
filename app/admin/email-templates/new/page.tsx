@@ -11,9 +11,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Save, Eye, Send, Loader2 } from "lucide-react"
+import { ArrowLeft, Save, Eye, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
+import { extractAllVariables } from "@/src/lib/email/renderer"
+import { client } from "@/src/lib/rpc"
 
 export default function NewTemplatePage() {
   const router = useRouter()
@@ -31,23 +33,8 @@ export default function NewTemplatePage() {
     is_active: true,
   })
 
-  // Extract variables from HTML content
-  const detectedVariables = (() => {
-    const matches = form.html_content.match(/\{\{(\w+)\}\}/g)
-    if (!matches) return []
-    const keys = matches.map((m) => m.replace(/\{\{|\}\}/g, ""))
-    return [...new Set(keys)]
-  })()
-
-  // Also detect from subject
-  const subjectVariables = (() => {
-    const matches = form.subject.match(/\{\{(\w+)\}\}/g)
-    if (!matches) return []
-    const keys = matches.map((m) => m.replace(/\{\{|\}\}/g, ""))
-    return [...new Set(keys)]
-  })()
-
-  const allVariables = [...new Set([...detectedVariables, ...subjectVariables])]
+  // Extract variables from HTML content and subject
+  const allVariables = extractAllVariables(form.html_content, form.subject)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,10 +46,8 @@ export default function NewTemplatePage() {
 
     try {
       setSaving(true)
-      const res = await fetch("/api/email-templates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await client["email-templates"].$post({
+        json: {
           name: form.name,
           subject: form.subject,
           html_content: form.html_content,
@@ -70,7 +55,7 @@ export default function NewTemplatePage() {
           description: form.description || undefined,
           is_active: form.is_active,
           variables: allVariables.length > 0 ? allVariables : undefined,
-        }),
+        },
       })
 
       const data = await res.json()

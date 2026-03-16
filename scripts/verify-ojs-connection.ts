@@ -10,7 +10,7 @@
  * @module scripts/verify-ojs-connection
  */
 
-import { ojsHealthCheck, ojsQuery } from '../src/features/ojs/server/ojs-client';
+import { ojsHealthCheck, ojsQuery } from '@/src/features/ojs/server/ojs-client';
 
 async function main() {
   console.log('🔌 Testing OJS database connection...\n');

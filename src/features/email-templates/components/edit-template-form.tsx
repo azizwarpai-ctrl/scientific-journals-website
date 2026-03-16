@@ -10,6 +10,7 @@ import { useUpdateEmailTemplate } from "../api/use-update-email-template"
 import { useSendTestEmail } from "../api/use-send-test-email"
 import { toast } from "sonner"
 import type { EmailTemplate } from "../types/email-template-type"
+import { extractAllVariables } from "@/src/lib/email/renderer"
 
 interface Props {
   template: EmailTemplate
@@ -33,13 +34,7 @@ export function EditTemplateForm({ template }: Props) {
   const { mutate: sendTestEmail, isPending: sendingTest } = useSendTestEmail()
 
   const allVariables = useMemo(() => {
-    const htmlMatches = form.html_content.match(/\{\{(\w+)\}\}/g) || []
-    const subjectMatches = form.subject.match(/\{\{(\w+)\}\}/g) || []
-    
-    const htmlKeys = htmlMatches.map((m) => m.replace(/\{\{|\}\}/g, ""))
-    const subjectKeys = subjectMatches.map((m) => m.replace(/\{\{|\}\}/g, ""))
-    
-    return [...new Set([...htmlKeys, ...subjectKeys])]
+    return extractAllVariables(form.html_content, form.subject)
   }, [form.html_content, form.subject])
 
   const handleSubmit = (e: React.FormEvent) => {

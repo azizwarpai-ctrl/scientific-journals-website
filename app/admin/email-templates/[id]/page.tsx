@@ -31,7 +31,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
     )
   }
 
-  const template = data.data as unknown as EmailTemplate
+  const template = data.data as EmailTemplate
 
   return (
     <div className="space-y-6">

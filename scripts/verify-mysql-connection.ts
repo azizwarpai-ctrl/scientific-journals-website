@@ -37,6 +37,8 @@ async function main() {
     const [versionRows] = await connection.execute<any>('SELECT VERSION() as version');
     console.log(`✅ MySQL Version: ${versionRows[0].version}`);
     
+    let failed = false;
+
     // Check if required tables exist
     const tables = [
       'admin_users',
@@ -61,9 +63,11 @@ async function main() {
           console.log(`   ✓ ${table.padEnd(20)} (${countRows[0].count} rows)`);
         } else {
           console.log(`   ✗ ${table.padEnd(20)} (missing)`);
+          failed = true;
         }
       } catch (error) {
         console.log(`   ✗ ${table.padEnd(20)} (error: ${error})`);
+        failed = true;
       }
     }
     
@@ -84,12 +88,18 @@ async function main() {
     } catch (error) {
       console.log('\n❌ JSON field support: Not available');
       console.log('   Please upgrade to MySQL 5.7.8+ or MariaDB 10.2.7+');
+      failed = true;
     }
     
     await connection.end();
     
-    console.log('\n✅ All tests passed!');
-    process.exit(0);
+    if (failed) {
+      console.log('\n❌ Failed tests found.');
+      process.exit(1);
+    } else {
+      console.log('\n✅ All tests passed!');
+      process.exit(0);
+    }
   } catch (error) {
     console.error('\n❌ Connection test failed:', error);
     console.error('\nTroubleshooting:');

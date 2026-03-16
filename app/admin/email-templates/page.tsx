@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Mail, Plus, Pencil, Trash2, Eye, MailCheck, MailX } from "lucide-react"
+import { Mail, Plus, Pencil, Trash2, MailCheck, MailX } from "lucide-react"
 import { toast } from "sonner"
 
 import { useGetEmailTemplates } from "@/src/features/email-templates/api/use-get-email-templates"
@@ -38,10 +38,10 @@ export default function EmailTemplatesPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch("/api/email-templates/status")
+      const res = await client["email-templates"].status.$get()
       if (res.ok) {
         const data = await res.json()
-        setSmtpStatus(data.data)
+        setSmtpStatus(data.data as any)
       }
     } catch {
       // Silently fail status check
@@ -120,13 +120,13 @@ export default function EmailTemplatesPage() {
             <Mail className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{templates.length}</div>
+            <div className="text-2xl font-bold">{pagination?.totalItems || templates.length}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active</CardTitle>
+            <CardTitle className="text-sm font-medium">This page &mdash; Active</CardTitle>
             <MailCheck className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
@@ -136,7 +136,7 @@ export default function EmailTemplatesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Inactive</CardTitle>
+            <CardTitle className="text-sm font-medium">This page &mdash; Inactive</CardTitle>
             <MailX className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
