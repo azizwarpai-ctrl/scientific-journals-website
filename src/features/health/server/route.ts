@@ -1,0 +1,83 @@
+import { Hono } from "hono"
+import { prisma } from "@/lib/db/config"
+import { isOjsConfigured, ojsHealthCheck } from "@/src/features/ojs/server/ojs-client"
+
+/**
+ * Helper to race a promise against a timeout
+ */
+const runWithTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+    const timeout = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)
+    })
+    return Promise.race([promise, timeout])
+}
+
+const DEFAULT_TIMEOUT_MS = 5000
+
+export const healthRouter = new Hono()
+    .get(
+        "/",
+        async (c) => {
+            try {
+                const startTime = Date.now()
+                
+                // 1. Internal DB Check
+                let internalDbStatus = "disconnected"
+                let internalLatency = 0
+                try {
+                    const internalStart = Date.now()
+                    await runWithTimeout(prisma.$queryRaw`SELECT 1`, DEFAULT_TIMEOUT_MS)
+                    internalLatency = Date.now() - internalStart
+                    internalDbStatus = "connected"
+                } catch (e) {
+                    console.error("[HEALTH_PRISMA_ERROR]", e)
+                    internalDbStatus = "error"
+                }
+
+                // 2. External OJS DB Check
+                let externalDbStatus = "unconfigured"
+                let externalLatency = 0
+                let externalError = null
+
+                if (isOjsConfigured()) {
+                    try {
+                        const ojsHealth = await runWithTimeout(ojsHealthCheck(), DEFAULT_TIMEOUT_MS)
+                        externalDbStatus = ojsHealth.ok ? "connected" : "error"
+                        externalLatency = ojsHealth.latencyMs || 0
+                        if (!ojsHealth.ok) {
+                            console.error("[HEALTH_OJS_ERROR]", ojsHealth.error)
+                            externalError = "Unavailable"
+                        }
+                    } catch (e) {
+                        console.error("[HEALTH_OJS_TIMEOUT_ERROR]", e)
+                        externalDbStatus = "error"
+                        externalError = "Timeout"
+                    }
+                }
+
+                const totalLatency = Date.now() - startTime
+                const isHealthy = internalDbStatus === "connected" && 
+                                  (externalDbStatus === "unconfigured" || externalDbStatus === "connected")
+
+                return c.json({
+                    status: isHealthy ? "operational" : "degraded",
+                    timestamp: new Date().toISOString(),
+                    latency: totalLatency,
+                    dependencies: {
+                        internalDatabase: {
+                            status: internalDbStatus,
+                            latencyMs: internalLatency
+                        },
+                        externalOjsDatabase: {
+                            status: externalDbStatus,
+                            latencyMs: externalLatency,
+                            error: externalError
+                        }
+                    }
+                }, isHealthy ? 200 : 503)
+            } catch (error) {
+                console.error("[HEALTH_PROBE_ERROR]", error)
+                return c.json({ status: "error", message: "Failed to run health probe" }, 500)
+            }
+        }
+    )

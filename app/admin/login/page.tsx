@@ -38,7 +38,7 @@ export default function AdminLoginPage() {
       const data: LoginResponse = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Authentication failed")
+        throw new Error((data as any).error || "Authentication failed")
       }
 
       if (data.requiresVerification) {
