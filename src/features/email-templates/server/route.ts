@@ -168,6 +168,7 @@ app.patch(
       const updateData: Record<string, any> = {}
       if (data.name !== undefined) updateData.name = data.name
       if (data.subject !== undefined) updateData.subject = data.subject
+      if (data.text_content !== undefined) updateData.text_content = data.text_content
       if (data.html_content !== undefined) {
         updateData.html_content = data.html_content
         // Detect variables from new HTML content

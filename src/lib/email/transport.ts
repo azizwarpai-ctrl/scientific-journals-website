@@ -59,5 +59,8 @@ export function getTransporter(): Transporter | null {
  * Get the configured "from" address for outgoing emails.
  */
 export function getFromAddress(): string {
+  if (!process.env.SMTP_FROM_EMAIL && !process.env.SMTP_USER) {
+    console.warn("⚠️  WARNING: Using default fallback 'noreply@example.com' for outgoing emails. This may cause delivery issues or mark emails as spam. Please set SMTP_FROM_EMAIL or SMTP_USER in your environment variables.")
+  }
   return process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "noreply@example.com"
 }

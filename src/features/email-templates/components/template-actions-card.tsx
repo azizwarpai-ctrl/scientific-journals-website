@@ -6,9 +6,10 @@ interface Props {
   saving: boolean
   handlePreview: () => void
   hasHtmlContent: boolean
+  isNew?: boolean
 }
 
-export function TemplateActionsCard({ saving, handlePreview, hasHtmlContent }: Props) {
+export function TemplateActionsCard({ saving, handlePreview, hasHtmlContent, isNew = false }: Props) {
   return (
     <Card>
       <CardHeader>
@@ -21,7 +22,7 @@ export function TemplateActionsCard({ saving, handlePreview, hasHtmlContent }: P
           ) : (
             <Save className="mr-2 h-4 w-4" />
           )}
-          {saving ? "Saving..." : "Save Changes"}
+          {saving ? (isNew ? "Creating..." : "Saving...") : (isNew ? "Create Template" : "Save Changes")}
         </Button>
         <Button
           type="button"

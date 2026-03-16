@@ -25,8 +25,9 @@ import { syncOjsJournals } from '../src/features/ojs/server/sync-ojs-journals';
 /**
  * Main sync function
  */
-async function main() {
+async function main(): Promise<number> {
   const startTime = Date.now();
+  let exitCode = 0;
   
   console.log('🚀 Starting OJS data synchronization...');
   console.log(`⏰ ${new Date().toISOString()}\n`);
@@ -69,17 +70,22 @@ async function main() {
     console.log(`⏱️  Duration: ${duration}s`);
     console.log('───────────────────────────────────────\n');
     
-    process.exit(0);
+    
+    exitCode = 0;
   } catch (error) {
     console.error('\n❌ Synchronization failed:', error);
-    process.exit(1);
+    exitCode = 1;
   } finally {
     await closeOjsPool();
     await prisma.$disconnect();
   }
+  
+  return exitCode;
 }
 
 // Run if executed directly
 if (import.meta.main) {
-  main();
+  main().then((code) => {
+    process.exitCode = code;
+  });
 }

@@ -2,15 +2,14 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { client } from "@/src/lib/rpc"
+import { parseRpcResponse } from "@/src/lib/rpc-utils"
 
 export function useGetEmailTemplate(id: string) {
   return useQuery({
     queryKey: ["email-template", id],
     queryFn: async () => {
       const res = await client["email-templates"][":id"].$get({ param: { id } })
-      if (!res.ok) throw new Error("Failed to fetch email template")
-      const result = await res.json()
-      return result as { data: any, success: boolean }
+      return parseRpcResponse<{ data: any, success: boolean }>(res, "Failed to fetch email template")
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
