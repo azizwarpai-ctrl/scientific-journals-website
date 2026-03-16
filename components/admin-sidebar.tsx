@@ -72,6 +72,11 @@ const sidebarItems = [
     href: "/admin/settings",
     icon: Settings,
   },
+  {
+    title: "Email Templates",
+    href: "/admin/email-templates",
+    icon: Mail,
+  },
 ]
 
 export function AdminSidebar() {

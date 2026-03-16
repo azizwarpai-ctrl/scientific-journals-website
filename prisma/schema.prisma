@@ -227,3 +227,40 @@ model OjsSsoToken {
   @@index([email])
   @@map("ojs_sso_tokens")
 }
+
+model EmailTemplate {
+  id           BigInt   @id @default(autoincrement())
+  name         String   @unique @db.VarChar(100)
+  subject      String   @db.VarChar(500)
+  html_content String   @db.LongText
+  text_content String?  @db.LongText
+  variables    Json?
+  description  String?  @db.Text
+  is_active    Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @default(now()) @updatedAt
+
+  email_logs EmailLog[]
+
+  @@index([name])
+  @@index([is_active])
+  @@map("email_templates")
+}
+
+model EmailLog {
+  id            BigInt    @id @default(autoincrement())
+  template_id   BigInt?
+  to_email      String    @db.VarChar(255)
+  subject       String    @db.VarChar(500)
+  status        String    @default("pending") @db.VarChar(50)
+  error_message String?   @db.Text
+  sent_at       DateTime?
+  created_at    DateTime  @default(now())
+
+  template EmailTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
+
+  @@index([template_id])
+  @@index([status])
+  @@index([to_email])
+  @@map("email_logs")
+}
