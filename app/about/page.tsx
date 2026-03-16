@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
@@ -78,7 +79,7 @@ function RadialProgress({
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className={cn("text-2xl font-bold", colorClasses[color].split(" ")[1])}>
-            {percentage.toFixed(0)}{unit || "%"}
+            {!unit || unit === "%" ? `${percentage.toFixed(0)}%` : `${value.toFixed(1)}${unit}`}
           </span>
         </div>
       </div>
@@ -216,7 +217,18 @@ export default function AboutPage() {
     avgReviewTime: number;
   }
 
-  let qualityMetrics: QualityMetrics | null = null
+  const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null)
+
+  useEffect(() => {
+    // Simulate fetching quality metrics since the API is not yet available
+    const timer = setTimeout(() => {
+      setQualityMetrics({
+        acceptanceRate: 32, // 32%
+        avgReviewTime: 2.4, // 2.4 weeks
+      })
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [])
 
   return (
     <div className="flex min-h-screen flex-col">
