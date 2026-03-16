@@ -29,7 +29,8 @@ function RadialProgress({
   label, 
   sublabel, 
   color = "primary",
-  size = 120 
+  size = 120,
+  unit
 }: { 
   value: number
   max: number
@@ -37,6 +38,7 @@ function RadialProgress({
   sublabel?: string
   color?: "primary" | "secondary" | "accent"
   size?: number
+  unit?: string
 }) {
   const percentage = max <= 0 ? 0 : Math.max(0, Math.min((value / max) * 100, 100))
   const circumference = 2 * Math.PI * ((size - 8) / 2)
@@ -76,7 +78,7 @@ function RadialProgress({
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className={cn("text-2xl font-bold", colorClasses[color].split(" ")[1])}>
-            {percentage.toFixed(0)}%
+            {percentage.toFixed(0)}{unit || "%"}
           </span>
         </div>
       </div>
@@ -223,8 +225,6 @@ export default function AboutPage() {
     { field: "Social Sciences & Humanities", count: 45, color: "bg-chart-4", total: 85 },
   ];
 
-  // Async placeholders for quality and growth (to be hooked up later)
-  const publicationStats: any[] = []
   const qualityMetrics: any = null
 
   return (
@@ -397,31 +397,9 @@ export default function AboutPage() {
                 </CardContent>
               </Card>
 
-              <div className="space-y-6">
-                {publicationStats && publicationStats.length > 0 && (
-                  <Card className="border-border/50">
-                    <CardContent className="pt-6">
-                      <h3 className="text-lg font-bold mb-4">Publication Growth</h3>
-                      <div className="space-y-4">
-                        {publicationStats.map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                            <div>
-                              <div className="font-semibold text-foreground">{item.year}</div>
-                              <div className="text-xs text-muted-foreground">{item.count.toLocaleString()} articles</div>
-                            </div>
-                            <div className={cn(
-                              "text-sm font-medium",
-                              item.growth === "—" ? "text-muted-foreground" : "text-emerald-600 dark:text-emerald-400"
-                            )}>
-                              {item.growth}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
 
+
+              <div className="space-y-6">
                 {/* Quality Metrics */}
                 <Card className="border-border/50">
                   <CardContent className="pt-6">
@@ -443,6 +421,7 @@ export default function AboutPage() {
                           sublabel="Weeks"
                           color="secondary"
                           size={100}
+                          unit="w"
                         />
                       </div>
                     ) : (

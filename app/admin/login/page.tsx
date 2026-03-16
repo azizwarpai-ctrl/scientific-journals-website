@@ -13,6 +13,11 @@ import { AlertBanner } from "@/components/ui/alert-banner"
 
 import { client } from "@/src/lib/rpc"
 
+interface LoginResponse {
+  requiresVerification?: boolean
+  error?: string
+}
+
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -30,13 +35,13 @@ export default function AdminLoginPage() {
         json: { email, password },
       })
 
-      const data = await response.json()
+      const data: LoginResponse = await response.json()
 
       if (!response.ok) {
-        throw new Error((data as any).error || "Authentication failed")
+        throw new Error(data.error || "Authentication failed")
       }
 
-      if ((data as any).requiresVerification) {
+      if (data.requiresVerification) {
         router.push(`/admin/verify-code?email=${encodeURIComponent(email)}`)
         return
       }
