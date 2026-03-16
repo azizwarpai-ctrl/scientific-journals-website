@@ -36,6 +36,12 @@ export default function AdminLoginPage() {
         throw new Error((data as any).error || "Authentication failed")
       }
 
+      if ((data as any).requiresVerification) {
+        setError("Two-factor authentication is currently unavailable. Please contact an administrator.")
+        setIsLoading(false)
+        return
+      }
+      
       router.push("/admin/dashboard")
       router.refresh()
     } catch (error: unknown) {
