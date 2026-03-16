@@ -164,8 +164,25 @@ function StatCard({
 }
 
 export default function AboutPage() {
+  interface QualityMetrics {
+    acceptanceRate: number;
+    avgReviewTime: number;
+  }
+
+  const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null)
   const { data: aboutData, isLoading: isAboutLoading, isError: isAboutError } = useGetAboutContent()
   const { data: statsData, isLoading: isStatsLoading, isError: isStatsError } = useGetPlatformStatistics()
+
+  useEffect(() => {
+    // Simulate fetching quality metrics since the API is not yet available
+    const timer = setTimeout(() => {
+      setQualityMetrics({
+        acceptanceRate: 32, // 32%
+        avgReviewTime: 2.4, // 2.4 weeks
+      })
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [])
 
   if (isAboutLoading || isStatsLoading) {
     return (
@@ -212,23 +229,7 @@ export default function AboutPage() {
     { field: "Social Sciences & Humanities", count: 45, color: "bg-chart-4", total: 85 },
   ];
 
-  interface QualityMetrics {
-    acceptanceRate: number;
-    avgReviewTime: number;
-  }
 
-  const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null)
-
-  useEffect(() => {
-    // Simulate fetching quality metrics since the API is not yet available
-    const timer = setTimeout(() => {
-      setQualityMetrics({
-        acceptanceRate: 32, // 32%
-        avgReviewTime: 2.4, // 2.4 weeks
-      })
-    }, 1500)
-    return () => clearTimeout(timer)
-  }, [])
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -309,8 +310,8 @@ export default function AboutPage() {
                 { icon: Award, title: "Quality", desc: "Adhering to rigorous COPE ethical standards and international publishing guidelines", color: "secondary" },
                 { icon: Target, title: "Transparency", desc: "Open processes and clear communication at every stage of publication", color: "primary" },
                 { icon: Eye, title: "Innovation", desc: "Leveraging cutting-edge technology to advance scholarly communication", color: "secondary" },
-              ].map((value, idx) => (
-                <Card key={idx} className="group hover:shadow-lg transition-all duration-300 border-border/50 hover:-translate-y-1">
+              ].map((value) => (
+                <Card key={value.title} className="group hover:shadow-lg transition-all duration-300 border-border/50 hover:-translate-y-1">
                   <CardContent className="pt-6 text-center">
                     <div className="mb-4 flex justify-center">
                       <div className={cn(
@@ -387,9 +388,9 @@ export default function AboutPage() {
                     </div>
                   </div>
                   <div className="space-y-5">
-                    {SAMPLE_FIELD_DISTRIBUTION.map((item, idx) => (
+                    {SAMPLE_FIELD_DISTRIBUTION.map((item) => (
                       <MetricBar 
-                        key={idx}
+                        key={item.field}
                         label={item.field}
                         value={item.count}
                         max={item.total}
@@ -406,7 +407,10 @@ export default function AboutPage() {
                 {/* Quality Metrics */}
                 <Card className="border-border/50">
                   <CardContent className="pt-6">
-                    <h3 className="text-lg font-bold mb-4">Quality Metrics</h3>
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="text-lg font-bold">Quality Metrics</h3>
+                      <span className="text-[10px] uppercase tracking-wider font-bold bg-muted px-2 py-0.5 rounded text-muted-foreground">Sample Data</span>
+                    </div>
                     {qualityMetrics ? (
                       <div className="grid grid-cols-2 gap-4">
                         <RadialProgress 
