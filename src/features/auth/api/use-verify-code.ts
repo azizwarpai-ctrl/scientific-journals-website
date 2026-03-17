@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query"
 import { client } from "@/src/lib/rpc"
-import { VerifyCodeInput } from "../schemas/auth-schema"
+import { VerifyCodeInput } from "@/src/features/auth/schemas/auth-schema"
 
 export const useVerifyCode = () => {
     return useMutation({

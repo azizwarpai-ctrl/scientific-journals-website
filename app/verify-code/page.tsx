@@ -1,26 +1,26 @@
-"use client"
-
-import { useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
 import { ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { VerifyCodeForm } from "@/src/features/auth/components/verify/verify-code-form"
 
-export default function PublicVerifyCodePage() {
-    const router = useRouter()
-    const searchParams = useSearchParams()
-    const email = searchParams.get("email") || ""
+interface PageProps {
+    searchParams: Promise<{ email?: string }>;
+}
 
-    // If no email param, redirect back to login
-    useEffect(() => {
-        if (!email) {
-            router.push("/login")
-        }
-    }, [email, router])
+export default async function PublicVerifyCodePage({ searchParams }: PageProps) {
+    const params = await searchParams;
+    const cookieStore = await cookies();
+    
+    // Prioritize searchParams for manual direct links, 
+    // fallback to cookie for the clean-redirect registration flow
+    const email = params.email || cookieStore.get("verify_email")?.value || "";
 
-    if (!email) return null;
+    if (!email) {
+        redirect("/login")
+    }
 
     return (
         <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-blue-50 via-white to-slate-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-6">

@@ -9,141 +9,145 @@ import { AlertBanner } from "@/components/ui/alert-banner"
 import { RefreshCw } from "lucide-react"
 
 import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormMessage,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
 } from "@/components/ui/form"
 import {
-    InputOTP,
-    InputOTPGroup,
-    InputOTPSlot,
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+  REGEXP_ONLY_DIGITS,
 } from "@/components/ui/input-otp"
 
-import { useVerifyCode } from "../../api/use-verify-code"
-import { useResendCode } from "../../api/use-resend-code"
-import { verifyCodeSchema, type VerifyCodeInput } from "../../schemas/auth-schema"
+import { useVerifyCode } from "@/src/features/auth/api/use-verify-code"
+import { useResendCode } from "@/src/features/auth/api/use-resend-code"
+import { verifyCodeSchema, type VerifyCodeInput } from "@/src/features/auth/schemas/auth-schema"
 
 interface VerifyCodeFormProps {
-    email: string;
+  email: string;
 }
 
 export function VerifyCodeForm({ email }: VerifyCodeFormProps) {
-    const router = useRouter()
-    const [resendCooldown, setResendCooldown] = useState(0)
-    const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const router = useRouter()
+  const [resendCooldown, setResendCooldown] = useState(0)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
-    const verifyMutation = useVerifyCode()
-    const resendMutation = useResendCode()
+  const verifyMutation = useVerifyCode()
+  const resendMutation = useResendCode()
 
-    const form = useForm<VerifyCodeInput>({
-        resolver: zodResolver(verifyCodeSchema),
-        defaultValues: { email, code: "" }
+  const form = useForm<VerifyCodeInput>({
+    resolver: zodResolver(verifyCodeSchema),
+    defaultValues: { email, code: "" }
+  })
+
+  // Countdown timer for resend cooldown
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [resendCooldown])
+
+  const onSubmit = (data: VerifyCodeInput) => {
+    form.clearErrors("root")
+    verifyMutation.mutate(data, {
+      onSuccess: () => {
+        router.push("/login?verified=true")
+        router.refresh()
+      },
+      onError: (error) => {
+        form.setError("root", { message: error.message || "Verification failed" })
+        form.setValue("code", "")
+      }
     })
+  }
 
-    // Countdown timer for resend cooldown
-    useEffect(() => {
-        if (resendCooldown > 0) {
-            const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000)
-            return () => clearTimeout(timer)
-        }
-    }, [resendCooldown])
+  const handleResend = () => {
+    // Guard against concurrent verification or resend
+    if (resendCooldown > 0 || resendMutation.isPending || verifyMutation.isPending) return
 
-    const onSubmit = (data: VerifyCodeInput) => {
-        form.clearErrors("root")
-        verifyMutation.mutate(data, {
-            onSuccess: () => {
-                router.push("/login?verified=true")
-                router.refresh()
-            },
-            onError: (error) => {
-                form.setError("root", { message: error.message || "Verification failed" })
-                form.setValue("code", "")
-            }
-        })
-    }
+    form.clearErrors("root")
+    setSuccessMessage(null)
 
-    const handleResend = () => {
-        if (resendCooldown > 0 || resendMutation.isPending) return
+    resendMutation.mutate({ email }, {
+      onSuccess: () => {
+        setSuccessMessage("A new verification code has been sent to your email.")
+        setResendCooldown(60) // 60 second cooldown
+        form.setValue("code", "")
+      },
+      onError: (error) => {
+        form.setError("root", { message: error.message || "Failed to resend code" })
+      }
+    })
+  }
 
-        form.clearErrors("root")
-        setSuccessMessage(null)
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="flex flex-col gap-6">
+          <FormField
+            control={form.control}
+            name="code"
+            render={({ field }) => (
+              <FormItem className="flex flex-col items-center">
+                <FormControl>
+                  <InputOTP
+                    maxLength={6}
+                    pattern={REGEXP_ONLY_DIGITS}
+                    disabled={verifyMutation.isPending || resendMutation.isPending}
+                    {...field}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} className="w-12 h-14 text-2xl font-bold" />
+                      <InputOTPSlot index={1} className="w-12 h-14 text-2xl font-bold" />
+                      <InputOTPSlot index={2} className="w-12 h-14 text-2xl font-bold" />
+                      <InputOTPSlot index={3} className="w-12 h-14 text-2xl font-bold" />
+                      <InputOTPSlot index={4} className="w-12 h-14 text-2xl font-bold" />
+                      <InputOTPSlot index={5} className="w-12 h-14 text-2xl font-bold" />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        resendMutation.mutate({ email }, {
-            onSuccess: () => {
-                setSuccessMessage("A new verification code has been sent to your email.")
-                setResendCooldown(60) // 60 second cooldown
-                form.setValue("code", "")
-            },
-            onError: (error) => {
-                form.setError("root", { message: error.message || "Failed to resend code" })
-            }
-        })
-    }
+          {form.formState.errors.root?.message && (
+            <AlertBanner variant="error" message={form.formState.errors.root.message} />
+          )}
 
-    return (
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="flex flex-col gap-6">
-                    <FormField
-                        control={form.control}
-                        name="code"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col items-center">
-                                <FormControl>
-                                    <InputOTP
-                                        maxLength={6}
-                                        disabled={verifyMutation.isPending}
-                                        {...field}
-                                    >
-                                        <InputOTPGroup>
-                                            <InputOTPSlot index={0} className="w-12 h-14 text-2xl font-bold" />
-                                            <InputOTPSlot index={1} className="w-12 h-14 text-2xl font-bold" />
-                                            <InputOTPSlot index={2} className="w-12 h-14 text-2xl font-bold" />
-                                            <InputOTPSlot index={3} className="w-12 h-14 text-2xl font-bold" />
-                                            <InputOTPSlot index={4} className="w-12 h-14 text-2xl font-bold" />
-                                            <InputOTPSlot index={5} className="w-12 h-14 text-2xl font-bold" />
-                                        </InputOTPGroup>
-                                    </InputOTP>
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+          {successMessage && (
+            <AlertBanner variant="success" message={successMessage} />
+          )}
 
-                    {form.formState.errors.root?.message && (
-                        <AlertBanner variant="error" message={form.formState.errors.root.message} />
-                    )}
+          <Button type="submit" className="w-full" disabled={verifyMutation.isPending || resendMutation.isPending}>
+            {verifyMutation.isPending ? "Verifying..." : "Verify Account"}
+          </Button>
 
-                    {successMessage && (
-                        <AlertBanner variant="success" message={successMessage} />
-                    )}
-
-                    <Button type="submit" className="w-full" disabled={verifyMutation.isPending}>
-                        {verifyMutation.isPending ? "Verifying..." : "Verify Account"}
-                    </Button>
-
-                    <div className="text-center">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleResend}
-                            disabled={resendMutation.isPending || resendCooldown > 0}
-                            className="text-sm"
-                        >
-                            <RefreshCw className={`h-4 w-4 mr-1 ${resendMutation.isPending ? "animate-spin" : ""}`} />
-                            {resendCooldown > 0
-                                ? `Resend code in ${resendCooldown}s`
-                                : resendMutation.isPending
-                                    ? "Resending..."
-                                    : "Resend verification code"}
-                        </Button>
-                    </div>
-                </div>
-            </form>
-        </Form>
-    )
+          <div className="text-center">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleResend}
+              disabled={resendMutation.isPending || resendCooldown > 0 || verifyMutation.isPending}
+              className="text-sm"
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${resendMutation.isPending ? "animate-spin" : ""}`} />
+              {resendCooldown > 0
+                ? `Resend code in ${resendCooldown}s`
+                : resendMutation.isPending
+                  ? "Resending..."
+                  : "Resend verification code"}
+            </Button>
+          </div>
+        </div>
+      </form>
+    </Form>
+  )
 }
+
 

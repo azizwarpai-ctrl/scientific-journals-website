@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query"
 import { client } from "@/src/lib/rpc"
-import { ResendCodeInput } from "../schemas/auth-schema"
+import { ResendCodeInput } from "@/src/features/auth/schemas/auth-schema"
 
 export const useResendCode = () => {
     return useMutation({
