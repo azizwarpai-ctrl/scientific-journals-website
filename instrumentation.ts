@@ -4,7 +4,7 @@ export async function register() {
         // full access to standard Node APIs needed by Prisma adapter and child_process.
 
         // We dynamically import to ensure NO browser/edge leaks of these server dependencies
-        const { initializeDatabase } = await import('./lib/db/init')
+        const { initializeDatabase } = await import('./src/lib/db/init')
 
         // Fire and forget the initialization process so it doesn't block server startup
         // It will log its own progress and manage its own state

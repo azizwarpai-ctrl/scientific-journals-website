@@ -27,6 +27,7 @@ export const ADMIN_ROUTES = [
   "/admin/messages",
   "/admin/faq",
   "/admin/settings",
+  "/admin/email-templates",
 ]
 
 export const API_ROUTES = ["/api"]

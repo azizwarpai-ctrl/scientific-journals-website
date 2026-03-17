@@ -2,7 +2,7 @@ import { InteractiveCard } from "@/components/ui/interactive-card"
 import { CardContent } from "@/components/ui/card"
 import Image from "next/image"
 import { BookOpen, ExternalLink, Globe, Hash } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "@/src/lib/utils"
 
 export interface JournalCardProps {
   id: string

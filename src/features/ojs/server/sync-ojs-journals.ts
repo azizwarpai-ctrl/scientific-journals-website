@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db/config"
+import { prisma } from "@/src/lib/db/config"
 import { isOjsConfigured } from "./ojs-client"
 import type { OjsJournal } from "../schemas/ojs-schema"
 

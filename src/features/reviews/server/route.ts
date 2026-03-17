@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { z } from "zod"
-import { prisma } from "@/lib/db/config"
+import { prisma } from "@/src/lib/db/config"
 import { reviewsResponseSchema } from "../schemas/review-schema"
 
 const app = new Hono()

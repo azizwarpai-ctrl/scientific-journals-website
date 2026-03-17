@@ -18,7 +18,7 @@ import {
   VALID_ROLES,
   type RoleSelectionValues,
 } from "@/src/features/auth/schemas/registration-schemas"
-import { cn } from "@/lib/utils"
+import { cn } from "@/src/lib/utils"
 import {
   PenLine,
   Search,

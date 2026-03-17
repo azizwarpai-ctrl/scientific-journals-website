@@ -1,4 +1,4 @@
-import { prisma } from './lib/db/config'
+import { prisma } from './src/lib/db/config'
 
 async function main() {
   try {

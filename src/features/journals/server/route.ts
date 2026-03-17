@@ -3,7 +3,7 @@ import { zValidator } from "@hono/zod-validator"
 import { requireAdmin } from "@/src/lib/auth-middleware"
 import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
 import { serializeRecord, serializeMany } from "@/src/lib/serialize"
-import { prisma } from "@/lib/db/config"
+import { prisma } from "@/src/lib/db/config"
 import { journalCreateSchema, journalUpdateSchema, journalIdParamSchema } from "../schemas/journal-schema"
 
 const app = new Hono()

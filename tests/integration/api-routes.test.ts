@@ -8,13 +8,13 @@ import { Hono } from 'hono'
 // Mock session state
 let mockSession: any = null
 
-vi.mock('@/lib/db/auth', () => ({
+vi.mock('@/src/lib/db/auth', () => ({
     getSession: vi.fn(() => mockSession),
     createSession: vi.fn(),
     destroySession: vi.fn(),
 }))
 
-vi.mock('@/lib/db/config', () => ({
+vi.mock('@/src/lib/db/config', () => ({
     prisma: {
         journal: {
             findMany: vi.fn().mockResolvedValue([]),
@@ -47,7 +47,7 @@ vi.mock('@/lib/db/config', () => ({
 import { journalRouter } from '@/src/features/journals/server'
 import { messageRouter } from '@/src/features/messages/server'
 import { solutionRouter } from '@/src/features/solutions/server'
-import { prisma } from '@/lib/db/config'
+import { prisma } from '@/src/lib/db/config'
 
 // Helper to create Hono test app
 function createApp() {

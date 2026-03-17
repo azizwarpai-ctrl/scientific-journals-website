@@ -4,9 +4,9 @@ import { z } from "zod"
 import crypto from "node:crypto"
 import bcrypt from "bcryptjs"
 import { loginSchema, registerSchema } from "../schemas/auth-schema"
-import { createUser, verifyPassword, getUserById } from "@/lib/db/users"
-import { createSession, getSession, destroySession } from "@/lib/db/auth"
-import { prisma } from "@/lib/db/config"
+import { createUser, verifyPassword, getUserById } from "@/src/lib/db/users"
+import { createSession, getSession, destroySession } from "@/src/lib/db/auth"
+import { prisma } from "@/src/lib/db/config"
 
 const app = new Hono()
 

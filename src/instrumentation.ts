@@ -10,7 +10,7 @@ export async function register() {
             // to avoid breaking Edge runtime compilation for middleware which also triggers this file on some setups.
             const { exec } = await import('child_process');
             const { promisify } = await import('util');
-            const { prisma } = await import('@/lib/db/config');
+            const { prisma } = await import('@/src/lib/db/config');
 
             const execAsync = promisify(exec);
 

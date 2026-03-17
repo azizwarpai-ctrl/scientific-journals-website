@@ -59,13 +59,13 @@ ADD COLUMN IF NOT EXISTS password_hash TEXT;
 ## 🎯 Migration Strategy
 
 ### For Server Components (Admin Pages):
-1. Replace `import { createClient } from "@/lib/supabase/server"`
-2. Use `import { query } from "@/lib/db/config"` and `import { getSession } from "@/lib/db/auth"`
+1. Replace `import { createClient } from "@/src/lib/supabase/server"`
+2. Use `import { query } from "@/src/lib/db/config"` and `import { getSession } from "@/src/lib/db/auth"`
 3. Replace `supabase.from().select()` with SQL queries
 4. Update authentication checks to use `getSession()` instead of `supabase.auth.getUser()`
 
 ### For Client Components (Forms):
-1. Replace `import { createClient } from "@/lib/supabase/client"`
+1. Replace `import { createClient } from "@/src/lib/supabase/client"`
 2. Use `fetch()` API calls to backend endpoints
 3. Create API routes as needed for data mutations
 

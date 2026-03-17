@@ -29,7 +29,7 @@ Create a new file: `app/api/setup/route.ts`
 
 ```typescript
 import { NextResponse } from 'next/server';
-import { initializeDatabase } from '@/lib/db/init';
+import { initializeDatabase } from '@/src/lib/db/init';
 
 export async function GET(request: Request) {
   // Security guard

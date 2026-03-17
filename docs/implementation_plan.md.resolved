@@ -12,8 +12,8 @@
 |-------|-----------|-----------|
 | Framework | Next.js 16 (standalone SSR) | [next.config.mjs](../next.config.mjs) |
 | API Server | Hono v4.12 (8 routers) | [app.ts](../src/server/app.ts) |
-| ORM | Prisma 7.2 + MariaDB adapter | [config.ts](../lib/db/config.ts) |
-| Auth | JWT (jose) + OTP verification | [auth.ts](../lib/db/auth.ts), [middleware.ts](../middleware.ts) |
+| ORM | Prisma 7.2 + MariaDB adapter | [config.ts](../src/lib/db/config.ts) |
+| Auth | JWT (jose) + OTP verification | [auth.ts](../src/lib/db/auth.ts), [middleware.ts](../middleware.ts) |
 | Frontend | React 19, TanStack Query, Radix UI | [package.json](../package.json) |
 | Database | MySQL/MariaDB — 9 Prisma models | [schema.prisma](../prisma/schema.prisma) |
 | Entry Point | Custom [server.js](../server.js) with DB init | [server.js](../server.js) |
@@ -99,8 +99,8 @@ sequenceDiagram
 [ojs-sync-cron.ts](../scripts/ojs-sync-cron.ts) imports from paths that do not exist:
 
 ```typescript
-import { getActiveJournals, getPublishedArticles } from '../lib/ojs-service';  // ❌ Does not exist
-import { closeOJSConnection, testOJSConnection } from '../lib/ojs-client';     // ❌ Does not exist
+import { getActiveJournals, getPublishedArticles } from '../src/lib/ojs-service';  // ❌ Does not exist
+import { closeOJSConnection, testOJSConnection } from '../src/lib/ojs-client';     // ❌ Does not exist
 ```
 
 The actual OJS client lives at [src/features/ojs/server/ojs-client.ts](../src/features/ojs/server/ojs-client.ts) and exports different functions ([ojsQuery](../src/features/ojs/server/ojs-client.ts#54-98), [isOjsConfigured](../src/features/ojs/server/ojs-client.ts#8-15), [ojsHealthCheck](../src/features/ojs/server/ojs-client.ts#143-170), [closeOjsPool](../src/features/ojs/server/ojs-client.ts#171-180)). **The sync cron job is completely non-functional.**
@@ -214,7 +214,7 @@ This makes the connection vulnerable to MITM attacks.
 
 Two separate database initialization flows exist:
 1. [server.js](../server.js) — uses `execSync('npx prisma db push')` + `execSync('npx prisma db seed')`
-2. [instrumentation.ts](../instrumentation.ts) → [lib/db/init.ts](../lib/db/init.ts) — uses `spawn('npx prisma migrate deploy')` + Prisma Client seeding
+2. [instrumentation.ts](../instrumentation.ts) → [lib/db/init.ts](../src/lib/db/init.ts) — uses `spawn('npx prisma migrate deploy')` + Prisma Client seeding
 
 Both run on startup. The [instrumentation.ts](../instrumentation.ts) path is the Next.js-recommended approach; [server.js](../server.js) is a legacy path. They can race or conflict.
 
