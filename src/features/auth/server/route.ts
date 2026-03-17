@@ -1,26 +1,14 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { z } from "zod"
-import crypto from "node:crypto"
 import bcrypt from "bcryptjs"
+import { getOtpDeliveryMethod, generateOTPCode } from "@/src/features/auth/utils/auth-utils.server"
 import { loginSchema, registerSchema } from "../schemas/auth-schema"
 import { createUser, verifyPassword, getUserById } from "@/src/lib/db/users"
 import { createSession, getSession, destroySession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
 
 const app = new Hono()
-
-// Helper: Get OTP delivery method based on environment
-const getOtpDeliveryMethod = () => {
-  // Always default to 'console' if no email system is wired up yet, so registration isn't blocked in production
-  return (process.env.OTP_DELIVERY_METHOD || "console") as "console" | "email" | "disabled"
-}
-
-// Helper: Generate a 6-digit OTP code using cryptographically secure random numbers
-function generateOTPCode(): string {
-  // crypto.randomInt upper bound is exclusive, so 1000000 includes 999999
-  return crypto.randomInt(100000, 1000000).toString()
-}
 
 // POST /auth/login
 app.post("/login", zValidator("json", loginSchema), async (c) => {

@@ -29,6 +29,9 @@ interface RegistrationState {
   /** Submission status */
   isSubmitting: boolean
   submissionError: string | null
+
+  /** Verification state */
+  verificationEmail: string | null
 }
 
 interface RegistrationActions {
@@ -46,6 +49,7 @@ interface RegistrationActions {
 
   setSubmitting: (isSubmitting: boolean) => void
   setSubmissionError: (error: string | null) => void
+  setVerificationEmail: (email: string | null) => void
 
   /** Build the final payload for API submission */
   getPayload: () => RegistrationPayload
@@ -106,6 +110,7 @@ export const useRegistrationStore = create<RegistrationStore>()(
       completedSteps: new Set<number>(),
       isSubmitting: false,
       submissionError: null,
+      verificationEmail: null,
 
       // ─── Navigation ─────────────────────────────────────
       setStep: (step) => {
@@ -162,6 +167,7 @@ export const useRegistrationStore = create<RegistrationStore>()(
       // ─── Submission State ───────────────────────────────
       setSubmitting: (isSubmitting) => set({ isSubmitting }),
       setSubmissionError: (error) => set({ submissionError: error }),
+      setVerificationEmail: (email) => set({ verificationEmail: email }),
 
       // ─── Payload Builder ────────────────────────────────
       getPayload: () => {
@@ -197,6 +203,7 @@ export const useRegistrationStore = create<RegistrationStore>()(
           completedSteps: new Set<number>(),
           isSubmitting: false,
           submissionError: null,
+          verificationEmail: null,
         }),
     }),
     {
@@ -214,6 +221,7 @@ export const useRegistrationStore = create<RegistrationStore>()(
         academicInfo: state.academicInfo,
         roleSelection: state.roleSelection,
         policyAgreements: state.policyAgreements,
+        verificationEmail: state.verificationEmail,
         completedSteps: Array.from(state.completedSteps),
       }),
       // Rehydrate the Set from the persisted array

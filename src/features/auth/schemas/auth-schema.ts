@@ -47,3 +47,15 @@ export const registerFormSchema = registerFormBaseSchema.refine((data) => data.p
 export type LoginInput = z.infer<typeof loginSchema>
 export type RegisterInput = z.infer<typeof registerSchema>
 export type RegisterFormValues = z.infer<typeof registerFormBaseSchema>
+
+export const verifyCodeSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  code: z.string().length(6, "Verification code must be exactly 6 digits").regex(/^\d+$/, "Verification code must contain only numbers"),
+})
+
+export const resendCodeSchema = z.object({
+  email: z.string().email("Invalid email address"),
+})
+
+export type VerifyCodeInput = z.infer<typeof verifyCodeSchema>
+export type ResendCodeInput = z.infer<typeof resendCodeSchema>
