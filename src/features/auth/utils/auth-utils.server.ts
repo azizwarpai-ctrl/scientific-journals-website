@@ -4,11 +4,14 @@ import crypto from "node:crypto"
  * Get OTP delivery method based on environment
  */
 export const getOtpDeliveryMethod = () => {
-  const allowed = ["console", "email", "disabled"]
+  const allowed = ["console", "email", "disabled"] as const
   const val = process.env.OTP_DELIVERY_METHOD
   
-  if (val && allowed.includes(val)) {
-    return val as "console" | "email" | "disabled"
+  const isAllowed = (v: any): v is typeof allowed[number] => 
+    allowed.includes(v)
+
+  if (isAllowed(val)) {
+    return val
   }
   
   if (val) {
