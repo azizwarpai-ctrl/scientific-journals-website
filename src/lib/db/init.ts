@@ -93,6 +93,27 @@ export async function initializeDatabase() {
         console.error('[DB Init] Failed to create ojs_sso_tokens table:', e.message)
       }
 
+      // --- Patch: Add OJS extended profile columns to admin_users ---
+      const profileColumns = [
+        { name: 'country', type: 'VARCHAR(90) NULL' },
+        { name: 'phone', type: 'VARCHAR(32) NULL' },
+        { name: 'affiliation', type: 'VARCHAR(255) NULL' },
+        { name: 'department', type: 'VARCHAR(255) NULL' },
+        { name: 'orcid', type: 'VARCHAR(255) NULL' },
+        { name: 'biography', type: 'TEXT NULL' },
+      ]
+
+      for (const col of profileColumns) {
+        try {
+          await prisma.$executeRawUnsafe(`ALTER TABLE \`admin_users\` ADD COLUMN \`${col.name}\` ${col.type};`)
+        } catch (e: any) {
+          if (!e.message.includes('Duplicate column name')) {
+            console.error(`[DB Init] Failed to add ${col.name} column:`, e.message)
+          }
+        }
+      }
+      console.log('[DB Init] Applied schema patch: Synchronized admin_users profile columns')
+
       // --- END MIGRATIONS ---
 
       console.log('[DB Init] Starting runtime database seeding...')
