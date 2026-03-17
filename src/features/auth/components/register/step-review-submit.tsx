@@ -76,7 +76,7 @@ export function StepReviewSubmit() {
     onSuccess: (data: any) => {
       setSubmitting(false)
       // Do not format form state `reset()` here, preserve email context for verify step
-      router.push(`/auth/verify-code?email=${encodeURIComponent(data.email || getPayload().email)}`)
+      router.push(`/verify-code?email=${encodeURIComponent(data.email || getPayload().email)}`)
       router.refresh()
     },
   })
