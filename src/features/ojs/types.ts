@@ -6,4 +6,6 @@ export interface OjsUserProvisionData {
     affiliation: string
     biography?: string
     orcid?: string
+    primaryRole?: string
+    password?: string
 }

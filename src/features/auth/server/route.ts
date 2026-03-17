@@ -269,13 +269,16 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
       biography
     })
 
-    // Try provisioning into OJS DB
-    const { success, error } = await provisionOjsUser(payload)
-    if (!success) {
-      // Rollback: Delete the local adminUser since OJS provisioning failed
-      await prisma.adminUser.delete({ where: { id: BigInt(userId) } })
-      console.error("[OJS Provisioning Error]", error)
-      return c.json({ success: false, error: "OJS Provisioning failed" }, 500)
+    // Try provisioning into OJS DB (non-blocking: log but don't fail registration)
+    const { success: ojsOk, error: ojsError } = await provisionOjsUser({
+      ...payload,
+      primaryRole: payload.primaryRole,
+      password: payload.password,
+    })
+    if (!ojsOk) {
+      // OJS provisioning failed — log a warning but allow registration to proceed.
+      // The user will be auto-provisioned via SSO when they first access OJS.
+      console.warn(`[OJS Provisioning] Skipped for ${email}:`, ojsError)
     }
 
     try {
@@ -321,7 +324,8 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
     })
   } catch (error: any) {
     console.error("Registration error:", error)
-    if (error.code === "23505" || error.message?.includes("Unique constraint")) {
+    // Prisma P2002 = unique constraint, MySQL ER_DUP_ENTRY = 1062, PostgreSQL = 23505
+    if (error.code === "P2002" || error.code === "23505" || error.code === "ER_DUP_ENTRY" || error.message?.includes("Unique constraint")) {
       return c.json({ success: false, error: "Email already exists" }, 400)
     }
     return c.json({ success: false, error: "Registration failed" }, 500)
