@@ -14,9 +14,19 @@ export default async function PublicVerifyCodePage({ searchParams }: PageProps) 
     const params = await searchParams;
     const cookieStore = await cookies();
     
-    // Prioritize searchParams for manual direct links, 
-    // fallback to cookie for the clean-redirect registration flow
-    const email = params.email || cookieStore.get("verify_email")?.value || "";
+    // Legacy redirect flow: if email is in params, set cookie and redirect to clean URL
+    if (params.email) {
+        const expires = new Date(Date.now() + 10 * 60 * 1000);
+        (await cookies()).set("verify_email", params.email, {
+            expires,
+            path: "/",
+            sameSite: "lax",
+        });
+        redirect("/verify-code");
+    }
+
+    // Strictly read from cookie for rendering
+    const email = cookieStore.get("verify_email")?.value || "";
 
     if (!email) {
         redirect("/login")
@@ -52,7 +62,7 @@ export default async function PublicVerifyCodePage({ searchParams }: PageProps) 
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <VerifyCodeForm email={email} />
+                        <VerifyCodeForm key={email} email={email} />
                     </CardContent>
                 </Card>
             </div>

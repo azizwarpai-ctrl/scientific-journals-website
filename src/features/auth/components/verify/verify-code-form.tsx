@@ -53,6 +53,7 @@ export function VerifyCodeForm({ email }: VerifyCodeFormProps) {
 
   const onSubmit = (data: VerifyCodeInput) => {
     form.clearErrors("root")
+    setSuccessMessage(null)
     verifyMutation.mutate(data, {
       onSuccess: () => {
         router.push("/login?verified=true")
@@ -97,6 +98,7 @@ export function VerifyCodeForm({ email }: VerifyCodeFormProps) {
                   <InputOTP
                     maxLength={6}
                     pattern={REGEXP_ONLY_DIGITS}
+                    aria-label="One-time passcode"
                     disabled={verifyMutation.isPending || resendMutation.isPending}
                     {...field}
                   >
