@@ -3,15 +3,15 @@
 import { useState, useMemo, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { TemplateDetailsCard } from "./template-details-card"
-import { EmailContentCard } from "./email-content-card"
-import { TemplateVariablesCard } from "./template-variables-card"
-import { TemplateActionsCard } from "./template-actions-card"
-import { useCreateEmailTemplate } from "../api/use-create-email-template"
+import { TemplateDetailsCard } from "@/src/features/email-templates/components/template-details-card"
+import { EmailContentCard } from "@/src/features/email-templates/components/email-content-card"
+import { TemplateVariablesCard } from "@/src/features/email-templates/components/template-variables-card"
+import { TemplateActionsCard } from "@/src/features/email-templates/components/template-actions-card"
+import { useCreateEmailTemplate } from "@/src/features/email-templates/api/use-create-email-template"
 import { Form } from "@/components/ui/form"
 import { extractAllVariables } from "@/src/lib/email/renderer"
-import { useNewTemplateStore } from "../stores/new-template-store"
-import { emailTemplateCreateSchema, type EmailTemplateCreate } from "../schemas/email-template-schema"
+import { useNewTemplateStore } from "@/src/features/email-templates/stores/new-template-store"
+import { emailTemplateCreateSchema, type EmailTemplateCreate } from "@/src/features/email-templates/schemas/email-template-schema"
 import { useRouter } from "next/navigation"
 
 export function NewTemplateForm() {
@@ -26,10 +26,10 @@ export function NewTemplateForm() {
 
   // Sync form values to Zustand store for local draft saving whenever they change
   useEffect(() => {
-    const subscription = form.watch((value) => {
+    const subscription = form.watch((value: any) => {
       setFormData(value as Partial<EmailTemplateCreate>)
     })
-    return () => subscription.unsubscribe()
+    return () => (subscription as any).unsubscribe ? (subscription as any).unsubscribe() : undefined
   }, [form, setFormData])
 
   const [previewHtml, setPreviewHtml] = useState<string | null>(null)
@@ -37,19 +37,20 @@ export function NewTemplateForm() {
 
   const { mutate: createTemplate, isPending: saving } = useCreateEmailTemplate()
 
-  // Watch HTML and Subject to update extracted variables interactively
+  // Watch HTML, Subject and Text content to update extracted variables interactively
   const currentHtmlContent = form.watch("html_content")
   const currentSubject = form.watch("subject")
+  const currentTextContent = form.watch("text_content")
 
   const allVariables = useMemo(() => {
-    return extractAllVariables(currentHtmlContent || "", currentSubject || "")
-  }, [currentHtmlContent, currentSubject])
+    return extractAllVariables(currentHtmlContent || "", currentSubject || "", currentTextContent || "")
+  }, [currentHtmlContent, currentSubject, currentTextContent])
 
   // Clear preview when content changes to avoid stale previews
   useEffect(() => {
     setPreviewHtml(null)
     setPreviewSubject(null)
-  }, [currentHtmlContent, currentSubject])
+  }, [currentHtmlContent, currentSubject, currentTextContent])
 
   const onSubmit = (values: EmailTemplateCreate) => {
     createTemplate({
@@ -61,6 +62,11 @@ export function NewTemplateForm() {
       onSuccess: () => {
         // Clear draft after successful creation
         reset()
+        // Reset RHF internal state
+        form.reset()
+        // Clear preview UI
+        setPreviewHtml(null)
+        setPreviewSubject(null)
       }
     })
   }

@@ -1,6 +1,6 @@
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
-import type { EmailTemplateCreate } from "../schemas/email-template-schema"
+import type { EmailTemplateCreate } from "@/src/features/email-templates/schemas/email-template-schema"
 
 interface NewTemplateState {
   formData: EmailTemplateCreate

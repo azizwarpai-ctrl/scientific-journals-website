@@ -13,7 +13,7 @@ import {
   emailTemplateIdParamSchema,
   emailTemplatePreviewSchema,
   emailTemplateSendTestSchema,
-} from "../schemas/email-template-schema"
+} from "@/src/features/email-templates/schemas/email-template-schema"
 
 const app = new Hono()
 
@@ -109,9 +109,8 @@ app.post("/", requireAdmin, zValidator("json", emailTemplateCreateSchema), async
       return c.json({ success: false, error: "A template with this name already exists" }, 409)
     }
 
-    // Auto-extract variables from all content fields if not provided
+    // Auto-extract variables from content fields if not provided
     const detectedVariables = Array.from(new Set([
-      ...extractVariables(data.name),
       ...extractVariables(data.subject),
       ...extractVariables(data.html_content),
       ...extractVariables(data.text_content || ""),
@@ -196,7 +195,6 @@ app.patch(
         const textForExtraction = data.text_content ?? (existing.text_content || "")
         
         const detectedVariables = Array.from(new Set([
-          ...extractVariables(nameForExtraction),
           ...extractVariables(subjectForExtraction),
           ...extractVariables(htmlForExtraction),
           ...extractVariables(textForExtraction),

@@ -1,20 +1,20 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { TemplateDetailsCard } from "./template-details-card"
-import { EmailContentCard } from "./email-content-card"
-import { TemplateVariablesCard } from "./template-variables-card"
-import { TemplateActionsCard } from "./template-actions-card"
-import { SendTestEmailCard } from "./send-test-email-card"
-import { useUpdateEmailTemplate } from "../api/use-update-email-template"
-import { useSendTestEmail } from "../api/use-send-test-email"
+import { TemplateDetailsCard } from "@/src/features/email-templates/components/template-details-card"
+import { EmailContentCard } from "@/src/features/email-templates/components/email-content-card"
+import { TemplateVariablesCard } from "@/src/features/email-templates/components/template-variables-card"
+import { TemplateActionsCard } from "@/src/features/email-templates/components/template-actions-card"
+import { SendTestEmailCard } from "@/src/features/email-templates/components/send-test-email-card"
+import { useUpdateEmailTemplate } from "@/src/features/email-templates/api/use-update-email-template"
+import { useSendTestEmail } from "@/src/features/email-templates/api/use-send-test-email"
 import { Form } from "@/components/ui/form"
 import { toast } from "sonner"
-import type { EmailTemplate } from "../types/email-template-type"
+import type { EmailTemplate } from "@/src/features/email-templates/types/email-template-type"
 import { extractAllVariables } from "@/src/lib/email/renderer"
-import { emailTemplateUpdateSchema, type EmailTemplateUpdate } from "../schemas/email-template-schema"
+import { emailTemplateUpdateSchema, type EmailTemplateUpdate } from "@/src/features/email-templates/schemas/email-template-schema"
 
 interface Props {
   template: EmailTemplate
@@ -43,10 +43,18 @@ export function EditTemplateForm({ template }: Props) {
 
   const currentHtmlContent = form.watch("html_content")
   const currentSubject = form.watch("subject")
+  const currentTextContent = form.watch("text_content")
 
   const allVariables = useMemo(() => {
-    return extractAllVariables(currentHtmlContent || "", currentSubject || "")
-  }, [currentHtmlContent, currentSubject])
+    return extractAllVariables(currentHtmlContent || "", currentSubject || "", currentTextContent || "")
+  }, [currentHtmlContent, currentSubject, currentTextContent])
+
+  // Clear preview when content changes to avoid stale previews
+  useEffect(() => {
+    setPreviewHtml(null)
+    setPreviewSubject(null)
+  }, [currentHtmlContent, currentSubject, currentTextContent])
+
 
   const onSubmit = (values: EmailTemplateUpdate) => {
     updateTemplate({
@@ -67,7 +75,7 @@ export function EditTemplateForm({ template }: Props) {
       previewSub = previewSub.replace(new RegExp(`\\{\\{${v}\\}\\}`, "g"), `[${v}]`)
     })
     setPreviewHtml(previewContent)
-    setPreviewSubject(previewSubject)
+    setPreviewSubject(previewSub)
   }
 
   const handleSendTest = () => {

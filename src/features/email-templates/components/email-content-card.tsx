@@ -11,7 +11,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import type { UseFormReturn } from "react-hook-form"
-import type { EmailTemplateFormValues } from "../schemas/email-template-schema"
+import type { EmailTemplateFormValues } from "@/src/features/email-templates/schemas/email-template-schema"
 
 interface Props {
   form: UseFormReturn<any>

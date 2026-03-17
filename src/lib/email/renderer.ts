@@ -29,12 +29,17 @@ export function extractVariables(template: string): string[] {
 }
 
 /**
- * Extract all unique variables across HTML content and subject.
+ * Extract all unique variables across HTML content, subject, and optional text content.
  */
-export function extractAllVariables(htmlContent: string, subject: string): string[] {
+export function extractAllVariables(
+  htmlContent: string,
+  subject: string,
+  textContent: string = ""
+): string[] {
   const htmlVars = extractVariables(htmlContent)
   const subjectVars = extractVariables(subject)
-  return [...new Set([...htmlVars, ...subjectVars])]
+  const textVars = extractVariables(textContent)
+  return [...new Set([...htmlVars, ...subjectVars, ...textVars])]
 }
 
 /**
