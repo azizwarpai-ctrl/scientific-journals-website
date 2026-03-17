@@ -4,6 +4,7 @@ import { requireAdmin } from "@/src/lib/auth-middleware"
 import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
 import { serializeRecord, serializeMany } from "@/src/lib/serialize"
 import { prisma } from "@/lib/db/config"
+import { Prisma } from "@prisma/client"
 import { renderTemplate, extractVariables, validateVariables } from "@/src/lib/email/renderer"
 import { sendEmail, getEmailServiceStatus } from "@/src/lib/email/service"
 import {
@@ -34,10 +35,14 @@ app.get("/", requireAdmin, async (c) => {
   try {
     const pagination = parsePagination(c)
     const activeFilter = c.req.query("active")
-
-    const where = activeFilter !== undefined
-      ? { is_active: activeFilter === "true" }
-      : {}
+    let where = {}
+    if (activeFilter !== undefined) {
+      if (activeFilter === "true" || activeFilter === "false") {
+        where = { is_active: activeFilter === "true" }
+      } else {
+        return c.json({ success: false, error: "Invalid active value. Use 'true' or 'false'." }, 400)
+      }
+    }
 
     const [templates, total] = await Promise.all([
       prisma.emailTemplate.findMany({
@@ -104,29 +109,42 @@ app.post("/", requireAdmin, zValidator("json", emailTemplateCreateSchema), async
       return c.json({ success: false, error: "A template with this name already exists" }, 409)
     }
 
-    // Auto-extract variables from HTML content if not provided
-    const detectedVariables = extractVariables(data.html_content)
+    // Auto-extract variables from all content fields if not provided
+    const detectedVariables = Array.from(new Set([
+      ...extractVariables(data.name),
+      ...extractVariables(data.subject),
+      ...extractVariables(data.html_content),
+      ...extractVariables(data.text_content || ""),
+    ]))
+
     const variables = data.variables && data.variables.length > 0
       ? data.variables
       : detectedVariables
 
-    const template = await prisma.emailTemplate.create({
-      data: {
-        name: data.name,
-        subject: data.subject,
-        html_content: data.html_content,
-        text_content: data.text_content || null,
-        variables: variables,
-        description: data.description || null,
-        is_active: data.is_active,
-      },
-      select: TEMPLATE_SELECT,
-    })
+    try {
+      const template = await prisma.emailTemplate.create({
+        data: {
+          name: data.name,
+          subject: data.subject,
+          html_content: data.html_content,
+          text_content: data.text_content || null,
+          variables: variables,
+          description: data.description || null,
+          is_active: data.is_active,
+        },
+        select: TEMPLATE_SELECT,
+      })
 
-    return c.json(
-      { success: true, data: serializeRecord(template), message: "Template created successfully" },
-      201
-    )
+      return c.json(
+        { success: true, data: serializeRecord(template), message: "Template created successfully" },
+        201
+      )
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        return c.json({ success: false, error: "A template with this name already exists" }, 409)
+      }
+      throw error
+    }
   } catch (error) {
     console.error("Error creating email template:", error)
     return c.json({ success: false, error: "Failed to create email template" }, 500)
@@ -146,7 +164,7 @@ app.patch(
 
       const existing = await prisma.emailTemplate.findUnique({
         where: { id: BigInt(id) },
-        select: { id: true },
+        select: TEMPLATE_SELECT,
       })
 
       if (!existing) {
@@ -169,26 +187,50 @@ app.patch(
       if (data.name !== undefined) updateData.name = data.name
       if (data.subject !== undefined) updateData.subject = data.subject
       if (data.text_content !== undefined) updateData.text_content = data.text_content
-      if (data.html_content !== undefined) {
-        updateData.html_content = data.html_content
-        // Detect variables from new HTML content
-        updateData.variables = extractVariables(data.html_content)
-      } else if (data.variables !== undefined) {
+      
+      if (data.html_content !== undefined || data.subject !== undefined || data.text_content !== undefined) {
+        // Use provided values or existing ones for variable extraction
+        const nameForExtraction = data.name ?? existing.name
+        const subjectForExtraction = data.subject ?? existing.subject
+        const htmlForExtraction = data.html_content ?? existing.html_content
+        const textForExtraction = data.text_content ?? (existing.text_content || "")
+        
+        const detectedVariables = Array.from(new Set([
+          ...extractVariables(nameForExtraction),
+          ...extractVariables(subjectForExtraction),
+          ...extractVariables(htmlForExtraction),
+          ...extractVariables(textForExtraction),
+        ]))
+        
+        if (data.variables === undefined) {
+          updateData.variables = detectedVariables
+        }
+      }
+      
+      if (data.variables !== undefined) {
         updateData.variables = data.variables
       }
+      
       if (data.description !== undefined) updateData.description = data.description
       if (data.is_active !== undefined) updateData.is_active = data.is_active
 
-      const template = await prisma.emailTemplate.update({
-        where: { id: BigInt(id) },
-        data: updateData,
-        select: TEMPLATE_SELECT,
-      })
+      try {
+        const updated = await prisma.emailTemplate.update({
+          where: { id: BigInt(id) },
+          data: updateData,
+          select: TEMPLATE_SELECT,
+        })
 
-      return c.json(
-        { success: true, data: serializeRecord(template), message: "Template updated successfully" },
-        200
-      )
+        return c.json(
+          { success: true, data: serializeRecord(updated), message: "Template updated successfully" },
+          200
+        )
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          return c.json({ success: false, error: "A template with this name already exists" }, 409)
+        }
+        throw error
+      }
     } catch (error) {
       console.error("Error updating email template:", error)
       return c.json({ success: false, error: "Failed to update email template" }, 500)
@@ -289,6 +331,22 @@ app.post(
 
       if (!template) {
         return c.json({ success: false, error: "Template not found" }, 404)
+      }
+
+      // Check for unresolved required variables before sending
+      const combinedContentForValidation = [
+        template.subject,
+        template.html_content,
+        template.text_content || "",
+      ].join("\n")
+
+      const missingVars = validateVariables(combinedContentForValidation, variables)
+      if (missingVars.length > 0) {
+        return c.json({ 
+          success: false, 
+          error: "Required variables are missing", 
+          missingVariables: missingVars 
+        }, 400)
       }
 
       // Render template

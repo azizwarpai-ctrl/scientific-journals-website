@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { TemplateDetailsCard } from "./template-details-card"
 import { EmailContentCard } from "./email-content-card"
 import { TemplateVariablesCard } from "./template-variables-card"
@@ -8,22 +10,28 @@ import { TemplateActionsCard } from "./template-actions-card"
 import { SendTestEmailCard } from "./send-test-email-card"
 import { useUpdateEmailTemplate } from "../api/use-update-email-template"
 import { useSendTestEmail } from "../api/use-send-test-email"
+import { Form } from "@/components/ui/form"
 import { toast } from "sonner"
 import type { EmailTemplate } from "../types/email-template-type"
 import { extractAllVariables } from "@/src/lib/email/renderer"
+import { emailTemplateUpdateSchema, type EmailTemplateUpdate } from "../schemas/email-template-schema"
 
 interface Props {
   template: EmailTemplate
 }
 
 export function EditTemplateForm({ template }: Props) {
-  const [form, setForm] = useState({
-    name: template.name,
-    subject: template.subject,
-    html_content: template.html_content,
-    text_content: template.text_content || "",
-    description: template.description || "",
-    is_active: template.is_active,
+  const form = useForm<EmailTemplateUpdate>({
+    resolver: zodResolver(emailTemplateUpdateSchema) as any,
+    defaultValues: {
+
+      name: template.name,
+      subject: template.subject,
+      html_content: template.html_content,
+      text_content: template.text_content || "",
+      description: template.description || "",
+      is_active: template.is_active,
+    },
   })
 
   const [previewHtml, setPreviewHtml] = useState<string | null>(null)
@@ -33,42 +41,33 @@ export function EditTemplateForm({ template }: Props) {
   const { mutate: updateTemplate, isPending: saving } = useUpdateEmailTemplate()
   const { mutate: sendTestEmail, isPending: sendingTest } = useSendTestEmail()
 
+  const currentHtmlContent = form.watch("html_content")
+  const currentSubject = form.watch("subject")
+
   const allVariables = useMemo(() => {
-    return extractAllVariables(form.html_content, form.subject)
-  }, [form.html_content, form.subject])
+    return extractAllVariables(currentHtmlContent || "", currentSubject || "")
+  }, [currentHtmlContent, currentSubject])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!form.name || !form.subject || !form.html_content) {
-      toast.error("Please fill in all required fields")
-      return
-    }
-
+  const onSubmit = (values: EmailTemplateUpdate) => {
     updateTemplate({
       param: { id: String(template.id) },
       json: {
-        name: form.name,
-        subject: form.subject,
-        html_content: form.html_content,
-        text_content: form.text_content || undefined,
-        description: form.description || undefined,
-        is_active: form.is_active,
+        ...values,
         variables: allVariables.length > 0 ? allVariables : undefined,
       },
     })
   }
 
   const handlePreview = () => {
-    let previewContent = form.html_content
-    let previewSub = form.subject
+    let previewContent = currentHtmlContent || ""
+    let previewSub = currentSubject || ""
     allVariables.forEach((v) => {
       const sampleValue = `<strong style="color:#3b82f6">[${v}]</strong>`
       previewContent = previewContent.replace(new RegExp(`\\{\\{${v}\\}\\}`, "g"), sampleValue)
       previewSub = previewSub.replace(new RegExp(`\\{\\{${v}\\}\\}`, "g"), `[${v}]`)
     })
     setPreviewHtml(previewContent)
-    setPreviewSubject(previewSub)
+    setPreviewSubject(previewSubject)
   }
 
   const handleSendTest = () => {
@@ -89,35 +88,36 @@ export function EditTemplateForm({ template }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main Form */}
-        <div className="lg:col-span-2 space-y-6">
-          <TemplateDetailsCard form={form} setForm={setForm} />
-          <EmailContentCard 
-            form={form} 
-            setForm={setForm} 
-            previewHtml={previewHtml} 
-            previewSubject={previewSubject} 
-          />
-        </div>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Main Form */}
+          <div className="lg:col-span-2 space-y-6">
+            <TemplateDetailsCard form={form as any} />
+            <EmailContentCard 
+              form={form as any} 
+              previewHtml={previewHtml} 
+              previewSubject={previewSubject} 
+            />
+          </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          <TemplateVariablesCard allVariables={allVariables} />
-          <TemplateActionsCard 
-            saving={saving} 
-            handlePreview={handlePreview} 
-            hasHtmlContent={!!form.html_content} 
-          />
-          <SendTestEmailCard 
-            testEmail={testEmail}
-            setTestEmail={setTestEmail}
-            sendingTest={sendingTest}
-            handleSendTest={handleSendTest}
-          />
+          {/* Sidebar */}
+          <div className="space-y-6">
+            <TemplateVariablesCard allVariables={allVariables} />
+            <TemplateActionsCard 
+              saving={saving} 
+              handlePreview={handlePreview} 
+              hasHtmlContent={!!currentHtmlContent} 
+            />
+            <SendTestEmailCard 
+              testEmail={testEmail}
+              setTestEmail={setTestEmail}
+              sendingTest={sendingTest}
+              handleSendTest={handleSendTest}
+            />
+          </div>
         </div>
-      </div>
-    </form>
+      </form>
+    </Form>
   )
 }

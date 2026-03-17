@@ -99,7 +99,6 @@
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^16.1.6",
-    "@types/dompurify": "^3.2.0",
     "@types/node": "^25.0.6",
     "@types/nodemailer": "^7.0.11",
     "@types/react": "^19",

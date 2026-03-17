@@ -36,7 +36,7 @@ async function main(): Promise<number> {
     // 1. Test OJS connection
     const healthy = await ojsHealthCheck();
     if (!healthy.ok) {
-      throw new Error(`Failed to connect to OJS database: ${healthy.error}`);
+      throw new Error(`Failed to connect to OJS database: ${healthy.error ?? (healthy.configured ? "unknown error" : "not configured")}`);
     }
     console.log('✅ Connected to OJS database');
 
@@ -71,13 +71,22 @@ async function main(): Promise<number> {
     console.log('───────────────────────────────────────\n');
     
     
-    exitCode = 0;
+    exitCode = result.errors > 0 ? 2 : 0;
   } catch (error) {
     console.error('\n❌ Synchronization failed:', error);
     exitCode = 1;
   } finally {
-    await closeOjsPool();
-    await prisma.$disconnect();
+    try {
+      await closeOjsPool();
+    } catch (err) {
+      console.error('Failed to close OJS connection pool:', err);
+    }
+    
+    try {
+      await prisma.$disconnect();
+    } catch (err) {
+      console.error('Failed to disconnect Prisma:', err);
+    }
   }
   
   return exitCode;
@@ -85,7 +94,13 @@ async function main(): Promise<number> {
 
 // Run if executed directly
 if (import.meta.main) {
-  main().then((code) => {
-    process.exitCode = code;
-  });
+  main()
+    .then((code) => {
+      process.exitCode = code;
+    })
+    .catch((err) => {
+      console.error('Unhandled error in main:', err);
+      process.exitCode = 1;
+    });
 }
+

@@ -44,3 +44,17 @@ export const emailTemplateSendTestSchema = z.object({
 
 export type EmailTemplateCreate = z.infer<typeof emailTemplateCreateSchema>
 export type EmailTemplateUpdate = z.infer<typeof emailTemplateUpdateSchema>
+
+/**
+ * Shared type for use in form components (both New and Edit)
+ * This ensures that common fields are accessible with consistent types.
+ */
+export type EmailTemplateFormValues = {
+  name: string
+  subject: string
+  html_content: string
+  text_content?: string | null
+  description?: string | null
+  is_active: boolean
+}
+
