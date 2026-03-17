@@ -93,6 +93,29 @@ export async function initializeDatabase() {
         console.error('[DB Init] Failed to create ojs_sso_tokens table:', e.message)
       }
 
+      try {
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS \`verification_codes\` (
+            \`id\` BIGINT NOT NULL AUTO_INCREMENT,
+            \`user_id\` BIGINT NOT NULL,
+            \`email\` VARCHAR(255) NOT NULL,
+            \`code\` VARCHAR(10) NOT NULL,
+            \`expires_at\` DATETIME(3) NOT NULL,
+            \`used\` BOOLEAN NOT NULL DEFAULT false,
+            \`created_at\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+            \`attempts\` INT NOT NULL DEFAULT 0,
+            \`last_failed_at\` DATETIME(3) NULL,
+            \`locked_until\` DATETIME(3) NULL,
+            INDEX \`verification_codes_email_idx\`(\`email\`),
+            INDEX \`verification_codes_code_idx\`(\`code\`),
+            PRIMARY KEY (\`id\`)
+          ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        `)
+        console.log('[DB Init] Applied schema patch: Synchronized verification_codes table')
+      } catch (e: any) {
+        console.error('[DB Init] Failed to create verification_codes table:', e.message)
+      }
+
       // --- Patch: Add OJS extended profile columns to admin_users ---
       const profileColumns = [
         { name: 'country', type: 'VARCHAR(90) NULL' },
