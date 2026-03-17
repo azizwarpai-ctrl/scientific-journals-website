@@ -1,6 +1,6 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
-import { prisma } from "@/lib/db/config"
+import { prisma } from "@/src/lib/db/config"
 import { requireAdmin } from "@/src/lib/auth-middleware"
 import { aboutContentSchema, defaultAboutContent, type AboutContent } from "../schema"
 

@@ -3,8 +3,8 @@ import { zValidator } from "@hono/zod-validator"
 import { requireAdmin } from "@/src/lib/auth-middleware"
 import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
 import { serializeRecord, serializeMany } from "@/src/lib/serialize"
-import { getSession } from "@/lib/db/auth"
-import { prisma } from "@/lib/db/config"
+import { getSession } from "@/src/lib/db/auth"
+import { prisma } from "@/src/lib/db/config"
 import { solutionCreateSchema, solutionUpdateSchema, solutionIdParamSchema } from "../schemas/solution-schema"
 
 const app = new Hono()

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
-import { getSession } from "@/lib/db/auth"
-import { prisma } from "@/lib/db/config"
+import { getSession } from "@/src/lib/db/auth"
+import { prisma } from "@/src/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, Mail, FileText } from "lucide-react"
 

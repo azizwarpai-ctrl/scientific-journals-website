@@ -8,7 +8,7 @@
  * - Log sending activity to the EmailLog table
  */
 
-import { prisma } from "@/lib/db/config"
+import { prisma } from "@/src/lib/db/config"
 import { renderTemplate, validateVariables } from "./renderer"
 import { getTransporter, getFromAddress, isSmtpConfigured } from "./transport"
 

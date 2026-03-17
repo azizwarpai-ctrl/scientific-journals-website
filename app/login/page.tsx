@@ -1,7 +1,7 @@
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
-import { prisma } from "@/lib/db/config"
+import { prisma } from "@/src/lib/db/config"
 import { LoginForm } from "@/src/features/auth/components/login-form"
 import { PenLine, Search, BookOpen, GraduationCap } from "lucide-react"
 

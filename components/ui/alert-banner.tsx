@@ -1,6 +1,6 @@
 "use client"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/src/lib/utils"
 import { AlertCircle, CheckCircle2, Info, XCircle } from "lucide-react"
 
 type AlertVariant = "error" | "success" | "info" | "warning"

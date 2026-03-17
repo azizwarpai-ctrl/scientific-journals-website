@@ -5,7 +5,7 @@ import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
 import { Target, Eye, Award, Globe, TrendingUp, BookOpen, Users, FileText, BarChart3, Loader2 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "@/src/lib/utils"
 
 import { useGetAboutContent } from "@/src/features/about"
 import { useGetPlatformStatistics } from "@/src/features/statistics"

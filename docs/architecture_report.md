@@ -457,7 +457,7 @@ Based on the architecture rules specified in the request, here is a compliance a
 
 ### Violation: `app/admin/reviews/page.tsx`
 
-**Current state:** This page component ([reviews/page.tsx](file:///home/glitch/Documents/Next.JS/scientific-journals-website/app/admin/reviews/page.tsx)) directly imports and uses `prisma` from `@/lib/db/config` in a server component.
+**Current state:** This page component ([reviews/page.tsx](file:///home/glitch/Documents/Next.JS/scientific-journals-website/app/admin/reviews/page.tsx)) directly imports and uses `prisma` from `@/src/lib/db/config` in a server component.
 
 **Rules violated:**
 
@@ -524,7 +524,7 @@ The following files in `app/admin/` currently bypass the Hono API layer and quer
 | `app/admin/analytics/page.tsx` | Move to `src/features/analytics` |
 
 > [!NOTE]
-> A full audit requires inspecting each `app/admin/**/page.tsx` for direct Prisma imports. The pattern to look for is: `import { prisma } from "@/lib/db/config"`.
+> A full audit requires inspecting each `app/admin/**/page.tsx` for direct Prisma imports. The pattern to look for is: `import { prisma } from "@/src/lib/db/config"`.
 
 ---
 

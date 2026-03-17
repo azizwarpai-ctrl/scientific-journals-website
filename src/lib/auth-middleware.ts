@@ -1,4 +1,4 @@
-import { getSession } from "@/lib/db/auth"
+import { getSession } from "@/src/lib/db/auth"
 import { createMiddleware } from "hono/factory"
 import type { Context, Next } from "hono"
 

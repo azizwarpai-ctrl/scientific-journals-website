@@ -1,6 +1,6 @@
 "use client"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/src/lib/utils"
 import { Check } from "lucide-react"
 import { REGISTRATION_STEPS } from "@/src/features/auth/schemas/registration-schemas"
 import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
