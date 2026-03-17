@@ -194,10 +194,10 @@ export async function provisionUser(payload: OjsUserProvisionData): Promise<{ su
     const apiKey = process.env.OJS_API_KEY;
 
     if (!baseUrlStr) {
-        throw new Error("OJS_BASE_URL is not configured.");
+        return { success: false, error: "OJS_BASE_URL is not configured." };
     }
     if (!apiKey) {
-        throw new Error("OJS_API_KEY is not configured.");
+        return { success: false, error: "OJS_API_KEY is not configured." };
     }
 
     // Validate URL and enforce HTTPS for non-local hosts
@@ -205,12 +205,12 @@ export async function provisionUser(payload: OjsUserProvisionData): Promise<{ su
     try {
         baseUrl = new URL(baseUrlStr);
     } catch (e) {
-        throw new Error(`Invalid OJS_BASE_URL: ${baseUrlStr}`);
+        return { success: false, error: `Invalid OJS_BASE_URL: ${baseUrlStr}` };
     }
 
     const isLoopback = ["localhost", "127.0.0.1", "::1"].includes(baseUrl.hostname);
     if (!isLoopback && baseUrl.protocol !== "https:") {
-        throw new Error("OJS_BASE_URL must use HTTPS for non-local environments.");
+        return { success: false, error: "OJS_BASE_URL must use HTTPS for non-local environments." };
     }
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
