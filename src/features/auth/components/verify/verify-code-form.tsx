@@ -25,12 +25,11 @@ import {
 import { useVerifyCode } from "@/src/features/auth/api/use-verify-code"
 import { useResendCode } from "@/src/features/auth/api/use-resend-code"
 import { verifyCodeSchema, type VerifyCodeInput } from "@/src/features/auth/schemas/auth-schema"
+import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
 
 interface VerifyCodeFormProps {
   email: string;
 }
-
-import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
 
 export function VerifyCodeForm({ email }: VerifyCodeFormProps) {
   const router = useRouter()

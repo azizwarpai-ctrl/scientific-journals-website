@@ -37,6 +37,7 @@ describe('Email Event Dispatcher', () => {
       templateName: 'registration_confirmation',
       to: 'test@example.com',
       variables: {
+        email: 'test@example.com',
         author_name: 'John Doe',
         journal_title: 'Test Journal',
       },
@@ -77,6 +78,16 @@ describe('Email Event Dispatcher', () => {
 
     expect(result).toBe(false)
     expect(emailService.sendTemplateEmail).toHaveBeenCalledTimes(1)
+    expect(emailService.sendTemplateEmail).toHaveBeenCalledWith({
+      templateName: 'submission_accepted',
+      to: 'author@example.com',
+      variables: {
+        email: 'author@example.com',
+        author_name: 'Jane Doe',
+        submission_id: 'SUB-123',
+        journal_title: 'Science Journal',
+      },
+    })
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Failed to send submission_accepted'))
   })
 
@@ -99,6 +110,17 @@ describe('Email Event Dispatcher', () => {
 
     expect(result).toBe(false)
     expect(emailService.sendTemplateEmail).toHaveBeenCalledTimes(1)
+    expect(emailService.sendTemplateEmail).toHaveBeenCalledWith({
+      templateName: 'submission_received',
+      to: 'author@test.com',
+      variables: {
+        email: 'author@test.com',
+        author_name: 'Bob',
+        submission_id: '404',
+        journal_title: 'History Review',
+        submission_date: '2025-01-01',
+      },
+    })
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Uncaught error handling submission_received'), expect.any(Error))
   })
 
@@ -122,6 +144,7 @@ describe('Email Event Dispatcher', () => {
       templateName: 'submission_rejected',
       to: 'test@example.com',
       variables: {
+        email: 'test@example.com',
         author_name: 'John',
         submission_id: '123',
         journal_title: 'Journal',

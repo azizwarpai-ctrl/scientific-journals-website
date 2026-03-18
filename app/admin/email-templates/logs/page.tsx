@@ -18,7 +18,7 @@ export default function EmailLogsPage() {
   const [page, setPage] = useState(1)
   const [activeTab, setActiveTab] = useState("all")
 
-  const { data: logsData, isLoading: loading } = useGetEmailLogs(page, limit, activeTab)
+  const { data: logsData, isLoading: loading, isError, error } = useGetEmailLogs(page, limit, activeTab)
   const logs = logsData?.data || []
   const pagination = logsData?.pagination || null
 
@@ -37,7 +37,7 @@ export default function EmailLogsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" asChild>
+        <Button variant="outline" size="icon" asChild aria-label="Back to email templates">
           <Link href="/admin/email-templates">
             <ArrowLeft className="h-4 w-4" />
           </Link>
@@ -69,6 +69,12 @@ export default function EmailLogsPage() {
             <div className="mt-4 space-y-4">
               {loading ? (
                 <div className="py-12 text-center text-muted-foreground">Loading logs...</div>
+              ) : isError ? (
+                <div className="py-12 flex flex-col items-center justify-center text-destructive border-destructive/20 border rounded-md bg-destructive/5">
+                  <XCircle className="h-8 w-8 mb-2 opacity-50" />
+                  <p>Error loading email logs</p>
+                  <p className="text-sm text-destructive/80 mt-1">{error?.message || "Unknown error occurred"}</p>
+                </div>
               ) : logs.length > 0 ? (
                 <div className="border rounded-md divide-y">
                   {logs.map((log: PopulatedEmailLog) => (

@@ -37,7 +37,7 @@ export default function EmailTemplatesPage() {
   const templates = templatesData?.data || []
   const pagination = templatesData?.pagination || null
   
-  const { data: smtpStatus } = useGetEmailStatus()
+  const { data: smtpStatus, isLoading: isSmtpLoading, isError: isSmtpError } = useGetEmailStatus()
   const deleteMutation = useDeleteEmailTemplate()
   const updateMutation = useUpdateEmailTemplate()
 
@@ -133,17 +133,31 @@ export default function EmailTemplatesPage() {
             <Mail className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-sm">
-              {smtpStatus ? (
-                <Badge variant={smtpStatus.smtpConfigured ? "default" : "secondary"}>
-                  {smtpStatus.smtpConfigured ? "Connected" : "Not Configured"}
+            {isSmtpLoading ? (
+              <Badge variant="secondary" className="flex w-fit items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-slate-400 animate-pulse" />
+                Checking...
+              </Badge>
+            ) : isSmtpError ? (
+              <Badge variant="destructive" className="flex w-fit items-center gap-1">
+                <MailX className="h-3 w-3" />
+                Unavailable
+              </Badge>
+            ) : smtpStatus?.smtpConfigured ? (
+              <div className="space-y-1">
+                <Badge className="bg-green-500 hover:bg-green-600 flex w-fit items-center gap-1">
+                  <MailCheck className="h-3 w-3" />
+                  Configured
                 </Badge>
-              ) : (
-                <Badge variant="secondary">Checking...</Badge>
-              )}
-            </div>
-            {smtpStatus?.provider && smtpStatus.smtpConfigured && (
-              <p className="text-xs text-muted-foreground mt-1">{smtpStatus.provider}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {smtpStatus.provider}
+                </p>
+              </div>
+            ) : (
+              <Badge variant="destructive" className="flex w-fit items-center gap-1">
+                <MailX className="h-3 w-3" />
+                Unconfigured
+              </Badge>
             )}
           </CardContent>
         </Card>

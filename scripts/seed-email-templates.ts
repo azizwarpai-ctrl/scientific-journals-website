@@ -96,6 +96,8 @@ const systemTemplates = [
 async function seed() {
   console.log("Seeding system email templates...")
   
+  const errors: Error[] = []
+
   for (const template of systemTemplates) {
     try {
       await prisma.emailTemplate.upsert({
@@ -112,9 +114,14 @@ async function seed() {
         },
       })
       console.log(`✅ Seeded template: ${template.name}`)
-    } catch (e) {
+    } catch (e: any) {
       console.error(`❌ Failed to seed template: ${template.name}`, e)
+      errors.push(new Error(`Template '${template.name}' failed: ${e.message}`))
     }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Seeding failed with ${errors.length} errors.\n` + errors.map(e => e.message).join("\n"))
   }
 
   console.log("Done.")

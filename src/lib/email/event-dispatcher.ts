@@ -36,7 +36,7 @@ export async function dispatchEmailEvent(event: EmailEvent): Promise<boolean> {
   const { email, ...restPayload } = event.payload
 
   // Convert all payload values to strings for the Mustache renderer
-  const variables: Record<string, string> = {}
+  const variables: Record<string, string> = { email: String(email ?? "") }
   for (const [key, value] of Object.entries(restPayload)) {
     variables[key] = value !== undefined && value !== null ? String(value) : ""
   }

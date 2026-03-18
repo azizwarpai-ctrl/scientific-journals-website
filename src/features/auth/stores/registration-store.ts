@@ -210,6 +210,7 @@ export const useRegistrationStore = create<RegistrationStore>()(
           isSubmitting: false,
           submissionError: null,
           verificationEmail: null,
+          selectedJournalPath: null,
         }),
     }),
     {

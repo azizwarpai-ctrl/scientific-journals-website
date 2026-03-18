@@ -23,6 +23,7 @@ export function useGetEmailLogs(page = 1, limit = 20, status?: string) {
 
       return await response.json()
     },
+    staleTime: 5 * 60 * 1000,
   })
 
   return query

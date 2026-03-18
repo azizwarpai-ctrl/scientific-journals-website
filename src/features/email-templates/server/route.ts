@@ -80,7 +80,13 @@ app.get("/logs", requireAdmin, async (c) => {
     const statusFilter = c.req.query("status")
     
     let where: Prisma.EmailLogWhereInput = {}
-    if (statusFilter && ["pending", "sent", "failed"].includes(statusFilter)) {
+    if (statusFilter && statusFilter !== "all") {
+      if (!["pending", "sent", "failed"].includes(statusFilter)) {
+        return c.json({
+          error: "Bad Request",
+          message: `Invalid status filter. Allowed values: pending, sent, failed`
+        }, 400)
+      }
       where.status = statusFilter
     }
 
