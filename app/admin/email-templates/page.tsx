@@ -33,7 +33,7 @@ export default function EmailTemplatesPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
-  const { data: templatesData, isLoading: loading } = useGetEmailTemplates(page, limit)
+  const { data: templatesData, isLoading: loading, isError, error } = useGetEmailTemplates(page, limit)
   const templates = templatesData?.data || []
   const pagination = templatesData?.pagination || null
   
@@ -191,6 +191,12 @@ export default function EmailTemplatesPage() {
               <TabsContent key={tab} value={tab} className="space-y-4">
                 {loading ? (
                   <div className="py-8 text-center text-muted-foreground">Loading templates...</div>
+                ) : isError ? (
+                  <div className="py-12 flex flex-col items-center justify-center text-destructive border border-destructive/20 rounded-md bg-destructive/5 mt-4">
+                    <MailX className="h-8 w-8 mb-2 opacity-50" />
+                    <p>Error loading email templates</p>
+                    <p className="text-sm text-destructive/80 mt-1">{error?.message || "Check your backend connection"}</p>
+                  </div>
                 ) : filteredTemplates.length > 0 ? (
                   filteredTemplates.map((template: EmailTemplate) => (
                     <div

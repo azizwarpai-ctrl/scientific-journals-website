@@ -6,8 +6,8 @@
  * would interrupt the upstream process (e.g. registration or submission).
  */
 
-import { sendTemplateEmail } from "./service"
-import type { EmailEvent } from "./events"
+import { sendTemplateEmail } from "@/src/lib/email/service"
+import type { EmailEvent } from "@/src/lib/email/events"
 
 /**
  * Maps event types to the expected slug/name of the `EmailTemplate` in the database.

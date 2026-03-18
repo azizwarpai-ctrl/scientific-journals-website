@@ -83,8 +83,8 @@ app.get("/logs", requireAdmin, async (c) => {
     if (statusFilter && statusFilter !== "all") {
       if (!["pending", "sent", "failed"].includes(statusFilter)) {
         return c.json({
-          error: "Bad Request",
-          message: `Invalid status filter. Allowed values: pending, sent, failed`
+          success: false,
+          error: "Invalid status filter. Allowed values: pending, sent, failed"
         }, 400)
       }
       where.status = statusFilter
