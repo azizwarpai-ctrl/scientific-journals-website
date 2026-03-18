@@ -32,6 +32,9 @@ interface RegistrationState {
 
   /** Verification state */
   verificationEmail: string | null
+
+  /** Selected Journal Path (for SSO redirect after registration) */
+  selectedJournalPath: string | null
 }
 
 interface RegistrationActions {
@@ -50,6 +53,7 @@ interface RegistrationActions {
   setSubmitting: (isSubmitting: boolean) => void
   setSubmissionError: (error: string | null) => void
   setVerificationEmail: (email: string | null) => void
+  setSelectedJournalPath: (path: string | null) => void
 
   /** Build the final payload for API submission */
   getPayload: () => RegistrationPayload
@@ -111,8 +115,9 @@ export const useRegistrationStore = create<RegistrationStore>()(
       isSubmitting: false,
       submissionError: null,
       verificationEmail: null,
-
-      // ─── Navigation ─────────────────────────────────────
+      selectedJournalPath: null,
+      
+      // ─── Step Management ─────────────────────────────────────
       setStep: (step) => {
         if (step >= 0 && step < TOTAL_STEPS) {
           set({ currentStep: step })
@@ -168,6 +173,7 @@ export const useRegistrationStore = create<RegistrationStore>()(
       setSubmitting: (isSubmitting) => set({ isSubmitting }),
       setSubmissionError: (error) => set({ submissionError: error }),
       setVerificationEmail: (email) => set({ verificationEmail: email }),
+      setSelectedJournalPath: (path) => set({ selectedJournalPath: path }),
 
       // ─── Payload Builder ────────────────────────────────
       getPayload: () => {
@@ -204,6 +210,7 @@ export const useRegistrationStore = create<RegistrationStore>()(
           isSubmitting: false,
           submissionError: null,
           verificationEmail: null,
+          selectedJournalPath: null,
         }),
     }),
     {

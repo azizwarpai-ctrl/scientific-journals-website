@@ -6,7 +6,6 @@ import { useRegistrationStore } from "@/src/features/auth/stores/registration-st
 import { COUNTRIES } from "@/src/features/auth/components/register/countries-data"
 import { useMutation } from "@tanstack/react-query"
 import { client } from "@/src/lib/rpc"
-import { useRouter } from "next/navigation"
 import type { RegistrationPayload } from "@/src/features/auth/schemas/registration-schemas"
 
 const ROLE_LABELS: Record<string, string> = {
@@ -35,7 +34,6 @@ function SummaryRow({
 }
 
 export function StepReviewSubmit() {
-  const router = useRouter()
   const {
     personalInfo,
     academicInfo,
@@ -48,6 +46,7 @@ export function StepReviewSubmit() {
     submissionError,
     setSubmissionError,
     getPayload,
+    selectedJournalPath,
   } = useRegistrationStore()
 
   const countryName =
@@ -58,6 +57,7 @@ export function StepReviewSubmit() {
     mutationFn: async (payload: RegistrationPayload) => {
       const response = await client.auth.register.$post({
         json: payload,
+        query: { journalPath: selectedJournalPath || "" },
       })
       const data = await response.json()
       if (!response.ok) {
@@ -76,19 +76,12 @@ export function StepReviewSubmit() {
     onSuccess: (data: any) => {
       setSubmitting(false)
       
-      const email = data.email || getPayload().email;
-      
-      // Set verification email in store for client-side state
-      const { setVerificationEmail } = useRegistrationStore.getState();
-      setVerificationEmail(email);
-
-      // Set a short-lived cookie for server-side awareness during verification
-      // expires in 10 minutes
-      const expires = new Date(Date.now() + 10 * 60 * 1000).toUTCString();
-      document.cookie = `verify_email=${encodeURIComponent(email)}; path=/; expires=${expires}; SameSite=Lax`;
-      
-      router.push("/verify-code")
-      router.refresh()
+      if (data.status === "sso_redirect" && data.ssoUrl) {
+        window.location.href = data.ssoUrl;
+      } else {
+        // Fallback generic redirect
+        window.location.href = "/api/ojs/sso/redirect";
+      }
     },
   })
 

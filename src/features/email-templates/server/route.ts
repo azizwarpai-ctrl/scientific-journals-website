@@ -73,6 +73,45 @@ app.get("/status", requireAdmin, async (c) => {
   }
 })
 
+// GET /email-templates/logs - List email logs (admin only, paginated)
+app.get("/logs", requireAdmin, async (c) => {
+  try {
+    const pagination = parsePagination(c)
+    const statusFilter = c.req.query("status")
+    
+    let where: Prisma.EmailLogWhereInput = {}
+    if (statusFilter && statusFilter !== "all") {
+      if (!["pending", "sent", "failed"].includes(statusFilter)) {
+        return c.json({
+          success: false,
+          error: "Invalid status filter. Allowed values: pending, sent, failed"
+        }, 400)
+      }
+      where.status = statusFilter
+    }
+
+    const [logs, total] = await Promise.all([
+      prisma.emailLog.findMany({
+        where,
+        orderBy: { created_at: "desc" },
+        take: pagination.limit,
+        skip: pagination.offset,
+        include: {
+          template: {
+            select: { name: true }
+          }
+        }
+      }),
+      prisma.emailLog.count({ where }),
+    ])
+
+    return c.json(paginatedResponse(serializeMany(logs), total, pagination), 200)
+  } catch (error) {
+    console.error("Error fetching email logs:", error)
+    return c.json({ success: false, error: "Failed to fetch email logs" }, 500)
+  }
+})
+
 // GET /email-templates/:id - Get single template (admin only)
 app.get("/:id", requireAdmin, zValidator("param", emailTemplateIdParamSchema), async (c) => {
   try {
