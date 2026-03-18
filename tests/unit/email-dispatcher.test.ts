@@ -45,11 +45,10 @@ describe('Email Event Dispatcher', () => {
   })
 
   it('should ignore unknown event types gracefully', async () => {
-    // @ts-expect-error Testing invalid runtime input
-    const event: EmailEvent = {
+    const event = {
       type: 'unknown_event_type',
       payload: { email: 'test@example.com' },
-    }
+    } as unknown as EmailEvent
 
     const result = await dispatchEmailEvent(event)
 
