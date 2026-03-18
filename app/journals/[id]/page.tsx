@@ -19,6 +19,8 @@ import {
   Building,
 } from "lucide-react";
 
+import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
+
 import { useGetJournal, useJournalId } from "@/src/features/journals"
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,6 +33,7 @@ import { Card, CardContent } from "@/components/ui/card"
 export default function JournalDetailPage() {
   const id = useJournalId()
   const [activeTab, setActiveTab] = useState("about")
+  const registeredEmail = useRegistrationStore((s) => s.personalInfo?.email)
 
   const { data: journal, isLoading, error } = useGetJournal(id)
 
@@ -77,10 +80,34 @@ export default function JournalDetailPage() {
     )
   }
 
-  // Build the submission URL with the journal path for deep-linking
-  const submitUrl = journal.ojs_path
-    ? `/api/ojs/sso/redirect?journalPath=${encodeURIComponent(journal.ojs_path)}`
-    : null;
+  // Remove the old /api/ojs/sso/redirect local jump. Build pure URLs via direct reference or stateless form submit.
+  const ojsBaseUrl = process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"
+  const ojsDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
+  const directUrl = journal.ojs_path ? `${ojsDomain}/index.php/${journal.ojs_path}/submission/wizard` : null
+
+  const renderSubmitButton = (buttonClass: string = "", variant: "default" | "outline" = "default", children: React.ReactNode) => {
+    if (!directUrl || !journal.ojs_path) return null;
+
+    if (registeredEmail) {
+      return (
+        <form method="POST" action="/api/ojs/sso" className={variant === "outline" ? "w-full" : ""}>
+          <input type="hidden" name="email" value={registeredEmail} />
+          <input type="hidden" name="journalPath" value={journal.ojs_path} />
+          <Button type="submit" variant={variant} size={variant === "outline" ? "default" : "lg"} className={buttonClass}>
+            {children}
+          </Button>
+        </form>
+      )
+    }
+
+    return (
+      <Button size={variant === "outline" ? "default" : "lg"} variant={variant} className={buttonClass} asChild>
+        <Link href={directUrl}>
+          {children}
+        </Link>
+      </Button>
+    )
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -150,12 +177,10 @@ export default function JournalDetailPage() {
 
                 {/* Action buttons */}
                 <div className="flex flex-wrap gap-3 pt-2">
-                  {submitUrl && (
-                    <Button size="lg" className="rounded-full px-8 shadow-lg shadow-primary/20" asChild>
-                      <Link href={submitUrl}>
-                        <Send className="mr-2 h-4 w-4" /> Submit Manuscript
-                      </Link>
-                    </Button>
+                  {renderSubmitButton(
+                    "rounded-full px-8 shadow-lg shadow-primary/20",
+                    "default",
+                    <><Send className="mr-2 h-4 w-4" /> Submit Manuscript</>
                   )}
                   {journal.website_url && (
                     <Button
@@ -302,12 +327,10 @@ export default function JournalDetailPage() {
                 <div className="rounded-2xl border bg-slate-950 p-8 text-white shadow-xl shadow-slate-200 dark:shadow-none">
                   <h3 className="mb-6 text-xl font-bold border-b border-white/10 pb-4">Quick Actions</h3>
                   <div className="space-y-4">
-                    {submitUrl && (
-                      <Button variant="outline" className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white" asChild>
-                        <Link href={submitUrl}>
-                          Submit Now <ChevronRight className="h-4 w-4" />
-                        </Link>
-                      </Button>
+                    {renderSubmitButton(
+                      "w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white",
+                      "outline",
+                      <>Submit Now <ChevronRight className="h-4 w-4" /></>
                     )}
                     <Button
                       variant="outline"

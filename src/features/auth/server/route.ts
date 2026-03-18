@@ -248,17 +248,15 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
       return c.json({ success: false, error: "OJS Provisioning Failed: " + ojsError }, 500)
     }
 
-    // 2. Generate the SSO Tracking Token to login immediately
-    const token = crypto.randomBytes(32).toString("hex")
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
-
-    await prisma.ojsSsoToken.create({
-      data: {
-        token,
-        email,
-        expires_at: expiresAt,
-      }
-    })
+    // 2. Generate the SSO Tracking Token (Stateless HMAC) to login immediately
+    const timestamp = Date.now()
+    const payloadStr = JSON.stringify({ email, timestamp })
+    const payloadBase64 = Buffer.from(payloadStr).toString("base64")
+    
+    const secret = process.env.SSO_SECRET || "default_development_sso_secret"
+    const signature = crypto.createHmac("sha256", secret).update(payloadBase64).digest("hex")
+    
+    const token = `${payloadBase64}.${signature}`
 
     // 3. Fire registration confirmation email (fire-and-forget)
     void dispatchEmailEvent({
