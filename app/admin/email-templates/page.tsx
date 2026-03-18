@@ -31,6 +31,7 @@ export default function EmailTemplatesPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [updatingTemplateId, setUpdatingTemplateId] = useState<string | null>(null)
 
   const { data: templatesData, isLoading: loading, isError, error } = useGetEmailTemplates(page, limit)
   const templates = templatesData?.data || []
@@ -50,10 +51,13 @@ export default function EmailTemplatesPage() {
 
   const handleToggleActive = (template: EmailTemplate) => {
     if (updateMutation.isPending) return
+    setUpdatingTemplateId(template.id.toString())
 
     updateMutation.mutate({
       param: { id: template.id.toString() },
       json: { is_active: !template.is_active },
+    }, {
+      onSettled: () => setUpdatingTemplateId(null)
     })
   }
 
@@ -231,10 +235,10 @@ export default function EmailTemplatesPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={updateMutation.isPending}
+                          disabled={updateMutation.isPending && updatingTemplateId === template.id.toString()}
                           onClick={() => handleToggleActive(template)}
                         >
-                          {updateMutation.isPending ? (
+                          {updateMutation.isPending && updatingTemplateId === template.id.toString() ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : template.is_active ? (
                             <MailX className="h-4 w-4" />
@@ -251,7 +255,7 @@ export default function EmailTemplatesPage() {
                           variant="outline"
                           size="sm"
                           className="text-destructive hover:bg-destructive/10"
-                          onClick={() => setDeleteId(template.id)}
+                          onClick={() => setDeleteId(template.id.toString())}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
