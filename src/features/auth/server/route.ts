@@ -234,14 +234,10 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
 app.post("/register", zValidator("json", registerSchema), async (c) => {
   try {
     const payload = c.req.valid("json")
-    const { email, password, firstName, lastName, primaryRole, country, phone, affiliation, department, orcid, biography, interestedJournalIds } = payload
+    const { email, firstName, lastName } = payload
 
     // 1. Provision into OJS DB (Blocking: If this fails, registration fails. OJS is the source of truth.)
-    const { success: ojsOk, error: ojsError } = await provisionOjsUser({
-      ...payload,
-      primaryRole: payload.primaryRole,
-      password: payload.password,
-    })
+    const { success: ojsOk, error: ojsError } = await provisionOjsUser(payload)
 
     if (!ojsOk) {
       console.error(`[OJS Provisioning Failed] for ${email}:`, ojsError)
@@ -253,8 +249,15 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
     const payloadStr = JSON.stringify({ email, timestamp })
     const payloadBase64 = Buffer.from(payloadStr).toString("base64")
     
-    const secret = process.env.SSO_SECRET || "default_development_sso_secret"
-    const signature = crypto.createHmac("sha256", secret).update(payloadBase64).digest("hex")
+    const secret = process.env.SSO_SECRET
+    if (!secret) {
+        if (process.env.NODE_ENV === "production") {
+            throw new Error("CRITICAL: SSO_SECRET missing in production!")
+        }
+        console.warn("[WARNING] Missing SSO_SECRET; using local fallback.")
+    }
+    const activeSecret = secret || "default_development_sso_secret"
+    const signature = crypto.createHmac("sha256", activeSecret).update(payloadBase64).digest("hex")
     
     const token = `${payloadBase64}.${signature}`
 

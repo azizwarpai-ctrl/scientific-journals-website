@@ -89,14 +89,32 @@ export default function JournalDetailPage() {
     if (!directUrl || !journal.ojs_path) return null;
 
     if (registeredEmail) {
+      const handleSsoSubmit = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        try {
+          const res = await fetch("/api/ojs/sso", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: registeredEmail,
+              journalPath: journal.ojs_path
+            })
+          });
+          const data = await res.json();
+          if (data.ssoUrl) {
+            window.location.href = data.ssoUrl;
+          } else {
+            console.error("SSO endpoint did not return a valid URL", data);
+          }
+        } catch (err) {
+          console.error("SSO request failed", err);
+        }
+      };
+
       return (
-        <form method="POST" action="/api/ojs/sso" className={variant === "outline" ? "w-full" : ""}>
-          <input type="hidden" name="email" value={registeredEmail} />
-          <input type="hidden" name="journalPath" value={journal.ojs_path} />
-          <Button type="submit" variant={variant} size={variant === "outline" ? "default" : "lg"} className={buttonClass}>
-            {children}
-          </Button>
-        </form>
+        <Button onClick={handleSsoSubmit} variant={variant} size={variant === "outline" ? "default" : "lg"} className={buttonClass}>
+          {children}
+        </Button>
       )
     }
 

@@ -3,11 +3,29 @@ import crypto from "crypto"
 
 export const ssoRouter = new Hono()
 
+// Helper to pull the SSO secret or fail-fast in Production
+const getSsoSecret = () => {
+    const s = process.env.SSO_SECRET
+    if (!s) {
+        if (process.env.NODE_ENV === "production") {
+            throw new Error("CRITICAL: SSO_SECRET missing in production!")
+        }
+        console.warn("[WARNING] Missing SSO_SECRET; using local fallback.")
+        return "default_development_sso_secret"
+    }
+    return s
+}
+
 // POST /api/ojs/sso
 // Stateless Single Sign-On bridging pivot
 ssoRouter.post("/", async (c) => {
     try {
-        const body = await c.req.parseBody()
+        const contentType = c.req.header("content-type") || ""
+        if (!contentType.includes("application/json")) {
+            return c.json({ error: "Unsupported Media Type: expected JSON" }, 415)
+        }
+
+        const body = await c.req.json()
         const email = body.email as string
         const journalPath = body.journalPath as string || ""
         
@@ -20,18 +38,18 @@ ssoRouter.post("/", async (c) => {
         const payloadStr = JSON.stringify({ email, timestamp })
         const payloadBase64 = Buffer.from(payloadStr).toString("base64")
         
-        const secret = process.env.SSO_SECRET || "default_development_sso_secret"
-        const signature = crypto.createHmac("sha256", secret).update(payloadBase64).digest("hex")
+        const activeSecret = getSsoSecret()
+        const signature = crypto.createHmac("sha256", activeSecret).update(payloadBase64).digest("hex")
         
         const token = `${payloadBase64}.${signature}`
         
-        const ojsBaseUrl = process.env.OJS_BASE_URL || "https://submitmanager.com"
+        const ojsBaseUrl = process.env.OJS_BASE_URL || ""
         const ssoReturnDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
         
         const afterLoginPath = journalPath ? `/${journalPath}/submission` : ""
         const redirectUrl = `${ssoReturnDomain}/sso_login.php?token=${token}${afterLoginPath ? `&redirect=${encodeURIComponent(afterLoginPath)}` : ""}`
         
-        return c.redirect(redirectUrl)
+        return c.json({ ssoUrl: redirectUrl })
     } catch (err: any) {
         console.error("[OJS_SSO_POST_ERROR]", err)
         return c.json({ error: "Internal SSO provider error" }, 500)
@@ -52,15 +70,24 @@ ssoRouter.get("/validate", async (c) => {
         
         const [payloadBase64, signature] = parts
         
-        const secret = process.env.SSO_SECRET || "default_development_sso_secret"
-        const expectedSignature = crypto.createHmac("sha256", secret).update(payloadBase64).digest("hex")
+        const activeSecret = getSsoSecret()
+        const expectedSignature = crypto.createHmac("sha256", activeSecret).update(payloadBase64).digest("hex")
         
-        if (signature !== expectedSignature) {
+        const sigBuf = Buffer.from(signature, "hex")
+        const expBuf = Buffer.from(expectedSignature, "hex")
+        
+        if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
             return c.json({ valid: false, error: "Invalid signature" }, 401)
         }
         
         const decodedStr = Buffer.from(payloadBase64, "base64").toString("utf8")
-        const decoded = JSON.parse(decodedStr)
+        let decoded: any
+        try {
+            decoded = JSON.parse(decodedStr)
+        } catch (e) {
+            console.error("invalid SSO payload: malformed JSON", decodedStr)
+            return c.json({ valid: false, error: "Malformed payload" }, 400)
+        }
         
         const { email, timestamp } = decoded
         
