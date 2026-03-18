@@ -9,6 +9,7 @@ import { createSession, getSession, destroySession } from "@/src/lib/db/auth"
 import { provisionOjsUser } from "@/src/features/ojs/server/ojs-user-service"
 import { dispatchEmailEvent } from "@/src/lib/email/event-dispatcher"
 import { prisma } from "@/src/lib/db/config"
+import crypto from "crypto"
 
 const app = new Hono()
 
@@ -232,39 +233,34 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
 // POST /auth/register
 app.post("/register", zValidator("json", registerSchema), async (c) => {
   try {
-    // Check delivery method BEFORE creating user
-    const deliveryMethod = getOtpDeliveryMethod()
-
-    if (deliveryMethod === 'disabled') {
-      return c.json({ success: false, error: "Registration is temporarily restricted (OTP delivery disabled)." }, 503)
-    }
-
     const payload = c.req.valid("json")
-    const { email, password, firstName, lastName, primaryRole, country, phone, affiliation, department, orcid, biography } = payload
+    const { email, password, firstName, lastName, primaryRole, country, phone, affiliation, department, orcid, biography, interestedJournalIds } = payload
 
-    // Create native AdminUser mapping new payload structure
-    const userId = await createUser({
-      email,
-      password,
-      firstName,
-      lastName,
-      role: primaryRole,
-      country,
-      phone,
-      affiliation,
-      department,
-      orcid,
-      biography
-    })
-
-    // Try provisioning into OJS DB (non-blocking: log but don't fail registration)
+    // 1. Provision into OJS DB (Blocking: If this fails, registration fails. OJS is the source of truth.)
     const { success: ojsOk, error: ojsError } = await provisionOjsUser({
       ...payload,
       primaryRole: payload.primaryRole,
       password: payload.password,
     })
 
-    // Fire registration confirmation email (fire-and-forget)
+    if (!ojsOk) {
+      console.error(`[OJS Provisioning Failed] for ${email}:`, ojsError)
+      return c.json({ success: false, error: "OJS Provisioning Failed: " + ojsError }, 500)
+    }
+
+    // 2. Generate the SSO Tracking Token to login immediately
+    const token = crypto.randomBytes(32).toString("hex")
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
+
+    await prisma.ojsSsoToken.create({
+      data: {
+        token,
+        email,
+        expires_at: expiresAt,
+      }
+    })
+
+    // 3. Fire registration confirmation email (fire-and-forget)
     void dispatchEmailEvent({
       type: "registration_confirmation",
       payload: {
@@ -274,53 +270,25 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
       }
     })
 
-    if (!ojsOk) {
-      // OJS provisioning failed — log a warning but allow registration to proceed.
-      // The user will be auto-provisioned via SSO when they first access OJS.
-      console.warn(`[OJS Provisioning] Skipped for ${email}:`, ojsError)
-    }
+    // 4. Construct SSO redirect URL
+    const ojsBaseUrl = process.env.OJS_BASE_URL || ""
+    const ssoReturnDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
+    
+    // We can infer the selected journal path if they provided one, but if not we go to generic OJS root
+    // To properly support journal paths during registration, we need the frontend to optionally supply selectedJournalPath
+    const journalPath = c.req.query("journalPath") || "" 
+    const afterLoginPath = journalPath ? `/${journalPath}/submission` : ""
+    const ssoUrl = `${ssoReturnDomain}/sso_login.php?token=${token}${afterLoginPath ? `&redirect=${encodeURIComponent(afterLoginPath)}` : ""}`
 
-    try {
-      // Generate OTP code for verification
-      const code = generateOTPCode()
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
-
-      const hashedCode = await bcrypt.hash(code, 10)
-
-      // Store the verification code
-      await prisma.verificationCode.create({
-        data: {
-          user_id: BigInt(userId),
-          email,
-          code: hashedCode,
-          expires_at: expiresAt,
-        },
-      })
-    } catch (otpError) {
-      console.error("OTP generation/storage failed:", otpError)
-      // Rollback: local Auth
-      await prisma.adminUser.delete({ where: { id: BigInt(userId) } })
-      // Ideally trigger an OJS background rollback job or API here in the future
-      console.error(`[CRITICAL] Orphaned OJS user created for ${email} due to OTP failure. Manual cleanup required.`)
-      return c.json({ success: false, error: "Registration failed during setup" }, 500)
-    }
-
-    if (deliveryMethod === 'console') {
-      // Log ONLY in development/console mode (showing only masked/no code)
-      // We can log a small hash for correlation if needed, but never the code itself
-      console.log(`[OTP] Registration verification generated for ${email}`)
-    } else {
-      console.log(`[OTP] Registration code generated for ${email} (Email delivery enabled but not yet implemented)`)
-    }
+    console.log(`[AUTH] Registration routed to gateway success for ${email}. Jumping to SSO.`)
 
     return c.json({
       success: true,
-      requiresVerification: true,
+      status: "sso_redirect",
+      ssoUrl,
       email,
-      message: deliveryMethod === 'console'
-        ? "Registration successful. Code generated in server console."
-        : "Registration successful. Email delivery pending implementation.",
-    })
+      message: "Registration successful. Redirecting to journal..."
+    }, 201)
   } catch (error: any) {
     console.error("Registration error:", error)
     // Prisma P2002 = unique constraint, MySQL ER_DUP_ENTRY = 1062, PostgreSQL = 23505

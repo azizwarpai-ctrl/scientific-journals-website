@@ -76,19 +76,12 @@ export function StepReviewSubmit() {
     onSuccess: (data: any) => {
       setSubmitting(false)
       
-      const email = data.email || getPayload().email;
-      
-      // Set verification email in store for client-side state
-      const { setVerificationEmail } = useRegistrationStore.getState();
-      setVerificationEmail(email);
-
-      // Set a short-lived cookie for server-side awareness during verification
-      // expires in 10 minutes
-      const expires = new Date(Date.now() + 10 * 60 * 1000).toUTCString();
-      document.cookie = `verify_email=${encodeURIComponent(email)}; path=/; expires=${expires}; SameSite=Lax`;
-      
-      router.push("/verify-code")
-      router.refresh()
+      if (data.status === "sso_redirect" && data.ssoUrl) {
+        window.location.href = data.ssoUrl;
+      } else {
+        // Fallback generic redirect
+        window.location.href = "/api/ojs/sso/redirect";
+      }
     },
   })
 
