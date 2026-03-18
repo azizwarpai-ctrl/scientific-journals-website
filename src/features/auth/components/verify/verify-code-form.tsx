@@ -30,6 +30,8 @@ interface VerifyCodeFormProps {
   email: string;
 }
 
+import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
+
 export function VerifyCodeForm({ email }: VerifyCodeFormProps) {
   const router = useRouter()
   const [resendCooldown, setResendCooldown] = useState(0)
@@ -37,6 +39,7 @@ export function VerifyCodeForm({ email }: VerifyCodeFormProps) {
 
   const verifyMutation = useVerifyCode()
   const resendMutation = useResendCode()
+  const selectedJournalPath = useRegistrationStore(state => state.selectedJournalPath)
 
   const form = useForm<VerifyCodeInput>({
     resolver: zodResolver(verifyCodeSchema),
@@ -56,7 +59,11 @@ export function VerifyCodeForm({ email }: VerifyCodeFormProps) {
     setSuccessMessage(null)
     verifyMutation.mutate(data, {
       onSuccess: () => {
-        router.push("/login?verified=true")
+        const targetUrl = selectedJournalPath 
+          ? `/api/ojs/sso/redirect?journalPath=${encodeURIComponent(selectedJournalPath)}`
+          : `/api/ojs/sso/redirect`
+        
+        router.push(targetUrl)
         router.refresh()
       },
       onError: (error) => {

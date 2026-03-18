@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -21,7 +21,9 @@ import { Mail, Plus, Pencil, Trash2, MailCheck, MailX } from "lucide-react"
 import { toast } from "sonner"
 
 import { useGetEmailTemplates } from "@/src/features/email-templates/api/use-get-email-templates"
-import { client } from "@/src/lib/rpc"
+import { useGetEmailStatus } from "@/src/features/email-templates/api/use-get-email-status"
+import { useDeleteEmailTemplate } from "@/src/features/email-templates/api/use-delete-email-template"
+import { useUpdateEmailTemplate } from "@/src/features/email-templates/api/use-update-email-template"
 import type { EmailTemplate } from "@/src/features/email-templates/types/email-template-type"
 
 export default function EmailTemplatesPage() {
@@ -30,56 +32,30 @@ export default function EmailTemplatesPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [smtpStatus, setSmtpStatus] = useState<{ smtpConfigured: boolean; provider: string } | null>(null)
 
-  const { data: templatesData, isLoading: loading, refetch } = useGetEmailTemplates(page, limit)
+  const { data: templatesData, isLoading: loading } = useGetEmailTemplates(page, limit)
   const templates = templatesData?.data || []
   const pagination = templatesData?.pagination || null
+  
+  const { data: smtpStatus } = useGetEmailStatus()
+  const deleteMutation = useDeleteEmailTemplate()
+  const updateMutation = useUpdateEmailTemplate()
 
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await client["email-templates"].status.$get()
-      if (res.ok) {
-        const data = await res.json()
-        setSmtpStatus(data.data as any)
-      }
-    } catch {
-      // Silently fail status check
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchStatus()
-  }, [fetchStatus])
-
-  const handleDelete = async () => {
-    if (!deleteId) return
-
-    try {
-      const res = await client["email-templates"][":id"].$delete({ param: { id: deleteId } })
-      if (!res.ok) throw new Error("Failed to delete")
-      toast.success("Template deleted successfully")
-      setDeleteId(null)
-      refetch()
-    } catch (error) {
-      console.error("Error deleting template:", error)
-      toast.error("Failed to delete template")
-    }
+  const handleDelete = () => {
+    if (!deleteId || deleteMutation.isPending) return
+    
+    deleteMutation.mutate({ id: deleteId }, {
+      onSuccess: () => setDeleteId(null)
+    })
   }
 
-  const handleToggleActive = async (template: EmailTemplate) => {
-    try {
-      const res = await client["email-templates"][":id"].$patch({
-        param: { id: template.id },
-        json: { is_active: !template.is_active },
-      })
-      if (!res.ok) throw new Error("Failed to update")
-      toast.success(`Template ${template.is_active ? "disabled" : "enabled"} successfully`)
-      refetch()
-    } catch (error) {
-      console.error("Error toggling template:", error)
-      toast.error("Failed to update template")
-    }
+  const handleToggleActive = (template: EmailTemplate) => {
+    if (updateMutation.isPending) return
+
+    updateMutation.mutate({
+      param: { id: template.id.toString() },
+      json: { is_active: !template.is_active },
+    })
   }
 
   const filteredTemplates = templates.filter((t: EmailTemplate) => {
@@ -104,12 +80,19 @@ export default function EmailTemplatesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Email Templates</h1>
           <p className="text-muted-foreground">Manage reusable email templates for the platform</p>
         </div>
-        <Button asChild>
-          <Link href="/admin/email-templates/new">
-            <Plus className="mr-2 h-4 w-4" />
-            New Template
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/admin/email-templates/logs">
+              View Logs
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/admin/email-templates/new">
+              <Plus className="mr-2 h-4 w-4" />
+              New Template
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Status & Stats */}

@@ -6,6 +6,8 @@ import { getOtpDeliveryMethod, generateOTPCode } from "@/src/features/auth/utils
 import { loginSchema, registerSchema } from "../schemas/auth-schema"
 import { createUser, verifyPassword, getUserById } from "@/src/lib/db/users"
 import { createSession, getSession, destroySession } from "@/src/lib/db/auth"
+import { provisionOjsUser } from "@/src/features/ojs/server/ojs-user-service"
+import { dispatchEmailEvent } from "@/src/lib/email/event-dispatcher"
 import { prisma } from "@/src/lib/db/config"
 
 const app = new Hono()
@@ -227,8 +229,6 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
   }
 })
 
-import { provisionOjsUser } from "@/src/features/ojs/server/ojs-user-service"
-
 // POST /auth/register
 app.post("/register", zValidator("json", registerSchema), async (c) => {
   try {
@@ -241,7 +241,7 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
 
     const payload = c.req.valid("json")
     const { email, password, firstName, lastName, primaryRole, country, phone, affiliation, department, orcid, biography } = payload
-    
+
     // Create native AdminUser mapping new payload structure
     const userId = await createUser({
       email,
@@ -263,6 +263,17 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
       primaryRole: payload.primaryRole,
       password: payload.password,
     })
+
+    // Fire registration confirmation email (fire-and-forget)
+    void dispatchEmailEvent({
+      type: "registration_confirmation",
+      payload: {
+        author_name: `${firstName} ${lastName}`.trim(),
+        email,
+        journal_title: "DigitoPub",
+      }
+    })
+
     if (!ojsOk) {
       // OJS provisioning failed — log a warning but allow registration to proceed.
       // The user will be auto-provisioned via SSO when they first access OJS.
