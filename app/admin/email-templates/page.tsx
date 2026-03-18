@@ -17,8 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Mail, Plus, Pencil, Trash2, MailCheck, MailX } from "lucide-react"
-import { toast } from "sonner"
+import { Mail, Plus, Pencil, Trash2, MailCheck, MailX, Loader2 } from "lucide-react"
 
 import { useGetEmailTemplates } from "@/src/features/email-templates/api/use-get-email-templates"
 import { useGetEmailStatus } from "@/src/features/email-templates/api/use-get-email-status"
@@ -232,9 +231,12 @@ export default function EmailTemplatesPage() {
                         <Button
                           variant="outline"
                           size="sm"
+                          disabled={updateMutation.isPending}
                           onClick={() => handleToggleActive(template)}
                         >
-                          {template.is_active ? (
+                          {updateMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : template.is_active ? (
                             <MailX className="h-4 w-4" />
                           ) : (
                             <MailCheck className="h-4 w-4" />
@@ -305,8 +307,19 @@ export default function EmailTemplatesPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+            <AlertDialogAction 
+              onClick={handleDelete} 
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-opacity disabled:opacity-50"
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
