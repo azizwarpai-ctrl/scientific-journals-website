@@ -1,11 +1,12 @@
 "use client"
 
+import { JournalListSkeleton } from "@/components/skeletons/journal-skeleton"
+import { JournalError } from "@/components/errors/error-states"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { JournalsClientView } from "./components/journals-client-view"
 import { useGetJournals } from "@/src/features/journals"
 import type { Journal } from "@/src/features/journals"
-import { Loader2 } from "lucide-react"
 
 export default function JournalsPage() {
   const { data: journals = [], isLoading, error } = useGetJournals();
@@ -31,18 +32,16 @@ export default function JournalsPage() {
       <Navbar />
       <main className="flex-1">
         {error ? (
-          <section className="py-12">
-            <div className="container mx-auto px-4 md:px-6">
-              <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
-                <p className="text-sm text-red-600 dark:text-red-400">
-                  Error loading journals: {error.message}
-                </p>
-              </div>
-            </div>
-          </section>
+          <JournalError 
+            message={error.message} 
+          />
         ) : isLoading ? (
-          <div className="flex h-[60vh] items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="container mx-auto px-4 py-12">
+            <div className="mb-12 text-center space-y-4">
+              <div className="h-10 bg-muted rounded w-1/3 mx-auto animate-pulse" />
+              <div className="h-4 bg-muted rounded w-1/2 mx-auto animate-pulse" />
+            </div>
+            <JournalListSkeleton />
           </div>
         ) : (
           <JournalsClientView journals={formattedJournals} />

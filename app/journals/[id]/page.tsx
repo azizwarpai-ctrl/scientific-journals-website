@@ -23,7 +23,9 @@ import { useRegistrationStore } from "@/src/features/auth/stores/registration-st
 
 import { useGetJournal, useJournalId } from "@/src/features/journals"
 
-import { Skeleton } from "@/components/ui/skeleton";
+import { JournalDetailSkeleton } from "@/components/skeletons/journal-detail-skeleton";
+import { JournalError } from "@/components/errors/error-states";
+import { JournalNotFound } from "@/components/states/not-found-states";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -42,38 +44,31 @@ export default function JournalDetailPage() {
       <div className="flex min-h-screen flex-col">
         <Navbar />
         <main className="flex-1">
-          <div className="container mx-auto py-12 px-4">
-            <Skeleton className="h-96 w-full rounded-xl mb-12" />
-            <div className="grid gap-8 lg:grid-cols-3">
-              <div className="lg:col-span-2 space-y-8">
-                <Skeleton className="h-64 w-full" />
-                <Skeleton className="h-96 w-full" />
-              </div>
-              <div className="space-y-6">
-                <Skeleton className="h-64 w-full" />
-              </div>
-            </div>
-          </div>
+          <JournalDetailSkeleton />
         </main>
         <Footer />
       </div>
     )
   }
 
-  if (error || !journal) {
+  if (error) {
     return (
       <div className="flex min-h-screen flex-col">
         <Navbar />
-        <main className="flex-1 py-12">
-          <div className="container mx-auto px-4 text-center">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">Journal Not Found</h1>
-            <p className="text-muted-foreground mb-8">
-              {error?.message || "The journal you are looking for does not exist or has been removed."}
-            </p>
-            <Button asChild>
-              <Link href="/journals">Back to Journals</Link>
-            </Button>
-          </div>
+        <main className="flex-1">
+          <JournalError message={error.message} />
+        </main>
+        <Footer />
+      </div>
+    )
+  }
+
+  if (!journal) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Navbar />
+        <main className="flex-1">
+          <JournalNotFound />
         </main>
         <Footer />
       </div>
