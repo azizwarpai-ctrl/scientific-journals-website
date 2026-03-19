@@ -3,7 +3,7 @@ import crypto from "crypto"
 
 export const ssoRouter = new Hono()
 
-import { getSsoSecret } from "./sso-utils"
+import { getSsoSecret } from "@/src/features/ojs/server/sso-utils"
 
 // POST /api/ojs/sso
 // Stateless Single Sign-On bridging pivot

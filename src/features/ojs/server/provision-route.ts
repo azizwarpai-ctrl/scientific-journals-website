@@ -4,7 +4,7 @@ import { registerSchema } from "../../auth/schemas/auth-schema"
 import { provisionOjsUser } from "./ojs-user-service"
 import { dispatchEmailEvent } from "@/src/lib/email/event-dispatcher"
 import crypto from "crypto"
-import { getSsoSecret } from "./sso-utils"
+import { getSsoSecret } from "@/src/features/ojs/server/sso-utils"
 
 const app = new Hono()
 
