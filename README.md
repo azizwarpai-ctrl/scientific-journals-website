@@ -128,29 +128,51 @@ Single Sign-On (SSO) in this system is strictly a **one-way token-based bootstra
 - 🚫 **creating login page**: Adding `/login` in digitopub.
 - 🚫 **blocking submit behind auth**: Conditionally disabling the submit button or routing based on if the user is authenticated.
 
-### SSO Authentication Flow (Registration Only)
+### Submission & Authentication Flow (Verified Architecture)
+
+The system enforces a strict **Dual Authentication Model** where public users are isolated from the admin gateway.
+
+#### 1. Registration Flow (New Users)
+When a new user registers on digitopub, a secure backend-to-backend provisioning process occurs:
+
+1. **Provisioning**: digitopub calls `ojs-user-bridge.php` on the OJS server via a Bearer-authenticated POST request.
+2. **Identity Creation**: OJS creates the user record in its own MySQL database and assigns roles.
+3. **JIT Handover**: digitopub generates a stateless HMAC token (`base64(payload).signature`) valid for 5 minutes.
+4. **SSO Transition**: The user is redirected to `sso_login.php?token=...` on the OJS domain.
+5. **Session Bootstrap**: `sso_login.php` validates the token via digitopub's `GET /api/ojs/sso/validate` and initializes a native OJS session.
 
 ```mermaid
 sequenceDiagram
-    participant U as User
+    participant U as User (Browser)
     participant DP as Digitopub (Next.js)
-    participant API as Next.js API
-    participant SSO as sso_login.php
-    participant OJS as OJS App (submitmanager.com)
-
-    U->>DP: Submits Registration Form
-    DP->>API: POST /api/auth/register
-    API->>API: Auto-provision user in OJS (HTTPS)
-    API->>API: Generate 32-byte HMAC Token (5m TTL)
-    API-->>U: Return { ssoUrl: submitmanager.com/... }
-    U->>SSO: GET /sso_login.php?token=xxx
-    SSO->>API: GET /api/ojs/sso/validate?token=xxx (Internal cURL)
-    API->>API: Validate HMAC & Timestamp
-    API-->>SSO: {valid: true, email: "user@example.com"}
-    SSO->>OJS: Bootstrap OJS SessionManager
-    SSO->>OJS: Bind Session to User ID
-    SSO-->>U: 302 Redirect to journal submission wizard
+    participant Bridge as ojs-user-bridge.php (OJS)
+    participant DB as OJS MySQL
+    participant SSO as sso_login.php (OJS)
+    
+    U->>DP: Submit Registration Wizard
+    DP->>Bridge: POST /ojs-user-bridge.php (API Key)
+    Bridge->>DB: INSERT INTO users/user_settings
+    Bridge-->>DP: HTTP 201 Created
+    DP->>DP: Sign Stateless HMAC Token
+    DP-->>U: Redirect to sso_login.php?token=...
+    U->>SSO: GET /sso_login.php?token=...
+    SSO->>DP: GET /api/ojs/sso/validate?token=...
+    DP-->>SSO: { valid: true, email: "..." }
+    SSO->>SSO: Bootstrap native OJS Session
+    SSO-->>U: 302 Redirect to Submission Wizard
 ```
+
+#### 2. Submission Flow (Returning Users)
+digitopub acts as a **purely stateless gateway** for returning users.
+
+- **Direct Navigation**: Clicking "Submit Manuscript" generates a direct `<Link>` to the OJS submission wizard.
+- **Identity Provider**: OJS handles all authentication. If the user is unauthenticated, OJS renders its own login form.
+- **No Interference**: digitopub does not intercept the click, check local sessions, or issue SSO tokens for returning users.
+
+#### Security Constraints
+- **Sole IDP**: OJS is the solitary source of truth for public identity.
+- **No Public Token Generation**: digitopub MUST NOT expose any public endpoint (e.g., `POST /api/ojs/sso`) that generates tokens based on client-provided emails.
+- **Stateless Handover**: Registration handover is synchronous and JIT (Just-In-Time).
 
 ### Setup OJS Integration
 
