@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
 import { COUNTRIES } from "@/src/features/auth/components/register/countries-data"
-import { useMutation } from "@tanstack/react-query"
-import { client } from "@/src/lib/rpc"
 import type { RegistrationPayload } from "@/src/features/auth/schemas/registration-schemas"
+import { useOjsRegister } from "../../api/use-ojs-register"
 
 const ROLE_LABELS: Record<string, string> = {
   author: "Author",
@@ -53,18 +52,7 @@ export function StepReviewSubmit() {
     COUNTRIES.find((c) => c.code === personalInfo.country)?.name ??
     personalInfo.country
 
-  const registerMutation = useMutation({
-    mutationFn: async (payload: RegistrationPayload) => {
-      const response = await client.ojs.register.$post({
-        json: payload,
-        query: { journalPath: selectedJournalPath || "" },
-      })
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error((data as any).error || "Registration failed")
-      }
-      return data
-    },
+  const registerMutation = useOjsRegister({
     onMutate: () => {
       setSubmitting(true)
       setSubmissionError(null)
@@ -79,15 +67,17 @@ export function StepReviewSubmit() {
       if (data.status === "sso_redirect" && data.ssoUrl) {
         window.location.href = data.ssoUrl;
       } else {
-        // Fallback generic redirect
-        window.location.href = "/api/ojs/sso/redirect";
+        throw new Error("Registration succeeded but SSO handover failed. Please contact support.")
       }
     },
   })
 
   const handleSubmit = () => {
     const payload = getPayload()
-    registerMutation.mutate(payload)
+    registerMutation.mutate({ 
+      payload, 
+      journalPath: selectedJournalPath || "" 
+    })
   }
 
   return (
