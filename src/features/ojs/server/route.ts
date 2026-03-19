@@ -6,6 +6,7 @@ import { ojsQuery, isOjsConfigured, ojsHealthCheck } from "./ojs-client"
 import { syncOjsJournals } from "./sync-ojs-journals"
 import { fetchFromDatabase } from "./ojs-service"
 import { ssoRouter } from "./sso-route"
+import { provisionRouter } from "./provision-route"
 
 const app = new Hono()
 
@@ -109,6 +110,9 @@ app.get("/health", async (c) => {
 
 // Mount SSO router
 app.route("/sso", ssoRouter)
+
+// Mount Provisioning router
+app.route("/register", provisionRouter)
 
 export { app as ojsRouter }
 
