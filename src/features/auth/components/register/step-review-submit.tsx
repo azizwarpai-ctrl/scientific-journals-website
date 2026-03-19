@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
 import { COUNTRIES } from "@/src/features/auth/components/register/countries-data"
-import type { RegistrationPayload } from "@/src/features/auth/schemas/registration-schemas"
-import { useOjsRegister } from "../../api/use-ojs-register"
+import { useOjsRegister, type OjsRegisterResponse } from "@/src/features/auth/api/use-ojs-register"
 
 const ROLE_LABELS: Record<string, string> = {
   author: "Author",
@@ -61,22 +60,22 @@ export function StepReviewSubmit() {
       setSubmitting(false)
       setSubmissionError(error.message)
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: OjsRegisterResponse) => {
       setSubmitting(false)
-      
+
       if (data.status === "sso_redirect" && data.ssoUrl) {
         window.location.href = data.ssoUrl;
       } else {
-        throw new Error("Registration succeeded but SSO handover failed. Please contact support.")
+        setSubmissionError("Registration succeeded but SSO handover failed. Please contact support.")
       }
     },
   })
 
   const handleSubmit = () => {
     const payload = getPayload()
-    registerMutation.mutate({ 
-      payload, 
-      journalPath: selectedJournalPath || "" 
+    registerMutation.mutate({
+      payload,
+      journalPath: selectedJournalPath || ""
     })
   }
 

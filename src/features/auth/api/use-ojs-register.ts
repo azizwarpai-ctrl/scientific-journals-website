@@ -1,11 +1,19 @@
 import { useMutation } from "@tanstack/react-query"
 import { client } from "@/src/lib/rpc"
-import type { RegistrationPayload } from "../schemas/registration-schemas"
+import type { RegistrationPayload } from "@/src/features/auth/schemas/registration-schemas"
+
+export interface OjsRegisterResponse {
+  success: boolean;
+  status: "sso_redirect" | "success";
+  ssoUrl?: string;
+  email: string;
+  message: string;
+}
 
 interface UseOjsRegisterProps {
   onMutate?: () => void
   onError?: (error: Error) => void
-  onSuccess?: (data: any) => void
+  onSuccess?: (data: OjsRegisterResponse) => void
 }
 
 export const useOjsRegister = (props?: UseOjsRegisterProps) => {
@@ -16,7 +24,7 @@ export const useOjsRegister = (props?: UseOjsRegisterProps) => {
     }: { 
       payload: RegistrationPayload; 
       journalPath?: string 
-    }) => {
+    }): Promise<OjsRegisterResponse> => {
       const response = await client.ojs.register.$post({
         json: payload,
         query: { journalPath: journalPath || "" },
@@ -28,7 +36,7 @@ export const useOjsRegister = (props?: UseOjsRegisterProps) => {
         throw new Error((data as any).error || "Registration failed")
       }
       
-      return data
+      return data as OjsRegisterResponse
     },
     onMutate: props?.onMutate,
     onError: props?.onError,
