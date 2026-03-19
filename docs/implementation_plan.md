@@ -9,24 +9,24 @@ graph TD
     subgraph Digitopub["Digitopub (digitopub.com)"]
         NextJS["Next.js App Router"]
         HonoAPI["Hono RPC API (/api/*)"]
-        PrismaDB["Prisma / MySQL<br/>(AdminUser, Journal, Submission)"]
-        Middleware["JWT Middleware"]
+        PrismaDB["Prisma / MySQL (Admin Only)"]
     end
 
     subgraph OJS["OJS (submitmanager.com)"]
         OJSPHP["OJS PHP Application"]
         SSOReceiver["sso_login.php"]
-        OJSDB["OJS MySQL<br/>(users, user_groups, journals, submissions)"]
+        Bridge["ojs-user-bridge.php"]
+        OJSDB["OJS MySQL (Identity Source)"]
     end
 
-    User -->|Register/Login| NextJS
+    User -->|Register| NextJS
+    User -->|Submit Manuscript| SSOReceiver
     NextJS --> HonoAPI
-    HonoAPI --> PrismaDB
-    HonoAPI -->|Direct MySQL| OJSDB
-    NextJS -->|SSO Redirect| SSOReceiver
-    SSOReceiver -->|Validate Token| HonoAPI
-    SSOReceiver --> OJSDB
-    SSOReceiver -->|Session| OJSPHP
+    HonoAPI -->|POST /ojs-user-bridge.php| Bridge
+    Bridge --> OJSDB
+    NextJS -->|302 SSO Redirect| SSOReceiver
+    SSOReceiver -->|GET /api/ojs/sso/validate| HonoAPI
+    SSOReceiver -->|Session Bootstrap| OJSPHP
 ```
 
 **Key architectural facts:**
@@ -97,26 +97,8 @@ sequenceDiagram
     participant OJS as OJS App
 
     U->>DP: Click "Submit Manuscript"
-    DP->>API: GET /api/ojs/sso/redirect?journalPath=jme
-    API->>API: Verify JWT session
-    alt Not authenticated
-        API-->>DP: Redirect to /login?returnUrl=...
-    end
-    API->>OJSDB: Check if user email exists
-    alt User not in OJS
-        API->>OJSDB: INSERT INTO users (auto-provision)
-    end
-    API->>API: Generate random 32-byte token
-    API->>API: Store token in ojs_sso_tokens (5min TTL)
-    API-->>U: 302 Redirect to submitmanager.com/sso_login.php?token=xxx
-    U->>SSO: GET /sso_login.php?token=xxx
-    SSO->>API: GET /api/ojs/sso/validate?token=xxx
-    API->>API: Atomic consume token (updateMany set used=true)
-    API-->>SSO: {valid: true, email: "user@example.com"}
-    SSO->>OJSDB: SELECT user_id FROM users WHERE email=?
-    SSO->>OJS: Create native OJS session (SessionManager)
-    SSO->>OJS: Validation::registerSession(userId)
-    SSO-->>U: 302 Redirect to journal submission wizard
+    DP-->>U: Direct <Link> to submitmanager.com/.../submission/wizard
+    U->>OJS: Handle Auth natively on OJS
 ```
 
 ### Current SSO Gaps Identified
@@ -453,7 +435,7 @@ bun run test
 ### Manual Verification
 
 1. **Registration wizard flow**: Navigate to `/register`, complete all 5 steps, verify data persists across page refresh (sessionStorage), verify form submits successfully
-2. **Login page**: Navigate to `/login`, verify journal-branded variant works with `?returnUrl=/api/ojs/sso/redirect?journalPath=test`
+2. **Login page**: Navigate to `/admin/login`. Verify it redirects to `/admin/dashboard` after OTP.
 3. **Journal registration**: Navigate to `/journals/register`, complete all 7 steps
 
 > [!NOTE]

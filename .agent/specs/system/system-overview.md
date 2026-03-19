@@ -9,8 +9,8 @@
 
 ### digitopub (Gateway)
 - Displaying journal lists and metadata.
-- Providing a registration gateway for new users (provisioning them into OJS).
-- Initiating Single Sign-On (SSO) redirects to OJS.
+- Providing a registration gateway for new users (provisioning them into OJS via `ojs-user-bridge.php`).
+- Initiating Single Sign-On (SSO) redirects to OJS via `sso_login.php`.
 - Displaying public content (articles, issues).
 
 ### submitmanager (Identity Provider)
@@ -37,7 +37,7 @@
 - **Scope**: Authors, Reviewers, and Readers.
 - **Authentication**: Handled entirely by OJS (submitmanager.com).
 - **Session**: digitopub MUST NOT maintain sessions for public users.
-- **Integration**: digitopub acts as a registration gateway (provisioning) and uses stateless HMAC tokens for Single Sign-On (SSO).
+- **Integration**: digitopub acts as a registration gateway (provisioning via Bearer-authenticated PHP bridge) and uses stateless HMAC tokens for Single Sign-On (SSO).
 - **Rules**: Returning users MUST authenticate directly on OJS.
 
 ### Forbidden Behaviors
