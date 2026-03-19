@@ -20,7 +20,7 @@ graph TD
     end
 
     User -->|Register| NextJS
-    User -->|Submit Manuscript| SSOReceiver
+    User -->|Submit Manuscript| OJSPHP
     NextJS --> HonoAPI
     HonoAPI -->|POST /ojs-user-bridge.php| Bridge
     Bridge --> OJSDB
