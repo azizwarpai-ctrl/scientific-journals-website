@@ -21,6 +21,33 @@ bunx prisma studio   # Open Prisma Studio GUI
 bun run ojs:sync     # Sync data from OJS database
 bun run test path/to/test.test.ts  # Run a single test file
 ```
+## Identity Ownership Model
+
+The system enforces strict identity separation:
+
+- digitopub.com:
+  - Owns ONLY admin authentication (JWT-based)
+  - Has NO authority over public users
+  - Does NOT persist or validate public user credentials
+
+- submitmanager.com (OJS):
+  - Owns ALL public user identities
+  - Handles login, sessions, roles, submissions
+
+## SSO Behavior
+
+Two flows exist:
+
+### 1. New User (Provision + SSO)
+digitopub → provision → generate token → redirect to OJS
+
+### 2. Returning User (Direct Access)
+digitopub → direct link → OJS handles login
+
+digitopub MUST NOT:
+- check session
+- require login
+- intercept submission
 
 ## Architecture
 

@@ -103,33 +103,49 @@ npm run db:migrate
 npm run db:seed
 ```
 
-## 🔗 OJS Integration
+## 🔗 System Architecture Overview
 
-The platform integrates with Open Journal Systems (OJS) for read-only data access and single sign-on (SSO).
+The system operates across two strict boundaries:
+- **digitopub.com (Gateway)**: A purely stateless, read-only Next.js storefront for displaying journal content. It has no user login forms and stores no user sessions.
+- **submitmanager.com (OJS)**: The solitary identity provider and submission management interface. It owns all users, roles, and manuscript workflows.
 
-### SSO Authentication Flow
+### Authentication Model
+
+- **No local login**: digitopub does not accept or verify credentials.
+- **No shared sessions**: digitopub does not have a session cookie; an OJS session does not give you a digitopub session (because there isn't one).
+- **OJS handles all authentication**: All logins must occur directly on OJS.
+
+### SSO Concept
+Single Sign-On (SSO) in this system is strictly a **one-way token-based bootstrap** used exclusively after a new user registers on digitopub. The registration API provisions the user in OJS and redirects them with a 5-minute expiry HMAC token to log them securely into OJS the very first time. **SSO is not used for returning users.**
+
+### Developer Rules (IMPORTANT)
+- **NEVER** add auth logic in digitopub.
+- **NEVER** use session checks (e.g. `getSession()`, `jwtVerify`) in public routes or middleware.
+- **ALWAYS** redirect to OJS for any user actions.
+
+### Common Mistakes
+- 🚫 **using `getSession()`**: Fetching user context in digitopub breaking statelessness.
+- 🚫 **creating login page**: Adding `/login` in digitopub.
+- 🚫 **blocking submit behind auth**: Conditionally disabling the submit button or routing based on if the user is authenticated.
+
+### SSO Authentication Flow (Registration Only)
 
 ```mermaid
 sequenceDiagram
     participant U as User
     participant DP as Digitopub (Next.js)
     participant API as Next.js API
-    participant Bridge as OJS HTTP Bridge
     participant SSO as sso_login.php
     participant OJS as OJS App (submitmanager.com)
 
-    U->>DP: Click "Submit Manuscript"
-    DP->>API: GET /api/ojs/sso/redirect
-    API->>API: Verify JWT session
-    alt Not authenticated
-        API-->>DP: Redirect to /login
-    end
-    API->>Bridge: Check & Auto-provision user (HTTPS)
-    API->>API: Generate 32-byte Token & Save (5m TTL)
-    API-->>U: 302 Redirect to submitmanager.com/sso_login.php?token=xxx
+    U->>DP: Submits Registration Form
+    DP->>API: POST /api/auth/register
+    API->>API: Auto-provision user in OJS (HTTPS)
+    API->>API: Generate 32-byte HMAC Token (5m TTL)
+    API-->>U: Return { ssoUrl: submitmanager.com/... }
     U->>SSO: GET /sso_login.php?token=xxx
     SSO->>API: GET /api/ojs/sso/validate?token=xxx (Internal cURL)
-    API->>API: Atomic token consume
+    API->>API: Validate HMAC & Timestamp
     API-->>SSO: {valid: true, email: "user@example.com"}
     SSO->>OJS: Bootstrap OJS SessionManager
     SSO->>OJS: Bind Session to User ID
