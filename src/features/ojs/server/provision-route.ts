@@ -4,6 +4,7 @@ import { registerSchema } from "../../auth/schemas/auth-schema"
 import { provisionOjsUser } from "./ojs-user-service"
 import { dispatchEmailEvent } from "@/src/lib/email/event-dispatcher"
 import crypto from "crypto"
+import { getSsoSecret } from "./sso-utils"
 
 const app = new Hono()
 
@@ -19,6 +20,9 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
 
     if (!ojsOk) {
       console.error(`[OJS Provisioning Failed] for ${email}:`, ojsError)
+      if (ojsError?.toLowerCase().includes("email already exists") || ojsError?.toLowerCase().includes("unique constraint")) {
+        return c.json({ success: false, error: "Email already exists" }, 400)
+      }
       return c.json({ success: false, error: "OJS Provisioning Failed: " + ojsError }, 500)
     }
 
@@ -27,14 +31,7 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
     const payloadStr = JSON.stringify({ email, timestamp })
     const payloadBase64 = Buffer.from(payloadStr).toString("base64")
     
-    const secret = process.env.SSO_SECRET
-    if (!secret) {
-        if (process.env.NODE_ENV === "production") {
-            throw new Error("CRITICAL: SSO_SECRET missing in production!")
-        }
-        console.warn("[WARNING] Missing SSO_SECRET; using local fallback.")
-    }
-    const activeSecret = secret || "default_development_sso_secret"
+    const activeSecret = getSsoSecret()
     const signature = crypto.createHmac("sha256", activeSecret).update(payloadBase64).digest("hex")
     
     const token = `${payloadBase64}.${signature}`
@@ -55,7 +52,7 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
     
     const journalPath = c.req.query("journalPath") || "" 
     const afterLoginPath = journalPath ? `/${journalPath}/submission` : ""
-    const ssoUrl = `${ssoReturnDomain}/sso_login.php?token=${token}${afterLoginPath ? `&redirect=${encodeURIComponent(afterLoginPath)}` : ""}`
+    const ssoUrl = `${ssoReturnDomain}/sso_login.php?token=${encodeURIComponent(token)}${afterLoginPath ? `&redirect=${encodeURIComponent(afterLoginPath)}` : ""}`
 
     console.log(`[OJS_PROVISION] Success for ${email}. Jumping to SSO.`)
 
@@ -68,9 +65,6 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
     }, 201)
   } catch (error: any) {
     console.error("Registration error:", error)
-    if (error.code === "P2002" || error.code === "23505" || error.code === "ER_DUP_ENTRY" || error.message?.includes("Unique constraint")) {
-      return c.json({ success: false, error: "Email already exists" }, 400)
-    }
     return c.json({ success: false, error: "Registration failed" }, 500)
   }
 })
