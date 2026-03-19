@@ -19,7 +19,6 @@ import {
   Building,
 } from "lucide-react";
 
-import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
 
 import { useGetJournal, useJournalId } from "@/src/features/journals"
 
@@ -35,7 +34,7 @@ import { Card, CardContent } from "@/components/ui/card"
 export default function JournalDetailPage() {
   const id = useJournalId()
   const [activeTab, setActiveTab] = useState("about")
-  const registeredEmail = useRegistrationStore((s) => s.personalInfo?.email)
+
 
   const { data: journal, isLoading, error } = useGetJournal(id)
 
@@ -82,36 +81,6 @@ export default function JournalDetailPage() {
 
   const renderSubmitButton = (buttonClass: string = "", variant: "default" | "outline" = "default", children: React.ReactNode) => {
     if (!directUrl || !journal.ojs_path) return null;
-
-    if (registeredEmail) {
-      const handleSsoSubmit = async (e: React.MouseEvent) => {
-        e.preventDefault();
-        try {
-          const res = await fetch("/api/ojs/sso", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: registeredEmail,
-              journalPath: journal.ojs_path
-            })
-          });
-          const data = await res.json();
-          if (data.ssoUrl) {
-            window.location.href = data.ssoUrl;
-          } else {
-            console.error("SSO endpoint did not return a valid URL", data);
-          }
-        } catch (err) {
-          console.error("SSO request failed", err);
-        }
-      };
-
-      return (
-        <Button onClick={handleSsoSubmit} variant={variant} size={variant === "outline" ? "default" : "lg"} className={buttonClass}>
-          {children}
-        </Button>
-      )
-    }
 
     return (
       <Button size={variant === "outline" ? "default" : "lg"} variant={variant} className={buttonClass} asChild>

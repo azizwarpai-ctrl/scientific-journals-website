@@ -5,46 +5,6 @@ export const ssoRouter = new Hono()
 
 import { getSsoSecret } from "@/src/features/ojs/server/sso-utils"
 
-// POST /api/ojs/sso
-// Stateless Single Sign-On bridging pivot
-ssoRouter.post("/", async (c) => {
-    try {
-        const contentType = c.req.header("content-type") || ""
-        if (!contentType.includes("application/json")) {
-            return c.json({ error: "Unsupported Media Type: expected JSON" }, 415)
-        }
-
-        const body = await c.req.json()
-        const email = body.email as string
-        const journalPath = body.journalPath as string || ""
-        
-        if (!email) {
-            return c.json({ error: "Missing identity context" }, 400)
-        }
-
-        // Stateless token generation (HMAC signature)
-        const timestamp = Date.now()
-        const payloadStr = JSON.stringify({ email, timestamp })
-        const payloadBase64 = Buffer.from(payloadStr).toString("base64")
-        
-        const activeSecret = getSsoSecret()
-        const signature = crypto.createHmac("sha256", activeSecret).update(payloadBase64).digest("hex")
-        
-        const token = `${payloadBase64}.${signature}`
-        
-        const ojsBaseUrl = process.env.OJS_BASE_URL || ""
-        const ssoReturnDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
-        
-        const afterLoginPath = journalPath ? `/${journalPath}/submission` : ""
-        const redirectUrl = `${ssoReturnDomain}/sso_login.php?token=${encodeURIComponent(token)}${afterLoginPath ? `&redirect=${encodeURIComponent(afterLoginPath)}` : ""}`
-        
-        return c.json({ ssoUrl: redirectUrl })
-    } catch (err: any) {
-        console.error("[OJS_SSO_POST_ERROR]", err)
-        return c.json({ error: "Internal SSO provider error" }, 500)
-    }
-})
-
 // GET /api/ojs/sso/validate
 // Called BY the SiteGround sso_login.php script to verify a stateless token and get the user's email.
 ssoRouter.get("/validate", async (c) => {
