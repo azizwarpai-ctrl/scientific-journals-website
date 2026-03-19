@@ -55,7 +55,7 @@ export function StepReviewSubmit() {
 
   const registerMutation = useMutation({
     mutationFn: async (payload: RegistrationPayload) => {
-      const response = await client.auth.register.$post({
+      const response = await client.ojs.register.$post({
         json: payload,
         query: { journalPath: selectedJournalPath || "" },
       })

@@ -6,10 +6,7 @@ import { getOtpDeliveryMethod, generateOTPCode } from "@/src/features/auth/utils
 import { loginSchema, registerSchema } from "../schemas/auth-schema"
 import { createUser, verifyPassword, getUserById } from "@/src/lib/db/users"
 import { createSession, getSession, destroySession } from "@/src/lib/db/auth"
-import { provisionOjsUser } from "@/src/features/ojs/server/ojs-user-service"
-import { dispatchEmailEvent } from "@/src/lib/email/event-dispatcher"
 import { prisma } from "@/src/lib/db/config"
-import crypto from "crypto"
 
 const app = new Hono()
 
@@ -230,75 +227,6 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
   }
 })
 
-// POST /auth/register
-app.post("/register", zValidator("json", registerSchema), async (c) => {
-  try {
-    const payload = c.req.valid("json")
-    const { email, firstName, lastName } = payload
-
-    // 1. Provision into OJS DB (Blocking: If this fails, registration fails. OJS is the source of truth.)
-    const { success: ojsOk, error: ojsError } = await provisionOjsUser(payload)
-
-    if (!ojsOk) {
-      console.error(`[OJS Provisioning Failed] for ${email}:`, ojsError)
-      return c.json({ success: false, error: "OJS Provisioning Failed: " + ojsError }, 500)
-    }
-
-    // 2. Generate the SSO Tracking Token (Stateless HMAC) to login immediately
-    const timestamp = Date.now()
-    const payloadStr = JSON.stringify({ email, timestamp })
-    const payloadBase64 = Buffer.from(payloadStr).toString("base64")
-    
-    const secret = process.env.SSO_SECRET
-    if (!secret) {
-        if (process.env.NODE_ENV === "production") {
-            throw new Error("CRITICAL: SSO_SECRET missing in production!")
-        }
-        console.warn("[WARNING] Missing SSO_SECRET; using local fallback.")
-    }
-    const activeSecret = secret || "default_development_sso_secret"
-    const signature = crypto.createHmac("sha256", activeSecret).update(payloadBase64).digest("hex")
-    
-    const token = `${payloadBase64}.${signature}`
-
-    // 3. Fire registration confirmation email (fire-and-forget)
-    void dispatchEmailEvent({
-      type: "registration_confirmation",
-      payload: {
-        author_name: `${firstName} ${lastName}`.trim(),
-        email,
-        journal_title: "DigitoPub",
-      }
-    })
-
-    // 4. Construct SSO redirect URL
-    const ojsBaseUrl = process.env.OJS_BASE_URL || ""
-    const ssoReturnDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
-    
-    // We can infer the selected journal path if they provided one, but if not we go to generic OJS root
-    // To properly support journal paths during registration, we need the frontend to optionally supply selectedJournalPath
-    const journalPath = c.req.query("journalPath") || "" 
-    const afterLoginPath = journalPath ? `/${journalPath}/submission` : ""
-    const ssoUrl = `${ssoReturnDomain}/sso_login.php?token=${token}${afterLoginPath ? `&redirect=${encodeURIComponent(afterLoginPath)}` : ""}`
-
-    console.log(`[AUTH] Registration routed to gateway success for ${email}. Jumping to SSO.`)
-
-    return c.json({
-      success: true,
-      status: "sso_redirect",
-      ssoUrl,
-      email,
-      message: "Registration successful. Redirecting to journal..."
-    }, 201)
-  } catch (error: any) {
-    console.error("Registration error:", error)
-    // Prisma P2002 = unique constraint, MySQL ER_DUP_ENTRY = 1062, PostgreSQL = 23505
-    if (error.code === "P2002" || error.code === "23505" || error.code === "ER_DUP_ENTRY" || error.message?.includes("Unique constraint")) {
-      return c.json({ success: false, error: "Email already exists" }, 400)
-    }
-    return c.json({ success: false, error: "Registration failed" }, 500)
-  }
-})
 
 // POST /auth/logout
 app.post("/logout", async (c) => {

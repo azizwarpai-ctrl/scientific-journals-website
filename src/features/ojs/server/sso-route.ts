@@ -3,18 +3,7 @@ import crypto from "crypto"
 
 export const ssoRouter = new Hono()
 
-// Helper to pull the SSO secret or fail-fast in Production
-const getSsoSecret = () => {
-    const s = process.env.SSO_SECRET
-    if (!s) {
-        if (process.env.NODE_ENV === "production") {
-            throw new Error("CRITICAL: SSO_SECRET missing in production!")
-        }
-        console.warn("[WARNING] Missing SSO_SECRET; using local fallback.")
-        return "default_development_sso_secret"
-    }
-    return s
-}
+import { getSsoSecret } from "@/src/features/ojs/server/sso-utils"
 
 // POST /api/ojs/sso
 // Stateless Single Sign-On bridging pivot
@@ -47,7 +36,7 @@ ssoRouter.post("/", async (c) => {
         const ssoReturnDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
         
         const afterLoginPath = journalPath ? `/${journalPath}/submission` : ""
-        const redirectUrl = `${ssoReturnDomain}/sso_login.php?token=${token}${afterLoginPath ? `&redirect=${encodeURIComponent(afterLoginPath)}` : ""}`
+        const redirectUrl = `${ssoReturnDomain}/sso_login.php?token=${encodeURIComponent(token)}${afterLoginPath ? `&redirect=${encodeURIComponent(afterLoginPath)}` : ""}`
         
         return c.json({ ssoUrl: redirectUrl })
     } catch (err: any) {

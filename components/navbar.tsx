@@ -60,12 +60,6 @@ export function Navbar() {
             <LanguageSwitcher />
           </div>
           <ThemeToggle />
-          <Button variant="outline" size="sm" asChild className="hidden md:flex bg-transparent">
-            <Link href="/login">
-              <User className="mr-2 h-4 w-4" />
-              Login
-            </Link>
-          </Button>
           <Button size="sm" asChild className="hidden md:flex">
             <Link href="/register">Register</Link>
           </Button>
@@ -113,9 +107,6 @@ export function Navbar() {
               Contact
             </Link>
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" size="sm" className="flex-1 bg-transparent" asChild>
-                <Link href="/login">Login</Link>
-              </Button>
               <Button size="sm" className="flex-1" asChild>
                 <Link href="/register">Register</Link>
               </Button>
