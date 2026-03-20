@@ -20,8 +20,9 @@ The SSO mechanism is designed ONLY for **Just-In-Time (JIT) Handover** immediate
 ## 4. Consumption (`sso_login.php`)
 - `sso_login.php` resides on the OJS domain.
 - It receives the token via the URL query string.
+- It receives a `redirect` query parameter that MUST be strictly formatted as `/index.php/{journalPath}/submission/wizard`.
 - It makes a synchronous internal HTTPS cURL request back to `digitopub` at `GET /api/ojs/sso/validate?token=...`.
-- If the token is valid, `sso_login.php` explicitly logs the user into the OJS session framework and redirects to the requested `/submission/wizard`.
+- If the token is valid, `sso_login.php` explicitly logs the user into the OJS session framework and redirects to the exact `redirect` destination.
 
 ## 5. Returning User Flow
 - digitopub plays **zero** role in returning user authentication.

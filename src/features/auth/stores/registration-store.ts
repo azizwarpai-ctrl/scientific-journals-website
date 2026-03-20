@@ -229,6 +229,7 @@ export const useRegistrationStore = create<RegistrationStore>()(
         roleSelection: state.roleSelection,
         policyAgreements: state.policyAgreements,
         verificationEmail: state.verificationEmail,
+        selectedJournalPath: state.selectedJournalPath,
         completedSteps: Array.from(state.completedSteps),
       }),
       // Rehydrate the Set from the persisted array
