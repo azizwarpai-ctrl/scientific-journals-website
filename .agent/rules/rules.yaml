@@ -13,3 +13,11 @@ rules:
       - "digitopub must never call getSession() for public routes."
       - "Public UI components must link directly to OJS for protected actions."
       - "No local login pages or modals exist for public users."
+
+  - id: redirect-authority
+    description: "SSO and cross-domain links must always provide explicit, exact redirect paths including the target journal context."
+    strict: true
+    enforcement:
+      - "Must not rely on existing OJS session context to decide where to route users."
+      - "Must always pass `journalPath` in redirect queries."
+      - "Redirect format to submission wizard must strictly be `/index.php/{journalPath}/submission/wizard`."

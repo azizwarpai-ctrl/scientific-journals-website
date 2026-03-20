@@ -4,13 +4,15 @@ description: UI Spec for Submission Flow
 
 # Submission Flow UI Spec
 
-## 1. Submit Button Behavior
-The "Submit Manuscript" button on journal detail pages (`app/journals/[id]/page.tsx`) must behave uniformly regardless of local browser state.
+## 1. Catch-All Submission Flow Behavior
 
-- **Action:** Must render a raw anchor tag or direct external navigation link pointing to the OJS submission wizard.
+The "Submit Manuscript" button on journal detail pages (`app/journals/[id]/page.tsx`) must behave uniformly regardless of local browser state or user context.
+
+- **Action:** Must render a raw anchor tag or direct external navigation link pointing strictly to the OJS submission wizard.
 - **Target URL Pattern:** `{OJS_BASE_URL}/index.php/{journalPath}/submission/wizard`
   - *Note:* `OJS_BASE_URL` is derived from the `NEXT_PUBLIC_OJS_BASE_URL` environment variable, which defaults to `https://submitmanager.com`.
 - **Conditionals:** The button MUST NOT check local state (e.g., `registeredEmail` in Zustand or `localStorage`) to alter its destination.
+- **Cross-Journal Leakage:** The submit button must strictly and entirely respect the actively viewed journal and hardcode its explicit destination. Do not rely on "last visited" or existing OJS cookie context.
 
 ## 2. UX Rules
 - **No Local Login Prompts:** digitopub MUST NEVER render a login modal or page for public users attempting to submit a manuscript.

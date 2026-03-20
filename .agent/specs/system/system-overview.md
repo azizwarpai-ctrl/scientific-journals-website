@@ -61,6 +61,12 @@ The system enforces strict identity separation:
   - Owns ALL public user identities
   - Handles login, sessions, roles, submissions
 
+## Redirect Authority Rules
+
+digitopub must explicitly command OJS where to redirect users after SSO interpolation. 
+- All SSO redirects MUST contain the exact, fully qualified relative path to the journal (e.g. `redirect=/index.php/{journalPath}/submission/wizard`).
+- The system must not rely on the existing OJS session context to guess the user's intended destination. OJS sessions can be multi-journal or cross-journal, meaning any missing redirect instructions will land the user in their previously active journal context.
+
 ## SSO Behavior
 
 Two flows exist:
