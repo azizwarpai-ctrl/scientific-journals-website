@@ -52,11 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Validate Bearer token
-$apiKey = 'G5XqDrwkSqLD]$v3dbPvMbP5.$X],GeY';
+$apiKey = getenv('OJS_API_KEY') ?: ($_ENV['OJS_API_KEY'] ?? '');
 if (empty($apiKey)) {
     error_log('[OJS-Bridge] FATAL: OJS_API_KEY environment variable is not set.');
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Server misconfiguration']);
+    echo json_encode(['success' => false, 'error' => 'Server misconfiguration: OJS_API_KEY missing']);
     exit;
 }
 
@@ -146,197 +146,190 @@ try {
 }
 
 // --- CHECK FOR EXISTING USER ---
-$stmt = $pdo->prepare('SELECT user_id FROM users WHERE email = ?');
+$stmt = $pdo->prepare('SELECT user_id, username FROM users WHERE email = ?');
 $stmt->execute([$email]);
 $existingUser = $stmt->fetch();
 
+$userId = null;
+$username = '';
+$statusCode = 201;
+$message = 'User provisioned successfully';
+
 if ($existingUser) {
-    // User already exists — return 409 Conflict (idempotent success for the caller)
-    http_response_code(409);
-    echo json_encode([
-        'success' => true,
-        'message' => 'User already exists in OJS',
-        'user_id' => (int)$existingUser['user_id'],
-    ]);
-    exit;
-}
+    // We found an existing user. We must proceed to reconcile their journal roles.
+    $userId = (int)$existingUser['user_id'];
+    $username = $existingUser['username'];
+    $statusCode = 200;
+    $message = 'User already exists in OJS, roles reconciled';
+} else {
+    // --- GENERATE USERNAME ---
+    $baseUsername = preg_replace('/[^a-z0-9_]/', '', strtolower(explode('@', $email)[0]));
+    $baseUsername = substr($baseUsername, 0, 28); // Leave room for suffix
+    if (empty($baseUsername)) {
+        $baseUsername = 'user';
+    }
 
-// --- GENERATE USERNAME ---
-// OJS requires a unique username (max 32 chars). Derive from email prefix.
-$baseUsername = preg_replace('/[^a-z0-9_]/', '', strtolower(explode('@', $email)[0]));
-$baseUsername = substr($baseUsername, 0, 28); // Leave room for suffix
-if (empty($baseUsername)) {
-    $baseUsername = 'user';
-}
+    $username = $baseUsername;
+    $suffix = 1;
+    $stmtCheck = $pdo->prepare('SELECT user_id FROM users WHERE username = ?');
+    while (true) {
+        $stmtCheck->execute([$username]);
+        if (!$stmtCheck->fetch()) break;
+        $username = $baseUsername . $suffix;
+        $suffix++;
+        if ($suffix > 999) {
+            $username = $baseUsername . '_' . bin2hex(random_bytes(3));
+            break;
+        }
+    }
 
-$username = $baseUsername;
-$suffix = 1;
-$stmtCheck = $pdo->prepare('SELECT user_id FROM users WHERE username = ?');
-while (true) {
-    $stmtCheck->execute([$username]);
-    if (!$stmtCheck->fetch()) break;
-    $username = $baseUsername . $suffix;
-    $suffix++;
-    if ($suffix > 999) {
-        // Extremely unlikely but prevent infinite loops
-        $username = $baseUsername . '_' . bin2hex(random_bytes(3));
-        break;
+    // --- GENERATE PASSWORD HASH ---
+    if (!empty($password)) {
+        $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+    } else {
+        $randomPass = bin2hex(random_bytes(16));
+        $passwordHash = password_hash($randomPass, PASSWORD_BCRYPT);
+    }
+
+    // --- INSERT USER (TRANSACTION) ---
+    try {
+        $pdo->beginTransaction();
+        $now = date('Y-m-d H:i:s');
+        $stmt = $pdo->prepare('
+            INSERT INTO users (username, password, email, country, locales, date_registered, date_validated, disabled)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+        ');
+        $stmt->execute([
+            $username,
+            $passwordHash,
+            $email,
+            $country ?: null,
+            '["en"]',  // Default locale
+            $now,
+            $now,      // Mark as validated
+        ]);
+
+        $userId = (int)$pdo->lastInsertId();
+
+        // Insert user_settings (localized profile data)
+        $locale = 'en';
+        $settings = [
+            ['givenName', $firstName],
+            ['familyName', $lastName],
+        ];
+
+        if (!empty($affiliation)) {
+            $settings[] = ['affiliation', $affiliation];
+        }
+        if (!empty($biography)) {
+            $settings[] = ['biography', $biography];
+        }
+        if (!empty($orcid)) {
+            $stmtSetting = $pdo->prepare('INSERT INTO user_settings (user_id, locale, setting_name, setting_value) VALUES (?, \'\', ?, ?)');
+            $stmtSetting->execute([$userId, 'orcid', $orcid]);
+        }
+
+        $stmtSetting = $pdo->prepare('INSERT INTO user_settings (user_id, locale, setting_name, setting_value) VALUES (?, ?, ?, ?)');
+        foreach ($settings as [$name, $value]) {
+            $stmtSetting->execute([$userId, $locale, $name, $value]);
+        }
+        $pdo->commit();
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        if ($e->getCode() == '23000' && strpos($e->getMessage(), 'Duplicate entry') !== false) {
+            // Check if it's the email that was duplicated (concurrent insert)
+            $stmtCheck = $pdo->prepare('SELECT user_id, username FROM users WHERE email = ?');
+            $stmtCheck->execute([$email]);
+            $reUser = $stmtCheck->fetch();
+            if ($reUser) {
+                // Resolved concurrent insert on email
+                $userId = (int)$reUser['user_id'];
+                $username = $reUser['username'];
+                $statusCode = 200;
+                $message = 'User already exists (race condition resolved), roles reconciled';
+            } else {
+                // Must be a username collision or other duplicate key
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Data collision during provisioning. Please try again.']);
+                exit;
+            }
+        } else {
+            error_log('[OJS-Bridge] Insert failed: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Failed to provision user']);
+            exit;
+        }
     }
 }
 
-// --- GENERATE PASSWORD HASH ---
-// OJS 3.4 uses bcrypt (PASSWORD_BCRYPT) via PHP's password_hash()
-if (!empty($password)) {
-    $passwordHash = password_hash($password, PASSWORD_BCRYPT);
-} else {
-    // Generate a random password — user will authenticate via SSO, not direct OJS login
-    $randomPass = bin2hex(random_bytes(16));
-    $passwordHash = password_hash($randomPass, PASSWORD_BCRYPT);
+// --- ASSIGN ROLES ---
+// Ensure we resolve the explicit target journal since OJS isolates roles by context.
+if (empty($journalPath)) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'Missing required journalPath parameter to assign roles']);
+    exit;
 }
 
-// --- INSERT USER (TRANSACTION) ---
+$stmtJournal = $pdo->prepare('SELECT journal_id FROM journals WHERE path = ? LIMIT 1');
+$stmtJournal->execute([$journalPath]);
+$journal = $stmtJournal->fetch();
+
+if (!$journal) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => "Target journal path not found: {$journalPath}"]);
+    exit;
+}
+
+$contextId = (int)$journal['journal_id'];
+$now = date('Y-m-d H:i:s');
+
+$targetRoleId = $ROLE_MAP[$role] ?? ROLE_ID_AUTHOR;
+$rolesToAssign = [$targetRoleId];
+if ($targetRoleId !== ROLE_ID_READER) {
+    $rolesToAssign[] = ROLE_ID_READER;
+}
+
 try {
     $pdo->beginTransaction();
-
-    // 1. Insert into users table
-    $now = date('Y-m-d H:i:s');
-    $stmt = $pdo->prepare('
-        INSERT INTO users (username, password, email, country, locales, date_registered, date_validated, disabled)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 0)
-    ');
-    $stmt->execute([
-        $username,
-        $passwordHash,
-        $email,
-        $country ?: null,
-        '["en"]',  // Default locale
-        $now,
-        $now,      // Mark as validated (they registered via Digitopub)
-    ]);
-
-    $userId = (int)$pdo->lastInsertId();
-
-    // 2. Insert user_settings (localized profile data)
-    $locale = 'en';
-    $settings = [
-        ['givenName', $firstName],
-        ['familyName', $lastName],
-    ];
-
-    if (!empty($affiliation)) {
-        $settings[] = ['affiliation', $affiliation];
-    }
-    if (!empty($biography)) {
-        $settings[] = ['biography', $biography];
-    }
-    if (!empty($orcid)) {
-        // ORCID is stored as a non-localized setting (empty locale)
-        $stmtSetting = $pdo->prepare('
-            INSERT INTO user_settings (user_id, locale, setting_name, setting_value)
-            VALUES (?, \'\', ?, ?)
-        ');
-        $stmtSetting->execute([$userId, 'orcid', $orcid]);
-    }
-
-    $stmtSetting = $pdo->prepare('
-        INSERT INTO user_settings (user_id, locale, setting_name, setting_value)
-        VALUES (?, ?, ?, ?)
-    ');
-    foreach ($settings as [$name, $value]) {
-        $stmtSetting->execute([$userId, $locale, $name, $value]);
-    }
-
-    // 3. Assign role via user_user_groups
-    // Look up the target context_id (journal_id)
-    $contextId = null;
-    if (!empty($journalPath)) {
-        $stmtJournal = $pdo->prepare('SELECT journal_id FROM journals WHERE path = ? LIMIT 1');
-        $stmtJournal->execute([$journalPath]);
-        $journal = $stmtJournal->fetch();
-        if ($journal) {
-            $contextId = (int)$journal['journal_id'];
-        }
-    }
-
-    // Fallback to first available journal if journalPath not found or empty
-    if (!$contextId) {
-        $stmtFirst = $pdo->query('SELECT journal_id FROM journals ORDER BY journal_id ASC LIMIT 1');
-        $first = $stmtFirst->fetch();
-        if ($first) {
-            $contextId = (int)$first['journal_id'];
-        } else {
-            $contextId = 1; // absolute fallback
-        }
-    }
-
-    $targetRoleId = $ROLE_MAP[$role] ?? ROLE_ID_AUTHOR;
-
-    $stmtGroups = $pdo->prepare('
-        SELECT user_group_id FROM user_groups
-        WHERE role_id = ? AND context_id = ? AND is_default = 1
-        LIMIT 1
-    ');
-    $stmtGroups->execute([$targetRoleId, $contextId]);
-    $userGroup = $stmtGroups->fetch();
-
-    if (!$userGroup) {
-        // Fallback: find any group with this role in this context
+    foreach ($rolesToAssign as $roleId) {
         $stmtGroups = $pdo->prepare('
-            SELECT user_group_id FROM user_groups WHERE role_id = ? AND context_id = ? LIMIT 1
+            SELECT user_group_id FROM user_groups
+            WHERE role_id = ? AND context_id = ? AND is_default = 1
+            LIMIT 1
         ');
-        $stmtGroups->execute([$targetRoleId, $contextId]);
+        $stmtGroups->execute([$roleId, $contextId]);
         $userGroup = $stmtGroups->fetch();
-    }
-
-    if ($userGroup) {
-        $stmtAssign = $pdo->prepare('
-            INSERT INTO user_user_groups (user_group_id, user_id, date_start)
-            VALUES (?, ?, ?)
-        ');
-        $stmtAssign->execute([(int)$userGroup['user_group_id'], $userId, $now]);
-    } else {
-        error_log("[OJS-Bridge] WARNING: No user_group found for role_id={$targetRoleId}. User {$email} created without role assignment.");
-    }
-
-    // Also assign Reader role by default (so user can browse content)
-    if ($targetRoleId !== ROLE_ID_READER) {
-        $stmtReader = $pdo->prepare('
-            SELECT user_group_id FROM user_groups WHERE role_id = ? AND context_id = ? LIMIT 1
-        ');
-        $stmtReader->execute([ROLE_ID_READER, $contextId]);
-        $readerGroup = $stmtReader->fetch();
-
-        if ($readerGroup) {
-            $stmtAssign = $pdo->prepare('
-                INSERT INTO user_user_groups (user_group_id, user_id, date_start)
-                VALUES (?, ?, ?)
-            ');
-            $stmtAssign->execute([(int)$readerGroup['user_group_id'], $userId, $now]);
+        
+        if (!$userGroup) {
+            $stmtGroups = $pdo->prepare('SELECT user_group_id FROM user_groups WHERE role_id = ? AND context_id = ? LIMIT 1');
+            $stmtGroups->execute([$roleId, $contextId]);
+            $userGroup = $stmtGroups->fetch();
+        }
+        
+        if ($userGroup) {
+            $ugId = (int)$userGroup['user_group_id'];
+            // Reconcile membership using SELECT 1 to verify existing status
+            $stmtCheckMem = $pdo->prepare('SELECT 1 FROM user_user_groups WHERE user_id = ? AND user_group_id = ?');
+            $stmtCheckMem->execute([$userId, $ugId]);
+            if (!$stmtCheckMem->fetch()) {
+                $stmtAssign = $pdo->prepare('INSERT INTO user_user_groups (user_group_id, user_id, date_start) VALUES (?, ?, ?)');
+                $stmtAssign->execute([$ugId, $userId, $now]);
+            }
         }
     }
-
     $pdo->commit();
-
-    http_response_code(201);
-    echo json_encode([
-        'success' => true,
-        'message' => 'User provisioned successfully',
-        'user_id' => $userId,
-        'username' => $username,
-    ]);
-
 } catch (PDOException $e) {
     $pdo->rollBack();
-
-    // Handle race condition: if someone inserted the same email between our check and insert
-    if ($e->getCode() == '23000' && strpos($e->getMessage(), 'Duplicate entry') !== false) {
-        http_response_code(409);
-        echo json_encode(['success' => true, 'message' => 'User already exists (race condition resolved)']);
-        exit;
-    }
-
-    error_log('[OJS-Bridge] Insert failed: ' . $e->getMessage());
+    error_log('[OJS-Bridge] Role assignment failed: ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Failed to provision user']);
+    echo json_encode(['success' => false, 'error' => 'Failed to assign user roles in context']);
     exit;
 }
+
+http_response_code($statusCode);
+echo json_encode([
+    'success' => true,
+    'message' => $message,
+    'user_id' => $userId,
+    'username' => $username,
+]);
