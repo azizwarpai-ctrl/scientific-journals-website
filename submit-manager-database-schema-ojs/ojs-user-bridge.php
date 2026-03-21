@@ -283,7 +283,12 @@ if (!$journal) {
 $contextId = (int)$journal['journal_id'];
 $now = date('Y-m-d H:i:s');
 
-$targetRoleId = $ROLE_MAP[$role] ?? ROLE_ID_AUTHOR;
+if (!isset($ROLE_MAP[$role])) {
+    error_log("[OJS-Bridge] WARNING: Unrecognized role '{$role}' requested. Falling back to ROLE_ID_AUTHOR.");
+    $targetRoleId = ROLE_ID_AUTHOR;
+} else {
+    $targetRoleId = $ROLE_MAP[$role];
+}
 $rolesToAssign = [$targetRoleId];
 if ($targetRoleId !== ROLE_ID_READER) {
     $rolesToAssign[] = ROLE_ID_READER;
