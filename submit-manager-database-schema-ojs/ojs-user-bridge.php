@@ -320,6 +320,8 @@ try {
                 $stmtAssign = $pdo->prepare('INSERT INTO user_user_groups (user_group_id, user_id, date_start) VALUES (?, ?, ?)');
                 $stmtAssign->execute([$ugId, $userId, $now]);
             }
+        } else {
+            error_log("[OJS-Bridge] WARNING: Missing user_group for roleId={$roleId} contextId={$contextId}, skipping assignment for user {$userId}");
         }
     }
     $pdo->commit();

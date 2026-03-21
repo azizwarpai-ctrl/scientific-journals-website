@@ -12,5 +12,9 @@ export async function provisionOjsUser(payload: OjsUserProvisionData): Promise<{
         return { success: false, error: "Invalid payload: missing required fields" }
     }
 
+    if (!payload.journalPath?.trim()) {
+        return { success: false, error: "Invalid payload: missing required journalPath parameter to assign roles" }
+    }
+
     return await provisionUser(payload)
 }
