@@ -42,6 +42,10 @@ $ROLE_MAP = [
     'reader'   => ROLE_ID_READER,
 ];
 
+// --- LOAD OJS CONFIG FOR FALLBACKS ---
+$configFile = dirname(__FILE__) . '/config.inc.php';
+$config = file_exists($configFile) ? parse_ini_file($configFile, true) : [];
+
 // --- REQUEST VALIDATION ---
 
 // Only accept POST
@@ -52,9 +56,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Validate Bearer token
-$apiKey = getenv('OJS_API_KEY') ?: ($_ENV['OJS_API_KEY'] ?? '');
+// Fallback priority: getenv() -> $_ENV[] -> config.inc.php [digitopub][api_key]
+$apiKey = getenv('OJS_API_KEY') ?: ($_ENV['OJS_API_KEY'] ?? ($config['digitopub']['api_key'] ?? ''));
 if (empty($apiKey)) {
-    error_log('[OJS-Bridge] FATAL: OJS_API_KEY environment variable is not set.');
+    error_log('[OJS-Bridge] FATAL: OJS_API_KEY environment variable (or config value) is not set.');
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Server misconfiguration: OJS_API_KEY missing']);
     exit;
@@ -106,18 +111,8 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     exit;
 }
 
-// --- DATABASE CONNECTION (use OJS config.inc.php) ---
-$configFile = dirname(__FILE__) . '/config.inc.php';
-if (!file_exists($configFile)) {
-    error_log('[OJS-Bridge] FATAL: config.inc.php not found. Script must be in OJS root.');
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'OJS configuration not found']);
-    exit;
-}
-
-// Parse OJS config.inc.php to extract DB credentials
-$config = parse_ini_file($configFile, true);
-if (!$config || empty($config['database'])) {
+// --- DATABASE CONNECTION (use extracted config) ---
+if (empty($config) || empty($config['database'])) {
     error_log('[OJS-Bridge] FATAL: Failed to parse config.inc.php or [database] section missing.');
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'OJS database configuration error']);

@@ -11,24 +11,8 @@
  * 3. Ensure the server's firewall allows outbound HTTPS cURL requests back to the Next.js API for token validation.
  */
 
-// --- CONFIGURATION ---
-$envRawUrl = getenv('DIGITOPUB_BASE_URL') ?: ($_ENV['DIGITOPUB_BASE_URL'] ?? '');
-if (empty($envRawUrl)) {
-    die("Error: DIGITOPUB_BASE_URL environment variable is not configured. SSO requires this value to securely validate tokens.");
-}
-
-$parsedUrl = parse_url($envRawUrl);
-$host = $parsedUrl['host'] ?? '';
-$isLocalhost = in_array($host, ['localhost', '127.0.0.1', '::1']);
-
-if (!$isLocalhost && ($parsedUrl['scheme'] ?? '') !== 'https') {
-    die("Error: DIGITOPUB_BASE_URL must use HTTPS in non-development environments to secure SSO tokens.");
-}
-define('DIGITOPUB_BASE_URL', rtrim($envRawUrl, '/'));
-// ---------------------
-
 // Basic error reporting
-$isDev = getenv('APP_ENV') === 'development' || $isLocalhost;
+$isDev = getenv('APP_ENV') === 'development';
 ini_set('display_errors', $isDev ? '1' : '0');
 ini_set('display_startup_errors', $isDev ? '1' : '0');
 ini_set('log_errors', '1');
@@ -40,6 +24,23 @@ if (!file_exists($bootstrapFile)) {
     die("Error: OJS bootstrap file not found. Ensure this script is in the OJS root directory.");
 }
 require($bootstrapFile);
+
+// --- CONFIGURATION ---
+// Fallback priority: getenv() -> $_ENV[] -> config.inc.php [digitopub][base_url]
+$envRawUrl = getenv('DIGITOPUB_BASE_URL') ?: ($_ENV['DIGITOPUB_BASE_URL'] ?? Config::getVar('digitopub', 'base_url'));
+if (empty($envRawUrl)) {
+    die("Error: DIGITOPUB_BASE_URL environment variable (or config.inc.php [digitopub] base_url) is not configured. SSO requires this value to securely validate tokens.");
+}
+
+$parsedUrl = parse_url($envRawUrl);
+$host = $parsedUrl['host'] ?? '';
+$isLocalhost = in_array($host, ['localhost', '127.0.0.1', '::1']);
+
+if (!$isLocalhost && ($parsedUrl['scheme'] ?? '') !== 'https') {
+    die("Error: DIGITOPUB_BASE_URL must use HTTPS in non-development environments to secure SSO tokens.");
+}
+define('DIGITOPUB_BASE_URL', rtrim($envRawUrl, '/'));
+// ---------------------
 
 // Parse input
 $token = $_GET['token'] ?? null;
