@@ -31,7 +31,7 @@ next-env.d.ts
 /lib/generated/prisma
 
 # PHP API proxy (contains credentials — deployed separately to SiteGround)
-submit-manager-database-schema-ojs
+submit-manager-database-schema-ojs/dbkgvcunttgs97.sql
 
 # Scripts for debugging
 check-sync.ts

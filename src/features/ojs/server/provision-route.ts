@@ -16,7 +16,11 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
     const { email, firstName, lastName } = payload
 
     // 1. Provision into OJS DB
-    const { success: ojsOk, error: ojsError } = await provisionOjsUser(payload)
+    const provisionPayload = {
+      ...payload,
+      journalPath: c.req.query("journalPath") || ""
+    }
+    const { success: ojsOk, error: ojsError } = await provisionOjsUser(provisionPayload)
 
     if (!ojsOk) {
       console.error(`[OJS Provisioning Failed] for ${email}:`, ojsError)

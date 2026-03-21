@@ -2,7 +2,7 @@
 
 A comprehensive digital publishing platform for academic and scientific journals by DigitoPub, built with Next.js, Prisma, and MySQL.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/azizwarpai-7979s-projects/v0-scientific-journals-website)
+[![Deployed on Hostinger](https://img.shields.io/badge/Deployed%20on-Hostinger-673DE6?style=for-the-badge&logo=hostinger&logoColor=white)](https://hostinger.com)
 
 ## 🌟 Features
 
@@ -71,7 +71,7 @@ A comprehensive digital publishing platform for academic and scientific journals
 
 6. **Generate Prisma Client**
    ```bash
-   npx prisma generate
+   bunx prisma generate
    ```
 
 7. **Start the development server**
@@ -229,7 +229,7 @@ npm run ojs:sync     # Sync data from OJS
 
 # Prisma
 npm run prisma:generate  # Generate Prisma client
-npx prisma studio        # Open Prisma Studio GUI
+bunx prisma studio        # Open Prisma Studio GUI
 ```
 
 ### Project Structure
@@ -309,10 +309,10 @@ echo $OJS_DATABASE_HOST
 
 ```bash
 # Regenerate Prisma client
-npx prisma generate
+bunx prisma generate
 
 # Reset database (⚠️ deletes all data)
-npx prisma migrate reset
+bunx prisma migrate reset
 ```
 
 ## 🤝 Contributing
@@ -329,7 +329,7 @@ This project is private and proprietary.
 
 ## 🔗 Links
 
-- **Production**: [Vercel Deployment](https://vercel.com/azizwarpai-7979s-projects/v0-scientific-journals-website)
+- **Production**: [Hostinger Deployment](https://hostinger.com)
 - **OJS Documentation**: [PKP Documentation](https://docs.pkp.sfu.ca/)
 
 
