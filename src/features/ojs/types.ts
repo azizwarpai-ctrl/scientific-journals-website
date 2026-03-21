@@ -8,4 +8,5 @@ export interface OjsUserProvisionData {
     orcid?: string
     primaryRole?: string
     password?: string
+    journalPath: string
 }

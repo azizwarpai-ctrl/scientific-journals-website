@@ -2,7 +2,7 @@
 
 A comprehensive digital publishing platform for academic and scientific journals by DigitoPub, built with Next.js, Prisma, and MySQL.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/azizwarpai-7979s-projects/v0-scientific-journals-website)
+[![Deployed on Hostinger](https://img.shields.io/badge/Deployed%20on-Hostinger-673DE6?style=for-the-badge&logo=hostinger&logoColor=white)](https://digitopub.com)
 
 ## 🌟 Features
 
@@ -72,6 +72,8 @@ A comprehensive digital publishing platform for academic and scientific journals
 6. **Generate Prisma Client**
    ```bash
    npx prisma generate
+   # or
+   bunx prisma generate
    ```
 
 7. **Start the development server**
@@ -95,12 +97,18 @@ This project uses **MySQL** (migrated from PostgreSQL) with the following key fe
 ```bash
 # Verify MySQL connection
 npm run db:verify
+# or
+bun run db:verify
 
 # Run migrations manually
 npm run db:migrate
+# or
+bun run db:migrate
 
 # Seed with sample data
 npm run db:seed
+# or
+bun run db:seed
 ```
 
 ## 🔗 System Architecture Overview
@@ -186,11 +194,15 @@ digitopub acts as a **purely stateless gateway** for returning users.
 2. **Test OJS connection**
    ```bash
    npm run ojs:verify
+   # or
+   bun run ojs:verify
    ```
 
 3. **Run initial sync**
    ```bash
    npm run ojs:sync
+   # or
+   bun run ojs:sync
    ```
 
 4. **Set up automated sync** (optional)
@@ -214,22 +226,22 @@ digitopub acts as a **purely stateless gateway** for returning users.
 
 ```bash
 # Development
-npm run dev          # Start dev server
-npm run build        # Build for production
-npm run start        # Start production server
+npm run dev          # Start dev server (or bun run dev)
+npm run build        # Build for production (or bun run build)
+npm run start        # Start production server (or bun run start)
 
 # Database
-npm run db:migrate   # Run MySQL migrations
-npm run db:seed      # Seed database
-npm run db:verify    # Test database connection
+npm run db:migrate   # Run MySQL migrations (or bun run db:migrate)
+npm run db:seed      # Seed database (or bun run db:seed)
+npm run db:verify    # Test database connection (or bun run db:verify)
 
 # OJS Integration
-npm run ojs:verify   # Test OJS connection
-npm run ojs:sync     # Sync data from OJS
+npm run ojs:verify   # Test OJS connection (or bun run ojs:verify)
+npm run ojs:sync     # Sync data from OJS (or bun run ojs:sync)
 
 # Prisma
-npm run prisma:generate  # Generate Prisma client
-npx prisma studio        # Open Prisma Studio GUI
+npx prisma generate  # Generate Prisma client (or bunx prisma generate)
+npx prisma studio    # Open Prisma Studio GUI (or bunx prisma studio)
 ```
 
 ### Project Structure
@@ -309,10 +321,10 @@ echo $OJS_DATABASE_HOST
 
 ```bash
 # Regenerate Prisma client
-npx prisma generate
+bunx prisma generate
 
 # Reset database (⚠️ deletes all data)
-npx prisma migrate reset
+bunx prisma migrate reset
 ```
 
 ## 🤝 Contributing
@@ -329,7 +341,7 @@ This project is private and proprietary.
 
 ## 🔗 Links
 
-- **Production**: [Vercel Deployment](https://vercel.com/azizwarpai-7979s-projects/v0-scientific-journals-website)
+- **Production**: [Hostinger Deployment](https://digitopub.com)
 - **OJS Documentation**: [PKP Documentation](https://docs.pkp.sfu.ca/)
 
 
