@@ -70,7 +70,7 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
       </GSAPWrapper>
 
       <GSAPWrapper animation="slideUp" delay={0.1}>
-        <section className="sticky top-[--navbar-height] z-20 border-b bg-background/80 backdrop-blur-md py-6 shadow-sm">
+        <section className="sticky top-16 z-20 border-b bg-background/80 backdrop-blur-md py-6 shadow-sm">
           <div className="container mx-auto px-4 md:px-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="flex flex-1 items-center gap-2">
@@ -123,22 +123,21 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
             Showing {filteredJournals.length} journal{filteredJournals.length !== 1 ? "s" : ""}
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredJournals.map((journal, idx) => (
-              <GSAPWrapper key={journal.id} animation="slideUp" delay={0.1 + (idx % 10) * 0.05}>
-                <JournalCard
-                  id={journal.id}
-                  ojsId={journal.ojs_id}
-                  title={journal.title}
-                  description={journal.description}
-                  issn={journal.issn}
-                  field={journal.field}
-                  publisher={journal.publisher}
-                  coverImage={journal.coverImage}
-                />
-              </GSAPWrapper>
+          <GSAPWrapper animation="slideUp" staggerChildren={0.05} className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {filteredJournals.map((journal) => (
+              <JournalCard
+                key={journal.id}
+                id={journal.id}
+                ojsId={journal.ojs_id}
+                title={journal.title}
+                description={journal.description}
+                issn={journal.issn}
+                field={journal.field}
+                publisher={journal.publisher}
+                coverImage={journal.coverImage}
+              />
             ))}
-          </div>
+          </GSAPWrapper>
 
           {filteredJournals.length === 0 && (
             <div className="py-12 text-center">

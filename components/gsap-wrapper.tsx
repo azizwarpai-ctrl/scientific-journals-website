@@ -8,6 +8,7 @@ interface GSAPWrapperProps {
   delay?: number
   duration?: number
   className?: string
+  staggerChildren?: number
 }
 
 export function GSAPWrapper({
@@ -16,6 +17,7 @@ export function GSAPWrapper({
   delay = 0,
   duration = 0.8,
   className = "",
+  staggerChildren,
 }: GSAPWrapperProps) {
   const elementRef = useRef<HTMLDivElement>(null)
 
@@ -39,10 +41,11 @@ export function GSAPWrapper({
 
       const initialState = animations[animation] || animations.fadeIn
 
-      gsap.from(elementRef.current, {
+      gsap.from(staggerChildren ? elementRef.current.children : elementRef.current, {
         ...initialState,
         duration,
         delay,
+        ...(staggerChildren ? { stagger: staggerChildren } : {}),
         ease: "power3.out",
         scrollTrigger: {
           trigger: elementRef.current,
