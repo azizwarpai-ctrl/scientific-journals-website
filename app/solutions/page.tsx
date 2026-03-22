@@ -50,9 +50,11 @@ export default function SolutionsPage() {
                     <Card className="h-full transition-all hover:shadow-xl hover:-translate-y-1">
                       <CardContent className="pt-6">
                         <div
-                          className={`mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-${colors[idx % 2]}/10`}
+                          className={`mb-4 flex h-12 w-12 items-center justify-center rounded-lg ${
+                            idx % 2 === 0 ? "bg-primary/10 text-primary" : "bg-secondary/10 text-secondary"
+                          }`}
                         >
-                          <BookOpen className={`h-6 w-6 text-${colors[idx % 2]}`} />
+                          <BookOpen className="h-6 w-6" />
                         </div>
                         <h3 className="mb-2 text-xl font-semibold">{journal.title}</h3>
                         <p className="text-sm text-muted-foreground leading-relaxed">

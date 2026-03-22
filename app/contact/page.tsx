@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Mail } from "lucide-react"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
+import { toast } from "sonner"
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -21,14 +22,10 @@ export default function ContactPage() {
     message: "",
   })
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [isSuccess, setIsSuccess] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setError(null)
-    setIsSuccess(false)
 
     try {
       const response = await fetch("/api/messages", {
@@ -49,7 +46,7 @@ export default function ContactPage() {
         throw new Error(data.error || "Failed to send message")
       }
 
-      setIsSuccess(true)
+      toast.success("Message sent successfully! We will get back to you soon.")
       setFormData({
         name: "",
         email: "",
@@ -57,7 +54,7 @@ export default function ContactPage() {
         message: "",
       })
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred")
+      toast.error(err.message || "An unexpected error occurred")
     } finally {
       setIsLoading(false)
     }
@@ -161,18 +158,6 @@ export default function ContactPage() {
                         />
                       </div>
 
-                      {isSuccess && (
-                        <div className="rounded-lg bg-green-50 p-3 dark:bg-green-900/20">
-                          <p className="text-sm text-green-600 dark:text-green-400">
-                            Message sent successfully! We will get back to you soon.
-                          </p>
-                        </div>
-                      )}
-                      {error && (
-                        <div className="rounded-lg bg-red-50 p-3 dark:bg-red-900/20">
-                          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                        </div>
-                      )}
                       <Button type="submit" className="w-full" disabled={isLoading}>
                         {isLoading ? "Sending..." : "Send Message"}
                       </Button>
