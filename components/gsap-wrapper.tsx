@@ -41,11 +41,11 @@ export function GSAPWrapper({
 
       const initialState = animations[animation] || animations.fadeIn
 
-      gsap.from(staggerChildren ? elementRef.current.children : elementRef.current, {
+      gsap.from(staggerChildren !== undefined ? elementRef.current.children : elementRef.current, {
         ...initialState,
         duration,
         delay,
-        ...(staggerChildren ? { stagger: staggerChildren } : {}),
+        ...(staggerChildren !== undefined ? { stagger: staggerChildren } : {}),
         ease: "power3.out",
         scrollTrigger: {
           trigger: elementRef.current,
@@ -56,7 +56,7 @@ export function GSAPWrapper({
     }
 
     loadGSAP()
-  }, [animation, delay, duration])
+  }, [animation, delay, duration, staggerChildren])
 
   return (
     <div ref={elementRef} className={className}>

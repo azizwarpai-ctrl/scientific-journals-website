@@ -4,7 +4,7 @@ import type { Metadata } from "next"
 import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
 import { QueryProvider } from "@/components/query-provider"
-import { Toaster } from "sonner"
+import { GlobalToaster } from "@/components/global-toaster"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -47,7 +47,7 @@ export default function RootLayout({
             {children}
           </QueryProvider>
           <Analytics />
-          <Toaster richColors closeButton position="top-center" />
+          <GlobalToaster />
         </ThemeProvider>
       </body>
     </html>
