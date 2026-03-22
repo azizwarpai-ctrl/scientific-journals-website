@@ -76,6 +76,8 @@ digitopub must explicitly command OJS where to redirect users after SSO interpol
 ### Admin Verification Flow
 - The admin OTP verification flow (`verify-code-form.tsx`) is strictly for admin users.
 - After successful OTP verification, admin users MUST be redirected to `/admin`, NOT to any OJS endpoint.
+- The `/admin` endpoint requires token validation middleware (e.g., JWT auth) and must never be marked public.
+- Any routing/route-config functions or constants that register `/admin` (referenced in `verify-code-form.tsx`) must enforce auth guarding and fail CI/validation if declared public or unguarded.
 - The admin authentication system has no relationship to the OJS public user system.
 
 ## SSO Behavior

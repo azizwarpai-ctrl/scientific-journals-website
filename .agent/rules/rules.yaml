@@ -27,14 +27,15 @@ rules:
     strict: true
     enforcement:
       - "verify-code-form.tsx must redirect to /admin after successful OTP verification."
+      - "The /admin route must be guarded by admin JWT checks (validateAdminJwt or equivalent) and return 401/403 for missing/invalid admin tokens."
+      - "The /admin route must be excluded from any public-route allowlists (e.g., PublicRouteAllowlist, isPublicRoute configs) and must not reference registration store state (selectedJournalPath) or OJS SSO endpoints."
       - "Admin authentication flow must have zero interaction with OJS SSO endpoints."
-      - "No registration store state (selectedJournalPath) should be referenced in admin flows."
 
   - id: sso-fallback-safety
     description: "SSO login fallback must default to OJS dashboard, not submission wizard."
     strict: true
     enforcement:
       - "sso_login.php must default redirect to `/index.php/index/login` when no redirect param is provided."
-      - "Missing redirect parameters must be logged as warnings for debugging."
+      - "Missing redirect parameters must be logged as warnings for debugging, but must redact or omit any query string, token, or sensitive parameter values."
       - "Fallback must never land on a submission wizard to prevent cross-journal leakage."
 

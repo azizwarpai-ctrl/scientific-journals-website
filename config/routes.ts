@@ -18,6 +18,7 @@ export const PUBLIC_ROUTES = [
 ]
 
 export const ADMIN_ROUTES = [
+  "/admin",
   "/admin/dashboard",
   "/admin/journals",
   "/admin/submissions",
