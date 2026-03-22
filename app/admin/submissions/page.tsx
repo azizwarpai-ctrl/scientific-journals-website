@@ -7,14 +7,7 @@ import { Eye, FileText } from "lucide-react"
 import Link from "next/link"
 import { SubmissionsFilter } from "@/components/submissions-filter"
 import { Suspense } from "react"
-
-const STATUS_STYLES: Record<string, string> = {
-  submitted: "bg-primary/10 text-primary",
-  under_review: "bg-secondary/10 text-secondary",
-  revision_required: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  accepted: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  rejected: "bg-destructive/10 text-destructive",
-}
+import { STATUS_STYLES } from "@/src/lib/utils"
 
 async function SubmissionsList({ searchParams }: { searchParams: { status?: string; search?: string } }) {
   const { status, search } = searchParams
@@ -66,7 +59,9 @@ async function SubmissionsList({ searchParams }: { searchParams: { status?: stri
 
         {submissions && submissions.length > 0 ? (
           <div className="divide-y">
-            {submissions.map((submission: any) => (
+            {submissions.map((submission: any) => {
+              const safeStatus = submission.status ?? "unknown"
+              return (
               <div key={submission.id} className="p-4 hover:bg-muted/50 transition-colors">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 space-y-2">
@@ -106,10 +101,10 @@ async function SubmissionsList({ searchParams }: { searchParams: { status?: stri
                   <div className="flex flex-col items-end gap-3">
                     <span
                       className={`inline-flex rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap ${
-                        STATUS_STYLES[submission.status] || "bg-muted text-muted-foreground"
+                        STATUS_STYLES[safeStatus] || "bg-muted text-muted-foreground"
                       }`}
                     >
-                      {submission.status.replace("_", " ")}
+                      {safeStatus.replace("_", " ")}
                     </span>
 
                     <Button asChild size="sm" variant="outline" className="bg-transparent">
@@ -121,7 +116,7 @@ async function SubmissionsList({ searchParams }: { searchParams: { status?: stri
                   </div>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         ) : (
           <div className="py-12 text-center">

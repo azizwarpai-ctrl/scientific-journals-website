@@ -1,7 +1,9 @@
 "use client"
 
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Bell } from "lucide-react"
-import { useQuery } from "@tanstack/react-query"
+import { useGetAuthMe } from "@/src/features/auth"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -15,17 +17,14 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle"
 
 export function AdminHeader() {
-  const { data: adminUser } = useQuery({
-    queryKey: ["adminUser"],
-    queryFn: async () => {
-      const response = await fetch("/api/auth/me")
-      if (!response.ok) throw new Error("Failed to fetch user")
-      const data = await response.json()
-      return data.user as { full_name: string | null; email: string }
-    },
-    staleTime: 5 * 60 * 1000, 
-    retry: false,
-  })
+  const router = useRouter()
+  const { data: adminUser, isLoading, isError } = useGetAuthMe()
+
+  useEffect(() => {
+    if (isError) {
+      router.push("/admin/login")
+    }
+  }, [isError, router])
 
   const getInitials = (name: string | null) => {
     if (!name) return "A"
@@ -53,11 +52,17 @@ export function AdminHeader() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>{getInitials(adminUser?.full_name || null)}</AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium">{adminUser?.full_name || adminUser?.email || "Admin"}</span>
+            <Button variant="ghost" className="flex items-center gap-2" disabled={isLoading || isError}>
+              {isLoading ? (
+                <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+              ) : (
+                <>
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>{getInitials(adminUser?.full_name || null)}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium">{adminUser?.full_name || adminUser?.email || "Admin"}</span>
+                </>
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">

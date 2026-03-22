@@ -7,7 +7,7 @@ export const useGetFaqs = () => {
     const query = useQuery<Solution[], Error>({
         queryKey: ["faqs", "public"],
         queryFn: async () => {
-            const response = await client.solutions.$get()
+            const response = await client.solutions.index.$get()
 
             if (!response.ok) {
                 const error = await response.json()

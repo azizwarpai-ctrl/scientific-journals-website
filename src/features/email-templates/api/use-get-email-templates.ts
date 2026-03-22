@@ -13,7 +13,7 @@ export function useGetEmailTemplates(page = 1, limit = 20, active?: boolean) {
       }
       if (active !== undefined) params.active = String(active)
 
-      const res = await client["email-templates"].$get({ query: params })
+      const res = await client["email-templates"].index.$get({ query: params })
       if (!res.ok) throw new Error("Failed to fetch email templates")
       return res.json()
     },

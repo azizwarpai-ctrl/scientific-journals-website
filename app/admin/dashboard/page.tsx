@@ -3,14 +3,7 @@ import { getSession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookOpen, FileText, Eye, TrendingUp, Users, CheckCircle2, Clock, XCircle } from "lucide-react"
-
-const STATUS_STYLES: Record<string, string> = {
-  submitted: "bg-primary/10 text-primary",
-  under_review: "bg-secondary/10 text-secondary",
-  revision_required: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  accepted: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  rejected: "bg-destructive/10 text-destructive",
-}
+import { STATUS_STYLES } from "@/src/lib/utils"
 
 export default async function AdminDashboardPage() {
   const user = await getSession()
@@ -161,7 +154,9 @@ export default async function AdminDashboardPage() {
         <CardContent>
           {recentSubmissions && recentSubmissions.length > 0 ? (
             <div className="space-y-4">
-              {recentSubmissions.map((submission: any) => (
+              {recentSubmissions.map((submission: any) => {
+                const safeStatus = submission.status ?? "unknown"
+                return (
                 <div
                   key={submission.id}
                   className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
@@ -175,17 +170,17 @@ export default async function AdminDashboardPage() {
                   <div className="flex items-center gap-2">
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-medium ${
-                        STATUS_STYLES[submission.status] || "bg-muted text-muted-foreground"
+                        STATUS_STYLES[safeStatus] || "bg-muted text-muted-foreground"
                       }`}
                     >
-                      {submission.status.replace("_", " ")}
+                      {safeStatus.replace("_", " ")}
                     </span>
                     <span className="text-sm text-muted-foreground">
                       {new Date(submission.submission_date).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           ) : (
             <p className="text-center text-muted-foreground py-8">No submissions yet</p>
