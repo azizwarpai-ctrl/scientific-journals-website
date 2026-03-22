@@ -168,7 +168,7 @@ export default function JournalDetailPage() {
                     <Button
                       size="lg"
                       variant="outline"
-                      className="rounded-full border-slate-700 bg-slate-800/80 text-white hover:bg-slate-700 hover:text-white backdrop-blur-sm transition-colors"
+                      className="rounded-full border-white/30 bg-white/15 text-white hover:bg-white/25 hover:text-white backdrop-blur-sm transition-colors"
                       asChild
                     >
                       <Link href={journal.website_url} target="_blank" rel="noopener noreferrer">

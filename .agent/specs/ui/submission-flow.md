@@ -18,3 +18,10 @@ The "Submit Manuscript" button on journal detail pages (`app/journals/[id]/page.
 - **No Local Login Prompts:** digitopub MUST NEVER render a login modal or page for public users attempting to submit a manuscript.
 - **Direct Handover:** The UI acts as a stateless content directory. When a user wishes to interact transactionally (submit, review), they are handed off to the OJS domain.
 - **New Users:** New users who complete the registration wizard on digitopub are automatically bridged and redirected to OJS. The frontend does not need to retain their identity state post-registration.
+
+## 3. Cross-Journal Leakage Prevention
+- The Submit Manuscript button MUST always respect the actively viewed journal and hardcode the explicit OJS path for that journal.
+- The registration wizard MUST propagate the originating journal's `ojs_path` through the entire flow via `selectedJournalPath` in the registration store.
+- No component may rely on OJS cookie context, "last visited" state, or session-derived journal context.
+- If `journalPath` cannot be determined, the SSO redirect MUST default to the OJS dashboard (`/index.php/index/login`), NOT to any submission wizard.
+

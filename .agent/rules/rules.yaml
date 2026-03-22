@@ -21,3 +21,20 @@ rules:
       - "Must not rely on existing OJS session context to decide where to route users."
       - "Must always pass `journalPath` in redirect queries."
       - "Redirect format to submission wizard must strictly be `/index.php/{journalPath}/submission/wizard`."
+
+  - id: admin-redirect-isolation
+    description: "Admin OTP verification must redirect to /admin, never to OJS endpoints."
+    strict: true
+    enforcement:
+      - "verify-code-form.tsx must redirect to /admin after successful OTP verification."
+      - "Admin authentication flow must have zero interaction with OJS SSO endpoints."
+      - "No registration store state (selectedJournalPath) should be referenced in admin flows."
+
+  - id: sso-fallback-safety
+    description: "SSO login fallback must default to OJS dashboard, not submission wizard."
+    strict: true
+    enforcement:
+      - "sso_login.php must default redirect to `/index.php/index/login` when no redirect param is provided."
+      - "Missing redirect parameters must be logged as warnings for debugging."
+      - "Fallback must never land on a submission wizard to prevent cross-journal leakage."
+
