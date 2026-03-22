@@ -18,6 +18,7 @@ export const PUBLIC_ROUTES = [
 ]
 
 export const ADMIN_ROUTES = [
+  "/admin",
   "/admin/dashboard",
   "/admin/journals",
   "/admin/submissions",
@@ -49,10 +50,7 @@ export function isPublicRoute(pathname: string): boolean {
   })
 }
 
-export function isAdminRoute(pathname: string): boolean {
-  return ADMIN_ROUTES.some((route) => pathname.startsWith(route))
-}
+export const isAdminRoute = (pathname: string): boolean => ADMIN_ROUTES.some((route) => pathname === route || pathname.startsWith(route + "/"))
 
-export function isApiRoute(pathname: string): boolean {
-  return API_ROUTES.some((route) => pathname.startsWith(route))
-}
+export const isApiRoute = (pathname: string): boolean => API_ROUTES.some((route) => pathname.startsWith(route))
+

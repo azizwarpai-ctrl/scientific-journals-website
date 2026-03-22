@@ -67,6 +67,19 @@ digitopub must explicitly command OJS where to redirect users after SSO interpol
 - All SSO redirects MUST contain the exact, fully qualified relative path to the journal (e.g. `redirect=/index.php/{journalPath}/submission/wizard`).
 - The system must not rely on the existing OJS session context to guess the user's intended destination. OJS sessions can be multi-journal or cross-journal, meaning any missing redirect instructions will land the user in their previously active journal context.
 
+### Multi-Journal Session Behavior
+- OJS maintains a **single session** across all journals on the same domain (submitmanager.com).
+- When a user logs in via SSO, the OJS session is **not scoped** to a specific journal — it is domain-wide.
+- If no explicit `redirect` parameter is provided during SSO, the user will land on the OJS site-level dashboard (`/index.php/index/login`), NOT on any specific journal's submission wizard.
+- This prevents cross-journal leakage where a user intending to submit to journal A is accidentally routed to journal B.
+
+### Admin Verification Flow
+- The admin OTP verification flow (`verify-code-form.tsx`) is strictly for admin users.
+- After successful OTP verification, admin users MUST be redirected to `/admin`, NOT to any OJS endpoint.
+- The `/admin` endpoint requires token validation middleware (e.g., JWT auth) and must never be marked public.
+- Any routing/route-config functions or constants that register `/admin` (referenced in `verify-code-form.tsx`) must enforce auth guarding and fail CI/validation if declared public or unguarded.
+- The admin authentication system has no relationship to the OJS public user system.
+
 ## SSO Behavior
 
 Two flows exist:
@@ -81,4 +94,4 @@ digitopub MUST NOT:
 - check session
 - require login
 - intercept submission
-...
+

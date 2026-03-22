@@ -25,7 +25,6 @@ import {
 import { useVerifyCode } from "@/src/features/auth/api/use-verify-code"
 import { useResendCode } from "@/src/features/auth/api/use-resend-code"
 import { verifyCodeSchema, type VerifyCodeInput } from "@/src/features/auth/schemas/auth-schema"
-import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
 
 interface VerifyCodeFormProps {
   email: string;
@@ -38,7 +37,6 @@ export function VerifyCodeForm({ email }: VerifyCodeFormProps) {
 
   const verifyMutation = useVerifyCode()
   const resendMutation = useResendCode()
-  const selectedJournalPath = useRegistrationStore(state => state.selectedJournalPath)
 
   const form = useForm<VerifyCodeInput>({
     resolver: zodResolver(verifyCodeSchema),
@@ -58,11 +56,7 @@ export function VerifyCodeForm({ email }: VerifyCodeFormProps) {
     setSuccessMessage(null)
     verifyMutation.mutate(data, {
       onSuccess: () => {
-        const targetUrl = selectedJournalPath 
-          ? `/api/ojs/sso/redirect?journalPath=${encodeURIComponent(selectedJournalPath)}`
-          : `/api/ojs/sso/redirect`
-        
-        router.push(targetUrl)
+        router.push("/admin")
         router.refresh()
       },
       onError: (error) => {

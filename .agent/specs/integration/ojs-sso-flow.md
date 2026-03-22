@@ -24,6 +24,24 @@ The SSO mechanism is designed ONLY for **Just-In-Time (JIT) Handover** immediate
 - It makes a synchronous internal HTTPS cURL request back to `digitopub` at `GET /api/ojs/sso/validate?token=...`.
 - If the token is valid, `sso_login.php` explicitly logs the user into the OJS session framework and redirects to the exact `redirect` destination.
 
+### Required Redirect Format
+- **Pattern:** `/index.php/{journalPath}/submission/wizard`
+- **journalPath:** Must correspond to a valid journal `path` column in the OJS `journals` table.
+- The `redirect` parameter MUST be URL-encoded when appended to the `sso_login.php` query string.
+
+### Fallback Behavior
+- If `redirect` is missing or empty, `sso_login.php` defaults to `/index.php/index/login` (OJS dashboard).
+- It MUST NOT default to a submission wizard path, as this would cause cross-journal leakage.
+- Missing redirect parameters are logged as warnings for debugging.
+
+### journalPath Handling
+- The `journalPath` must be passed through the entire registration chain:
+  1. Frontend registration wizard → `POST /api/ojs/register?journalPath=X`
+  2. `provision-route.ts` → reads from query string → passes to `ojs-user-bridge.php`
+  3. `provision-route.ts` → constructs SSO URL with `redirect=/index.php/{journalPath}/submission/wizard`
+  4. `sso_login.php` → reads `redirect` parameter → redirects after login
+
 ## 5. Returning User Flow
 - digitopub plays **zero** role in returning user authentication.
 - Returning users are directed via standard hyperlinks to OJS. OJS handles any necessary login prompts.
+
