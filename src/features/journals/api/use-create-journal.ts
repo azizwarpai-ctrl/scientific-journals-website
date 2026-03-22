@@ -11,11 +11,11 @@ export function useCreateJournal() {
             const response = await client.journals.index.$post({
                 json: input,
             })
-            const data = await response.json()
+            const data = await response.json() as JournalResponse
             if (!response.ok) {
-                throw new Error((data as any).error || "Failed to create journal")
+                throw new Error(data.error || "Failed to create journal")
             }
-            return data as JournalResponse
+            return data
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["journals"] })

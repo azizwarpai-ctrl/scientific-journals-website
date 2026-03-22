@@ -26,6 +26,8 @@ export function AdminHeader() {
     }
   }, [isError, router])
 
+  if (isError) return null
+
   const getInitials = (name: string | null) => {
     if (!name) return "A"
     return name

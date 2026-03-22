@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
+import { Prisma } from "@prisma/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookOpen, FileText, Eye, TrendingUp, Users, CheckCircle2, Clock, XCircle } from "lucide-react"
 import { STATUS_STYLES } from "@/src/lib/utils"
@@ -154,7 +155,7 @@ export default async function AdminDashboardPage() {
         <CardContent>
           {recentSubmissions && recentSubmissions.length > 0 ? (
             <div className="space-y-4">
-              {recentSubmissions.map((submission: any) => {
+              {recentSubmissions.map((submission: Prisma.SubmissionGetPayload<{ include: { journal: { select: { title: true } } } }>) => {
                 const safeStatus = submission.status ?? "unknown"
                 return (
                 <div

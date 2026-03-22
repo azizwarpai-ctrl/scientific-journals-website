@@ -6,11 +6,11 @@ export function useLogout() {
     return useMutation({
         mutationFn: async (): Promise<AuthResponse> => {
             const response = await client.auth.logout.$post()
-            const data = await response.json()
+            const data = await response.json() as AuthResponse
             if (!response.ok) {
-                throw new Error((data as any).error || "Logout failed")
+                throw new Error(data.error || "Logout failed")
             }
-            return data as AuthResponse
+            return data
         },
     })
 }

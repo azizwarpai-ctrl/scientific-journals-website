@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
+import { Prisma } from "@prisma/client"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Eye, FileText } from "lucide-react"
@@ -12,7 +13,7 @@ import { STATUS_STYLES } from "@/src/lib/utils"
 async function SubmissionsList({ searchParams }: { searchParams: { status?: string; search?: string } }) {
   const { status, search } = searchParams
 
-  const where: any = {}
+  const where: Prisma.SubmissionWhereInput = {}
 
   if (status && status !== "all") {
     where.status = status
@@ -26,7 +27,18 @@ async function SubmissionsList({ searchParams }: { searchParams: { status?: stri
     ]
   }
 
-  let submissions: any[] = []
+  type SubmissionWithJournal = Prisma.SubmissionGetPayload<{
+    include: {
+      journal: {
+        select: {
+          title: true,
+          field: true
+        }
+      }
+    }
+  }>
+
+  let submissions: SubmissionWithJournal[] = []
   let error: Error | null = null
 
   try {
@@ -59,7 +71,7 @@ async function SubmissionsList({ searchParams }: { searchParams: { status?: stri
 
         {submissions && submissions.length > 0 ? (
           <div className="divide-y">
-            {submissions.map((submission: any) => {
+            {submissions.map((submission: SubmissionWithJournal) => {
               const safeStatus = submission.status ?? "unknown"
               return (
               <div key={submission.id} className="p-4 hover:bg-muted/50 transition-colors">
@@ -84,9 +96,9 @@ async function SubmissionsList({ searchParams }: { searchParams: { status?: stri
                       </span>
                     </div>
 
-                    {submission.keywords && submission.keywords.length > 0 && (
+                    {submission.keywords && Array.isArray(submission.keywords) && (submission.keywords as string[]).length > 0 && (
                       <div className="flex flex-wrap gap-2">
-                        {submission.keywords.slice(0, 3).map((keyword: string, idx: number) => (
+                        {(submission.keywords as string[]).slice(0, 3).map((keyword: string, idx: number) => (
                           <span
                             key={idx}
                             className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium"

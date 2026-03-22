@@ -10,15 +10,15 @@ export const useGetFaqs = () => {
             const response = await client.solutions.index.$get()
 
             if (!response.ok) {
-                const error = await response.json()
-                throw new Error((error as any).error || "Failed to fetch FAQs")
+                const error = await response.json() as { error?: string }
+                throw new Error(error.error || "Failed to fetch FAQs")
             }
 
             const { data } = await response.json()
 
             return data as Solution[]
         },
-        staleTime: 10 * 60 * 1000,
+        staleTime: 5 * 60 * 1000,
         retry: 2,
     })
 

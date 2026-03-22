@@ -9,11 +9,11 @@ export function useRegister() {
             const response = await client.auth.register.$post({
                 json: input,
             })
-            const data = await response.json()
+            const data = await response.json() as AuthResponse
             if (!response.ok) {
-                throw new Error((data as any).error || "Registration failed")
+                throw new Error(data.error || "Registration failed")
             }
-            return data as AuthResponse
+            return data
         },
     })
 }
