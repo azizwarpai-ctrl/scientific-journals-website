@@ -1,10 +1,10 @@
 declare module 'nodemailer' {
   export interface Transporter {
-    sendMail(mailOptions: any, callback?: (err: Error | null, info: any) => void): Promise<any>;
-    [key: string]: any;
+    sendMail(mailOptions: Record<string, unknown>, callback?: (err: Error | null, info: unknown) => void): Promise<unknown>;
+    [key: string]: unknown;
   }
   
-  export function createTransport(options: any): Transporter;
+  export function createTransport(options: Record<string, unknown>): Transporter;
   
   const nodemailer: {
     createTransport: typeof createTransport;

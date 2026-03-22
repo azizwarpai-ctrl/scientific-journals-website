@@ -4,6 +4,14 @@ import { prisma } from "@/src/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookOpen, FileText, Eye, TrendingUp, Users, CheckCircle2, Clock, XCircle } from "lucide-react"
 
+const STATUS_STYLES: Record<string, string> = {
+  submitted: "bg-primary/10 text-primary",
+  under_review: "bg-secondary/10 text-secondary",
+  revision_required: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  accepted: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  rejected: "bg-destructive/10 text-destructive",
+}
+
 export default async function AdminDashboardPage() {
   const user = await getSession()
 
@@ -64,57 +72,57 @@ export default async function AdminDashboardPage() {
       title: "Total Journals",
       value: Number(stats.journals_count) || 0,
       icon: BookOpen,
-      color: "text-blue-600 dark:text-blue-400",
-      bgColor: "bg-blue-100 dark:bg-blue-900/20",
+      color: "text-primary",
+      bgColor: "bg-primary/20",
     },
     {
       title: "Total Submissions",
       value: Number(stats.submissions_count) || 0,
       icon: FileText,
-      color: "text-purple-600 dark:text-purple-400",
-      bgColor: "bg-purple-100 dark:bg-purple-900/20",
+      color: "text-secondary",
+      bgColor: "bg-secondary/20",
     },
     {
       title: "Under Review",
       value: Number(stats.under_review_count) || 0,
       icon: Clock,
-      color: "text-secondary dark:text-secondary-foreground",
-      bgColor: "bg-secondary/10 dark:bg-secondary/20",
+      color: "text-muted-foreground",
+      bgColor: "bg-muted",
     },
     {
       title: "Pending Reviews",
       value: Number(stats.pending_reviews_count) || 0,
       icon: Eye,
-      color: "text-yellow-600 dark:text-yellow-400",
-      bgColor: "bg-yellow-100 dark:bg-yellow-900/20",
+      color: "text-amber-600 dark:text-amber-400",
+      bgColor: "bg-amber-500/20",
     },
     {
       title: "Accepted",
       value: Number(stats.accepted_count) || 0,
       icon: CheckCircle2,
-      color: "text-green-600 dark:text-green-400",
-      bgColor: "bg-green-100 dark:bg-green-900/20",
+      color: "text-emerald-600 dark:text-emerald-400",
+      bgColor: "bg-emerald-500/20",
     },
     {
       title: "Rejected",
       value: Number(stats.rejected_count) || 0,
       icon: XCircle,
-      color: "text-red-600 dark:text-red-400",
-      bgColor: "bg-red-100 dark:bg-red-900/20",
+      color: "text-destructive",
+      bgColor: "bg-destructive/20",
     },
     {
       title: "Published Articles",
       value: Number(stats.published_articles_count) || 0,
       icon: TrendingUp,
-      color: "text-teal-600 dark:text-teal-400",
-      bgColor: "bg-teal-100 dark:bg-teal-900/20",
+      color: "text-sky-600 dark:text-sky-400",
+      bgColor: "bg-sky-500/20",
     },
     {
       title: "Total Authors",
       value: Number(stats.authors_count) || 0,
       icon: Users,
       color: "text-indigo-600 dark:text-indigo-400",
-      bgColor: "bg-indigo-100 dark:bg-indigo-900/20",
+      bgColor: "bg-indigo-500/20",
     },
   ]
 
@@ -166,14 +174,9 @@ export default async function AdminDashboardPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${submission.status === "submitted"
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
-                        : submission.status === "under_review"
-                          ? "bg-secondary/10 text-secondary dark:bg-secondary/20 dark:text-secondary-foreground"
-                          : submission.status === "accepted"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                            : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
-                        }`}
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        STATUS_STYLES[submission.status] || "bg-muted text-muted-foreground"
+                      }`}
                     >
                       {submission.status.replace("_", " ")}
                     </span>

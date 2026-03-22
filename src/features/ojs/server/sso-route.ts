@@ -49,7 +49,7 @@ ssoRouter.get("/validate", async (c) => {
             valid: true,
             email,
         })
-    } catch (err: any) {
+    } catch (err) {
         console.error("[OJS_SSO_VALIDATE_ERROR]", err)
         return c.json({ valid: false, error: "Validation failed" }, 500)
     }

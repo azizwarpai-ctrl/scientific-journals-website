@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { Bell } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -15,23 +15,17 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle"
 
 export function AdminHeader() {
-  const [adminUser, setAdminUser] = useState<{ full_name: string | null; email: string } | null>(null)
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await fetch("/api/auth/me")
-        if (response.ok) {
-          const data = await response.json()
-          setAdminUser(data.user)
-        }
-      } catch (error) {
-        console.error("Failed to fetch user:", error)
-      }
-    }
-
-    fetchUser()
-  }, [])
+  const { data: adminUser } = useQuery({
+    queryKey: ["adminUser"],
+    queryFn: async () => {
+      const response = await fetch("/api/auth/me")
+      if (!response.ok) throw new Error("Failed to fetch user")
+      const data = await response.json()
+      return data.user as { full_name: string | null; email: string }
+    },
+    staleTime: 5 * 60 * 1000, 
+    retry: false,
+  })
 
   const getInitials = (name: string | null) => {
     if (!name) return "A"

@@ -8,6 +8,14 @@ import Link from "next/link"
 import { SubmissionsFilter } from "@/components/submissions-filter"
 import { Suspense } from "react"
 
+const STATUS_STYLES: Record<string, string> = {
+  submitted: "bg-primary/10 text-primary",
+  under_review: "bg-secondary/10 text-secondary",
+  revision_required: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  accepted: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  rejected: "bg-destructive/10 text-destructive",
+}
+
 async function SubmissionsList({ searchParams }: { searchParams: { status?: string; search?: string } }) {
   const { status, search } = searchParams
 
@@ -97,18 +105,9 @@ async function SubmissionsList({ searchParams }: { searchParams: { status?: stri
 
                   <div className="flex flex-col items-end gap-3">
                     <span
-                      className={`inline-flex rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap ${submission.status === "submitted"
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
-                        : submission.status === "under_review"
-                          ? "bg-secondary/10 text-secondary dark:bg-secondary/20 dark:text-secondary-foreground"
-                          : submission.status === "revision_required"
-                            ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400"
-                            : submission.status === "accepted"
-                              ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                              : submission.status === "rejected"
-                                ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
-                                : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
-                        }`}
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap ${
+                        STATUS_STYLES[submission.status] || "bg-muted text-muted-foreground"
+                      }`}
                     >
                       {submission.status.replace("_", " ")}
                     </span>
@@ -191,7 +190,7 @@ export default async function SubmissionsPage({
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-muted-foreground">Submitted</div>
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{statusCounts.submitted}</div>
+            <div className="text-2xl font-bold text-primary">{statusCounts.submitted}</div>
           </CardContent>
         </Card>
         <Card>
@@ -203,7 +202,7 @@ export default async function SubmissionsPage({
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-muted-foreground">Revision Required</div>
-            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
               {statusCounts.revision_required}
             </div>
           </CardContent>
@@ -211,13 +210,13 @@ export default async function SubmissionsPage({
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-muted-foreground">Accepted</div>
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{statusCounts.accepted}</div>
+            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{statusCounts.accepted}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-muted-foreground">Rejected</div>
-            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{statusCounts.rejected}</div>
+            <div className="text-2xl font-bold text-destructive">{statusCounts.rejected}</div>
           </CardContent>
         </Card>
       </div>

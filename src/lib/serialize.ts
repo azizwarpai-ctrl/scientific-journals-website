@@ -18,18 +18,18 @@ export type Serialized<T> = T extends bigint
  * Serialize a single record, converting all BigInt values to strings.
  */
 export function serializeRecord<T>(record: T): Serialized<T> {
-    if (record === null || record === undefined) return record as any
+    if (record === null || record === undefined) return record as unknown as Serialized<T>
 
     if (typeof record === "bigint") {
-        return record.toString() as any
+        return record.toString() as unknown as Serialized<T>
     }
 
     if (Array.isArray(record)) {
-        return record.map(serializeRecord) as any
+        return record.map(serializeRecord) as unknown as Serialized<T>
     }
 
     if (record instanceof Date) {
-        return record as any
+        return record as unknown as Serialized<T>
     }
 
     // Handle Prisma Decimal type (has toNumber method)
@@ -37,20 +37,20 @@ export function serializeRecord<T>(record: T): Serialized<T> {
         typeof record === "object" &&
         record !== null &&
         "toNumber" in record &&
-        typeof (record as any).toNumber === "function"
+        typeof (record as { toNumber?: unknown }).toNumber === "function"
     ) {
-        return (record as any).toNumber() as any
+        return (record as { toNumber: () => number }).toNumber() as unknown as Serialized<T>
     }
 
-    if (typeof record === "object") {
-        const serialized: any = {}
-        for (const [key, value] of Object.entries(record)) {
+    if (typeof record === "object" && record !== null) {
+        const serialized: Record<string, unknown> = {}
+        for (const [key, value] of Object.entries(record as Record<string, unknown>)) {
             serialized[key] = serializeRecord(value)
         }
-        return serialized
+        return serialized as unknown as Serialized<T>
     }
 
-    return record as any
+    return record as unknown as Serialized<T>
 }
 
 /**

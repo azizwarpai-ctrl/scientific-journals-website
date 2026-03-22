@@ -67,7 +67,7 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
       email,
       message: "Registration successful. Redirecting to journal..."
     }, 201)
-  } catch (error: any) {
+  } catch (error) {
     console.error("Registration error:", error)
     return c.json({ success: false, error: "Registration failed" }, 500)
   }

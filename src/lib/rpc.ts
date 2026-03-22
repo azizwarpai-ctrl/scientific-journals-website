@@ -15,4 +15,5 @@ const baseUrl = typeof window !== "undefined"
  * See Hono Issue: https://github.com/honojs/hono/issues/ (Multiple reports on deep nesting)
  * TODO: Re-evaluate when upgrading Hono or if flattening the router structure.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const client = hc<AppType>(`${baseUrl}/api`) as any

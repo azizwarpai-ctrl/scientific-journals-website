@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
+import Image from "next/image"
 
 interface LoginFormProps {
   journalTitle?: string
@@ -53,15 +54,21 @@ export function LoginForm({ journalTitle, journalLogoUrl, returnUrl }: LoginForm
         <div className="mb-4 flex justify-center lg:hidden">
           {journalLogoUrl ? (
             <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg bg-white shadow-md">
-              <img 
+              <Image 
                 src={journalLogoUrl} 
                 alt={`${journalTitle} Logo`}
-                className="h-full w-full object-contain p-2"
+                fill
+                className="object-contain p-2"
               />
             </div>
           ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary">
-              <span className="font-mono text-2xl font-bold text-primary-foreground">dis</span>
+            <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-primary/10 to-secondary/10 p-2 shadow-sm border border-border/50">
+              <Image 
+                src="/icon.svg" 
+                alt="DigitoPub Logo"
+                fill
+                className="object-contain p-3"
+              />
             </div>
           )}
         </div>

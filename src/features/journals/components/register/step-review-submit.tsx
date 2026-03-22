@@ -40,8 +40,8 @@ export function StepReviewSubmit() {
 
       // Success logic: Redirect to a success page or dashboard
       window.location.href = "/journals/register/success"
-    } catch (error: any) {
-      setSubmissionError(error.message)
+    } catch (error) {
+      setSubmissionError(error instanceof Error ? error.message : String(error))
       setSubmitting(false)
     }
   }
