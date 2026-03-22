@@ -6,6 +6,7 @@ import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
 import { Target, Eye, Award, Globe, TrendingUp, BookOpen, Users, FileText, BarChart3, Loader2 } from "lucide-react"
 import { cn } from "@/src/lib/utils"
+import { GSAPWrapper } from "@/components/gsap-wrapper"
 
 import { useGetAboutContent } from "@/src/features/about"
 import { useGetPlatformStatistics } from "@/src/features/statistics"
@@ -237,223 +238,235 @@ export default function AboutPage() {
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="relative bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-16 md:py-24 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
-          <div className="container mx-auto px-4 md:px-6 relative">
-            <div className="mx-auto max-w-3xl text-center">
-              <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl text-balance">
-                {content.heroTitle}
-              </h1>
-              <p className="text-lg text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                {content.heroSubtitle}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Mission & Vision */}
-        <section className="py-16">
-          <div className="container mx-auto px-4 md:px-6">
-            <div className="grid gap-8 md:grid-cols-2">
-              <Card className="group hover:shadow-xl transition-all duration-500 border-border/50">
-                <CardContent className="pt-6">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 group-hover:scale-110 transition-transform duration-300">
-                    <Target className="h-6 w-6 text-primary" />
-                  </div>
-                  <h2 className="mb-3 text-2xl font-bold">Our Mission</h2>
-                  <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                    {content.missionText}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="group hover:shadow-xl transition-all duration-500 border-border/50">
-                <CardContent className="pt-6">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-secondary/10 group-hover:scale-110 transition-transform duration-300">
-                    <Eye className="h-6 w-6 text-secondary" />
-                  </div>
-                  <h2 className="mb-3 text-2xl font-bold">Our Vision</h2>
-                  <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                    {content.visionText}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
-
-        {/* About Content */}
-        <section className="bg-muted/30 py-16">
-          <div className="container mx-auto px-4 md:px-6">
-            <div className="mx-auto max-w-4xl">
-              <h2 className="mb-6 text-3xl font-bold">Who We Are</h2>
-              <div className="space-y-4 text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                {content.whoWeAreText}
+        <GSAPWrapper animation="fadeIn">
+          <section className="relative bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-16 md:py-24 overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
+            <div className="container mx-auto px-4 md:px-6 relative">
+              <div className="mx-auto max-w-3xl text-center">
+                <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl text-balance">
+                  {content.heroTitle}
+                </h1>
+                <p className="text-lg text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {content.heroSubtitle}
+                </p>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </GSAPWrapper>
 
-        {/* Values */}
-        <section className="py-16">
-          <div className="container mx-auto px-4 md:px-6">
-            <div className="mb-12 text-center">
-              <h2 className="mb-4 text-3xl font-bold md:text-4xl">Our Core Values</h2>
-              <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
-                Guided by principles that ensure the highest standards in scholarly publishing
-              </p>
-            </div>
-
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              {[
-                { icon: Globe, title: "Global Reach", desc: "Connecting researchers and institutions across 120+ countries worldwide", color: "primary" },
-                { icon: Award, title: "Quality", desc: "Adhering to rigorous COPE ethical standards and international publishing guidelines", color: "secondary" },
-                { icon: Target, title: "Transparency", desc: "Open processes and clear communication at every stage of publication", color: "primary" },
-                { icon: Eye, title: "Innovation", desc: "Leveraging cutting-edge technology to advance scholarly communication", color: "secondary" },
-              ].map((value) => (
-                <Card key={value.title} className="group hover:shadow-lg transition-all duration-300 border-border/50 hover:-translate-y-1">
-                  <CardContent className="pt-6 text-center">
-                    <div className="mb-4 flex justify-center">
-                      <div className={cn(
-                        "flex h-16 w-16 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110",
-                        value.color === "primary" ? "bg-primary/10" : "bg-secondary/10"
-                      )}>
-                        <value.icon className={cn(
-                          "h-8 w-8",
-                          value.color === "primary" ? "text-primary" : "text-secondary"
-                        )} />
-                      </div>
+        {/* Mission & Vision */}
+        <GSAPWrapper animation="slideUp" delay={0.2}>
+          <section className="py-16">
+            <div className="container mx-auto px-4 md:px-6">
+              <div className="grid gap-8 md:grid-cols-2">
+                <Card className="group hover:shadow-xl transition-all duration-500 border-border/50">
+                  <CardContent className="pt-6">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 group-hover:scale-110 transition-transform duration-300">
+                      <Target className="h-6 w-6 text-primary" />
                     </div>
-                    <h3 className="mb-2 font-semibold text-lg">{value.title}</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {value.desc}
+                    <h2 className="mb-3 text-2xl font-bold">Our Mission</h2>
+                    <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                      {content.missionText}
                     </p>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          </div>
-        </section>
 
-        {/* Enhanced Statistics Visualization */}
-        <section className="py-20 bg-gradient-to-b from-background via-muted/30 to-background">
-          <div className="container mx-auto px-4 md:px-6">
-            <div className="mb-12 text-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
-                <BarChart3 className="h-4 w-4" />
-                Platform Analytics
-              </div>
-              <h2 className="mb-4 text-3xl font-bold md:text-4xl">Impact & Growth</h2>
-              <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
-                Measurable outcomes reflecting our commitment to advancing scholarly communication worldwide
-              </p>
-            </div>
-
-            {/* Key Metrics Grid */}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-12">
-              <StatCard 
-                icon={BookOpen} 
-                value={stats.totalJournals || 0}
-                label="Active Journals" 
-              />
-              <StatCard 
-                icon={FileText} 
-                value={stats.totalArticles || 0}
-                label="Published Articles" 
-              />
-              <StatCard 
-                icon={Users} 
-                value={stats.totalUsers || 0}
-                label="Active Researchers" 
-              />
-              <StatCard 
-                icon={Globe} 
-                value={stats.countriesCount || 0}
-                label="Countries Reached" 
-              />
-            </div>
-
-            {/* Detailed Analytics */}
-            <div className="grid gap-8 lg:grid-cols-3">
-              {/* Field Distribution */}
-              <Card className="lg:col-span-2 border-border/50">
-                <CardContent className="pt-6">
-                  <div className="mb-6 flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-bold">Journals by Field</h3>
-                      <p className="text-sm text-muted-foreground">Distribution across academic disciplines (Illustrative data)</p>
-                    </div>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                      <BookOpen className="h-5 w-5 text-primary" />
-                    </div>
-                  </div>
-                  <div className="space-y-5">
-                    {SAMPLE_FIELD_DISTRIBUTION.map((item) => (
-                      <MetricBar 
-                        key={item.field}
-                        label={item.field}
-                        value={item.count}
-                        max={item.total}
-                        color={item.color}
-                      />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-
-
-              <div className="space-y-6">
-                {/* Quality Metrics */}
-                <Card className="border-border/50">
+                <Card className="group hover:shadow-xl transition-all duration-500 border-border/50">
                   <CardContent className="pt-6">
-                    <div className="mb-4 flex items-center justify-between">
-                      <h3 className="text-lg font-bold">Quality Metrics</h3>
-                      <span className="text-[10px] uppercase tracking-wider font-bold bg-muted px-2 py-0.5 rounded text-muted-foreground">Sample Data</span>
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-secondary/10 group-hover:scale-110 transition-transform duration-300">
+                      <Eye className="h-6 w-6 text-secondary" />
                     </div>
-                    {qualityMetrics ? (
-                      <div className="grid grid-cols-2 gap-4">
-                        <RadialProgress 
-                          value={(qualityMetrics as QualityMetrics).acceptanceRate} 
-                          max={100} 
-                          label="Acceptance Rate" 
-                          sublabel="Industry avg: 30%"
-                          color="primary"
-                          size={100}
-                        />
-                        <RadialProgress 
-                          value={(qualityMetrics as QualityMetrics).avgReviewTime} 
-                          max={5} 
-                          label="Avg. Review Time" 
-                          sublabel="Weeks"
-                          color="secondary"
-                          size={100}
-                          unit="w"
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center p-6 text-sm text-muted-foreground">
-                        Metrics currently unavailable
-                      </div>
-                    )}
+                    <h2 className="mb-3 text-2xl font-bold">Our Vision</h2>
+                    <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                      {content.visionText}
+                    </p>
                   </CardContent>
                 </Card>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </GSAPWrapper>
 
-        {/* Visual Branding */}
-        <section className="bg-muted/30 py-16">
-          <div className="container mx-auto px-4 md:px-6">
-            <div className="mx-auto max-w-4xl">
-              <h2 className="mb-6 text-3xl font-bold">Our Brand Philosophy</h2>
-              <div className="space-y-4 text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                {content.brandPhilosophyText}
+        {/* About Content */}
+        <GSAPWrapper animation="slideUp" delay={0.3}>
+          <section className="bg-muted/30 py-16">
+            <div className="container mx-auto px-4 md:px-6">
+              <div className="mx-auto max-w-4xl">
+                <h2 className="mb-6 text-3xl font-bold">Who We Are</h2>
+                <div className="space-y-4 text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {content.whoWeAreText}
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </GSAPWrapper>
+
+        {/* Values */}
+        <GSAPWrapper animation="slideUp" delay={0.4}>
+          <section className="py-16">
+            <div className="container mx-auto px-4 md:px-6">
+              <div className="mb-12 text-center">
+                <h2 className="mb-4 text-3xl font-bold md:text-4xl">Our Core Values</h2>
+                <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
+                  Guided by principles that ensure the highest standards in scholarly publishing
+                </p>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                {[
+                  { icon: Globe, title: "Global Reach", desc: "Connecting researchers and institutions across 120+ countries worldwide", color: "primary" },
+                  { icon: Award, title: "Quality", desc: "Adhering to rigorous COPE ethical standards and international publishing guidelines", color: "secondary" },
+                  { icon: Target, title: "Transparency", desc: "Open processes and clear communication at every stage of publication", color: "primary" },
+                  { icon: Eye, title: "Innovation", desc: "Leveraging cutting-edge technology to advance scholarly communication", color: "secondary" },
+                ].map((value) => (
+                  <Card key={value.title} className="group hover:shadow-lg transition-all duration-300 border-border/50 hover:-translate-y-1">
+                    <CardContent className="pt-6 text-center">
+                      <div className="mb-4 flex justify-center">
+                        <div className={cn(
+                          "flex h-16 w-16 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110",
+                          value.color === "primary" ? "bg-primary/10" : "bg-secondary/10"
+                        )}>
+                          <value.icon className={cn(
+                            "h-8 w-8",
+                            value.color === "primary" ? "text-primary" : "text-secondary"
+                          )} />
+                        </div>
+                      </div>
+                      <h3 className="mb-2 font-semibold text-lg">{value.title}</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {value.desc}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </section>
+        </GSAPWrapper>
+
+        {/* Enhanced Statistics Visualization */}
+        <GSAPWrapper animation="fadeIn" delay={0.2}>
+          <section className="py-20 bg-gradient-to-b from-background via-muted/30 to-background">
+            <div className="container mx-auto px-4 md:px-6">
+              <div className="mb-12 text-center">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+                  <BarChart3 className="h-4 w-4" />
+                  Platform Analytics
+                </div>
+                <h2 className="mb-4 text-3xl font-bold md:text-4xl">Impact & Growth</h2>
+                <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
+                  Measurable outcomes reflecting our commitment to advancing scholarly communication worldwide
+                </p>
+              </div>
+
+              {/* Key Metrics Grid */}
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-12">
+                <StatCard 
+                  icon={BookOpen} 
+                  value={stats.totalJournals || 0}
+                  label="Active Journals" 
+                />
+                <StatCard 
+                  icon={FileText} 
+                  value={stats.totalArticles || 0}
+                  label="Published Articles" 
+                />
+                <StatCard 
+                  icon={Users} 
+                  value={stats.totalUsers || 0}
+                  label="Active Researchers" 
+                />
+                <StatCard 
+                  icon={Globe} 
+                  value={stats.countriesCount || 0}
+                  label="Countries Reached" 
+                />
+              </div>
+
+              {/* Detailed Analytics */}
+              <div className="grid gap-8 lg:grid-cols-3">
+                {/* Field Distribution */}
+                <Card className="lg:col-span-2 border-border/50">
+                  <CardContent className="pt-6">
+                    <div className="mb-6 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold">Journals by Field</h3>
+                        <p className="text-sm text-muted-foreground">Distribution across academic disciplines (Illustrative data)</p>
+                      </div>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <BookOpen className="h-5 w-5 text-primary" />
+                      </div>
+                    </div>
+                    <div className="space-y-5">
+                      {SAMPLE_FIELD_DISTRIBUTION.map((item) => (
+                        <MetricBar 
+                          key={item.field}
+                          label={item.field}
+                          value={item.count}
+                          max={item.total}
+                          color={item.color}
+                        />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+
+
+                <div className="space-y-6">
+                  {/* Quality Metrics */}
+                  <Card className="border-border/50">
+                    <CardContent className="pt-6">
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="text-lg font-bold">Quality Metrics</h3>
+                        <span className="text-[10px] uppercase tracking-wider font-bold bg-muted px-2 py-0.5 rounded text-muted-foreground">Sample Data</span>
+                      </div>
+                      {qualityMetrics ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          <RadialProgress 
+                            value={(qualityMetrics as QualityMetrics).acceptanceRate} 
+                            max={100} 
+                            label="Acceptance Rate" 
+                            sublabel="Industry avg: 30%"
+                            color="primary"
+                            size={100}
+                          />
+                          <RadialProgress 
+                            value={(qualityMetrics as QualityMetrics).avgReviewTime} 
+                            max={5} 
+                            label="Avg. Review Time" 
+                            sublabel="Weeks"
+                            color="secondary"
+                            size={100}
+                            unit="w"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center p-6 text-sm text-muted-foreground">
+                          Metrics currently unavailable
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </div>
+          </section>
+        </GSAPWrapper>
+
+        {/* Visual Branding */}
+        <GSAPWrapper animation="slideUp" delay={0.3}>
+          <section className="bg-muted/30 py-16">
+            <div className="container mx-auto px-4 md:px-6">
+              <div className="mx-auto max-w-4xl">
+                <h2 className="mb-6 text-3xl font-bold">Our Brand Philosophy</h2>
+                <div className="space-y-4 text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {content.brandPhilosophyText}
+                </div>
+              </div>
+            </div>
+          </section>
+        </GSAPWrapper>
       </main>
 
       <Footer />
