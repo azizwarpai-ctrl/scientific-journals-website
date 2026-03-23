@@ -77,8 +77,8 @@ export default function JournalDetailPage() {
   // Remove the old /api/ojs/sso/redirect local jump. Build pure URLs via direct reference or stateless form submit.
   const ojsBaseUrl = process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"
   const ojsDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
-  const directUrl = journal.ojs_path ? `${ojsDomain}/index.php/${journal.ojs_path}/submission/wizard` : null
-  
+  const directUrl = journal.ojs_path ? `${ojsDomain}/index.php/${journal.ojs_path}/submission` : null
+
   const BUTTON_FROSTED_STYLE = "rounded-full border-white/30 bg-white/15 text-white hover:bg-white/25 hover:text-white backdrop-blur-sm transition-colors"
 
   const renderSubmitButton = (buttonClass: string = "", variant: "default" | "outline" = "default", children: React.ReactNode) => {
@@ -321,7 +321,7 @@ export default function JournalDetailPage() {
                       className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white"
                       onClick={() => setActiveTab("author")}
                     >
-                        Guidelines <ChevronRight className="h-4 w-4" />
+                      Guidelines <ChevronRight className="h-4 w-4" />
                     </Button>
                     {journal.website_url && (
                       <Button variant="outline" className={`w-full justify-between ${BUTTON_FROSTED_STYLE}`} asChild>
