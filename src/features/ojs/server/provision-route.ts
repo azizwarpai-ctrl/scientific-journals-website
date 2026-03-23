@@ -55,7 +55,7 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
     const ssoReturnDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
     
     const journalPath = c.req.query("journalPath") || "" 
-    const afterLoginPath = journalPath ? `/index.php/${journalPath}/submission/wizard` : ""
+    const afterLoginPath = journalPath ? `/index.php/${journalPath}/submission` : ""
     const ssoUrl = `${ssoReturnDomain}/sso_login.php?token=${encodeURIComponent(token)}${afterLoginPath ? `&redirect=${encodeURIComponent(afterLoginPath)}` : ""}`
 
     console.log(`[OJS_PROVISION] Success for ${email}. Jumping to SSO.`)
