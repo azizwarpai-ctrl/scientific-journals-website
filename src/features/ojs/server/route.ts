@@ -10,11 +10,14 @@ import { provisionRouter } from "./provision-route"
 
 const app = new Hono()
 
+import type { z } from "zod"
+
 // ─── Simple In-Memory Cache (5 minutes TTL) ─────────────────────────
 const CACHE_TTL = 5 * 60 * 1000
+type CachedJournals = z.infer<typeof ojsJournalsResponseSchema> | null
 const cache = {
-    journals: { data: null as any, expiresAt: 0 },
-    stats: { data: null as any, expiresAt: 0 }
+    journals: { data: null as CachedJournals, expiresAt: 0 },
+    stats: { data: null as Record<string, unknown> | null, expiresAt: 0 }
 }
 
 // ─── Routes ──────────────────────────────────────────────────────────
