@@ -1,50 +1,56 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# DigitoPub Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Library-First Architecture
+- Features are organized under `src/features/{feature}/` with clear separation: server, api, hooks, components, schemas, types
+- Each feature must be self-contained and independently testable
+- Backend API follows Hono RPC pattern with proper validation
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. API Response Standardization
+- All API responses use standardized format: `{ success: true, data: ... }` or `{ success: false, error: "..." }`
+- BigInt fields MUST be serialized using `serializeRecord()` or `serializeMany()` before JSON responses
+- Pagination responses include: `{ data: [...], pagination: { page, limit, total, totalPages } }`
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Authentication & Authorization
+- digitopub.com owns admin authentication (JWT-based)
+- submitmanager.com (OJS) owns all public user identities
+- SSO flow: New users → provision + token → redirect; Returning users → direct OJS access
+- Middleware protects admin routes; Auth helpers: `requireAuth`, `requireAdmin`, `requireRole`
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Database Conventions
+- Prisma with MySQL; BigInt auto-increment IDs
+- All database operations use Prisma client from `lib/db/config.ts`
+- Auth uses `jose` library with JWT sessions from `lib/db/auth.ts`
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Testing Standards
+- Tests in `tests/` directory: unit tests for schemas/utilities, integration tests for API routes
+- Run with `bun run test`; Coverage with `bun run test:coverage`
+- Vitest with Node environment
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Additional Constraints
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### Technology Stack
+- Next.js 16, React 19, Prisma, MySQL, Hono, TanStack Query v5
+- Styling: Tailwind CSS 4 with Radix UI components
+- Path alias: `@/*` maps to project root, `@/src/*` to src directory
+- Validation: Zod v4 with `@hono/zod-validator`
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+### Environment Variables
+- Required: `DATABASE_URL`, `JWT_SECRET`, `NEXT_PUBLIC_APP_URL`, `ALLOWED_ORIGINS`
+- OJS Integration (optional): `OJS_DATABASE_*`, `OJS_BASE_URL`, `OJS_SYNC_ENABLED`
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Development Workflow
 
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+### Code Quality Gates
+- Run `bun run lint` and `bun run test` before commits
+- All BigInt fields must be serialized in API responses
+- Use existing component patterns from `components/ui/`
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+### Feature Implementation Pattern
+1. Define Zod schemas in `features/{feature}/schemas/`
+2. Create Hono routes in `features/{feature}/server/route.ts`
+3. Add TanStack Query hooks in `features/{feature}/api/`
+4. Compose routes in `src/server/app.ts`
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-03-23 | **Last Amended**: 2026-03-23
