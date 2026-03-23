@@ -54,7 +54,7 @@ export function AdminHeader() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2" disabled={isLoading || isError}>
+            <Button variant="ghost" className="flex items-center gap-2" disabled={isLoading}>
               {isLoading ? (
                 <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
               ) : (
