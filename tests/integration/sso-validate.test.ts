@@ -150,6 +150,7 @@ describe('SSO Validate Endpoint', () => {
 
             const body = await res.json()
             expect(body.valid).toBe(false)
+            expect(body.error).toBe('Invalid signature')
         })
     })
 
@@ -203,6 +204,7 @@ describe('SSO Validate Endpoint', () => {
 
             const body = await res.json()
             expect(body.valid).toBe(false)
+            expect(body.error).toBe('Missing token')
         })
     })
 })
