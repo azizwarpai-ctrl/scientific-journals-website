@@ -7,7 +7,7 @@ export const useUpdateAboutContent = () => {
 
     return useMutation({
         mutationFn: async (json: AboutContent) => {
-            const response = await client.about.$put({ json })
+            const response = await client.about.index.$put({ json })
             if (!response.ok) {
                 throw new Error("Failed to update about content")
             }

@@ -6,7 +6,7 @@ export const useGetAboutContent = () => {
     return useQuery({
         queryKey: ["about-content"],
         queryFn: async () => {
-            const response = await client.about.$get()
+            const response = await client.about.index.$get()
             if (!response.ok) {
                 throw new Error("Failed to fetch about content")
             }

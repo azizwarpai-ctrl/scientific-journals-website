@@ -13,7 +13,7 @@ export function useCreateEmailTemplate() {
 
   return useMutation({
     mutationFn: async ({ json }: { json: EmailTemplateCreate }) => {
-      const res = await client["email-templates"].$post({ json })
+      const res = await client["email-templates"].index.$post({ json })
       return parseRpcResponse(res, "Failed to create template")
     },
     onSuccess: () => {

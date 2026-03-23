@@ -67,7 +67,8 @@ export async function ojsQuery<T = RowDataPacket>(sql: string, params?: any[]): 
             conn = await getPool().getConnection()
             const [rows] = await conn.query<RowDataPacket[]>(sql, params)
             return rows as T[]
-        } catch (err: any) {
+        } catch (error) {
+            const err = error as any
             lastError = err
 
             const nonRetryable = [
@@ -103,7 +104,8 @@ async function checkDns(host: string): Promise<{ ok: boolean; addresses: string[
     try {
         const addresses = await dns.resolve4(host)
         return { ok: true, addresses, error: null }
-    } catch (err: any) {
+    } catch (error) {
+        const err = error as any
         return { ok: false, addresses: [], error: err.code === "ENOTFOUND" ? `Cannot resolve hostname "${host}"` : err.message }
     }
 }
@@ -160,7 +162,8 @@ export async function ojsHealthCheck(): Promise<{
         conn = await getPool().getConnection()
         await conn.query("SELECT 1")
         return { ok: true, configured: true, latencyMs: Date.now() - start, error: null }
-    } catch (err: any) {
+    } catch (error) {
+        const err = error as any
         return { ok: false, configured: true, latencyMs: Date.now() - start, error: err.message }
     } finally {
         if (conn) {
@@ -244,7 +247,8 @@ export async function provisionUser(payload: OjsUserProvisionData): Promise<{ su
                 throw new Error(`HTTP ${response.status}: ${errText}`);
             }
             return { success: true };
-        } catch (err: any) {
+        } catch (error) {
+            const err = error as any
             clearTimeout(timeoutId);
             lastError = err;
             

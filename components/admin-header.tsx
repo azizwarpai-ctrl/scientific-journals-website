@@ -1,7 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Bell } from "lucide-react"
+import { useGetAuthMe } from "@/src/features/auth"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -15,23 +17,16 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle"
 
 export function AdminHeader() {
-  const [adminUser, setAdminUser] = useState<{ full_name: string | null; email: string } | null>(null)
+  const router = useRouter()
+  const { data: adminUser, isLoading, isError } = useGetAuthMe()
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await fetch("/api/auth/me")
-        if (response.ok) {
-          const data = await response.json()
-          setAdminUser(data.user)
-        }
-      } catch (error) {
-        console.error("Failed to fetch user:", error)
-      }
+    if (isError) {
+      router.push("/admin/login")
     }
+  }, [isError, router])
 
-    fetchUser()
-  }, [])
+  if (isError) return null
 
   const getInitials = (name: string | null) => {
     if (!name) return "A"
@@ -59,11 +54,17 @@ export function AdminHeader() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>{getInitials(adminUser?.full_name || null)}</AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium">{adminUser?.full_name || adminUser?.email || "Admin"}</span>
+            <Button variant="ghost" className="flex items-center gap-2" disabled={isLoading}>
+              {isLoading ? (
+                <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+              ) : (
+                <>
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>{getInitials(adminUser?.full_name || null)}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium">{adminUser?.full_name || adminUser?.email || "Admin"}</span>
+                </>
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">

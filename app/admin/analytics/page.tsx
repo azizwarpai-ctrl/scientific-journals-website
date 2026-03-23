@@ -76,43 +76,43 @@ export default async function AnalyticsPage() {
       title: "Total Journals",
       value: journalsCount || 0,
       icon: BookOpen,
-      color: "text-blue-600 dark:text-blue-400",
-      bgColor: "bg-blue-100 dark:bg-blue-900/20",
+      color: "text-primary",
+      bgColor: "bg-primary/20",
     },
     {
       title: "Total Submissions",
       value: submissionsCount || 0,
       icon: FileText,
-      color: "text-purple-600 dark:text-purple-400",
-      bgColor: "bg-purple-100 dark:bg-purple-900/20",
+      color: "text-secondary",
+      bgColor: "bg-secondary/20",
     },
     {
       title: "Accepted Articles",
       value: acceptedCount || 0,
       icon: CheckCircle,
-      color: "text-green-600 dark:text-green-400",
-      bgColor: "bg-green-100 dark:bg-green-900/20",
+      color: "text-emerald-600 dark:text-emerald-400",
+      bgColor: "bg-emerald-500/20",
     },
     {
       title: "Published Articles",
       value: publishedCount || 0,
       icon: TrendingUp,
-      color: "text-secondary-foreground dark:text-secondary-foreground",
-      bgColor: "bg-secondary/10 dark:bg-secondary/20",
+      color: "text-sky-600 dark:text-sky-400",
+      bgColor: "bg-sky-500/20",
     },
     {
       title: "Total Reviews",
       value: reviewsCount || 0,
       icon: Eye,
-      color: "text-yellow-600 dark:text-yellow-400",
-      bgColor: "bg-yellow-100 dark:bg-yellow-900/20",
+      color: "text-amber-600 dark:text-amber-400",
+      bgColor: "bg-amber-500/20",
     },
     {
       title: "Acceptance Rate",
       value: `${acceptanceRate.toFixed(1)}%`,
       icon: TrendingUp,
       color: "text-teal-600 dark:text-teal-400",
-      bgColor: "bg-teal-100 dark:bg-teal-900/20",
+      bgColor: "bg-teal-500/20",
     },
   ]
 
@@ -183,15 +183,15 @@ export default async function AnalyticsPage() {
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm">Database Status</span>
-              <span className="text-sm font-medium text-green-600 dark:text-green-400">Operational</span>
+              <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Operational</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">Storage Status</span>
-              <span className="text-sm font-medium text-green-600 dark:text-green-400">Operational</span>
+              <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Operational</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">API Status</span>
-              <span className="text-sm font-medium text-green-600 dark:text-green-400">Operational</span>
+              <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Operational</span>
             </div>
           </CardContent>
         </Card>
