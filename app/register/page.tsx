@@ -35,7 +35,7 @@ export default function RegisterPage() {
                   <div className="mt-6 text-center text-sm">
                     <span className="text-muted-foreground">Already have an account? </span>
                     <Link
-                      href={process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"}
+                      href={`${process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"}/index.php/index/login`}
                       className="font-medium text-primary hover:underline"
                     >
                       Login on Submit Manager
