@@ -25,3 +25,6 @@ export const ojsJournalsResponseSchema = z.object({
 
 export type OjsJournal = z.infer<typeof ojsJournalSchema>
 export type OjsJournalsResponse = z.infer<typeof ojsJournalsResponseSchema>
+
+export const ojsStatsResponseSchema = z.record(z.string(), z.unknown())
+export type OjsStatsResponse = z.infer<typeof ojsStatsResponseSchema>
