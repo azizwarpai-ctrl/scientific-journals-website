@@ -20,12 +20,12 @@ The SSO mechanism is designed ONLY for **Just-In-Time (JIT) Handover** immediate
 ## 4. Consumption (`sso_login.php`)
 - `sso_login.php` resides on the OJS domain.
 - It receives the token via the URL query string.
-- It receives a `redirect` query parameter that MUST be strictly formatted as `/index.php/{journalPath}/submission/wizard`.
+- It receives a `redirect` query parameter that MUST be strictly formatted as `/index.php/{journalPath}/submission`.
 - It makes a synchronous internal HTTPS cURL request back to `digitopub` at `GET /api/ojs/sso/validate?token=...`.
 - If the token is valid, `sso_login.php` explicitly logs the user into the OJS session framework and redirects to the exact `redirect` destination.
 
 ### Required Redirect Format
-- **Pattern:** `/index.php/{journalPath}/submission/wizard`
+- **Pattern:** `/index.php/{journalPath}/submission`
 - **journalPath:** Must correspond to a valid journal `path` column in the OJS `journals` table.
 - The `redirect` parameter MUST be URL-encoded when appended to the `sso_login.php` query string.
 
@@ -38,7 +38,7 @@ The SSO mechanism is designed ONLY for **Just-In-Time (JIT) Handover** immediate
 - The `journalPath` must be passed through the entire registration chain:
   1. Frontend registration wizard → `POST /api/ojs/register?journalPath=X`
   2. `provision-route.ts` → reads from query string → passes to `ojs-user-bridge.php`
-  3. `provision-route.ts` → constructs SSO URL with `redirect=/index.php/{journalPath}/submission/wizard`
+  3. `provision-route.ts` → constructs SSO URL with `redirect=/index.php/{journalPath}/submission`
   4. `sso_login.php` → reads `redirect` parameter → redirects after login
 
 ## 5. Returning User Flow

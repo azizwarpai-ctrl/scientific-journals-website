@@ -8,6 +8,20 @@ import { createUser, verifyPassword, getUserById } from "@/src/lib/db/users"
 import { createSession, getSession, destroySession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
 
+/** Extended type for verification codes that includes custom lockout fields */
+interface VerificationCodeRecord {
+  id: bigint
+  user_id: bigint
+  email: string
+  code: string
+  used: boolean
+  expires_at: Date
+  created_at: Date
+  attempts: number | null
+  locked_until: Date | null
+  last_failed_at: Date | null
+}
+
 const app = new Hono()
 
 // POST /auth/login
@@ -92,7 +106,7 @@ app.post("/verify-code", zValidator("json", verifyCodeSchema), async (c) => {
         expires_at: { gt: new Date() },
       },
       orderBy: { created_at: "desc" },
-    }) as any
+    }) as VerificationCodeRecord | null
 
     if (!verificationCode) {
       return c.json({ success: false, error: "Invalid or expired verification code" }, 401)
@@ -128,7 +142,7 @@ app.post("/verify-code", zValidator("json", verifyCodeSchema), async (c) => {
           attempts: newAttempts,
           last_failed_at: new Date(),
           locked_until: lockoutTime,
-        } as any,
+        },
       })
 
       return c.json({ success: false, error: "Invalid or expired verification code" }, 401)

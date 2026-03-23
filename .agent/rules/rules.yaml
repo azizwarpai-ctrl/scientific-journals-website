@@ -20,7 +20,7 @@ rules:
     enforcement:
       - "Must not rely on existing OJS session context to decide where to route users."
       - "Must always pass `journalPath` in redirect queries."
-      - "Redirect format to submission wizard must strictly be `/index.php/{journalPath}/submission/wizard`."
+      - "Redirect format to submission must strictly be `/index.php/{journalPath}/submission`."
 
   - id: admin-redirect-isolation
     description: "Admin OTP verification must redirect to /admin, never to OJS endpoints."
@@ -37,5 +37,26 @@ rules:
     enforcement:
       - "sso_login.php must default redirect to `/index.php/index/login` when no redirect param is provided."
       - "Missing redirect parameters must be logged as warnings for debugging, but must redact or omit any query string, token, or sensitive parameter values."
-      - "Fallback must never land on a submission wizard to prevent cross-journal leakage."
+      - "Fallback must never land on a submission path to prevent cross-journal leakage."
 
+  - id: no-dead-public-routes
+    description: "Every entry in PUBLIC_ROUTES must have a corresponding page component."
+    strict: true
+    enforcement:
+      - "Each path in PUBLIC_ROUTES must map to an app/ directory page.tsx file."
+      - "Dead routes must be removed to prevent confusion."
+
+  - id: type-safety-no-any
+    description: "Prisma query results and API responses must not use `as any` casts."
+    strict: false
+    enforcement:
+      - "Use Prisma-generated types or explicit interfaces for all database query results."
+      - "Use Zod-inferred types for all API response parsing."
+
+  - id: monetization-isolation
+    description: "Payment and subscription logic must be isolated from auth and submission flows."
+    strict: true
+    enforcement:
+      - "Payment endpoints must use a separate feature module under src/features/billing/."
+      - "Subscription status must not gate OJS submission flow."
+      - "Payment state must not leak into SSO tokens or OJS provisioning."

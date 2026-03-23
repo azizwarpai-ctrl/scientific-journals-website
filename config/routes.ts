@@ -9,7 +9,6 @@ export const PUBLIC_ROUTES = [
   "/journals/[id]",
   "/solutions",
   "/submit-manager",
-  "/login",
   "/register",
   "/admin/login",
   "/admin/register",
