@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Hono } from 'hono'
 
 // ════════════════════════════════════════
@@ -27,7 +27,7 @@ import { provisionOjsUser } from '@/src/features/ojs/server/ojs-user-service'
 
 function createApp() {
     const app = new Hono()
-    app.route('/register', provisionRouter)
+    app.route('/ojs', provisionRouter)
     return app
 }
 
@@ -50,12 +50,18 @@ const validPayload = {
 
 describe('Provision Route (POST /ojs/register)', () => {
     let app: ReturnType<typeof createApp>
+    let originalEnv: NodeJS.ProcessEnv
 
     beforeEach(() => {
         vi.clearAllMocks()
+        originalEnv = { ...process.env }
         process.env.SSO_SECRET = TEST_SSO_SECRET
         process.env.OJS_BASE_URL = 'https://submitmanager.com'
         app = createApp()
+    })
+
+    afterEach(() => {
+        process.env = originalEnv
     })
 
     // ═══════════════════════════════════════
@@ -65,7 +71,7 @@ describe('Provision Route (POST /ojs/register)', () => {
         it('should return 201 with ssoUrl on successful provisioning', async () => {
             vi.mocked(provisionOjsUser).mockResolvedValue({ success: true })
 
-            const res = await app.request('/register/register?journalPath=testjournal', {
+            const res = await app.request('/ojs/register?journalPath=testjournal', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(validPayload),
@@ -83,7 +89,7 @@ describe('Provision Route (POST /ojs/register)', () => {
         it('should include explicit redirect to submission when journalPath is provided', async () => {
             vi.mocked(provisionOjsUser).mockResolvedValue({ success: true })
 
-            const res = await app.request('/register/register?journalPath=myjournal', {
+            const res = await app.request('/ojs/register?journalPath=myjournal', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(validPayload),
@@ -99,7 +105,7 @@ describe('Provision Route (POST /ojs/register)', () => {
         it('should fall back to /index.php/index/login when journalPath is empty', async () => {
             vi.mocked(provisionOjsUser).mockResolvedValue({ success: true })
 
-            const res = await app.request('/register/register', {
+            const res = await app.request('/ojs/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(validPayload),
@@ -117,39 +123,43 @@ describe('Provision Route (POST /ojs/register)', () => {
     // ═══════════════════════════════════════
     describe('Input validation', () => {
         it('should reject missing required fields', async () => {
-            const res = await app.request('/register/register', {
+            const res = await app.request('/ojs/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ firstName: 'Test' }),
             })
             expect(res.status).toBe(400)
+            expect(provisionOjsUser).not.toHaveBeenCalled()
         })
 
         it('should reject invalid email format', async () => {
-            const res = await app.request('/register/register', {
+            const res = await app.request('/ojs/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...validPayload, email: 'not-an-email' }),
             })
             expect(res.status).toBe(400)
+            expect(provisionOjsUser).not.toHaveBeenCalled()
         })
 
         it('should reject password shorter than 6 characters', async () => {
-            const res = await app.request('/register/register', {
+            const res = await app.request('/ojs/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...validPayload, password: '12345' }),
             })
             expect(res.status).toBe(400)
+            expect(provisionOjsUser).not.toHaveBeenCalled()
         })
 
         it('should reject without terms acceptance', async () => {
-            const res = await app.request('/register/register', {
+            const res = await app.request('/ojs/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...validPayload, termsOfService: false }),
             })
             expect(res.status).toBe(400)
+            expect(provisionOjsUser).not.toHaveBeenCalled()
         })
     })
 
@@ -163,7 +173,7 @@ describe('Provision Route (POST /ojs/register)', () => {
                 error: 'Email already exists in OJS',
             })
 
-            const res = await app.request('/register/register', {
+            const res = await app.request('/ojs/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(validPayload),
@@ -181,7 +191,7 @@ describe('Provision Route (POST /ojs/register)', () => {
                 error: 'Database connection timeout',
             })
 
-            const res = await app.request('/register/register', {
+            const res = await app.request('/ojs/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(validPayload),
@@ -199,7 +209,7 @@ describe('Provision Route (POST /ojs/register)', () => {
                 error: 'Unique constraint violation on email',
             })
 
-            const res = await app.request('/register/register', {
+            const res = await app.request('/ojs/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(validPayload),
@@ -218,7 +228,7 @@ describe('Provision Route (POST /ojs/register)', () => {
         it('should generate a properly structured HMAC token in the ssoUrl', async () => {
             vi.mocked(provisionOjsUser).mockResolvedValue({ success: true })
 
-            const res = await app.request('/register/register?journalPath=test', {
+            const res = await app.request('/ojs/register?journalPath=test', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(validPayload),

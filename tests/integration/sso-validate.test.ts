@@ -58,16 +58,22 @@ describe('SSO Validate Endpoint', () => {
             expect(body.email).toBe('researcher@university.edu')
         })
 
-        it('should accept a token created just under 5 minutes ago', async () => {
-            const fourMinutesAgo = Date.now() - (4 * 60 * 1000)
-            const token = createValidToken('recent@test.com', fourMinutesAgo)
+        it('should accept a token created exactly 5 minutes ago', async () => {
+            vi.useFakeTimers()
+            const now = Date.now()
+            vi.setSystemTime(now)
+            
+            const exactlyFiveMinutesAgo = now - (5 * 60 * 1000)
+            const token = createValidToken('boundary@test.com', exactlyFiveMinutesAgo)
 
             const res = await app.request(`/sso/validate?token=${encodeURIComponent(token)}`)
             expect(res.status).toBe(200)
 
             const body = await res.json()
             expect(body.valid).toBe(true)
-            expect(body.email).toBe('recent@test.com')
+            expect(body.email).toBe('boundary@test.com')
+            
+            vi.useRealTimers()
         })
     })
 
@@ -85,6 +91,24 @@ describe('SSO Validate Endpoint', () => {
             const body = await res.json()
             expect(body.valid).toBe(false)
             expect(body.error).toBe('Token expired')
+        })
+
+        it('should reject a token just over 5 minutes old', async () => {
+            vi.useFakeTimers()
+            const now = Date.now()
+            vi.setSystemTime(now)
+            
+            const justOverFiveMinutesAgo = now - (5 * 60 * 1000) - 1
+            const token = createValidToken('boundary_expired@test.com', justOverFiveMinutesAgo)
+
+            const res = await app.request(`/sso/validate?token=${encodeURIComponent(token)}`)
+            expect(res.status).toBe(410)
+
+            const body = await res.json()
+            expect(body.valid).toBe(false)
+            expect(body.error).toBe('Token expired')
+            
+            vi.useRealTimers()
         })
 
         it('should reject a token from 1 hour ago', async () => {
