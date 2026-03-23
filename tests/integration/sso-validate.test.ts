@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Hono } from 'hono'
 import crypto from 'crypto'
 
@@ -43,6 +43,10 @@ describe('SSO Validate Endpoint', () => {
         app = createApp()
     })
 
+    afterEach(() => {
+        vi.useRealTimers()
+    })
+
     // ═══════════════════════════════════════
     // VALID TOKEN
     // ═══════════════════════════════════════
@@ -72,8 +76,6 @@ describe('SSO Validate Endpoint', () => {
             const body = await res.json()
             expect(body.valid).toBe(true)
             expect(body.email).toBe('boundary@test.com')
-            
-            vi.useRealTimers()
         })
     })
 
@@ -107,8 +109,6 @@ describe('SSO Validate Endpoint', () => {
             const body = await res.json()
             expect(body.valid).toBe(false)
             expect(body.error).toBe('Token expired')
-            
-            vi.useRealTimers()
         })
 
         it('should reject a token from 1 hour ago', async () => {
