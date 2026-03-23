@@ -1,26 +1,13 @@
 import { Hono } from "hono"
 import { ojsJournalsResponseSchema } from "../schemas/ojs-schema"
-import type { OjsJournal } from "../schemas/ojs-schema"
-import { mapOjsJournalRow } from "./ojs-mappers"
-import { ojsQuery, isOjsConfigured, ojsHealthCheck } from "./ojs-client"
+import { isOjsConfigured, ojsHealthCheck } from "./ojs-client"
 import { syncOjsJournals } from "./sync-ojs-journals"
 import { fetchFromDatabase } from "./ojs-service"
 import { ssoRouter } from "./sso-route"
+import { ojsCache, CACHE_TTL } from "./ojs-cache"
 import { provisionRouter } from "./provision-route"
 
 const app = new Hono()
-
-import type { z } from "zod"
-
-// ─── Simple In-Memory Cache (5 minutes TTL) ─────────────────────────
-const CACHE_TTL = 5 * 60 * 1000
-type CachedJournals = z.infer<typeof ojsJournalsResponseSchema> | null
-const cache = {
-    journals: { data: null as CachedJournals, expiresAt: 0 },
-    stats: { data: null as Record<string, unknown> | null, expiresAt: 0 }
-}
-
-// ─── Routes ──────────────────────────────────────────────────────────
 
 // GET /ojs/journals
 app.get("/journals", async (c) => {
@@ -31,8 +18,8 @@ app.get("/journals", async (c) => {
 
         const start = Date.now()
 
-        if (cache.journals.data && Date.now() < cache.journals.expiresAt) {
-            return c.json({ ...cache.journals.data, latencyMs: Date.now() - start }, 200)
+        if (ojsCache.journals.data && Date.now() < ojsCache.journals.expiresAt) {
+            return c.json({ ...ojsCache.journals.data, latencyMs: Date.now() - start }, 200)
         }
 
         const journals = await fetchFromDatabase()
@@ -48,7 +35,7 @@ app.get("/journals", async (c) => {
         }
 
         const validatedData = validated.data
-        cache.journals = {
+        ojsCache.journals = {
             data: validatedData,
             expiresAt: Date.now() + CACHE_TTL
         }
@@ -83,7 +70,7 @@ app.get("/sync", async (c) => {
         // Sync everything, including disabled journals, so they get marked inactive
         const journals = await fetchFromDatabase(true)
         const result = await syncOjsJournals(journals)
-        
+
         const success = result.errors === 0
         const status = success ? 200 : 207
 
