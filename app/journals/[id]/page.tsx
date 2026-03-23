@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
+import { useState } from "react"
+import Link from "next/link"
+import Image from "next/image"
 import {
   BookOpen,
   Info,
@@ -17,19 +17,26 @@ import {
   Send,
   User,
   Building,
-} from "lucide-react";
+  ArrowRight,
+  Database,
+  Eye,
+  Scale,
+  CheckCircle2,
+} from "lucide-react"
 
 
 import { useGetJournal, useJournalId } from "@/src/features/journals"
 
-import { JournalDetailSkeleton } from "@/components/skeletons/journal-detail-skeleton";
-import { JournalError } from "@/components/errors/error-states";
-import { JournalNotFound } from "@/components/states/not-found-states";
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { JournalDetailSkeleton } from "@/components/skeletons/journal-detail-skeleton"
+import { JournalError } from "@/components/errors/error-states"
+import { JournalNotFound } from "@/components/states/not-found-states"
+import { Navbar } from "@/components/navbar"
+import { Footer } from "@/components/footer"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/src/lib/utils"
 
 export default function JournalDetailPage() {
   const id = useJournalId()
@@ -74,12 +81,9 @@ export default function JournalDetailPage() {
     )
   }
 
-  // Remove the old /api/ojs/sso/redirect local jump. Build pure URLs via direct reference or stateless form submit.
   const ojsBaseUrl = process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"
   const ojsDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
   const directUrl = journal.ojs_path ? `${ojsDomain}/index.php/${journal.ojs_path}/submission` : null
-
-  const BUTTON_FROSTED_STYLE = "rounded-full border-white/30 bg-white/15 text-white hover:bg-white/25 hover:text-white backdrop-blur-sm transition-colors"
 
   const renderSubmitButton = (buttonClass: string = "", variant: "default" | "outline" = "default", children: React.ReactNode) => {
     if (!directUrl || !journal.ojs_path) return null;
@@ -98,83 +102,131 @@ export default function JournalDetailPage() {
       <Navbar />
 
       <main className="flex-1">
-        {/* Hero Section — Compact: Cover + Title + Metadata + Actions */}
-        <section className="relative overflow-hidden bg-slate-900 py-12 text-white md:py-16">
+        {/* Hero Section - Professional Academic Design */}
+        <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+          {/* Animated Background Pattern */}
           <div className="absolute inset-0 z-0">
             {journal.cover_image_url && (
               <Image
                 src={journal.cover_image_url}
                 alt=""
                 fill
-                className="object-cover opacity-10 blur-md"
+                className="object-cover opacity-5 blur-2xl"
                 priority
               />
             )}
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/90 to-slate-950/70" />
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/95 to-slate-950/90" />
+            {/* Subtle Grid Pattern */}
+            <div className="absolute inset-0 opacity-[0.03]" style={{
+              backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+              backgroundSize: '40px 40px'
+            }} />
           </div>
 
-          <div className="container relative z-10 mx-auto px-4 md:px-6">
-            <div className="grid gap-8 md:grid-cols-[auto_1fr] md:items-start">
-              {/* Cover Image — Fixed size, not dominant */}
-              <div className="mx-auto w-48 flex-shrink-0 overflow-hidden rounded-lg shadow-2xl md:mx-0 md:w-56">
-                <Image
-                  src={journal.cover_image_url || "/images/logodigitopub.png"}
-                  alt={journal.title}
-                  width={224}
-                  height={312}
-                  className="h-auto w-full object-cover"
-                />
+          <div className="container relative z-10 mx-auto px-4 md:px-6 py-12 md:py-16">
+            <div className="grid gap-10 md:grid-cols-[240px_1fr] md:items-start lg:gap-16">
+              {/* Cover Image - Refined Display */}
+              <div className="mx-auto w-40 md:mx-0 md:w-48 lg:w-56 flex-shrink-0">
+                <div className="relative group">
+                  <div className="absolute -inset-1 bg-gradient-to-br from-primary/30 via-primary/10 to-transparent rounded-xl blur-lg opacity-50 group-hover:opacity-75 transition-opacity duration-500" />
+                  <div className="relative rounded-xl overflow-hidden shadow-2xl shadow-black/30 ring-1 ring-white/10">
+                    <Image
+                      src={journal.cover_image_url || "/images/logodigitopub.png"}
+                      alt={journal.title}
+                      width={224}
+                      height={312}
+                      className="h-auto w-full object-cover"
+                      priority
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* Title + Metadata Badges + Actions */}
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-block rounded-full bg-primary/20 px-3 py-1 text-xs font-semibold text-primary backdrop-blur-sm">
-                    {journal.field}
-                  </span>
-                  <span className="inline-block rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80 backdrop-blur-sm">
-                    {journal.issn || journal.e_issn || "ISSN Currently unavailable"}
-                  </span>
+              {/* Title + Metadata + Actions */}
+              <div className="space-y-6">
+                {/* Badges */}
+                <div className="flex flex-wrap gap-2.5">
+                  {journal.field && (
+                    <Badge variant="secondary" className="bg-white/10 text-white border-white/20 backdrop-blur-sm px-3.5 py-1.5 text-xs font-semibold">
+                      <Globe className="mr-1.5 h-3 w-3" />
+                      {journal.field}
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="border-white/20 text-white/80 bg-white/5 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium">
+                    <Database className="mr-1.5 h-3 w-3" />
+                    {journal.issn || journal.e_issn || "ISSN Coming Soon"}
+                  </Badge>
+                  <Badge variant="outline" className="border-white/20 text-white/80 bg-white/5 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium">
+                    <Eye className="mr-1.5 h-3 w-3" />
+                    Open Access
+                  </Badge>
                 </div>
-                <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl md:text-4xl text-balance leading-tight">
+
+                {/* Title */}
+                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-balance leading-tight">
                   {journal.title}
                 </h1>
 
-                {/* Compact metadata row */}
-                <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
+                {/* Metadata Row - Clean Display */}
+                <div className="flex flex-wrap gap-x-8 gap-y-3 text-sm text-slate-300">
                   {journal.publisher && (
-                    <span className="flex items-center gap-1.5">
-                      <Building className="h-3.5 w-3.5 opacity-70" /> {journal.publisher}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-md bg-white/5">
+                        <Building className="h-4 w-4 text-primary/80" />
+                      </div>
+                      <div>
+                        <span className="text-xs text-slate-500 block">Publisher</span>
+                        <span className="font-medium text-slate-200">{journal.publisher}</span>
+                      </div>
+                    </div>
                   )}
                   {journal.editor_in_chief && (
-                    <span className="flex items-center gap-1.5">
-                      <User className="h-3.5 w-3.5 opacity-70" /> {journal.editor_in_chief}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-md bg-white/5">
+                        <User className="h-4 w-4 text-primary/80" />
+                      </div>
+                      <div>
+                        <span className="text-xs text-slate-500 block">Editor-in-Chief</span>
+                        <span className="font-medium text-slate-200">{journal.editor_in_chief}</span>
+                      </div>
+                    </div>
                   )}
                   {journal.frequency && (
-                    <span className="flex items-center gap-1.5">
-                      <Calendar className="h-3.5 w-3.5 opacity-70" /> {journal.frequency}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-md bg-white/5">
+                        <Calendar className="h-4 w-4 text-primary/80" />
+                      </div>
+                      <div>
+                        <span className="text-xs text-slate-500 block">Frequency</span>
+                        <span className="font-medium text-slate-200">{journal.frequency}</span>
+                      </div>
+                    </div>
                   )}
                 </div>
 
-                {/* Action buttons */}
+                {/* Action Buttons */}
                 <div className="flex flex-wrap gap-3 pt-2">
                   {renderSubmitButton(
-                    "rounded-full px-8 shadow-lg shadow-primary/20",
+                    "rounded-lg px-6 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30",
                     "default",
-                    <><Send className="mr-2 h-4 w-4" /> Submit Manuscript</>
+                    <>
+                      <span className="flex items-center gap-2">
+                        <Send className="h-4 w-4" />
+                        <span>Submit Manuscript</span>
+                      </span>
+                      <ArrowRight className="h-4 w-4 ml-1" />
+                    </>
                   )}
                   {journal.website_url && (
                     <Button
                       size="lg"
                       variant="outline"
-                      className={BUTTON_FROSTED_STYLE}
+                      className="rounded-lg border-white/20 text-white hover:bg-white/10 hover:border-white/30 bg-white/5 backdrop-blur-sm"
                       asChild
                     >
                       <Link href={journal.website_url} target="_blank" rel="noopener noreferrer">
-                        Official Website <ExternalLink className="ml-2 h-4 w-4" />
+                        <span>Visit Website</span>
+                        <ExternalLink className="ml-2 h-4 w-4" />
                       </Link>
                     </Button>
                   )}
@@ -185,163 +237,297 @@ export default function JournalDetailPage() {
         </section>
 
         {/* Content Section */}
-        <section className="py-12 md:py-20 lg:py-24">
+        <section className="py-10 md:py-14 lg:py-16">
           <div className="container mx-auto px-4 md:px-6">
-            <div className="grid gap-12 lg:grid-cols-3">
-              <div className="lg:col-span-2">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-                  <TabsList className="inline-flex h-auto w-full justify-start gap-4 bg-transparent p-0 border-b">
+            <div className="grid gap-10 lg:grid-cols-3">
+              <div className="lg:col-span-2 space-y-8">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <TabsList className="inline-flex h-auto w-full justify-start gap-1 bg-transparent p-0 border-b border-border rounded-none">
                     <TabsTrigger
                       value="about"
-                      className="rounded-none border-b-2 border-transparent px-2 py-3 text-base font-semibold data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
+                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
                     >
+                      <BookOpen className="mr-2 h-4 w-4" />
                       About Journal
                     </TabsTrigger>
                     <TabsTrigger
                       value="scope"
-                      className="rounded-none border-b-2 border-transparent px-2 py-3 text-base font-semibold data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
+                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
                     >
+                      <Scale className="mr-2 h-4 w-4" />
                       Aims & Scope
                     </TabsTrigger>
                     <TabsTrigger
                       value="author"
-                      className="rounded-none border-b-2 border-transparent px-2 py-3 text-base font-semibold data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
+                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
                     >
+                      <FileText className="mr-2 h-4 w-4" />
                       Author Guidelines
                     </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="about" className="space-y-12">
-                    {/* Full description — Only shown here, not in the hero */}
-                    <div className="prose prose-slate max-w-none dark:prose-invert">
-                      <div className="flex items-center gap-2 text-primary font-bold mb-4">
-                        <Info className="h-5 w-5" />
-                        <h2>Journal Information</h2>
-                      </div>
-                      <p className="text-lg leading-relaxed text-muted-foreground">
-                        {journal.description || "Currently unavailable"}
-                      </p>
-
-                      <div className="mt-8 grid gap-6 sm:grid-cols-2">
-                        <div className="rounded-xl border bg-slate-50 p-6 dark:bg-slate-900/50">
-                          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                            <Calendar className="h-5 w-5 text-primary" />
-                          </div>
-                          <h4 className="mb-2 font-bold">Frequency</h4>
-                          <p className="text-sm text-muted-foreground">{journal.frequency || "Currently unavailable"}</p>
+                  <TabsContent value="about" className="mt-8 space-y-8">
+                    {/* Description Section */}
+                    <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2.5 rounded-lg bg-primary/10">
+                          <Info className="h-5 w-5 text-primary" />
                         </div>
-                        <div className="rounded-xl border bg-slate-50 p-6 dark:bg-slate-900/50">
-                          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                            <Clock className="h-5 w-5 text-primary" />
+                        <h2 className="text-xl font-bold">Journal Overview</h2>
+                      </div>
+                      <div className="prose prose-slate max-w-none dark:prose-invert">
+                        <p className="text-base leading-relaxed text-muted-foreground">
+                          {journal.description || "Journal description is currently being updated. Please check back soon for more information about this publication."}
+                        </p>
+                      </div>
+
+                      {/* Quick Stats */}
+                      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                        <div className="rounded-xl border bg-muted/40 p-5">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                              <Calendar className="h-4 w-4 text-primary" />
+                            </div>
+                            <h4 className="font-semibold text-sm">Publication Frequency</h4>
                           </div>
-                          <h4 className="mb-2 font-bold">Publication Speed</h4>
-                          <p className="text-sm text-muted-foreground">Peer-review process usually takes 2-3 months.</p>
+                          <p className="text-muted-foreground text-sm">{journal.frequency || "Contact for details"}</p>
+                        </div>
+                        <div className="rounded-xl border bg-muted/40 p-5">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                              <Clock className="h-4 w-4 text-primary" />
+                            </div>
+                            <h4 className="font-semibold text-sm">Peer Review Time</h4>
+                          </div>
+                          <p className="text-muted-foreground text-sm">Typically 2-4 months</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border bg-muted/30 p-8">
-                      <div className="mb-6 flex items-center gap-2 text-primary font-bold">
-                        <FileText className="h-5 w-5" />
-                        <h2>Journal Details</h2>
+                    {/* Technical Details Grid */}
+                    <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2.5 rounded-lg bg-primary/10">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <h2 className="text-xl font-bold">Journal Details</h2>
                       </div>
-                      <div className="grid gap-y-4 text-sm sm:grid-cols-2 sm:gap-x-12">
+                      <div className="grid gap-y-5 text-sm sm:grid-cols-2 sm:gap-x-8">
                         {[
-                          { label: "ISSN (Print)", value: journal.issn || "Currently unavailable" },
-                          { label: "ISSN (Online)", value: journal.e_issn || "Currently unavailable" },
-                          { label: "Publisher", value: journal.publisher || "Currently unavailable" },
-                          { label: "Editor-in-Chief", value: journal.editor_in_chief || "Currently unavailable" },
-                          { label: "Open Access", value: "Yes" },
-                          { label: "Peer Review", value: "Double-blind" },
+                          { label: "ISSN (Print)", value: journal.issn || "N/A", icon: Database },
+                          { label: "ISSN (Online)", value: journal.e_issn || "N/A", icon: Globe },
+                          { label: "Publisher", value: journal.publisher || "N/A", icon: Building },
+                          { label: "Editor-in-Chief", value: journal.editor_in_chief || "N/A", icon: User },
+                          { label: "Open Access", value: "Yes", icon: Eye },
+                          { label: "Peer Review", value: "Double-blind", icon: Shield },
                         ].map((item, idx) => (
-                          <div key={idx} className="flex justify-between border-b pb-2 sm:block sm:border-0 sm:pb-0">
-                            <span className="font-semibold text-slate-600 dark:text-slate-400 sm:block sm:mb-1">
-                              {item.label}
-                            </span>
-                            <span className="font-bold sm:text-base">{item.value}</span>
+                          <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 -mx-3">
+                            <div className="p-1.5 rounded-md bg-primary/10 mt-0.5">
+                              <item.icon className="h-3.5 w-3.5 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="block text-xs text-muted-foreground font-medium">
+                                {item.label}
+                              </span>
+                              <span className="block font-semibold text-foreground truncate">
+                                {item.value}
+                              </span>
+                            </div>
                           </div>
                         ))}
                       </div>
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="scope" className="space-y-6">
-                    <div className="prose prose-slate max-w-none dark:prose-invert">
-                      <div className="flex items-center gap-2 text-primary font-bold mb-4">
-                        <BookOpen className="h-5 w-5" />
-                        <h2>Aims & Scope</h2>
+                  <TabsContent value="scope" className="mt-8 space-y-6">
+                    <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2.5 rounded-lg bg-primary/10">
+                          <Scale className="h-5 w-5 text-primary" />
+                        </div>
+                        <h2 className="text-xl font-bold">Aims & Scope</h2>
                       </div>
-                      <p className="text-lg leading-relaxed text-muted-foreground">
-                        Our goal is to publish high-quality original research, reviews, and case studies that contribute
-                        to the understanding and practice of {journal.field} worldwide.
-                      </p>
+                      <div className="prose prose-slate max-w-none dark:prose-invert">
+                        <p className="text-base leading-relaxed text-muted-foreground">
+                          {journal.description ? (
+                            <>
+              Our goal is to publish high-quality original research, reviews, and case studies that contribute
+              to the understanding and practice of {journal.field || 'this field'} worldwide. We welcome submissions that advance
+              scientific knowledge and provide practical insights for researchers, practitioners, and policymakers.
+                            </>
+                          ) : (
+                            "The journal aims to publish cutting-edge research in its field. We encourage submissions that demonstrate methodological rigor, theoretical significance, and practical relevance."
+                          )}
+                        </p>
+                      </div>
+
+                      {/* Scope Highlights */}
+                      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                        {[
+                          { title: "Original Research", desc: "Peer-reviewed empirical studies" },
+                          { title: "Review Articles", desc: "Comprehensive literature reviews" },
+                          { title: "Case Studies", desc: "Practical applications" },
+                          { title: "Short Communications", desc: "Preliminary findings" },
+                        ].map((item, idx) => (
+                          <div key={idx} className="flex items-start gap-3 p-4 rounded-xl bg-muted/40 border border-border/40">
+                            <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                            <div>
+                              <h4 className="font-semibold text-sm">{item.title}</h4>
+                              <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="author" className="space-y-8">
-                    <div className="prose prose-slate max-w-none dark:prose-invert">
-                      <div className="flex items-center gap-2 text-primary font-bold mb-4">
-                        <Shield className="h-5 w-5" />
-                        <h2>Policies</h2>
+                  <TabsContent value="author" className="mt-8 space-y-6">
+                    <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2.5 rounded-lg bg-primary/10">
+                          <Shield className="h-5 w-5 text-primary" />
+                        </div>
+                        <h2 className="text-xl font-bold">Submission Policies</h2>
                       </div>
-                      <div className="grid gap-6">
-                        <Card className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
-                          <CardContent className="p-6">
+                      <div className="space-y-6">
+                        <Card className="border-border/60 bg-muted/30 shadow-none">
+                          <CardContent className="p-5">
                             <div className="flex items-start gap-4">
-                              <div className="rounded-full bg-primary/10 p-2 mt-1">
+                              <div className="p-2.5 rounded-lg bg-primary/10">
                                 <CreditCard className="h-5 w-5 text-primary" />
                               </div>
-                              <div>
-                                <h4 className="mb-2 font-bold text-lg">Article Processing Charge (APC)</h4>
-                                <p className="text-muted-foreground">
+                              <div className="flex-1">
+                                <h4 className="font-bold text-base mb-2">Article Processing Charge (APC)</h4>
+                                <p className="text-muted-foreground text-sm leading-relaxed">
                                   Upon acceptance, authors are required to pay an APC of ${journal.publication_fee || journal.submission_fee || 0} USD.
+                                  This covers the cost of open access publishing, peer review, and article maintenance.
                                 </p>
                               </div>
                             </div>
                           </CardContent>
                         </Card>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {[
+                            { title: "Submission Format", desc: "Online via submission portal" },
+                            { title: "Review Process", desc: "Double-blind peer review" },
+                            { title: "Citation Style", desc: "Follow journal guidelines" },
+                            { title: "Plagiarism Check", desc: "All submissions screened" },
+                          ].map((item, idx) => (
+                            <div key={idx} className="flex items-start gap-3 p-4 rounded-xl bg-muted/40 border border-border/40">
+                              <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                              <div>
+                                <h4 className="font-semibold text-sm">{item.title}</h4>
+                                <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </TabsContent>
                 </Tabs>
               </div>
 
-              <div className="space-y-8">
-                {/* Sidebar Cards */}
-                <div className="rounded-2xl border bg-slate-950 p-8 text-white shadow-xl shadow-slate-200 dark:shadow-none">
-                  <h3 className="mb-6 text-xl font-bold border-b border-white/10 pb-4">Quick Actions</h3>
-                  <div className="space-y-4">
+              {/* Sidebar */}
+              <div className="space-y-6 lg:sticky lg:top-24 lg:h-fit">
+                {/* Quick Actions Card */}
+                <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
+                  <h3 className="text-lg font-bold mb-5 pb-3 border-b border-border/60">Quick Actions</h3>
+                  <div className="space-y-3">
                     {renderSubmitButton(
-                      "w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white",
-                      "outline",
-                      <>Submit Now <ChevronRight className="h-4 w-4" /></>
+                      "w-full justify-between bg-primary text-primary-foreground hover:bg-primary/90",
+                      "default",
+                      <>
+                        <span className="flex items-center gap-2">
+                          <Send className="h-4 w-4" />
+                          Submit Now
+                        </span>
+                        <ArrowRight className="h-4 w-4" />
+                      </>
                     )}
                     <Button
                       variant="outline"
-                      className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 text-white"
+                      className="w-full justify-between border-border/60 hover:bg-muted/50"
                       onClick={() => setActiveTab("author")}
                     >
-                      Guidelines <ChevronRight className="h-4 w-4" />
+                      <span className="flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Author Guidelines
+                      </span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between border-border/60 hover:bg-muted/50"
+                      onClick={() => setActiveTab("scope")}
+                    >
+                      <span className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4" />
+                        Aims & Scope
+                      </span>
+                      <ChevronRight className="h-4 w-4" />
                     </Button>
                     {journal.website_url && (
-                      <Button variant="outline" className={`w-full justify-between ${BUTTON_FROSTED_STYLE}`} asChild>
+                      <Button variant="outline" className="w-full justify-between border-border/60 hover:bg-muted/50" asChild>
                         <Link href={journal.website_url} target="_blank" rel="noopener noreferrer">
-                          Visit Journal <ExternalLink className="h-4 w-4" />
+                          <span className="flex items-center gap-2">
+                            <Globe className="h-4 w-4" />
+                            Visit Website
+                          </span>
+                          <ExternalLink className="h-4 w-4" />
                         </Link>
                       </Button>
                     )}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border bg-slate-50 p-8 dark:bg-slate-900/50">
-                  <h3 className="mb-6 text-xl font-bold border-b pb-4">Social Presence</h3>
-                  <div className="flex flex-wrap gap-3">
-                    <Link
-                      href="#"
-                      className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm transition-transform hover:scale-110 active:scale-95 dark:bg-slate-800"
-                    >
-                      <Globe className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                    </Link>
+                {/* Contact Card */}
+                <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
+                  <h3 className="text-lg font-bold mb-5 pb-3 border-b border-border/60">Contact</h3>
+                  <div className="space-y-4 text-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="p-1.5 rounded-md bg-muted mt-0.5">
+                        <Building className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <span className="block text-xs text-muted-foreground">Publisher</span>
+                        <span className="font-medium">{journal.publisher || "N/A"}</span>
+                      </div>
+                    </div>
+                    {journal.editor_in_chief && (
+                      <div className="flex items-start gap-3">
+                        <div className="p-1.5 rounded-md bg-muted mt-0.5">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <span className="block text-xs text-muted-foreground">Editor-in-Chief</span>
+                          <span className="font-medium">{journal.editor_in_chief}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ISSN Display */}
+                <div className="rounded-2xl border border-border/60 bg-muted/30 p-6">
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-4">ISSN Information</h3>
+                  <div className="space-y-3">
+                    {journal.issn && (
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border/40">
+                        <span className="text-xs text-muted-foreground">Print ISSN</span>
+                        <span className="font-mono font-semibold text-sm">{journal.issn}</span>
+                      </div>
+                    )}
+                    {journal.e_issn && (
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border/40">
+                        <span className="text-xs text-muted-foreground">Online ISSN</span>
+                        <span className="font-mono font-semibold text-sm">{journal.e_issn}</span>
+                      </div>
+                    )}
+                    {!journal.issn && !journal.e_issn && (
+                      <p className="text-sm text-muted-foreground">ISSN information coming soon</p>
+                    )}
                   </div>
                 </div>
               </div>
