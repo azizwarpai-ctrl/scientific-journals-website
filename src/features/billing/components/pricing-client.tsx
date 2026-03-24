@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import type { PricingPlan } from "@prisma/client"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { Serialized } from "@/src/lib/serialize"
 
 import { useGetPricingPlans } from "@/src/features/billing/api/use-get-pricing-plans"
 import { useCreatePricingPlan } from "@/src/features/billing/api/use-create-pricing-plan"
@@ -28,15 +29,6 @@ const DEFAULT_FORM_VALUES: PricingPlanCreateInput = {
   features: {},
 }
 
-interface PricingPlanForm {
-  name: string;
-  description: string;
-  price: number;
-  stripePriceId: string;
-  isActive: boolean;
-  isPopular: boolean;
-  features: Record<string, boolean>;
-}
 
 export const PricingClient = () => {
   const { data: plans, isLoading } = useGetPricingPlans()
@@ -44,9 +36,9 @@ export const PricingClient = () => {
   const { mutate: updatePlan, isPending: isUpdating } = useUpdatePricingPlan()
 
   const [isOpen, setIsOpen] = useState(false)
-  const [editingPlan, setEditingPlan] = useState<PricingPlan | null>(null)
+  const [editingPlan, setEditingPlan] = useState<Serialized<PricingPlan> | null>(null)
 
-  const form = useForm<PricingPlanForm>({
+  const form = useForm<PricingPlanCreateInput>({
     resolver: zodResolver(pricingPlanCreateSchema) as any,
     defaultValues: DEFAULT_FORM_VALUES,
   })
@@ -59,7 +51,7 @@ export const PricingClient = () => {
     }
   }, [isOpen, form])
 
-  const handleOpenDialog = (plan?: PricingPlan) => {
+  const handleOpenDialog = (plan?: Serialized<PricingPlan>) => {
     if (plan) {
       setEditingPlan(plan)
       form.reset({
@@ -78,7 +70,7 @@ export const PricingClient = () => {
     setIsOpen(true)
   }
 
-  const onSubmit = (values: PricingPlanForm) => {
+  const onSubmit = (values: PricingPlanCreateInput) => {
     if (editingPlan) {
       updatePlan(
         { id: editingPlan.id.toString(), data: values },
@@ -234,7 +226,7 @@ export const PricingClient = () => {
         <div className="flex justify-center p-8">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : (plans as PricingPlan[])?.length === 0 ? (
+      ) : !plans || plans.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-lg font-medium">No pricing plans found</p>
@@ -247,7 +239,7 @@ export const PricingClient = () => {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {(plans as PricingPlan[])?.map((plan) => (
+          {plans?.map((plan) => (
             <Card key={plan.id} className={!plan.is_active ? "opacity-60" : ""}>
               <CardHeader>
                 <div className="flex justify-between items-start">
@@ -259,7 +251,9 @@ export const PricingClient = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-baseline">
-                  <div className="text-3xl font-bold">${plan.price.toString()}</div>
+                  <div className="text-3xl font-bold">
+                    {Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(plan.price))}
+                  </div>
                   {plan.is_popular && <div className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Popular</div>}
                 </div>
                 <div className="text-sm text-muted-foreground line-clamp-2 min-h-10">

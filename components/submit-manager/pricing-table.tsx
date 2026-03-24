@@ -8,16 +8,8 @@ import { useGetPricingPlans } from "@/src/features/billing/api/use-get-pricing-p
 import { useCreateCheckout } from "@/src/features/billing/api/use-create-checkout";
 import { toast } from "sonner";
 
-interface ApiPricingPlan {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number | string;
-  is_active: boolean;
-  is_popular: boolean;
-  features: Record<string, boolean> | null;
-  stripe_price_id: string | null;
-}
+import { Serialized } from "@/src/lib/serialize";
+import type { PricingPlan as PrismaPricingPlan } from "@prisma/client";
 
 interface PricingPlan {
   id: string;
@@ -150,35 +142,44 @@ function PricingCard({
 
 export function SubmitManagerPricing() {
   const { data: remotePlans, isLoading, isError, error } = useGetPricingPlans();
-  const { mutate: createCheckout, isPending: isRedirecting } = useCreateCheckout();
+  const { mutate: createCheckout } = useCreateCheckout();
+  const [subscribingPlanId, setSubscribingPlanId] = useState<string | null>(null);
   
   const handleSubscribe = (planId: string) => {
-    createCheckout({ pricingPlanId: parseInt(planId) });
+    setSubscribingPlanId(planId);
+    createCheckout(
+      { pricingPlanId: parseInt(planId) },
+      {
+        onSettled: () => setSubscribingPlanId(null)
+      }
+    );
   };
 
-  const pricingPlans: PricingPlan[] = (remotePlans as ApiPricingPlan[])?.map((plan) => {
+  const pricingPlans: PricingPlan[] = (remotePlans as Serialized<PrismaPricingPlan>[])?.map((plan) => {
     // Map DB features (Json/Record) to string array
     const features: string[] = [];
     const extraFeatures: string[] = [];
     
     if (plan.features && typeof plan.features === 'object') {
-      Object.entries(plan.features).forEach(([feature, isExtra]: [string, boolean]) => {
+      Object.entries(plan.features as Record<string, boolean>).forEach(([feature, isExtra]) => {
         if (isExtra) extraFeatures.push(feature);
         else features.push(feature);
       });
     }
 
+    const numericPrice = typeof plan.price === 'string' ? parseFloat(plan.price) : plan.price;
+
     return {
       id: plan.id.toString(),
       name: plan.name,
       description: plan.description || "Simple pricing for your journals.",
-      price: plan.price === 0 ? "Free" : `$${plan.price}`,
-      period: plan.price === 0 ? "forever" : "per month",
+      price: numericPrice === 0 ? "Free" : `$${numericPrice}`,
+      period: numericPrice === 0 ? "forever" : "per month",
       features: features.length > 0 ? features : ["Standard OJS Sync", "Basic Analytics"],
       extraFeatures: extraFeatures,
       popular: plan.is_popular,
       buttonVariant: plan.is_popular ? 'default' : 'outline',
-      cta: plan.name === "Enterprise" ? "Contact Sales" : (plan.price === 0 ? "Get Started" : "Start Free Trial"),
+      cta: plan.name === "Enterprise" ? "Contact Sales" : (numericPrice === 0 ? "Get Started" : "Start Free Trial"),
       href: plan.name === "Enterprise" ? "mailto:sales@scientific-journals.com" : undefined,
     };
   }) || [];
@@ -226,7 +227,7 @@ export function SubmitManagerPricing() {
                 key={plan.id} 
                 plan={plan} 
                 onSubscribe={handleSubscribe}
-                isSubscribing={isRedirecting}
+                isSubscribing={subscribingPlanId === plan.id}
               />
             ))}
           </div>
