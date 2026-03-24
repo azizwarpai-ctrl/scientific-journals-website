@@ -1,12 +1,15 @@
 "use client"
 
 import { useState } from 'react';
-import { Check, Plus, Minus } from 'lucide-react';
+import { Check, Plus, Minus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import Link from 'next/link';
+import { useGetPricingPlans } from "@/src/features/billing/api/use-get-pricing-plans";
+import { useCreateCheckout } from "@/src/features/billing/api/use-create-checkout";
+import { toast } from "sonner";
 
 interface PricingPlan {
+  id: string;
   name: string;
   description: string;
   price: string;
@@ -19,67 +22,24 @@ interface PricingPlan {
   href?: string;
 }
 
-const pricingPlans: PricingPlan[] = [
-  {
-    name: 'Basic',
-    description: 'Perfect for single, emerging journals.',
-    price: '$99',
-    period: 'per month',
-    features: [
-      'Up to 1 Journal',
-      'Standard OJS Sync',
-      'Basic Metadata Extraction',
-      'Email Support',
-    ],
-    buttonVariant: 'outline',
-    cta: 'Get Started',
-  },
-  {
-    name: 'Professional',
-    description: 'Ideal for growing university presses.',
-    price: '$299',
-    period: 'per month',
-    features: [
-      'Up to 5 Journals',
-      'Real-time OJS Sync',
-      'Advanced Metadata Extraction',
-      'Status Tracking Dashboards',
-      'Priority Support',
-    ],
-    extraFeatures: [
-      'Custom Domain Support',
-      'Advanced Analytics',
-      'API Access',
-    ],
-    popular: true,
-    buttonVariant: 'default',
-    cta: 'Start Free Trial',
-  },
-  {
-    name: 'Enterprise',
-    description: 'Dedicated infrastructure for large publishers.',
-    price: '$799',
-    period: 'per month',
-    features: [
-      'Unlimited Journals',
-      'Custom OJS Integrations',
-      'AI-Powered Automations',
-      'SSO / SAML Login',
-      'Dedicated Account Manager',
-    ],
-    extraFeatures: [
-      'White-glove Onboarding',
-      'Custom SLA Guarantee',
-      'Volume Discounts',
-    ],
-    buttonVariant: 'outline',
-    cta: 'Contact Sales',
-    href: '/contact',
-  },
-];
-
-function PricingCard({ plan }: { plan: PricingPlan }) {
+function PricingCard({ 
+  plan, 
+  onSubscribe, 
+  isSubscribing 
+}: { 
+  plan: PricingPlan; 
+  onSubscribe: (id: string) => void;
+  isSubscribing: boolean;
+}) {
   const [isExpanded, setIsExpanded] = useState(plan.popular ? true : false);
+
+  const handleAction = () => {
+    if (plan.name === "Enterprise" && plan.href) {
+      window.location.href = plan.href;
+      return;
+    }
+    onSubscribe(plan.id);
+  };
 
   return (
     <div
@@ -116,14 +76,18 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
       {/* CTA Button */}
       <Button
         variant={plan.buttonVariant}
-        asChild
+        onClick={handleAction}
+        disabled={isSubscribing && plan.name !== "Enterprise"}
         className={`w-full mb-8 py-6 h-auto rounded-lg text-base font-medium transition-all duration-200 ${
           plan.popular
             ? 'bg-white text-black hover:bg-gray-100 shadow-md'
             : 'bg-[#1a1a1a] text-white border border-[#2a2a2a] hover:bg-[#252525]'
         }`}
       >
-        <Link href={plan.href || "/admin/login"}>{plan.cta}</Link>
+        {isSubscribing && plan.name !== "Enterprise" && (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        )}
+        {plan.cta}
       </Button>
 
       {/* Features List */}
@@ -174,6 +138,52 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
 }
 
 export function SubmitManagerPricing() {
+  const { data: remotePlans, isLoading } = useGetPricingPlans();
+  const { mutate: createCheckout, isPending: isRedirecting } = useCreateCheckout();
+
+  const handleSubscribe = (planId: string) => {
+    createCheckout(
+      { pricingPlanId: parseInt(planId) },
+      {
+        onSuccess: (data: any) => {
+          if (data.url) {
+            window.location.href = data.url;
+          }
+        },
+        onError: (error: any) => {
+          toast.error(error.message || "Failed to start checkout");
+        }
+      }
+    );
+  };
+
+  const pricingPlans: PricingPlan[] = remotePlans?.map((plan: any) => {
+    // Map DB features (Json/Record) to string array
+    const features: string[] = [];
+    const extraFeatures: string[] = [];
+    
+    if (plan.features && typeof plan.features === 'object') {
+      Object.entries(plan.features).forEach(([feature, isExtra]: [string, any]) => {
+        if (isExtra) extraFeatures.push(feature);
+        else features.push(feature);
+      });
+    }
+
+    return {
+      id: plan.id.toString(),
+      name: plan.name,
+      description: plan.description || "Simple pricing for your journals.",
+      price: plan.price === 0 ? "Free" : `$${plan.price}`,
+      period: plan.price === 0 ? "forever" : "per month",
+      features: features.length > 0 ? features : ["Standard OJS Sync", "Basic Analytics"],
+      extraFeatures: extraFeatures,
+      popular: plan.is_popular,
+      buttonVariant: plan.is_popular ? 'default' : 'outline',
+      cta: plan.name === "Enterprise" ? "Contact Sales" : (plan.price === 0 ? "Get Started" : "Start Free Trial"),
+      href: plan.name === "Enterprise" ? "mailto:sales@scientific-journals.com" : undefined,
+    };
+  }) || [];
+
   return (
     <section className="bg-black py-20 lg:py-32" id="pricing">
       <div className="container max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -188,12 +198,24 @@ export function SubmitManagerPricing() {
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-          {pricingPlans.map((plan, index) => (
-            <PricingCard key={index} plan={plan} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex justify-center p-20">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+            {pricingPlans.map((plan) => (
+              <PricingCard 
+                key={plan.id} 
+                plan={plan} 
+                onSubscribe={handleSubscribe}
+                isSubscribing={isRedirecting}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
 }
+

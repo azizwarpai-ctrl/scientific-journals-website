@@ -25,23 +25,29 @@ export const PricingClient = () => {
   
   // Form State
   const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
   const [price, setPrice] = useState("")
   const [stripePriceId, setStripePriceId] = useState("")
   const [isActive, setIsActive] = useState(true)
+  const [isPopular, setIsPopular] = useState(false)
 
   const handleOpenDialog = (plan?: any) => {
     if (plan) {
       setEditingPlan(plan)
       setName(plan.name)
+      setDescription(plan.description || "")
       setPrice(plan.price.toString())
       setStripePriceId(plan.stripe_price_id || "")
       setIsActive(plan.is_active)
+      setIsPopular(plan.is_popular)
     } else {
       setEditingPlan(null)
       setName("")
+      setDescription("")
       setPrice("")
       setStripePriceId("")
       setIsActive(true)
+      setIsPopular(false)
     }
     setIsOpen(true)
   }
@@ -57,9 +63,11 @@ export const PricingClient = () => {
 
     const payload = {
       name,
+      description: description || undefined,
       price: parsedPrice,
       stripePriceId: stripePriceId || undefined,
       isActive,
+      isPopular,
       features: {}, // Simplified for now, can be expanded later
     }
 
@@ -102,6 +110,14 @@ export const PricingClient = () => {
                 />
               </div>
               <div className="space-y-2">
+                <Label>Description</Label>
+                <Input 
+                  value={description} 
+                  onChange={(e) => setDescription(e.target.value)} 
+                  placeholder="e.g. Perfect for side projects"
+                />
+              </div>
+              <div className="space-y-2">
                 <Label>Price (Monthly USD)</Label>
                 <Input 
                   type="number" 
@@ -120,12 +136,21 @@ export const PricingClient = () => {
                   placeholder="price_1Nw..."
                 />
               </div>
-              <div className="flex items-center space-x-2">
-                <Switch 
-                  checked={isActive} 
-                  onCheckedChange={setIsActive} 
-                />
-                <Label>Active</Label>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    checked={isActive} 
+                    onCheckedChange={setIsActive} 
+                  />
+                  <Label>Active</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    checked={isPopular} 
+                    onCheckedChange={setIsPopular} 
+                  />
+                  <Label>Popular Badge</Label>
+                </div>
               </div>
               <div className="pt-4 flex justify-end space-x-2">
                 <Button variant="outline" type="button" onClick={() => setIsOpen(false)}>
@@ -169,7 +194,13 @@ export const PricingClient = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="text-3xl font-bold">${plan.price.toString()}</div>
+                <div className="flex justify-between items-baseline">
+                  <div className="text-3xl font-bold">${plan.price.toString()}</div>
+                  {plan.is_popular && <div className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Popular</div>}
+                </div>
+                <div className="text-sm text-muted-foreground line-clamp-2 min-h-10">
+                  {plan.description || "No description provided."}
+                </div>
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <div>Stripe ID: {plan.stripe_price_id || "N/A"}</div>
                   <div>Status: {plan.is_active ? "Active" : "Inactive"}</div>
