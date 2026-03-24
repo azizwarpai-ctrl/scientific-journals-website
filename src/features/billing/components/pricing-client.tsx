@@ -1,9 +1,8 @@
 "use client"
 
-import type { PricingPlan } from "@prisma/client"
-import { toast } from "sonner"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
+import type { PricingPlan } from "@prisma/client"
 import { zodResolver } from "@hookform/resolvers/zod"
 
 import { useGetPricingPlans } from "@/src/features/billing/api/use-get-pricing-plans"
@@ -11,13 +10,33 @@ import { useCreatePricingPlan } from "@/src/features/billing/api/use-create-pric
 import { useUpdatePricingPlan } from "@/src/features/billing/api/use-update-pricing-plan"
 import { pricingPlanCreateSchema, type PricingPlanCreateInput } from "@/src/features/billing/schemas/billing-schema"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Plus, Pencil, Loader2 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+
+const DEFAULT_FORM_VALUES: PricingPlanCreateInput = {
+  name: "",
+  description: "",
+  price: 0,
+  stripePriceId: "",
+  isActive: true,
+  isPopular: false,
+  features: {},
+}
+
+interface PricingPlanForm {
+  name: string;
+  description: string;
+  price: number;
+  stripePriceId: string;
+  isActive: boolean;
+  isPopular: boolean;
+  features: Record<string, boolean>;
+}
 
 export const PricingClient = () => {
   const { data: plans, isLoading } = useGetPricingPlans()
@@ -26,21 +45,21 @@ export const PricingClient = () => {
 
   const [isOpen, setIsOpen] = useState(false)
   const [editingPlan, setEditingPlan] = useState<PricingPlan | null>(null)
-  
-  const form = useForm<PricingPlanCreateInput>({
+
+  const form = useForm<PricingPlanForm>({
     resolver: zodResolver(pricingPlanCreateSchema) as any,
-    defaultValues: {
-      name: "",
-      description: "",
-      price: 0,
-      stripePriceId: "",
-      isActive: true,
-      isPopular: false,
-      features: {},
-    },
+    defaultValues: DEFAULT_FORM_VALUES,
   })
 
-  const handleOpenDialog = (plan?: any) => {
+  // Handle form reset when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      setEditingPlan(null)
+      form.reset(DEFAULT_FORM_VALUES)
+    }
+  }, [isOpen, form])
+
+  const handleOpenDialog = (plan?: PricingPlan) => {
     if (plan) {
       setEditingPlan(plan)
       form.reset({
@@ -50,31 +69,33 @@ export const PricingClient = () => {
         stripePriceId: plan.stripe_price_id || "",
         isActive: plan.is_active,
         isPopular: plan.is_popular,
-        features: plan.features || {},
+        features: (plan.features as Record<string, boolean>) || {},
       })
     } else {
       setEditingPlan(null)
-      form.reset({
-        name: "",
-        description: "",
-        price: 0,
-        stripePriceId: "",
-        isActive: true,
-        isPopular: false,
-        features: {},
-      })
+      form.reset(DEFAULT_FORM_VALUES)
     }
     setIsOpen(true)
   }
 
-  const onSubmit = (values: PricingPlanCreateInput) => {
+  const onSubmit = (values: PricingPlanForm) => {
     if (editingPlan) {
       updatePlan(
         { id: editingPlan.id.toString(), data: values },
-        { onSuccess: () => setIsOpen(false) }
+        {
+          onSuccess: () => {
+            setIsOpen(false)
+            form.reset(DEFAULT_FORM_VALUES)
+          }
+        }
       )
     } else {
-      createPlan(values, { onSuccess: () => setIsOpen(false) })
+      createPlan(values, {
+        onSuccess: () => {
+          setIsOpen(false)
+          form.reset(DEFAULT_FORM_VALUES)
+        }
+      })
     }
   }
 
@@ -131,10 +152,10 @@ export const PricingClient = () => {
                     <FormItem>
                       <FormLabel>Price (Monthly USD)</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          step="0.01" 
-                          placeholder="e.g. 29.99" 
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g. 29.99"
                           {...field}
                           onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                         />
@@ -156,7 +177,7 @@ export const PricingClient = () => {
                     </FormItem>
                   )}
                 />
-                
+
                 <div className="flex items-center space-x-6 pt-2">
                   <FormField
                     control={form.control}
@@ -164,9 +185,9 @@ export const PricingClient = () => {
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center space-x-3 space-y-0">
                         <FormControl>
-                          <Switch 
-                            checked={field.value} 
-                            onCheckedChange={field.onChange} 
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
                           />
                         </FormControl>
                         <div className="space-y-1 leading-none">
@@ -181,9 +202,9 @@ export const PricingClient = () => {
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center space-x-3 space-y-0">
                         <FormControl>
-                          <Switch 
-                            checked={field.value} 
-                            onCheckedChange={field.onChange} 
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
                           />
                         </FormControl>
                         <div className="space-y-1 leading-none">
@@ -213,7 +234,7 @@ export const PricingClient = () => {
         <div className="flex justify-center p-8">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : (plans as any[])?.length === 0 ? (
+      ) : (plans as PricingPlan[])?.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-lg font-medium">No pricing plans found</p>
@@ -226,7 +247,7 @@ export const PricingClient = () => {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {(plans as any[])?.map((plan: any) => (
+          {(plans as PricingPlan[])?.map((plan) => (
             <Card key={plan.id} className={!plan.is_active ? "opacity-60" : ""}>
               <CardHeader>
                 <div className="flex justify-between items-start">

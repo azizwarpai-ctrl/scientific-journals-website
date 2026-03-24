@@ -1,12 +1,23 @@
 "use client"
 
 import { useState } from 'react';
-import { Check, Plus, Minus, Loader2 } from 'lucide-react';
+import { Check, Plus, Minus, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useGetPricingPlans } from "@/src/features/billing/api/use-get-pricing-plans";
 import { useCreateCheckout } from "@/src/features/billing/api/use-create-checkout";
 import { toast } from "sonner";
+
+interface ApiPricingPlan {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number | string;
+  is_active: boolean;
+  is_popular: boolean;
+  features: Record<string, boolean> | null;
+  stripe_price_id: string | null;
+}
 
 interface PricingPlan {
   id: string;
@@ -31,7 +42,7 @@ function PricingCard({
   onSubscribe: (id: string) => void;
   isSubscribing: boolean;
 }) {
-  const [isExpanded, setIsExpanded] = useState(plan.popular ? true : false);
+  const [isExpanded, setIsExpanded] = useState(!!plan.popular);
 
   const handleAction = () => {
     if (plan.name === "Enterprise" && plan.href) {
@@ -138,29 +149,11 @@ function PricingCard({
 }
 
 export function SubmitManagerPricing() {
-  const { data: remotePlans, isLoading } = useGetPricingPlans();
+  const { data: remotePlans, isLoading, isError, error } = useGetPricingPlans();
   const { mutate: createCheckout, isPending: isRedirecting } = useCreateCheckout();
   
-  interface ApiPricingPlan {
-    id: string;
-    name: string;
-    description: string | null;
-    price: number | string;
-    is_active: boolean;
-    is_popular: boolean;
-    features: Record<string, boolean> | null;
-    stripe_price_id: string | null;
-  }
-
   const handleSubscribe = (planId: string) => {
-    createCheckout(
-      { pricingPlanId: parseInt(planId) },
-      {
-        onError: (error: any) => {
-          toast.error(error.message || "Failed to start checkout");
-        }
-      }
-    );
+    createCheckout({ pricingPlanId: parseInt(planId) });
   };
 
   const pricingPlans: PricingPlan[] = (remotePlans as ApiPricingPlan[])?.map((plan) => {
@@ -169,7 +162,7 @@ export function SubmitManagerPricing() {
     const extraFeatures: string[] = [];
     
     if (plan.features && typeof plan.features === 'object') {
-      Object.entries(plan.features).forEach(([feature, isExtra]: [string, any]) => {
+      Object.entries(plan.features).forEach(([feature, isExtra]: [string, boolean]) => {
         if (isExtra) extraFeatures.push(feature);
         else features.push(feature);
       });
@@ -207,6 +200,24 @@ export function SubmitManagerPricing() {
         {isLoading ? (
           <div className="flex justify-center p-20">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          </div>
+        ) : (isError || error) ? (
+          <div className="flex flex-col items-center justify-center p-12 bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl text-center">
+            <AlertCircle className="h-10 w-10 text-destructive mb-4" />
+            <h3 className="text-white text-lg font-semibold mb-2">Failed to load pricing</h3>
+            <p className="text-gray-400 max-w-sm mb-6">
+              There was an error fetching the subscription plans. Please try refreshing the page.
+            </p>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </div>
+        ) : pricingPlans.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-12 bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl text-center">
+            <h3 className="text-white text-lg font-semibold mb-2">No plans available</h3>
+            <p className="text-gray-400 max-w-sm">
+              We couldn't find any subscription plans at the moment. Please check back later.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
