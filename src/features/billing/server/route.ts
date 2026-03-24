@@ -7,14 +7,14 @@ import {
   pricingPlanCreateSchema,
   pricingPlanUpdateSchema,
   pricingPlanIdParamSchema,
-} from "../schemas/billing-schema"
+} from "@/src/features/billing/schemas/billing-schema"
 import {
   getStripe,
   createCheckoutSession,
   createPortalSession,
   constructWebhookEvent,
-} from "./stripe-service"
-import { handleWebhookEvent } from "./webhook-handler"
+} from "@/src/features/billing/server/stripe-service"
+import { handleWebhookEvent } from "@/src/features/billing/server/webhook-handler"
 import { serializeRecord, serializeMany } from "@/src/lib/serialize"
 
 const app = new Hono()
@@ -41,39 +41,70 @@ app.post("/checkout", requireAdmin, zValidator("json", checkoutSchema), async (c
       return c.json({ success: false, error: "Invalid plan or plan not linked to Stripe" }, 400)
     }
 
-    // Check for existing Stripe customer id
-    const existingSub = await prisma.subscription.findUnique({
-      where: { admin_user_id: BigInt(session.id) },
+    const checkoutResult = await prisma.$transaction(async (tx) => {
+      // Check for active sub
+      const existingSub = await tx.subscription.findUnique({
+        where: { admin_user_id: BigInt(session.id) },
+      })
+
+      if (existingSub && existingSub.status === "active") {
+        return { isSubscribed: true }
+      }
+
+      // Check for valid unexpired checkout session
+      const existingSession = await tx.checkoutSession.findUnique({
+        where: { admin_user_id: BigInt(session.id) },
+      })
+
+      if (existingSession && existingSession.expires_at > new Date()) {
+        return { isSubscribed: false, url: existingSession.url }
+      }
+
+      // Create stripe checkout session
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+      const stripeCheckout = await createCheckoutSession({
+        stripePriceId: plan.stripe_price_id!,
+        customerEmail: session.email,
+        stripeCustomerId: existingSub?.stripe_customer_id ?? undefined,
+        successUrl: `${appUrl}/admin/dashboard?checkout=success`,
+        cancelUrl: `${appUrl}/submit-manager#pricing`,
+      })
+
+      // Attach metadata 
+      const stripe = getStripe()!
+      await stripe.checkout.sessions.update(stripeCheckout.id, {
+        metadata: {
+          adminUserId: session.id,
+          pricingPlanId: pricingPlanId.toString(),
+        },
+      })
+
+      // Upsert local DB checkout session
+      await tx.checkoutSession.upsert({
+        where: { admin_user_id: BigInt(session.id) },
+        create: {
+          admin_user_id: BigInt(session.id),
+          pricing_plan_id: BigInt(pricingPlanId),
+          stripe_checkout_id: stripeCheckout.id,
+          url: stripeCheckout.url || "",
+          expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24 hours
+        },
+        update: {
+          pricing_plan_id: BigInt(pricingPlanId),
+          stripe_checkout_id: stripeCheckout.id,
+          url: stripeCheckout.url || "",
+          expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24 hours
+        },
+      })
+
+      return { isSubscribed: false, url: stripeCheckout.url || "" }
     })
 
-    if (existingSub && existingSub.status === "active") {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-      const portalSession = await createPortalSession({
-        stripeCustomerId: existingSub.stripe_customer_id,
-        returnUrl: `${appUrl}/admin/dashboard`,
-      })
-      return c.json({ success: false, error: "Active subscription already exists", data: { url: portalSession.url } }, 409)
+    if (checkoutResult.isSubscribed) {
+      return c.json({ success: false, error: "Active subscription already exists" }, 409)
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    const checkoutSession = await createCheckoutSession({
-      stripePriceId: plan.stripe_price_id,
-      customerEmail: session.email,
-      stripeCustomerId: existingSub?.stripe_customer_id ?? undefined,
-      successUrl: `${appUrl}/admin/dashboard?checkout=success`,
-      cancelUrl: `${appUrl}/submit-manager#pricing`,
-    })
-
-    // Attach metadata so webhook can link subscription to admin user
-    const stripe = getStripe()!
-    await stripe.checkout.sessions.update(checkoutSession.id, {
-      metadata: {
-        adminUserId: session.id,
-        pricingPlanId: pricingPlanId.toString(),
-      },
-    })
-
-    return c.json({ success: true, data: { url: checkoutSession.url } })
+    return c.json({ success: true, data: { url: checkoutResult.url } })
   } catch (error) {
     console.error("[billing] checkout error:", error)
     return c.json({ success: false, error: "Failed to create checkout session" }, 500)
@@ -130,21 +161,27 @@ app.post("/portal", requireAdmin, async (c) => {
 //  Webhook — POST /billing/webhook (public, verified)
 // ═════════════════════════════════════════════════════════
 app.post("/webhook", async (c) => {
+  const body = await c.req.text()
+  const sig = c.req.header("stripe-signature")
+
+  if (!sig) {
+    return c.json({ success: false, error: "Missing stripe-signature header" }, 400)
+  }
+
+  let event;
   try {
-    const body = await c.req.text()
-    const sig = c.req.header("stripe-signature")
+    event = constructWebhookEvent(body, sig)
+  } catch (error) {
+    console.error("[billing] webhook verification error:", error)
+    return c.json({ success: false, error: "Webhook verification failed" }, 400)
+  }
 
-    if (!sig) {
-      return c.json({ success: false, error: "Missing stripe-signature header" }, 400)
-    }
-
-    const event = constructWebhookEvent(body, sig)
+  try {
     await handleWebhookEvent(event)
-
     return c.json({ received: true })
   } catch (error) {
-    console.error("[billing] webhook error:", error)
-    return c.json({ success: false, error: "Webhook verification failed" }, 400)
+    console.error("[billing] webhook processing error:", error)
+    return c.json({ success: false, error: "Webhook processing failed" }, 500)
   }
 })
 
@@ -184,10 +221,12 @@ app.post("/plans", requireAdmin, zValidator("json", pricingPlanCreateSchema), as
     const plan = await prisma.pricingPlan.create({
       data: {
         name: data.name,
+        description: data.description || null,
         price: data.price,
         features: (data.features || {}) as any,
         stripe_price_id: data.stripePriceId || null,
         is_active: data.isActive,
+        is_popular: data.isPopular,
       },
     })
     return c.json({ success: true, data: serializeRecord(plan) }, 201)
@@ -207,15 +246,20 @@ app.put("/plans/:id", requireAdmin, zValidator("param", pricingPlanIdParamSchema
       where: { id: BigInt(id) },
       data: {
         ...(data.name !== undefined && { name: data.name }),
+        ...(data.description !== undefined && { description: data.description }),
         ...(data.price !== undefined && { price: data.price }),
         ...(data.features !== undefined && { features: data.features as any }),
         ...(data.stripePriceId !== undefined && { stripe_price_id: data.stripePriceId }),
         ...(data.isActive !== undefined && { is_active: data.isActive }),
+        ...(data.isPopular !== undefined && { is_popular: data.isPopular }),
       },
     })
     return c.json({ success: true, data: serializeRecord(plan) })
-  } catch (error) {
+  } catch (error: any) {
     console.error("[billing] plan update error:", error)
+    if (error.code === "P2025") {
+      return c.json({ success: false, error: "Pricing plan not found" }, 404)
+    }
     return c.json({ success: false, error: "Failed to update pricing plan" }, 500)
   }
 })
@@ -229,8 +273,11 @@ app.delete("/plans/:id", requireAdmin, zValidator("param", pricingPlanIdParamSch
       data: { is_active: false },
     })
     return c.json({ success: true })
-  } catch (error) {
+  } catch (error: any) {
     console.error("[billing] plan delete error:", error)
+    if (error.code === "P2025") {
+      return c.json({ success: false, error: "Pricing plan not found" }, 404)
+    }
     return c.json({ success: false, error: "Failed to delete pricing plan" }, 500)
   }
 })

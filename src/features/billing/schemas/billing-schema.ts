@@ -9,10 +9,12 @@ export type CheckoutInput = z.infer<typeof checkoutSchema>
 // ── Pricing Plan CRUD ────────────────────────────────────
 export const pricingPlanCreateSchema = z.object({
   name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
   price: z.coerce.number().int().nonnegative(),
   features: z.record(z.string(), z.boolean()).optional(),
   stripePriceId: z.string().max(255).optional(),
   isActive: z.boolean().default(true),
+  isPopular: z.boolean().default(false),
 })
 export type PricingPlanCreateInput = z.infer<typeof pricingPlanCreateSchema>
 
