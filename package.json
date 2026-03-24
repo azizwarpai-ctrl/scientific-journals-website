@@ -7,7 +7,7 @@
     "node": ">=18.18.0"
   },
   "scripts": {
-    "build": "prisma generate && node -e \"if(process.env.DATABASE_URL){const{execSync}=require('child_process');console.log('Running migrations...');execSync('prisma migrate deploy',{stdio:'inherit'})}else{console.log('Skipping migrations (no DATABASE_URL)')}\" && next build",
+    "build": "prisma generate && node -e \"if(process.env.DATABASE_URL){const{execSync}=require('child_process');console.log('Running migrations...');try{execSync('prisma migrate deploy',{stdio:'inherit'})}catch(e){console.log('Migration failed, attempting to resolve 0_init...');try{execSync('npx prisma migrate resolve --applied 0_init',{stdio:'inherit'});execSync('prisma migrate deploy',{stdio:'inherit'})}catch(err){console.error('Failed to resolve database migration.');process.exit(1)}}}else{console.log('Skipping migrations (no DATABASE_URL)')}\" && next build",
     "dev": "next dev",
     "start": "npx prisma migrate deploy && next start -H 0.0.0.0 -p ${PORT:-3000}",
     "postinstall": "prisma generate",
