@@ -11,6 +11,7 @@ import { reviewsRouter } from "@/src/features/reviews/server"
 import { aboutRouter } from "@/src/features/about/server"
 import { statisticsRouter } from "@/src/features/statistics/server"
 import { emailTemplateRouter } from "@/src/features/email-templates/server"
+import { billingRouter } from "@/src/features/billing/server/route"
 import { fetchFromDatabase } from "@/src/features/ojs/server/ojs-service"
 import { triggerStartupSync } from "@/src/features/ojs/server/sync-ojs-journals"
 
@@ -25,6 +26,7 @@ const apiApp = new Hono()
     .route("/about", aboutRouter)
     .route("/statistics", statisticsRouter)
     .route("/email-templates", emailTemplateRouter)
+    .route("/billing", billingRouter)
 
 
 const app = new Hono().basePath("/api")

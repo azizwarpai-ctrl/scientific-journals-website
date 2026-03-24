@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Check } from "lucide-react"
+import Link from "next/link"
 
 export function SubmitManagerPricing() {
     const tiers = [
@@ -93,8 +94,11 @@ export function SubmitManagerPricing() {
                                 variant={tier.popular ? "default" : "outline"} 
                                 className="w-full"
                                 size="lg"
+                                asChild
                             >
-                                {tier.cta}
+                                <Link href="/admin/login">
+                                    {tier.cta}
+                                </Link>
                             </Button>
                         </div>
                     ))}
