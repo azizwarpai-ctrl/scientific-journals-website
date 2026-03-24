@@ -3,8 +3,8 @@ import { client } from "@/src/lib/rpc"
 import { toast } from "sonner"
 
 export const useCreateCheckout = () => {
-  return useMutation({
-    mutationFn: async ({ pricingPlanId }: { pricingPlanId: string }) => {
+  const mutation = useMutation({
+    mutationFn: async ({ pricingPlanId }: { pricingPlanId: number }) => {
       const response = await client.api.billing.checkout.$post({
         json: { pricingPlanId },
       })

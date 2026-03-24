@@ -11,8 +11,9 @@ export const useGetSubscription = () => {
         throw new Error("Failed to fetch subscription")
       }
 
-      const { data } = await response.json()
-      return data
+      const data = await response.json()
+      return data || null
     },
+    staleTime: 300000, // 5 minutes
   })
 }

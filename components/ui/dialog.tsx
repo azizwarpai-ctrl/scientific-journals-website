@@ -91,32 +91,31 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function DialogFooter({
+const DialogFooter = ({
   className,
-  showCloseButton = false,
+  showCloseButton = true,
   children,
   ...props
-}: React.ComponentProps<"div"> & {
-  showCloseButton?: boolean
-}) {
-  return (
-    <div
-      data-slot="dialog-footer"
-      className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      {showCloseButton && (
-        <DialogPrimitive.Close asChild>
-          <Button variant="outline">Close</Button>
-        </DialogPrimitive.Close>
-      )}
-    </div>
-  )
-}
+}: React.HTMLAttributes<HTMLDivElement> & { showCloseButton?: boolean }) => (
+  <div
+    data-slot="dialog-footer"
+    className={cn(
+      "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2",
+      className
+    )}
+    {...props}
+  >
+    {showCloseButton && (
+      <DialogPrimitive.Close asChild>
+        <Button type="button" variant="secondary">
+          Close
+        </Button>
+      </DialogPrimitive.Close>
+    )}
+    {children}
+  </div>
+)
+DialogFooter.displayName = "DialogFooter"
 
 function DialogTitle({
   className,

@@ -11,7 +11,7 @@ import { reviewsRouter } from "@/src/features/reviews/server"
 import { aboutRouter } from "@/src/features/about/server"
 import { statisticsRouter } from "@/src/features/statistics/server"
 import { emailTemplateRouter } from "@/src/features/email-templates/server"
-import { billingRouter } from "@/src/features/billing/server/route"
+import { billingRouter } from "@/src/features/billing/server"
 import { fetchFromDatabase } from "@/src/features/ojs/server/ojs-service"
 import { triggerStartupSync } from "@/src/features/ojs/server/sync-ojs-journals"
 

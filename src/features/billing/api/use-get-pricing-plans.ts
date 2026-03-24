@@ -12,5 +12,6 @@ export const useGetPricingPlans = () => {
       const { data } = await response.json()
       return data
     },
+    staleTime: 300000, // 5 minutes
   })
 }

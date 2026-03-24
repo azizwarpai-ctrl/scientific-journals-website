@@ -1,6 +1,3 @@
--- DropIndex
-DROP INDEX `email_templates_name_idx` ON `email_templates`;
-
 -- CreateTable
 CREATE TABLE `pricing_plans` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,

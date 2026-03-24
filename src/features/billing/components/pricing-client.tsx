@@ -1,5 +1,8 @@
 "use client"
 
+import type { PricingPlan } from "@prisma/client"
+import { toast } from "sonner"
+
 import { useState } from "react"
 import { useGetPricingPlans } from "@/src/features/billing/api/use-get-pricing-plans"
 import { useCreatePricingPlan } from "@/src/features/billing/api/use-create-pricing-plan"
@@ -18,7 +21,7 @@ export const PricingClient = () => {
   const { mutate: updatePlan, isPending: isUpdating } = useUpdatePricingPlan()
 
   const [isOpen, setIsOpen] = useState(false)
-  const [editingPlan, setEditingPlan] = useState<any>(null)
+  const [editingPlan, setEditingPlan] = useState<PricingPlan | null>(null)
   
   // Form State
   const [name, setName] = useState("")
@@ -46,9 +49,15 @@ export const PricingClient = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
+    const parsedPrice = parseFloat(price)
+    if (!isFinite(parsedPrice) || parsedPrice < 0) {
+      toast.error("Invalid price sum. Must be a valid positive number.")
+      return
+    }
+
     const payload = {
       name,
-      price: parseFloat(price),
+      price: parsedPrice,
       stripePriceId: stripePriceId || undefined,
       isActive,
       features: {}, // Simplified for now, can be expanded later

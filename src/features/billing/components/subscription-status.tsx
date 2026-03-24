@@ -50,9 +50,13 @@ export const SubscriptionStatus = () => {
           <div className="space-y-4">
             <div className="text-sm">
               <p className="font-medium">Current Period Ends:</p>
-              <p className="text-muted-foreground">
-                {new Date(subscription.current_period_end).toLocaleDateString()}
-              </p>
+                <div className="font-medium text-sm">
+                  {new Date(subscription.current_period_end).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </div>
             </div>
             <Button
               variant="outline"

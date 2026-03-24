@@ -27,6 +27,8 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
           status: "active",
+          // TODO: Consider fetching Stripe subscription directly to get current_period_end correctly instead of using new Date() here.
+          // Invoice hook correctly maintains this state shortly afterwards anyways.
           current_period_end: new Date(),
         },
         update: {
@@ -41,7 +43,7 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
 
     // ── Invoice paid ───────────────────────────────────
     case "invoice.payment_succeeded": {
-      const invoice = event.data.object as any
+      const invoice = event.data.object as Stripe.Invoice & { subscription?: string }
       if (!invoice.subscription) break
 
       const subscription = await prisma.subscription.findUnique({
@@ -80,13 +82,16 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
 
     // ── Invoice payment failed ─────────────────────────
     case "invoice.payment_failed": {
-      const invoice = event.data.object as any
+      const invoice = event.data.object as Stripe.Invoice & { subscription?: string }
       if (!invoice.subscription) break
 
-      await prisma.subscription.updateMany({
+      const result = await prisma.subscription.updateMany({
         where: { stripe_subscription_id: invoice.subscription as string },
         data: { status: "past_due" },
       })
+      if (result.count === 0) {
+        console.warn(`[billing] webhook matched 0 subscriptions for invoice.payment_failed. sub: ${invoice.subscription}`)
+      }
       break
     }
 
@@ -102,7 +107,7 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
 
     // ── Subscription updated ───────────────────────────
     case "customer.subscription.updated": {
-      const sub = event.data.object as any
+      const sub = event.data.object as Stripe.Subscription & { current_period_end: number }
       await prisma.subscription.updateMany({
         where: { stripe_subscription_id: sub.id },
         data: {

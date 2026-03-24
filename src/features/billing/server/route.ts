@@ -15,6 +15,7 @@ import {
   constructWebhookEvent,
 } from "./stripe-service"
 import { handleWebhookEvent } from "./webhook-handler"
+import { serializeRecord, serializeMany } from "@/src/lib/serialize"
 
 const app = new Hono()
 
@@ -22,7 +23,7 @@ const app = new Hono()
 //  Stripe status — public healthcheck
 // ═════════════════════════════════════════════════════════
 app.get("/status", async (c) => {
-  return c.json({ success: true, stripeEnabled: getStripe() !== null })
+  return c.json({ success: true, data: { stripeEnabled: getStripe() !== null } })
 })
 
 // ═════════════════════════════════════════════════════════
@@ -45,6 +46,15 @@ app.post("/checkout", requireAdmin, zValidator("json", checkoutSchema), async (c
       where: { admin_user_id: BigInt(session.id) },
     })
 
+    if (existingSub && existingSub.status === "active") {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+      const portalSession = await createPortalSession({
+        stripeCustomerId: existingSub.stripe_customer_id,
+        returnUrl: `${appUrl}/admin/dashboard`,
+      })
+      return c.json({ success: false, error: "Active subscription already exists", data: { url: portalSession.url } }, 409)
+    }
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     const checkoutSession = await createCheckoutSession({
       stripePriceId: plan.stripe_price_id,
@@ -63,7 +73,7 @@ app.post("/checkout", requireAdmin, zValidator("json", checkoutSchema), async (c
       },
     })
 
-    return c.json({ success: true, url: checkoutSession.url })
+    return c.json({ success: true, data: { url: checkoutSession.url } })
   } catch (error) {
     console.error("[billing] checkout error:", error)
     return c.json({ success: false, error: "Failed to create checkout session" }, 500)
@@ -82,7 +92,7 @@ app.get("/subscription", requireAdmin, async (c) => {
       include: { pricing_plan: true, invoices: { orderBy: { created_at: "desc" }, take: 5 } },
     })
 
-    return c.json({ success: true, data: subscription })
+    return c.json({ success: true, data: serializeRecord(subscription) })
   } catch (error) {
     console.error("[billing] subscription fetch error:", error)
     return c.json({ success: false, error: "Failed to fetch subscription" }, 500)
@@ -109,7 +119,7 @@ app.post("/portal", requireAdmin, async (c) => {
       returnUrl: `${appUrl}/admin/dashboard`,
     })
 
-    return c.json({ success: true, url: portalSession.url })
+    return c.json({ success: true, data: { url: portalSession.url } })
   } catch (error) {
     console.error("[billing] portal error:", error)
     return c.json({ success: false, error: "Failed to create portal session" }, 500)
@@ -149,7 +159,7 @@ app.get("/plans", async (c) => {
       where: { is_active: true },
       orderBy: { price: "asc" },
     })
-    return c.json({ success: true, data: plans })
+    return c.json({ success: true, data: serializeMany(plans) })
   } catch (error) {
     console.error("[billing] plans fetch error:", error)
     return c.json({ success: false, error: "Failed to fetch pricing plans" }, 500)
@@ -160,7 +170,7 @@ app.get("/plans", async (c) => {
 app.get("/plans/all", requireAdmin, async (c) => {
   try {
     const plans = await prisma.pricingPlan.findMany({ orderBy: { price: "asc" } })
-    return c.json({ success: true, data: plans })
+    return c.json({ success: true, data: serializeMany(plans) })
   } catch (error) {
     console.error("[billing] plans fetch error:", error)
     return c.json({ success: false, error: "Failed to fetch pricing plans" }, 500)
@@ -180,7 +190,7 @@ app.post("/plans", requireAdmin, zValidator("json", pricingPlanCreateSchema), as
         is_active: data.isActive,
       },
     })
-    return c.json({ success: true, data: plan }, 201)
+    return c.json({ success: true, data: serializeRecord(plan) }, 201)
   } catch (error) {
     console.error("[billing] plan create error:", error)
     return c.json({ success: false, error: "Failed to create pricing plan" }, 500)
@@ -203,7 +213,7 @@ app.put("/plans/:id", requireAdmin, zValidator("param", pricingPlanIdParamSchema
         ...(data.isActive !== undefined && { is_active: data.isActive }),
       },
     })
-    return c.json({ success: true, data: plan })
+    return c.json({ success: true, data: serializeRecord(plan) })
   } catch (error) {
     console.error("[billing] plan update error:", error)
     return c.json({ success: false, error: "Failed to update pricing plan" }, 500)
@@ -214,7 +224,10 @@ app.put("/plans/:id", requireAdmin, zValidator("param", pricingPlanIdParamSchema
 app.delete("/plans/:id", requireAdmin, zValidator("param", pricingPlanIdParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
-    await prisma.pricingPlan.delete({ where: { id: BigInt(id) } })
+    await prisma.pricingPlan.update({
+      where: { id: BigInt(id) },
+      data: { is_active: false },
+    })
     return c.json({ success: true })
   } catch (error) {
     console.error("[billing] plan delete error:", error)
