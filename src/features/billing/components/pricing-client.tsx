@@ -2,18 +2,22 @@
 
 import type { PricingPlan } from "@prisma/client"
 import { toast } from "sonner"
-
 import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+
 import { useGetPricingPlans } from "@/src/features/billing/api/use-get-pricing-plans"
 import { useCreatePricingPlan } from "@/src/features/billing/api/use-create-pricing-plan"
 import { useUpdatePricingPlan } from "@/src/features/billing/api/use-update-pricing-plan"
+import { pricingPlanCreateSchema, type PricingPlanCreateInput } from "@/src/features/billing/schemas/billing-schema"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus, Pencil, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 
 export const PricingClient = () => {
   const { data: plans, isLoading } = useGetPricingPlans()
@@ -23,61 +27,54 @@ export const PricingClient = () => {
   const [isOpen, setIsOpen] = useState(false)
   const [editingPlan, setEditingPlan] = useState<PricingPlan | null>(null)
   
-  // Form State
-  const [name, setName] = useState("")
-  const [description, setDescription] = useState("")
-  const [price, setPrice] = useState("")
-  const [stripePriceId, setStripePriceId] = useState("")
-  const [isActive, setIsActive] = useState(true)
-  const [isPopular, setIsPopular] = useState(false)
+  const form = useForm<PricingPlanCreateInput>({
+    resolver: zodResolver(pricingPlanCreateSchema) as any,
+    defaultValues: {
+      name: "",
+      description: "",
+      price: 0,
+      stripePriceId: "",
+      isActive: true,
+      isPopular: false,
+      features: {},
+    },
+  })
 
   const handleOpenDialog = (plan?: any) => {
     if (plan) {
       setEditingPlan(plan)
-      setName(plan.name)
-      setDescription(plan.description || "")
-      setPrice(plan.price.toString())
-      setStripePriceId(plan.stripe_price_id || "")
-      setIsActive(plan.is_active)
-      setIsPopular(plan.is_popular)
+      form.reset({
+        name: plan.name,
+        description: plan.description || "",
+        price: Number(plan.price),
+        stripePriceId: plan.stripe_price_id || "",
+        isActive: plan.is_active,
+        isPopular: plan.is_popular,
+        features: plan.features || {},
+      })
     } else {
       setEditingPlan(null)
-      setName("")
-      setDescription("")
-      setPrice("")
-      setStripePriceId("")
-      setIsActive(true)
-      setIsPopular(false)
+      form.reset({
+        name: "",
+        description: "",
+        price: 0,
+        stripePriceId: "",
+        isActive: true,
+        isPopular: false,
+        features: {},
+      })
     }
     setIsOpen(true)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    const parsedPrice = parseFloat(price)
-    if (!isFinite(parsedPrice) || parsedPrice < 0) {
-      toast.error("Invalid price sum. Must be a valid positive number.")
-      return
-    }
-
-    const payload = {
-      name,
-      description: description || undefined,
-      price: parsedPrice,
-      stripePriceId: stripePriceId || undefined,
-      isActive,
-      isPopular,
-      features: {}, // Simplified for now, can be expanded later
-    }
-
+  const onSubmit = (values: PricingPlanCreateInput) => {
     if (editingPlan) {
       updatePlan(
-        { id: editingPlan.id.toString(), data: payload },
+        { id: editingPlan.id.toString(), data: values },
         { onSuccess: () => setIsOpen(false) }
       )
     } else {
-      createPlan(payload, { onSuccess: () => setIsOpen(false) })
+      createPlan(values, { onSuccess: () => setIsOpen(false) })
     }
   }
 
@@ -95,73 +92,119 @@ export const PricingClient = () => {
               Add Plan
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>{editingPlan ? "Edit Plan" : "Create Plan"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Name</Label>
-                <Input 
-                  value={name} 
-                  onChange={(e) => setName(e.target.value)} 
-                  required 
-                  placeholder="e.g. Pro Plan"
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Pro Plan" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Input 
-                  value={description} 
-                  onChange={(e) => setDescription(e.target.value)} 
-                  placeholder="e.g. Perfect for side projects"
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Perfect for side projects" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>Price (Monthly USD)</Label>
-                <Input 
-                  type="number" 
-                  step="0.01" 
-                  value={price} 
-                  onChange={(e) => setPrice(e.target.value)} 
-                  required 
-                  placeholder="e.g. 29.99"
+                <FormField
+                  control={form.control}
+                  name="price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Price (Monthly USD)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          placeholder="e.g. 29.99" 
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>Stripe Price ID</Label>
-                <Input 
-                  value={stripePriceId} 
-                  onChange={(e) => setStripePriceId(e.target.value)} 
-                  placeholder="price_1Nw..."
+                <FormField
+                  control={form.control}
+                  name="stripePriceId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stripe Price ID</FormLabel>
+                      <FormControl>
+                        <Input placeholder="price_1Nw..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Switch 
-                    checked={isActive} 
-                    onCheckedChange={setIsActive} 
+                
+                <div className="flex items-center space-x-6 pt-2">
+                  <FormField
+                    control={form.control}
+                    name="isActive"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <Switch 
+                            checked={field.value} 
+                            onCheckedChange={field.onChange} 
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel className="font-normal cursor-pointer">Active</FormLabel>
+                        </div>
+                      </FormItem>
+                    )}
                   />
-                  <Label>Active</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch 
-                    checked={isPopular} 
-                    onCheckedChange={setIsPopular} 
+                  <FormField
+                    control={form.control}
+                    name="isPopular"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <Switch 
+                            checked={field.value} 
+                            onCheckedChange={field.onChange} 
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel className="font-normal cursor-pointer">Popular Badge</FormLabel>
+                        </div>
+                      </FormItem>
+                    )}
                   />
-                  <Label>Popular Badge</Label>
                 </div>
-              </div>
-              <div className="pt-4 flex justify-end space-x-2">
-                <Button variant="outline" type="button" onClick={() => setIsOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isCreating || isUpdating}>
-                  {(isCreating || isUpdating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save
-                </Button>
-              </div>
-            </form>
+
+                <div className="pt-4 flex justify-end space-x-2">
+                  <Button variant="outline" type="button" onClick={() => setIsOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isCreating || isUpdating}>
+                    {(isCreating || isUpdating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save
+                  </Button>
+                </div>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>
@@ -170,7 +213,7 @@ export const PricingClient = () => {
         <div className="flex justify-center p-8">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : plans?.length === 0 ? (
+      ) : (plans as any[])?.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-lg font-medium">No pricing plans found</p>
@@ -183,7 +226,7 @@ export const PricingClient = () => {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {plans?.map((plan: any) => (
+          {(plans as any[])?.map((plan: any) => (
             <Card key={plan.id} className={!plan.is_active ? "opacity-60" : ""}>
               <CardHeader>
                 <div className="flex justify-between items-start">

@@ -140,16 +140,22 @@ function PricingCard({
 export function SubmitManagerPricing() {
   const { data: remotePlans, isLoading } = useGetPricingPlans();
   const { mutate: createCheckout, isPending: isRedirecting } = useCreateCheckout();
+  
+  interface ApiPricingPlan {
+    id: string;
+    name: string;
+    description: string | null;
+    price: number | string;
+    is_active: boolean;
+    is_popular: boolean;
+    features: Record<string, boolean> | null;
+    stripe_price_id: string | null;
+  }
 
   const handleSubscribe = (planId: string) => {
     createCheckout(
       { pricingPlanId: parseInt(planId) },
       {
-        onSuccess: (data: any) => {
-          if (data.url) {
-            window.location.href = data.url;
-          }
-        },
         onError: (error: any) => {
           toast.error(error.message || "Failed to start checkout");
         }
@@ -157,7 +163,7 @@ export function SubmitManagerPricing() {
     );
   };
 
-  const pricingPlans: PricingPlan[] = remotePlans?.map((plan: any) => {
+  const pricingPlans: PricingPlan[] = (remotePlans as ApiPricingPlan[])?.map((plan) => {
     // Map DB features (Json/Record) to string array
     const features: string[] = [];
     const extraFeatures: string[] = [];

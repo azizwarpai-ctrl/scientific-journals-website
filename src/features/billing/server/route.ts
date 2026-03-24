@@ -70,15 +70,6 @@ app.post("/checkout", requireAdmin, zValidator("json", checkoutSchema), async (c
         cancelUrl: `${appUrl}/submit-manager#pricing`,
       })
 
-      // Attach metadata 
-      const stripe = getStripe()!
-      await stripe.checkout.sessions.update(stripeCheckout.id, {
-        metadata: {
-          adminUserId: session.id,
-          pricingPlanId: pricingPlanId.toString(),
-        },
-      })
-
       // Upsert local DB checkout session
       await tx.checkoutSession.upsert({
         where: { admin_user_id: BigInt(session.id) },
@@ -97,11 +88,27 @@ app.post("/checkout", requireAdmin, zValidator("json", checkoutSchema), async (c
         },
       })
 
-      return { isSubscribed: false, url: stripeCheckout.url || "" }
+      return { isSubscribed: false, url: stripeCheckout.url || "", stripeCheckoutId: stripeCheckout.id }
     })
 
     if (checkoutResult.isSubscribed) {
       return c.json({ success: false, error: "Active subscription already exists" }, 409)
+    }
+
+    // Attach metadata outside the transaction to prevent external API failures from rolling back DB
+    try {
+      if (checkoutResult.stripeCheckoutId) {
+        const stripe = getStripe()!
+        await stripe.checkout.sessions.update(checkoutResult.stripeCheckoutId, {
+          metadata: {
+            adminUserId: session.id,
+            pricingPlanId: pricingPlanId.toString(),
+          },
+        })
+      }
+    } catch (e) {
+      console.error("[billing] Failed to update stripe session metadata:", e)
+      // We don't return an error here because the checkout session is already committed to our DB
     }
 
     return c.json({ success: true, data: { url: checkoutResult.url } })
@@ -178,7 +185,7 @@ app.post("/webhook", async (c) => {
 
   try {
     await handleWebhookEvent(event)
-    return c.json({ received: true })
+    return c.json({ success: true, data: { received: true } })
   } catch (error) {
     console.error("[billing] webhook processing error:", error)
     return c.json({ success: false, error: "Webhook processing failed" }, 500)
