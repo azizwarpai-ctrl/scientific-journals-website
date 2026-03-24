@@ -30,6 +30,7 @@ model AdminUser {
   published_articles   PublishedArticle[] @relation("PublishedBy")
   updated_settings     SystemSetting[]    @relation("UpdatedBy")
   subscription         Subscription?
+  checkout_session     CheckoutSession?
 
   @@index([email])
   @@map("admin_users")
@@ -268,16 +269,34 @@ model EmailLog {
 model PricingPlan {
   id              BigInt   @id @default(autoincrement())
   name            String   @db.VarChar(100)
+  description     String?  @db.Text
   price           Decimal  @db.Decimal(10, 2)
   features        Json?
   stripe_price_id String?  @unique @db.VarChar(255)
   is_active       Boolean  @default(true)
+  is_popular      Boolean  @default(false)
   created_at      DateTime @default(now())
   updated_at      DateTime @default(now()) @updatedAt
 
-  subscriptions Subscription[]
+  subscriptions     Subscription[]
+  checkout_sessions CheckoutSession[]
 
   @@map("pricing_plans")
+}
+
+model CheckoutSession {
+  id                 BigInt   @id @default(autoincrement())
+  admin_user_id      BigInt   @unique
+  pricing_plan_id    BigInt
+  stripe_checkout_id String   @unique @db.VarChar(255)
+  url                String   @db.VarChar(500)
+  expires_at         DateTime
+  created_at         DateTime @default(now())
+
+  admin_user   AdminUser   @relation(fields: [admin_user_id], references: [id], onDelete: Cascade)
+  pricing_plan PricingPlan @relation(fields: [pricing_plan_id], references: [id], onDelete: Cascade)
+
+  @@map("checkout_sessions")
 }
 
 model Subscription {
@@ -291,7 +310,7 @@ model Subscription {
   created_at             DateTime @default(now())
   updated_at             DateTime @default(now()) @updatedAt
 
-  admin_user   AdminUser   @relation(fields: [admin_user_id], references: [id], onDelete: Cascade)
+  admin_user   AdminUser   @relation(fields: [admin_user_id], references: [id], onDelete: Restrict)
   pricing_plan PricingPlan @relation(fields: [pricing_plan_id], references: [id], onDelete: Restrict)
   invoices     Invoice[]
 
