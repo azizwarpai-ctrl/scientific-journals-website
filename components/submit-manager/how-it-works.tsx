@@ -14,7 +14,7 @@ export function SubmitManagerHowItWorks() {
         },
         {
             title: "Submit Manuscript",
-            description: "Upload fles and let our AI extract the metadata automatically.",
+            description: "Upload files and let our AI extract the metadata automatically.",
             icon: Send,
         },
         {

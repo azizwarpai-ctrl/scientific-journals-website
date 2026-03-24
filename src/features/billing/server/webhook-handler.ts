@@ -1,5 +1,6 @@
 import type Stripe from "stripe"
 import { prisma } from "@/src/lib/db/config"
+import { getSubscription } from "@/src/features/billing/server/stripe-service"
 
 /**
  * Processes verified Stripe webhook events and updates the local database.
@@ -19,6 +20,8 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
         break
       }
 
+      const sub = await getSubscription(session.subscription as string)
+
       await prisma.subscription.upsert({
         where: { admin_user_id: BigInt(adminUserId) },
         create: {
@@ -27,15 +30,14 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
           status: "active",
-          // TODO: Consider fetching Stripe subscription directly to get current_period_end correctly instead of using new Date() here.
-          // Invoice hook correctly maintains this state shortly afterwards anyways.
-          current_period_end: new Date(),
+          current_period_end: new Date((sub as any).current_period_end * 1000),
         },
         update: {
           pricing_plan_id: BigInt(pricingPlanId),
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
           status: "active",
+          current_period_end: new Date((sub as any).current_period_end * 1000),
         },
       })
       break

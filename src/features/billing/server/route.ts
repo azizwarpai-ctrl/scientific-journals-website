@@ -243,8 +243,8 @@ app.post("/plans", requireAdmin, zValidator("json", pricingPlanCreateSchema), as
   }
 })
 
-// PUT /billing/plans/:id — admin only
-app.put("/plans/:id", requireAdmin, zValidator("param", pricingPlanIdParamSchema), zValidator("json", pricingPlanUpdateSchema), async (c) => {
+// PATCH /billing/plans/:id — admin only
+app.patch("/plans/:id", requireAdmin, zValidator("param", pricingPlanIdParamSchema), zValidator("json", pricingPlanUpdateSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
     const data = c.req.valid("json")

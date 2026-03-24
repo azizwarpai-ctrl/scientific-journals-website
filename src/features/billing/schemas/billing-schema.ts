@@ -2,7 +2,7 @@ import { z } from "zod"
 
 // ── Checkout ─────────────────────────────────────────────
 export const checkoutSchema = z.object({
-  pricingPlanId: z.coerce.number().int().positive(),
+  pricingPlanId: z.union([z.string(), z.number()]).transform(v => v.toString()),
 })
 export type CheckoutInput = z.infer<typeof checkoutSchema>
 
@@ -22,5 +22,5 @@ export const pricingPlanUpdateSchema = pricingPlanCreateSchema.partial()
 export type PricingPlanUpdateInput = z.infer<typeof pricingPlanUpdateSchema>
 
 export const pricingPlanIdParamSchema = z.object({
-  id: z.coerce.number().int().positive(),
+  id: z.union([z.string(), z.number()]).transform(v => v.toString()),
 })
