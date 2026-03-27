@@ -57,7 +57,7 @@ vi.mock('@/src/lib/db/config', () => ({
 
 // Helper to create Hono test app
 function createApp() {
-    const app = new Hono()
+    const app = new Hono().basePath("/api")
     app.route('/journals', journalRouter)
     app.route('/messages', messageRouter)
     app.route('/solutions', solutionRouter)
@@ -85,7 +85,7 @@ describe('API Integration Tests', () => {
                 vi.mocked(prisma.journal.findMany).mockResolvedValue(mockJournals as any)
                 vi.mocked(prisma.journal.count).mockResolvedValue(1)
 
-                const res = await app.request('/journals')
+                const res = await app.request('/api/journals')
                 expect(res.status).toBe(200)
 
                 const body = await res.json()
@@ -99,7 +99,7 @@ describe('API Integration Tests', () => {
                 vi.mocked(prisma.journal.findMany).mockResolvedValue([])
                 vi.mocked(prisma.journal.count).mockResolvedValue(0)
 
-                await app.request('/journals?page=2&limit=5')
+                await app.request('/api/journals?page=2&limit=5')
 
                 expect(prisma.journal.findMany).toHaveBeenCalledWith(
                     expect.objectContaining({
@@ -114,7 +114,7 @@ describe('API Integration Tests', () => {
             it('should return 404 for non-existent journal', async () => {
                 vi.mocked(prisma.journal.findUnique).mockResolvedValue(null)
 
-                const res = await app.request('/journals/999')
+                const res = await app.request('/api/journals/999')
                 expect(res.status).toBe(404)
             })
 
@@ -125,7 +125,7 @@ describe('API Integration Tests', () => {
                 }
                 vi.mocked(prisma.journal.findUnique).mockResolvedValue(mockJournal as any)
 
-                const res = await app.request('/journals/1')
+                const res = await app.request('/api/journals/1')
                 expect(res.status).toBe(200)
 
                 const body = await res.json()
@@ -134,7 +134,7 @@ describe('API Integration Tests', () => {
             })
 
             it('should reject non-numeric ID', async () => {
-                const res = await app.request('/journals/abc')
+                const res = await app.request('/api/journals/abc')
                 expect(res.status).toBe(400)
             })
         })
@@ -143,7 +143,7 @@ describe('API Integration Tests', () => {
             it('should reject unauthenticated requests', async () => {
                 mockSession = null
 
-                const res = await app.request('/journals', {
+                const res = await app.request('/api/journals', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title: 'New Journal', field: 'CS' }),
@@ -154,7 +154,7 @@ describe('API Integration Tests', () => {
             it('should reject non-admin users', async () => {
                 mockSession = { id: '1', email: 'author@test.com', role: 'author' }
 
-                const res = await app.request('/journals', {
+                const res = await app.request('/api/journals', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title: 'New Journal', field: 'CS' }),
@@ -170,7 +170,7 @@ describe('API Integration Tests', () => {
                 }
                 vi.mocked(prisma.journal.create).mockResolvedValue(mockJournal as any)
 
-                const res = await app.request('/journals', {
+                const res = await app.request('/api/journals', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title: 'New Journal', field: 'CS' }),
@@ -184,7 +184,7 @@ describe('API Integration Tests', () => {
             it('should reject invalid data', async () => {
                 mockSession = { id: '1', email: 'admin@test.com', role: 'admin' }
 
-                const res = await app.request('/journals', {
+                const res = await app.request('/api/journals', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title: '' }),
@@ -197,14 +197,14 @@ describe('API Integration Tests', () => {
             it('should reject unauthenticated delete', async () => {
                 mockSession = null
 
-                const res = await app.request('/journals/1', { method: 'DELETE' })
+                const res = await app.request('/api/journals/1', { method: 'DELETE' })
                 expect(res.status).toBe(401)
             })
 
             it('should reject non-admin delete', async () => {
                 mockSession = { id: '1', email: 'author@test.com', role: 'author' }
 
-                const res = await app.request('/journals/1', { method: 'DELETE' })
+                const res = await app.request('/api/journals/1', { method: 'DELETE' })
                 expect(res.status).toBe(403)
             })
 
@@ -212,7 +212,7 @@ describe('API Integration Tests', () => {
                 mockSession = { id: '1', email: 'admin@test.com', role: 'admin' }
                 vi.mocked(prisma.journal.findUnique).mockResolvedValue(null)
 
-                const res = await app.request('/journals/999', { method: 'DELETE' })
+                const res = await app.request('/api/journals/999', { method: 'DELETE' })
                 expect(res.status).toBe(404)
             })
 
@@ -221,7 +221,7 @@ describe('API Integration Tests', () => {
                 vi.mocked(prisma.journal.findUnique).mockResolvedValue({ id: BigInt(1) } as any)
                 vi.mocked(prisma.journal.delete).mockResolvedValue({} as any)
 
-                const res = await app.request('/journals/1', { method: 'DELETE' })
+                const res = await app.request('/api/journals/1', { method: 'DELETE' })
                 expect(res.status).toBe(200)
             })
         })
@@ -234,13 +234,13 @@ describe('API Integration Tests', () => {
         describe('GET /messages', () => {
             it('should reject unauthenticated requests', async () => {
                 mockSession = null
-                const res = await app.request('/messages')
+                const res = await app.request('/api/messages')
                 expect(res.status).toBe(401)
             })
 
             it('should reject non-admin users', async () => {
                 mockSession = { id: '1', email: 'author@test.com', role: 'author' }
-                const res = await app.request('/messages')
+                const res = await app.request('/api/messages')
                 expect(res.status).toBe(403)
             })
 
@@ -249,7 +249,7 @@ describe('API Integration Tests', () => {
                 vi.mocked(prisma.message.findMany).mockResolvedValue([])
                 vi.mocked(prisma.message.count).mockResolvedValue(0)
 
-                const res = await app.request('/messages')
+                const res = await app.request('/api/messages')
                 expect(res.status).toBe(200)
 
                 const body = await res.json()
@@ -267,7 +267,7 @@ describe('API Integration Tests', () => {
                 }
                 vi.mocked(prisma.message.create).mockResolvedValue(mockMessage as any)
 
-                const res = await app.request('/messages', {
+                const res = await app.request('/api/messages', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -281,7 +281,7 @@ describe('API Integration Tests', () => {
             })
 
             it('should reject invalid email in message', async () => {
-                const res = await app.request('/messages', {
+                const res = await app.request('/api/messages', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -295,7 +295,7 @@ describe('API Integration Tests', () => {
             })
 
             it('should reject missing required fields', async () => {
-                const res = await app.request('/messages', {
+                const res = await app.request('/api/messages', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: 'Test' }),
@@ -307,7 +307,7 @@ describe('API Integration Tests', () => {
         describe('DELETE /messages/:id', () => {
             it('should reject non-admin delete', async () => {
                 mockSession = { id: '1', email: 'author@test.com', role: 'author' }
-                const res = await app.request('/messages/1', { method: 'DELETE' })
+                const res = await app.request('/api/messages/1', { method: 'DELETE' })
                 expect(res.status).toBe(403)
             })
         })
@@ -323,7 +323,7 @@ describe('API Integration Tests', () => {
                 vi.mocked(prisma.solution.findMany).mockResolvedValue([])
                 vi.mocked(prisma.solution.count).mockResolvedValue(0)
 
-                const res = await app.request('/solutions')
+                const res = await app.request('/api/solutions')
                 expect(res.status).toBe(200)
 
                 // Check that findMany was called with is_published filter
@@ -339,7 +339,7 @@ describe('API Integration Tests', () => {
                 vi.mocked(prisma.solution.findMany).mockResolvedValue([])
                 vi.mocked(prisma.solution.count).mockResolvedValue(0)
 
-                await app.request('/solutions')
+                await app.request('/api/solutions')
 
                 expect(prisma.solution.findMany).toHaveBeenCalledWith(
                     expect.objectContaining({
@@ -353,7 +353,7 @@ describe('API Integration Tests', () => {
             it('should reject unauthenticated creation', async () => {
                 mockSession = null
 
-                const res = await app.request('/solutions', {
+                const res = await app.request('/api/solutions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -367,7 +367,7 @@ describe('API Integration Tests', () => {
             it('should reject non-admin creation', async () => {
                 mockSession = { id: '1', email: 'author@test.com', role: 'author' }
 
-                const res = await app.request('/solutions', {
+                const res = await app.request('/api/solutions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -387,7 +387,7 @@ describe('API Integration Tests', () => {
                 }
                 vi.mocked(prisma.solution.create).mockResolvedValue(mockSolution as any)
 
-                const res = await app.request('/solutions', {
+                const res = await app.request('/api/solutions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -398,13 +398,34 @@ describe('API Integration Tests', () => {
                     }),
                 })
                 expect(res.status).toBe(201)
+                expect(prisma.solution.create).toHaveBeenCalledWith({
+                    data: {
+                        title: 'Digital Publishing',
+                        description: 'Modern solutions.',
+                        icon: 'Globe',
+                        features: ['A', 'B'],
+                        display_order: 0,
+                        is_published: false
+                    },
+                    select: {
+                        id: true,
+                        title: true,
+                        description: true,
+                        icon: true,
+                        features: true,
+                        display_order: true,
+                        is_published: true,
+                        created_at: true,
+                        updated_at: true
+                    }
+                })
             })
         })
 
         describe('DELETE /solutions/:id', () => {
             it('should reject non-admin delete', async () => {
                 mockSession = { id: '1', email: 'author@test.com', role: 'author' }
-                const res = await app.request('/solutions/1', { method: 'DELETE' })
+                const res = await app.request('/api/solutions/1', { method: 'DELETE' })
                 expect(res.status).toBe(403)
             })
 
@@ -413,7 +434,7 @@ describe('API Integration Tests', () => {
                 vi.mocked(prisma.solution.findUnique).mockResolvedValue({ id: BigInt(1) } as any)
                 vi.mocked(prisma.solution.delete).mockResolvedValue({} as any)
 
-                const res = await app.request('/solutions/1', { method: 'DELETE' })
+                const res = await app.request('/api/solutions/1', { method: 'DELETE' })
                 expect(res.status).toBe(200)
             })
         })

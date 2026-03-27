@@ -128,12 +128,13 @@ app.patch("/:id", requireAdmin, zValidator("param", faqIdParamSchema), zValidato
 app.delete("/:id", requireAdmin, zValidator("param", faqIdParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
+    const canonicalId = BigInt(id).toString()
 
     await prisma.fAQ.delete({
       where: { id: BigInt(id) },
     })
 
-    return c.json({ success: true, data: { id }, message: "FAQ deleted successfully" }, 200)
+    return c.json({ success: true, data: { id: canonicalId }, message: "FAQ deleted successfully" }, 200)
   } catch (error: any) {
     if (error.code === 'P2025') {
        return c.json({ success: false, error: "FAQ not found" }, 404)
