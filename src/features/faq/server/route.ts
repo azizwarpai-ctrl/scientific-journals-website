@@ -83,8 +83,8 @@ app.post("/", requireAdmin, zValidator("json", faqCreateSchema), async (c) => {
       data: {
         question: data.question,
         answer: data.answer,
-        category: data.category || "general",
-        is_published: data.is_published || false,
+        category: data.category,
+        is_published: data.is_published,
       },
       select: FAQ_SELECT,
     })

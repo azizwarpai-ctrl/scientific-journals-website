@@ -59,17 +59,17 @@ vi.mock('@/src/lib/db/config', () => ({
             delete: vi.fn(),
             count: vi.fn(),
         },
-        faq: {
+        systemSetting: {
+            findUnique: vi.fn(),
+            upsert: vi.fn(),
+        },
+        fAQ: {
             findMany: vi.fn(),
             findUnique: vi.fn(),
             create: vi.fn(),
             update: vi.fn(),
             delete: vi.fn(),
             count: vi.fn(),
-        },
-        systemSetting: {
-            findUnique: vi.fn(),
-            upsert: vi.fn(),
         }
     },
 }))
@@ -363,12 +363,13 @@ describe('Security & Authorization Tests', () => {
             expect(res.status).toBe(400)
         })
 
-        it('should reject message with XSS in subject', async () => {
-            // XSS content should still be accepted at API level (sanitization is display-side)
-            // but verify the system doesn't crash
+        it('should accept message with XSS in subject (sanitization is display-side)', async () => {
+            // XSS content is accepted at API level (stored as-is)
+            // Sanitization is the responsibility of the frontend during display.
+            const xssSubject = '<script>alert("xss")</script>'
             const mockMessage = {
                 id: BigInt(1), name: 'Test', email: 'test@test.com',
-                subject: '<script>alert("xss")</script>', message: 'Content',
+                subject: xssSubject, message: 'Content',
                 message_type: 'general', status: 'unread',
                 created_at: new Date(), updated_at: new Date(),
             }
@@ -380,7 +381,7 @@ describe('Security & Authorization Tests', () => {
                 body: JSON.stringify({
                     name: 'Test User',
                     email: 'test@example.com',
-                    subject: 'Test Subject',
+                    subject: xssSubject,
                     message: 'Test message content',
                 }),
             })

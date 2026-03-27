@@ -8,7 +8,7 @@ export const aboutContentSchema = z.object({
   whoWeAreText: z.string().trim().min(1),
   brandPhilosophyText: z.string().trim().min(1),
   coreValues: z.array(z.object({
-    icon: z.string().trim().min(1),
+    icon: z.enum(["Globe", "Award", "Target", "Eye", "Users", "Shield", "Cpu", "Zap", "Activity"]),
     title: z.string().trim().min(1),
     desc: z.string().trim().min(1),
     color: z.enum(["primary", "secondary"]),

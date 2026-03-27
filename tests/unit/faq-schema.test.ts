@@ -59,5 +59,15 @@ describe('FAQ Schemas', () => {
             const result = faqIdParamSchema.safeParse({ id: '1' })
             expect(result.success).toBe(true)
         })
+
+        it('should reject non-numeric string ID', () => {
+            const result = faqIdParamSchema.safeParse({ id: 'abc' })
+            expect(result.success).toBe(false)
+        })
+
+        it('should reject negative number string', () => {
+            const result = faqIdParamSchema.safeParse({ id: '-1' })
+            expect(result.success).toBe(false)
+        })
     })
 })

@@ -142,5 +142,10 @@ $ojsBaseUrl = rtrim($request->getBaseUrl(), '/');
 $redirectPath = ltrim($redirect, '/');
 $finalRedirectUrl = $ojsBaseUrl . '/' . $redirectPath;
 
+// Harden responses against intermediate caching (Varnish, Hostinger, CDNs)
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: Wed, 11 Jan 1984 05:00:00 GMT');
+
 header("Location: " . $finalRedirectUrl);
 exit;
