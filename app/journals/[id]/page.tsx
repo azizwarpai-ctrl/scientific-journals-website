@@ -83,7 +83,8 @@ export default function JournalDetailPage() {
 
   const ojsBaseUrl = process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"
   const ojsDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
-  const directUrl = journal.ojs_path ? `${ojsDomain}/index.php/${journal.ojs_path}/submission` : null
+  const sourceParam = encodeURIComponent(`/index.php/${journal.ojs_path}/submission`)
+  const directUrl = journal.ojs_path ? `${ojsDomain}/index.php/${journal.ojs_path}/login?source=${sourceParam}` : null
 
   const renderSubmitButton = (buttonClass: string = "", variant: "default" | "outline" = "default", children: React.ReactNode) => {
     if (!directUrl || !journal.ojs_path) return null;
