@@ -2,4 +2,3 @@ export { solutionCreateSchema, solutionUpdateSchema, solutionIdParamSchema } fro
 export type { SolutionCreate, SolutionUpdate } from "./schemas/solution-schema"
 export type { Solution, SolutionResponse } from "./types/solution-type"
 export { useGetSolutions, useCreateSolution } from "./api/use-solutions"
-export { useGetFaqs } from "./api/use-get-faqs"

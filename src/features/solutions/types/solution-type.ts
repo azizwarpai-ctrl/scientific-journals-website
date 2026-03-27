@@ -1,11 +1,11 @@
 export interface Solution {
   id: string
-  question: string
-  answer: string
-  category: string | null
+  title: string
+  description: string
+  icon: string | null
+  features: string[] | null
+  display_order: number
   is_published: boolean
-  view_count: number
-  helpful_count: number
   created_at: string
   updated_at: string
 }
