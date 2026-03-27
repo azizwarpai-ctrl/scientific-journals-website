@@ -20,6 +20,7 @@ import { faqRouter } from '@/src/features/faq/server/route'
 import { messageRouter } from '@/src/features/messages/server'
 import { prisma } from '@/src/lib/db/config'
 import { Hono } from 'hono'
+import { cors } from 'hono/cors'
 
 let mockSession: any = null
 
@@ -76,6 +77,32 @@ vi.mock('@/src/lib/db/config', () => ({
 
 function createApp() {
     const app = new Hono().basePath("/api")
+
+    // Global CORS middleware
+    app.use(
+        "*",
+        cors({
+            origin: (origin) => {
+                const allowed = process.env.ALLOWED_ORIGINS?.split(",") || []
+                if (allowed.includes(origin)) return origin
+                return null
+            },
+        })
+    )
+
+    // Session middleware
+    app.use('*', async (c: any, next) => {
+        c.set('session', mockSession)
+        await next()
+    })
+
+    // Header middleware to mirror production app.ts
+    app.use('*', async (c, next) => {
+        await next()
+        c.res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate")
+        c.res.headers.set("Pragma", "no-cache")
+    })
+
     app.route('/auth', authRouter)
     app.route('/ojs', ojsRouter)
     app.route('/journals', journalRouter)
@@ -92,6 +119,22 @@ describe('Security & Authorization Tests', () => {
         vi.resetAllMocks()
         mockSession = null
         app = createApp()
+    })
+
+    describe('CORS and Global Configuration', () => {
+        it('should allow allowed origins', async () => {
+            process.env.ALLOWED_ORIGINS = 'http://localhost:3000,https://submitmanager.com'
+            const res = await app.request('/api/auth/me', {
+                headers: { 'Origin': 'https://submitmanager.com' }
+            })
+            expect(res.headers.get('access-control-allow-origin')).toBe('https://submitmanager.com')
+        })
+
+        it('should emit anti-cache headers for all API requests', async () => {
+            const res = await app.request('/api/auth/me')
+            expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache, must-revalidate')
+            expect(res.headers.get('Pragma')).toBe('no-cache')
+        })
     })
 
     // ═══════════════════════════════════════
