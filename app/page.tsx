@@ -12,13 +12,13 @@ import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { AnimatedCounter } from "@/components/animated-counter"
 import { useGetJournals } from "@/src/features/journals"
 import type { Journal } from "@/src/features/journals"
-import { useGetMetrics } from "@/src/features/metrics"
+import { useGetPlatformStatistics } from "@/src/features/statistics/api/use-get-statistics"
 import { HomeStatsSkeleton } from "@/components/skeletons/home-stats-skeleton"
 import { JournalCardSkeleton } from "@/components/skeletons/journal-card-skeleton"
 
 export default function HomePage() {
   const { data: journals = [], isLoading: isLoadingOjs, isError: isErrorOjs } = useGetJournals()
-  const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetMetrics()
+  const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetPlatformStatistics()
 
   // Scroll animations for the 3D Spline model
   const { scrollY } = useScroll()
@@ -28,10 +28,10 @@ export default function HomePage() {
   const splineScale = useTransform(scrollY, [0, 1000], [1, 1.2]) // Smoother, lower-angle zoom
 
   const statConfigs = [
-    { label: "Active Journals", value: stats?.activeJournals, color: "text-blue-500 dark:text-blue-400" },
-    { label: "Published Articles", value: stats?.publishedArticles, color: "text-sky-500 dark:text-sky-400" },
-    { label: "Researchers", value: stats?.researchers, color: "text-indigo-500 dark:text-indigo-400" },
-    { label: "Countries (Estimated)", value: stats?.countriesEstimated, color: "text-cyan-500 dark:text-cyan-400" },
+    { label: "Active Journals", value: stats?.totalJournals, color: "text-blue-500 dark:text-blue-400" },
+    { label: "Published Articles", value: stats?.totalArticles, color: "text-sky-500 dark:text-sky-400" },
+    { label: "Researchers", value: stats?.totalUsers, color: "text-indigo-500 dark:text-indigo-400" },
+    { label: "Countries (Estimated)", value: stats?.countriesCount, color: "text-cyan-500 dark:text-cyan-400" },
   ]
 
   return (

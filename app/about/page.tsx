@@ -96,6 +96,13 @@ export default function AboutPage() {
     countriesCount: 0
   }
 
+  const ICON_MAP: Record<string, React.ElementType> = {
+    Globe,
+    Award,
+    Target,
+    Eye,
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
@@ -151,7 +158,7 @@ export default function AboutPage() {
           </section>
         </GSAPWrapper>
 
-        {/* About Content */}
+        {/* Who We Are */}
         <GSAPWrapper animation="slideUp" delay={0.3}>
           <section className="bg-muted/30 py-16">
             <div className="container mx-auto px-4 md:px-6">
@@ -165,48 +172,48 @@ export default function AboutPage() {
           </section>
         </GSAPWrapper>
 
-        {/* Values */}
-        <GSAPWrapper animation="slideUp" delay={0.4}>
-          <section className="py-16">
-            <div className="container mx-auto px-4 md:px-6">
-              <div className="mb-12 text-center">
-                <h2 className="mb-4 text-3xl font-bold md:text-4xl">Our Core Values</h2>
-                <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
-                  Guided by principles that ensure the highest standards in scholarly publishing
-                </p>
-              </div>
+        {/* Core Values */}
+        {content.coreValues && content.coreValues.length > 0 && (
+          <GSAPWrapper animation="slideUp" delay={0.4}>
+            <section className="py-16">
+              <div className="container mx-auto px-4 md:px-6">
+                <div className="mb-12 text-center">
+                  <h2 className="mb-4 text-3xl font-bold md:text-4xl">Our Core Values</h2>
+                  <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
+                    Guided by principles that ensure the highest standards in scholarly publishing
+                  </p>
+                </div>
 
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                {[
-                  { icon: Globe, title: "Global Reach", desc: "Connecting researchers and institutions across 120+ countries worldwide", color: "primary" },
-                  { icon: Award, title: "Quality", desc: "Adhering to rigorous COPE ethical standards and international publishing guidelines", color: "secondary" },
-                  { icon: Target, title: "Transparency", desc: "Open processes and clear communication at every stage of publication", color: "primary" },
-                  { icon: Eye, title: "Innovation", desc: "Leveraging cutting-edge technology to advance scholarly communication", color: "secondary" },
-                ].map((value) => (
-                  <Card key={value.title} className="group hover:shadow-lg transition-all duration-300 border-border/50 hover:-translate-y-1">
-                    <CardContent className="pt-6 text-center">
-                      <div className="mb-4 flex justify-center">
-                        <div className={cn(
-                          "flex h-16 w-16 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110",
-                          value.color === "primary" ? "bg-primary/10" : "bg-secondary/10"
-                        )}>
-                          <value.icon className={cn(
-                            "h-8 w-8",
-                            value.color === "primary" ? "text-primary" : "text-secondary"
-                          )} />
-                        </div>
-                      </div>
-                      <h3 className="mb-2 font-semibold text-lg">{value.title}</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {value.desc}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ))}
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                  {content.coreValues.map((value) => {
+                    const ValueIcon = ICON_MAP[value.icon] || Globe
+                    return (
+                      <Card key={value.title} className="group hover:shadow-lg transition-all duration-300 border-border/50 hover:-translate-y-1">
+                        <CardContent className="pt-6 text-center">
+                          <div className="mb-4 flex justify-center">
+                            <div className={cn(
+                              "flex h-16 w-16 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110",
+                              value.color === "primary" ? "bg-primary/10" : "bg-secondary/10"
+                            )}>
+                              <ValueIcon className={cn(
+                                "h-8 w-8",
+                                value.color === "primary" ? "text-primary" : "text-secondary"
+                              )} />
+                            </div>
+                          </div>
+                          <h3 className="mb-2 font-semibold text-lg">{value.title}</h3>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {value.desc}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          </section>
-        </GSAPWrapper>
+            </section>
+          </GSAPWrapper>
+        )}
 
         {/* Enhanced Statistics Visualization */}
         <GSAPWrapper animation="fadeIn" delay={0.2}>

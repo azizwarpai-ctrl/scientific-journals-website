@@ -1,43 +1,37 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
+import { getSession } from "@/src/lib/db/auth"
 import { requireAdmin } from "@/src/lib/auth-middleware"
 import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
 import { serializeRecord, serializeMany } from "@/src/lib/serialize"
-import { getSession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
-import { solutionCreateSchema, solutionUpdateSchema, solutionIdParamSchema } from "../schemas/solution-schema"
+import { Prisma } from "@prisma/client"
+import {
+  solutionCreateSchema,
+  solutionUpdateSchema,
+  solutionIdParamSchema,
+  SOLUTION_SELECT,
+} from "@/src/features/solutions/schemas/solution-schema"
 
-const app = new Hono()
+const app = new Hono<{ Variables: { session: any } }>()
 
-const SOLUTION_SELECT = {
-  id: true,
-  question: true,
-  answer: true,
-  category: true,
-  is_published: true,
-  view_count: true,
-  helpful_count: true,
-  created_at: true,
-  updated_at: true,
-} as const
-
-// GET /solutions - List solutions (public: published only; admin: all, paginated)
+// GET /solutions - Public listing (published only, or all for admin)
 app.get("/", async (c) => {
   try {
-    const pagination = parsePagination(c)
     const session = await getSession()
-    const isAdmin = session && (session.role === "admin" || session.role === "superadmin")
+    const isAdmin = session?.role === "admin" || session?.role === "superadmin"
+    const pagination = parsePagination(c)
     const where = isAdmin ? {} : { is_published: true }
 
     const [solutions, total] = await Promise.all([
-      prisma.fAQ.findMany({
+      prisma.solution.findMany({
         where,
         select: SOLUTION_SELECT,
-        orderBy: { created_at: "desc" },
+        orderBy: { display_order: "asc" },
         take: pagination.limit,
         skip: pagination.offset,
       }),
-      prisma.fAQ.count({ where }),
+      prisma.solution.count({ where }),
     ])
 
     return c.json(paginatedResponse(serializeMany(solutions), total, pagination), 200)
@@ -47,25 +41,20 @@ app.get("/", async (c) => {
   }
 })
 
-// GET /solutions/:id - Get single solution (public for published, admin only for draft)
+// GET /solutions/:id
 app.get("/:id", zValidator("param", solutionIdParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
+    const session = await getSession()
+    const isAdmin = session?.role === "admin" || session?.role === "superadmin"
 
-    const solution = await prisma.fAQ.findUnique({
+    const solution = await prisma.solution.findUnique({
       where: { id: BigInt(id) },
       select: SOLUTION_SELECT,
     })
 
-    if (!solution) {
+    if (!solution || (!isAdmin && !solution.is_published)) {
       return c.json({ success: false, error: "Solution not found" }, 404)
-    }
-
-    if (!solution.is_published) {
-      const session = await getSession()
-      if (!session || (session.role !== "admin" && session.role !== "superadmin")) {
-        return c.json({ success: false, error: "Not found" }, 404)
-      }
     }
 
     return c.json({ success: true, data: serializeRecord(solution) }, 200)
@@ -75,15 +64,17 @@ app.get("/:id", zValidator("param", solutionIdParamSchema), async (c) => {
   }
 })
 
-// POST /solutions - Create solution (admin only)
+// POST /solutions - Admin create
 app.post("/", requireAdmin, zValidator("json", solutionCreateSchema), async (c) => {
   try {
     const data = c.req.valid("json")
-    const solution = await prisma.fAQ.create({
+    const solution = await prisma.solution.create({
       data: {
-        question: data.question,
-        answer: data.answer,
-        category: data.category || "general",
+        title: data.title,
+        description: data.description,
+        icon: data.icon || null,
+        features: data.features ?? Prisma.JsonNull,
+        display_order: data.display_order || 0,
         is_published: data.is_published || false,
       },
       select: SOLUTION_SELECT,
@@ -99,28 +90,27 @@ app.post("/", requireAdmin, zValidator("json", solutionCreateSchema), async (c) 
   }
 })
 
-// PATCH /solutions/:id - Update solution (admin only)
+// PATCH /solutions/:id - Admin update
 app.patch("/:id", requireAdmin, zValidator("param", solutionIdParamSchema), zValidator("json", solutionUpdateSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
     const data = c.req.valid("json")
 
-    const existingSolution = await prisma.fAQ.findUnique({
+    const existing = await prisma.solution.findUnique({
       where: { id: BigInt(id) },
       select: { id: true },
     })
 
-    if (!existingSolution) {
+    if (!existing) {
       return c.json({ success: false, error: "Solution not found" }, 404)
     }
 
-    const updateData: Partial<typeof data> = {}
-    if (data.question !== undefined) updateData.question = data.question
-    if (data.answer !== undefined) updateData.answer = data.answer
-    if (data.category !== undefined) updateData.category = data.category
-    if (data.is_published !== undefined) updateData.is_published = data.is_published
+    const updateData: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) updateData[key] = value
+    }
 
-    const solution = await prisma.fAQ.update({
+    const solution = await prisma.solution.update({
       where: { id: BigInt(id) },
       data: updateData,
       select: SOLUTION_SELECT,
@@ -136,21 +126,21 @@ app.patch("/:id", requireAdmin, zValidator("param", solutionIdParamSchema), zVal
   }
 })
 
-// DELETE /solutions/:id - Delete solution (admin only)
+// DELETE /solutions/:id - Admin delete
 app.delete("/:id", requireAdmin, zValidator("param", solutionIdParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
 
-    const existingSolution = await prisma.fAQ.findUnique({
+    const existing = await prisma.solution.findUnique({
       where: { id: BigInt(id) },
       select: { id: true },
     })
 
-    if (!existingSolution) {
+    if (!existing) {
       return c.json({ success: false, error: "Solution not found" }, 404)
     }
 
-    await prisma.fAQ.delete({
+    await prisma.solution.delete({
       where: { id: BigInt(id) },
     })
 

@@ -43,9 +43,16 @@ The SSO mechanism is designed ONLY for **Just-In-Time (JIT) Handover** immediate
 
 ## 5. Returning User Flow
 - digitopub plays **zero** role in returning user authentication.
-- Returning users are directed via standard hyperlinks to OJS. OJS handles any necessary login prompts.
+- Returning users are directed via standard hyperlinks to OJS.
+- **Post-Login Destination Control**: All links to OJS that may trigger a login prompt MUST include a `source` query parameter containing the intended destination path (e.g., `https://submitmanager.com/index.php/login?source=/index.php/{journalPath}/submission`). This ensures OJS honors the specific journal context after the user authenticates, regardless of previous session state.
 
-## 6. Debug Checklist — Common Redirect Issues
+## 6. Anti-Caching Requirements (Hostinger/CDNs)
+To prevent sessions from leaking or being blocked by stale 403/401 responses (common in Varnish/Hostinger environments):
+- digitopub server MUST emit `Cache-Control: no-store, no-cache, must-revalidate` for all API routes (implemented in middleware in `src/server/app.ts`).
+- The OJS SSO endpoint (`sso_login.php` or the OJS SSO handler) MUST set the same anti-cache headers on its responses (e.g., add `header('Cache-Control: no-store, no-cache, must-revalidate')` in `sso_login.php`).
+- Tests will validate the Cache-Control header on the OJS SSO redirect/consumption response to ensure this requirement is unambiguous and testable.
+
+## 7. Debug Checklist — Common Redirect Issues
 
 When users report being redirected to the wrong journal:
 
@@ -54,4 +61,3 @@ When users report being redirected to the wrong journal:
 3. **Check OJS session**: OJS uses domain-wide sessions. If a user was previously logged into journal A, OJS may redirect from any generic page to journal A's context.
 4. **Test in incognito**: A fresh session (no existing OJS cookies) should navigate correctly.
 5. **Check `sso_login.php` fallback**: Ensure it defaults to `/index.php/index/login`, not a submission wizard path.
-
