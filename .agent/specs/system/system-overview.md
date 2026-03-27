@@ -125,4 +125,6 @@ digitopub MUST NOT:
 | `/api/about` | `SystemSetting` | About page CMS content (including Core Values) |
 | `/api/help` | `SystemSetting` | Help page CMS content (hero + guides) |
 | `/api/statistics` | OJS DB | Platform-wide real-time stats |
+| `/api/email-templates` | `EmailTemplate` | Dynamic email template management |
+| `/api/billing` | `Subscription, PricingPlan (+ Stripe integration)` | Billing and subscription management |
 
