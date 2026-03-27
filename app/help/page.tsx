@@ -4,15 +4,32 @@ import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { BookOpen, FileText, Users, HelpCircle, ChevronRight } from "lucide-react"
+import { BookOpen, FileText, Users, HelpCircle, ChevronRight, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 
-import { useGetFaqs } from "@/src/features/solutions"
+import { useGetFaqs } from "@/src/features/faq"
+import { useGetHelpContent } from "@/src/features/help"
 
 export default function HelpPage() {
-  const { data: faqs = [], isLoading } = useGetFaqs()
+  const { data: faqs = [], isLoading: isFaqLoading } = useGetFaqs()
+  const { data: helpData, isLoading: isHelpLoading, isError: isHelpError } = useGetHelpContent()
+
+  if (isHelpLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  const content = helpData || {
+    heroTitle: "Help Center",
+    heroSubtitle: "Find answers, guides and support for your publishing journey",
+    authorGuide: { title: "Guide for Authors", content: [] },
+    reviewerGuide: { title: "Guide for Reviewers", content: [] }
+  }
 
   const quickLinks = [
     { icon: BookOpen, title: "Guide for Authors", href: "#guide-authors", color: "primary" as const },
@@ -31,8 +48,8 @@ export default function HelpPage() {
           <section className="bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-12 md:py-16">
             <div className="container mx-auto px-4 md:px-6">
               <div className="mx-auto max-w-3xl text-center">
-                <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">Help Center</h1>
-                <p className="text-lg text-muted-foreground">Find answers, guides and support for your publishing journey</p>
+                <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">{content.heroTitle}</h1>
+                <p className="text-lg text-muted-foreground">{content.heroSubtitle}</p>
               </div>
             </div>
           </section>
@@ -78,7 +95,7 @@ export default function HelpPage() {
                   </CardHeader>
                   <CardContent>
                     <Accordion type="single" collapsible className="w-full">
-                      {isLoading ? (
+                      {isFaqLoading ? (
                         <div className="space-y-4 py-4">
                           {[...Array(5)].map((_, i) => (
                             <div key={i} className="border-b pb-4">
@@ -90,7 +107,7 @@ export default function HelpPage() {
                         faqs.map((faq, idx) => (
                           <AccordionItem key={faq.id} value={`item-${idx}`}>
                             <AccordionTrigger>{faq.question}</AccordionTrigger>
-                            <AccordionContent className="text-muted-foreground leading-relaxed">
+                            <AccordionContent className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
                               {faq.answer}
                             </AccordionContent>
                           </AccordionItem>
@@ -114,22 +131,16 @@ export default function HelpPage() {
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                           <BookOpen className="h-5 w-5 text-primary" />
                         </div>
-                        <CardTitle>Guide for Authors</CardTitle>
+                        <CardTitle>{content.authorGuide.title}</CardTitle>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4 text-sm text-muted-foreground">
-                      <div>
-                        <h4 className="mb-1 font-semibold text-foreground">Manuscript Preparation</h4>
-                        <p className="leading-relaxed">Ensure your manuscript adheres to the journal's formatting guidelines, including citation style, figure resolution, and word count limits. Use the templates provided if available.</p>
-                      </div>
-                      <div>
-                        <h4 className="mb-1 font-semibold text-foreground">Submission Process</h4>
-                        <p className="leading-relaxed">Verify that all co-authors are listed correctly and that you have obtained necessary ethical approvals. Prepare a cover letter to the editor highlighting the significance of your work.</p>
-                      </div>
-                      <div>
-                        <h4 className="mb-1 font-semibold text-foreground">Revision & Resubmission</h4>
-                        <p className="leading-relaxed">When submitting a revised manuscript, include a point-by-point response to the reviewers' comments. Highlight changes in the manuscript text for easy verification.</p>
-                      </div>
+                      {content.authorGuide.content.map((item, i) => (
+                        <div key={i}>
+                          <h4 className="mb-1 font-semibold text-foreground">{item.heading}</h4>
+                          <p className="leading-relaxed">{item.text}</p>
+                        </div>
+                      ))}
                     </CardContent>
                   </Card>
 
@@ -139,22 +150,16 @@ export default function HelpPage() {
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10">
                           <Users className="h-5 w-5 text-secondary" />
                         </div>
-                        <CardTitle>Guide for Reviewers</CardTitle>
+                        <CardTitle>{content.reviewerGuide.title}</CardTitle>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4 text-sm text-muted-foreground">
-                      <div>
-                        <h4 className="mb-1 font-semibold text-foreground">The Review Process</h4>
-                        <p className="leading-relaxed">Reviews should be constructive, objective, and timely. Evaluate the study's methodology, clarity, and contribution to the field. Maintain confidentiality throughout the process.</p>
-                      </div>
-                      <div>
-                        <h4 className="mb-1 font-semibold text-foreground">Writing Reviews</h4>
-                        <p className="leading-relaxed">Provide specific comments and suggestions for improvement. Clearly state your recommendation (Accept, Minor Revision, Major Revision, Reject) to the editor.</p>
-                      </div>
-                      <div>
-                        <h4 className="mb-1 font-semibold text-foreground">Timeline & Expectations</h4>
-                        <p className="leading-relaxed">Accept review invitations only if you have the expertise and time to complete the review within the deadline. Inform the editor immediately if a conflict of interest or delay arises.</p>
-                      </div>
+                      {content.reviewerGuide.content.map((item, i) => (
+                        <div key={i}>
+                          <h4 className="mb-1 font-semibold text-foreground">{item.heading}</h4>
+                          <p className="leading-relaxed">{item.text}</p>
+                        </div>
+                      ))}
                     </CardContent>
                   </Card>
                 </div>

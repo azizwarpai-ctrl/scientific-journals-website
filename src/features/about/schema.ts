@@ -7,6 +7,12 @@ export const aboutContentSchema = z.object({
   visionText: z.string().trim().min(1),
   whoWeAreText: z.string().trim().min(1),
   brandPhilosophyText: z.string().trim().min(1),
+  coreValues: z.array(z.object({
+    icon: z.string(),
+    title: z.string(),
+    desc: z.string(),
+    color: z.enum(["primary", "secondary"]),
+  })).optional(),
 })
 
 export type AboutContent = z.infer<typeof aboutContentSchema>
@@ -17,5 +23,11 @@ export const defaultAboutContent: AboutContent = {
   missionText: "To empower journals, editors, and researchers worldwide with comprehensive digital publishing solutions that uphold the highest standards of transparency, quality, and ethical scholarly communication. We bridge the gap between research creation, dissemination, and long-term preservation.",
   visionText: "To create a vibrant ecosystem where science and technology evolve in harmony, fostering a trusted environment where scholarly work can thrive. We envision a future where every researcher has access to world-class publishing tools and global reach.",
   whoWeAreText: "At DigitoPub, we redefine the future of academic publishing through seamless digital integration and innovation. As a forward-thinking scientific publisher, we provide a comprehensive suite of digital publishing and management solutions designed to empower journals, editors, and researchers worldwide.\n\nOur services include e-journal platform solutions for journal creation, hosting, and management; SubmitManager, our intuitive e-submission platform; and end-to-end e-editorial and e-review systems that streamline every stage of scholarly communication.\n\nBeyond these core services, we offer CrossRef integration (DOI, Crossmark, Similarity Check), XML and LaTeX production, ORCID author identification, citation metrics, indexing, and archiving solutions through Portico and CLOCKSS—ensuring every publication meets the highest international standards of accessibility and integrity.",
-  brandPhilosophyText: "Our visual branding reflects our philosophy of digital growth and intellectual connectivity. The DigitoPub identity—featuring gradient blue and slate tones—symbolizes the organic growth of knowledge rooted in technological innovation.\n\nThe color palette represents the interconnection of ideas, researchers, and data. The dual-tone of deep blue and cool slate conveys both academic reliability and forward-looking creativity. Together, they capture our vision: a vibrant ecosystem where science and technology evolve in harmony to advance open, ethical, and impactful scholarly communication."
+  brandPhilosophyText: "Our visual branding reflects our philosophy of digital growth and intellectual connectivity. The DigitoPub identity—featuring gradient blue and slate tones—symbolizes the organic growth of knowledge rooted in technological innovation.\n\nThe color palette represents the interconnection of ideas, researchers, and data. The dual-tone of deep blue and cool slate conveys both academic reliability and forward-looking creativity. Together, they capture our vision: a vibrant ecosystem where science and technology evolve in harmony to advance open, ethical, and impactful scholarly communication.",
+  coreValues: [
+    { icon: "Globe", title: "Global Reach", desc: "Connecting researchers and institutions across 120+ countries worldwide", color: "primary" },
+    { icon: "Award", title: "Quality", desc: "Adhering to rigorous COPE ethical standards and international publishing guidelines", color: "secondary" },
+    { icon: "Target", title: "Transparency", desc: "Open processes and clear communication at every stage of publication", color: "primary" },
+    { icon: "Eye", title: "Innovation", desc: "Leveraging cutting-edge technology to advance scholarly communication", color: "secondary" },
+  ]
 }
