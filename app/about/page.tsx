@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Target, Eye, Award, Globe, BookOpen, Users, FileText, BarChart3, Loader2 } from "lucide-react"
 import { cn } from "@/src/lib/utils"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
+import { Skeleton } from "@/components/ui/skeleton"
 
 import { useGetAboutContent } from "@/src/features/about"
 import { useGetPlatformStatistics } from "@/src/features/statistics"
@@ -60,8 +61,28 @@ export default function AboutPage() {
 
   if (isAboutLoading || isStatsLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex min-h-screen flex-col">
+        <Navbar />
+        <main className="flex-1">
+          <section className="relative py-16 md:py-24 overflow-hidden">
+            <div className="container mx-auto px-4 md:px-6">
+              <div className="mx-auto max-w-3xl text-center space-y-4 flex flex-col items-center">
+                <Skeleton className="h-12 w-2/3" />
+                <Skeleton className="h-6 w-full" />
+                <Skeleton className="h-6 w-4/5" />
+              </div>
+            </div>
+          </section>
+          <section className="py-16">
+            <div className="container mx-auto px-4 md:px-6">
+              <div className="grid gap-8 md:grid-cols-2">
+                <Skeleton className="h-48 w-full rounded-xl" />
+                <Skeleton className="h-48 w-full rounded-xl" />
+              </div>
+            </div>
+          </section>
+        </main>
+        <Footer />
       </div>
     )
   }

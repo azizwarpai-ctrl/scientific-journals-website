@@ -5,6 +5,7 @@ import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, BookOpen, Users, FileText, Globe, Shield, Zap } from "lucide-react"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useQuery } from "@tanstack/react-query"
 import { client } from "@/src/lib/rpc"
 
@@ -75,8 +76,21 @@ export default function SolutionsPage() {
                 <p className="font-medium">Failed to load solutions. Please try again later.</p>
               </div>
             ) : isLoading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {[...Array(6)].map((_, i) => (
+                  <Card key={i} className="h-full border-border/50">
+                    <CardContent className="pt-6">
+                      <Skeleton className="mb-4 h-12 w-12 rounded-lg" />
+                      <Skeleton className="mb-2 h-6 w-3/4" />
+                      <Skeleton className="mb-4 h-16 w-full" />
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-5/6" />
+                        <Skeleton className="h-4 w-4/6" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             ) : solutions.length === 0 ? (
               <div className="text-center py-12">
