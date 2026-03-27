@@ -64,7 +64,7 @@ app.get("/:id", zValidator("param", faqIdParamSchema), async (c) => {
     if (!faq.is_published) {
       const session = await getSession()
       if (!session || (session.role !== "admin" && session.role !== "superadmin")) {
-        return c.json({ success: false, error: "Not found" }, 404)
+        return c.json({ success: false, error: "FAQ not found" }, 404)
       }
     }
 
@@ -105,15 +105,6 @@ app.patch("/:id", requireAdmin, zValidator("param", faqIdParamSchema), zValidato
     const { id } = c.req.valid("param")
     const data = c.req.valid("json")
 
-    const existingFaq = await prisma.fAQ.findUnique({
-      where: { id: BigInt(id) },
-      select: { id: true },
-    })
-
-    if (!existingFaq) {
-      return c.json({ success: false, error: "FAQ not found" }, 404)
-    }
-
     const faq = await prisma.fAQ.update({
       where: { id: BigInt(id) },
       data,
@@ -124,7 +115,10 @@ app.patch("/:id", requireAdmin, zValidator("param", faqIdParamSchema), zValidato
       { success: true, data: serializeRecord(faq), message: "FAQ updated successfully" },
       200
     )
-  } catch (error) {
+  } catch (error: any) {
+    if (error.code === 'P2025') {
+       return c.json({ success: false, error: "FAQ not found" }, 404)
+    }
     console.error("Error updating FAQ:", error)
     return c.json({ success: false, error: "Failed to update FAQ" }, 500)
   }
@@ -135,21 +129,15 @@ app.delete("/:id", requireAdmin, zValidator("param", faqIdParamSchema), async (c
   try {
     const { id } = c.req.valid("param")
 
-    const existingFaq = await prisma.fAQ.findUnique({
-      where: { id: BigInt(id) },
-      select: { id: true },
-    })
-
-    if (!existingFaq) {
-      return c.json({ success: false, error: "FAQ not found" }, 404)
-    }
-
     await prisma.fAQ.delete({
       where: { id: BigInt(id) },
     })
 
-    return c.json({ success: true, message: "FAQ deleted successfully" }, 200)
-  } catch (error) {
+    return c.json({ success: true, data: { id }, message: "FAQ deleted successfully" }, 200)
+  } catch (error: any) {
+    if (error.code === 'P2025') {
+       return c.json({ success: false, error: "FAQ not found" }, 404)
+    }
     console.error("Error deleting FAQ:", error)
     return c.json({ success: false, error: "Failed to delete FAQ" }, 500)
   }

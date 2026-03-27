@@ -89,7 +89,7 @@ describe('Security & Authorization Tests', () => {
     let app: ReturnType<typeof createApp>
 
     beforeEach(() => {
-        vi.clearAllMocks()
+        vi.resetAllMocks()
         mockSession = null
         app = createApp()
     })
