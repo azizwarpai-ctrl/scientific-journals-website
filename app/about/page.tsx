@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
-import { Target, Eye, Award, Globe, TrendingUp, BookOpen, Users, FileText, BarChart3, Loader2 } from "lucide-react"
+import { Target, Eye, Award, Globe, BookOpen, Users, FileText, BarChart3, Loader2 } from "lucide-react"
 import { cn } from "@/src/lib/utils"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 
@@ -21,115 +20,6 @@ function FormattedCounter({ value, suffix = "", prefix = "" }: {
     <span className="tabular-nums tracking-tight">
       {prefix}{value.toLocaleString()}{suffix}
     </span>
-  )
-}
-
-// Radial Progress Component (Academic Style)
-function RadialProgress({ 
-  value, 
-  max, 
-  label, 
-  sublabel, 
-  color = "primary",
-  size = 120,
-  unit
-}: { 
-  value: number
-  max: number
-  label: string
-  sublabel?: string
-  color?: "primary" | "secondary" | "accent"
-  size?: number
-  unit?: string
-}) {
-  const percentage = max <= 0 ? 0 : Math.max(0, Math.min((value / max) * 100, 100))
-  const circumference = 2 * Math.PI * ((size - 8) / 2)
-  const strokeDashoffset = circumference - (percentage / 100) * circumference
-  
-  const colorClasses = {
-    primary: "stroke-primary text-primary",
-    secondary: "stroke-secondary text-secondary",
-    accent: "stroke-chart-3 text-chart-3"
-  }
-
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg className="transform -rotate-90" width={size} height={size}>
-          {/* Background ring */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={(size - 8) / 2}
-            fill="none"
-            className="stroke-muted"
-            strokeWidth={6}
-          />
-          {/* Progress ring */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={(size - 8) / 2}
-            fill="none"
-            className={cn("transition-all duration-1000 ease-out", colorClasses[color])}
-            strokeWidth={6}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={cn("text-2xl font-bold", colorClasses[color].split(" ")[1])}>
-            {!unit || unit === "%" ? `${percentage.toFixed(0)}%` : `${value.toFixed(1)}${unit}`}
-          </span>
-        </div>
-      </div>
-      <div className="text-center">
-        <div className="font-semibold text-foreground">{label}</div>
-        {sublabel && <div className="text-xs text-muted-foreground">{sublabel}</div>}
-      </div>
-    </div>
-  )
-}
-
-// Horizontal Progress Bar with Academic Styling
-function MetricBar({ 
-  label, 
-  value, 
-  max, 
-  color = "bg-primary",
-  showValue = true 
-}: { 
-  label: string
-  value: number
-  max: number
-  color?: string
-  showValue?: boolean
-}) {
-  const percentage = max <= 0 ? 0 : Math.max(0, Math.min((value / max) * 100, 100))
-  
-  return (
-    <div className="group">
-      <div className="mb-2 flex justify-between text-sm">
-        <span className="font-medium text-foreground">{label}</span>
-        {showValue && (
-          <span className="font-semibold text-muted-foreground group-hover:text-primary transition-colors">
-            {value.toLocaleString()}
-          </span>
-        )}
-      </div>
-      <div className="h-2.5 w-full rounded-full bg-muted/60 overflow-hidden">
-        <div 
-          className={cn(
-            "h-full rounded-full transition-all duration-1000 ease-out relative",
-            color
-          )}
-          style={{ width: `${percentage}%` }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -165,25 +55,8 @@ function StatCard({
 }
 
 export default function AboutPage() {
-  interface QualityMetrics {
-    acceptanceRate: number;
-    avgReviewTime: number;
-  }
-
-  const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null)
   const { data: aboutData, isLoading: isAboutLoading, isError: isAboutError } = useGetAboutContent()
   const { data: statsData, isLoading: isStatsLoading, isError: isStatsError } = useGetPlatformStatistics()
-
-  useEffect(() => {
-    // Simulate fetching quality metrics since the API is not yet available
-    const timer = setTimeout(() => {
-      setQualityMetrics({
-        acceptanceRate: 32, // 32%
-        avgReviewTime: 2.4, // 2.4 weeks
-      })
-    }, 1500)
-    return () => clearTimeout(timer)
-  }, [])
 
   if (isAboutLoading || isStatsLoading) {
     return (
@@ -222,15 +95,6 @@ export default function AboutPage() {
     totalUsers: 0,
     countriesCount: 0
   }
-
-  const SAMPLE_FIELD_DISTRIBUTION = [
-    { field: "Medical & Health Sciences", count: 85, color: "bg-primary", total: 85 },
-    { field: "Engineering & Technology", count: 65, color: "bg-secondary", total: 85 },
-    { field: "Life Sciences & Biology", count: 55, color: "bg-chart-3", total: 85 },
-    { field: "Social Sciences & Humanities", count: 45, color: "bg-chart-4", total: 85 },
-  ];
-
-
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -360,7 +224,7 @@ export default function AboutPage() {
               </div>
 
               {/* Key Metrics Grid */}
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-12">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 <StatCard 
                   icon={BookOpen} 
                   value={stats.totalJournals || 0}
@@ -381,74 +245,6 @@ export default function AboutPage() {
                   value={stats.countriesCount || 0}
                   label="Countries Reached" 
                 />
-              </div>
-
-              {/* Detailed Analytics */}
-              <div className="grid gap-8 lg:grid-cols-3">
-                {/* Field Distribution */}
-                <Card className="lg:col-span-2 border-border/50">
-                  <CardContent className="pt-6">
-                    <div className="mb-6 flex items-center justify-between">
-                      <div>
-                        <h3 className="text-lg font-bold">Journals by Field</h3>
-                        <p className="text-sm text-muted-foreground">Distribution across academic disciplines (Illustrative data)</p>
-                      </div>
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                        <BookOpen className="h-5 w-5 text-primary" />
-                      </div>
-                    </div>
-                    <div className="space-y-5">
-                      {SAMPLE_FIELD_DISTRIBUTION.map((item) => (
-                        <MetricBar 
-                          key={item.field}
-                          label={item.field}
-                          value={item.count}
-                          max={item.total}
-                          color={item.color}
-                        />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-
-
-                <div className="space-y-6">
-                  {/* Quality Metrics */}
-                  <Card className="border-border/50">
-                    <CardContent className="pt-6">
-                      <div className="mb-4 flex items-center justify-between">
-                        <h3 className="text-lg font-bold">Quality Metrics</h3>
-                        <span className="text-[10px] uppercase tracking-wider font-bold bg-muted px-2 py-0.5 rounded text-muted-foreground">Sample Data</span>
-                      </div>
-                      {qualityMetrics ? (
-                        <div className="grid grid-cols-2 gap-4">
-                          <RadialProgress 
-                            value={(qualityMetrics as QualityMetrics).acceptanceRate} 
-                            max={100} 
-                            label="Acceptance Rate" 
-                            sublabel="Industry avg: 30%"
-                            color="primary"
-                            size={100}
-                          />
-                          <RadialProgress 
-                            value={(qualityMetrics as QualityMetrics).avgReviewTime} 
-                            max={5} 
-                            label="Avg. Review Time" 
-                            sublabel="Weeks"
-                            color="secondary"
-                            size={100}
-                            unit="w"
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center p-6 text-sm text-muted-foreground">
-                          Metrics currently unavailable
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
               </div>
             </div>
           </section>

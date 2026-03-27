@@ -44,12 +44,12 @@ define('DIGITOPUB_BASE_URL', rtrim($envRawUrl, '/'));
 
 // Parse input
 $token = $_GET['token'] ?? null;
-$redirect = $_GET['redirect'] ?? '/index.php/index/submission/wizard';
+$redirect = $_GET['redirect'] ?? '/index.php/index/login';
 
 // Validate $redirect to prevent open redirects
 // Only allow relative paths starting with a single slash, filtering for safe characters (including query fragments for OJS)
 if (!is_string($redirect) || !preg_match('/^\/[a-zA-Z0-9\._\-\/\?\=\&\%\#]+$/', $redirect) || strpos($redirect, '//') === 0) {
-    $redirect = '/index.php/index/submission/wizard';
+    $redirect = '/index.php/index/login';
 }
 
 if (!$token) {

@@ -21,3 +21,28 @@ The "Submit Manuscript" button behavior must be purely stateless and direct. It 
 ## 4. Async UI Requirements
 - **Skeletons**: All journal lists and detail pages must show pulse skeletons (using shadcn `Skeleton`) while metadata is being fetched.
 - **Error States**: Error components must provide a "Back to Journals" or "Retry" action.
+
+## 5. Dynamic Content Rules
+- **No Fake Data**: Pages must never display hardcoded sample statistics, simulated loading states with fake data, or placeholder distribution arrays.
+- **CMS-First**: Sections that display content managed by admins (About, FAQs, Solutions) must fetch from their respective API endpoints.
+- **Empty States**: When no data exists, show a proper empty state UI (icon + "Coming Soon" message), not simulated data.
+- **Loading States**: All data-dependent sections must show skeleton loaders while fetching.
+
+## 6. Page-Specific Rules
+
+### Solutions Page (`/solutions`)
+- Must fetch from `/api/solutions` (the `Solution` model).
+- Must NOT render journals as solutions.
+- Must display solution title, description, icon, and features list.
+
+### About Page (`/about`)
+- Platform statistics must come from `/api/statistics` (real OJS DB data).
+- No hardcoded sample distributions or simulated quality metrics.
+
+### Help Page (`/help`)
+- Quick links must all be navigable (either to sub-pages or anchor links).
+- FAQ section must be dynamic from `/api/faqs`.
+
+### Home Page (`/`)
+- Featured journals section shows latest 6 journals (sorted by `created_at DESC`).
+- CTA copy must not include unverifiable claims.

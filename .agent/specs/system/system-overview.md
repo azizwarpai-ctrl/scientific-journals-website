@@ -95,3 +95,34 @@ digitopub MUST NOT:
 - require login
 - intercept submission
 
+## Content Management Boundaries
+
+### CMS-Driven (Admin Panel)
+- **About page**: Mission, vision, who we are, brand philosophy (via `/api/about`)
+- **FAQs**: Question/answer pairs with categories (via `/api/faqs`)
+- **Solutions**: Company solutions with descriptions and features (via `/api/solutions`)
+- **Journals**: Synced from OJS, editable via admin (via `/api/journals`)
+- **Platform Statistics**: Real-time metrics from OJS DB (via `/api/statistics`)
+
+### Static (Acceptable)
+- **Core values** on About page — brand constants that rarely change
+- **Help guides** (Author/Reviewer guides) — standard academic publishing guidance
+- **Navigation structure** — Navbar, Footer, routing
+- **SEO metadata** — Page titles, meta descriptions
+
+### Forbidden Static Content
+- **Sample/fake data** — No hardcoded statistics, distributions, or simulated metrics
+- **Marketing claims** — No unverifiable numerical claims ("thousands of researchers")
+- **Placeholder images** — Must use real data or explicit "Coming Soon" states
+
+## API Route Architecture
+
+| Endpoint | Model | Purpose |
+|----------|-------|---------|
+| `/api/faqs` | `FAQ` (`faq_solutions` table) | FAQ entries for the Help Center |
+| `/api/solutions` | `Solution` (`solutions` table) | Company solutions displayed on /solutions |
+| `/api/journals` | `Journal` | Journal listing and management |
+| `/api/about` | `SystemSetting` | About page CMS content |
+| `/api/statistics` | OJS DB query | Platform-wide real-time stats |
+| `/api/metrics` | OJS DB query | Home page counter metrics |
+

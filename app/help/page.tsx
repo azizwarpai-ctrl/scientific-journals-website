@@ -4,7 +4,7 @@ import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { BookOpen, FileText, Users, HelpCircle } from "lucide-react"
+import { BookOpen, FileText, Users, HelpCircle, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
@@ -13,6 +13,14 @@ import { useGetFaqs } from "@/src/features/solutions"
 
 export default function HelpPage() {
   const { data: faqs = [], isLoading } = useGetFaqs()
+
+  const quickLinks = [
+    { icon: BookOpen, title: "Guide for Authors", href: "#guide-authors", color: "primary" as const },
+    { icon: Users, title: "Guide for Reviewers", href: "#guide-reviewers", color: "secondary" as const },
+    { icon: FileText, title: "Submission Help", href: "/help/submission-service", color: "primary" as const },
+    { icon: HelpCircle, title: "Technical Support", href: "/help/technical-support", color: "secondary" as const },
+  ]
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
@@ -36,58 +44,37 @@ export default function HelpPage() {
             <div className="mx-auto max-w-4xl">
               <GSAPWrapper animation="slideUp" delay={0.2}>
                 <div className="mb-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                  <Card className="transition-shadow hover:shadow-lg">
-                    <CardContent className="pt-6 text-center">
-                      <div className="mb-3 flex justify-center">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                          <BookOpen className="h-6 w-6 text-primary" />
-                        </div>
-                      </div>
-                      <h3 className="font-semibold">Guide for Authors</h3>
-                    </CardContent>
-                  </Card>
-                  <Card className="transition-shadow hover:shadow-lg">
-                    <CardContent className="pt-6 text-center">
-                      <div className="mb-3 flex justify-center">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary/10">
-                          <Users className="h-6 w-6 text-secondary" />
-                        </div>
-                      </div>
-                      <h3 className="font-semibold">Guide for Reviewers</h3>
-                    </CardContent>
-                  </Card>
-                  <Link href="/help/submission-service">
-                    <Card className="cursor-pointer transition-shadow hover:shadow-lg">
-                      <CardContent className="pt-6 text-center">
-                        <div className="mb-3 flex justify-center">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                            <FileText className="h-6 w-6 text-primary" />
-                          </div>
-                        </div>
-                        <h3 className="font-semibold">Submission Help</h3>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                  <Link href="/help/technical-support">
-                    <Card className="cursor-pointer transition-shadow hover:shadow-lg">
-                      <CardContent className="pt-6 text-center">
-                        <div className="mb-3 flex justify-center">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary/10">
-                            <HelpCircle className="h-6 w-6 text-secondary" />
-                          </div>
-                        </div>
-                        <h3 className="font-semibold">Technical Support</h3>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                  {quickLinks.map((link) => {
+                    const isExternal = link.href.startsWith("/")
+                    const Wrapper = isExternal ? Link : "a"
+                    return (
+                      <Wrapper key={link.title} href={link.href}>
+                        <Card className="group cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1 border-border/50 h-full">
+                          <CardContent className="pt-6 text-center">
+                            <div className="mb-3 flex justify-center">
+                              <div className={`flex h-12 w-12 items-center justify-center rounded-full transition-transform group-hover:scale-110 ${
+                                link.color === "primary" ? "bg-primary/10" : "bg-secondary/10"
+                              }`}>
+                                <link.icon className={`h-6 w-6 ${
+                                  link.color === "primary" ? "text-primary" : "text-secondary"
+                                }`} />
+                              </div>
+                            </div>
+                            <h3 className="font-semibold">{link.title}</h3>
+                            <ChevronRight className="mx-auto mt-2 h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </CardContent>
+                        </Card>
+                      </Wrapper>
+                    )
+                  })}
                 </div>
               </GSAPWrapper>
 
               {/* FAQ */}
               <GSAPWrapper animation="fadeIn" delay={0.3}>
-                <Card>
+                <Card className="border-border/50">
                   <CardHeader>
-                    <CardTitle>FAQ</CardTitle>
+                    <CardTitle>Frequently Asked Questions</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <Accordion type="single" collapsible className="w-full">
@@ -121,11 +108,16 @@ export default function HelpPage() {
               {/* User Guides */}
               <GSAPWrapper animation="slideUp" delay={0.4}>
                 <div className="mt-8 grid gap-6 md:grid-cols-2">
-                  <Card>
+                  <Card id="guide-authors" className="border-border/50 scroll-mt-24">
                     <CardHeader>
-                      <CardTitle>Guide for Authors</CardTitle>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                          <BookOpen className="h-5 w-5 text-primary" />
+                        </div>
+                        <CardTitle>Guide for Authors</CardTitle>
+                      </div>
                     </CardHeader>
-                    <CardContent className="space-y-3 text-sm text-muted-foreground">
+                    <CardContent className="space-y-4 text-sm text-muted-foreground">
                       <div>
                         <h4 className="mb-1 font-semibold text-foreground">Manuscript Preparation</h4>
                         <p className="leading-relaxed">Ensure your manuscript adheres to the journal's formatting guidelines, including citation style, figure resolution, and word count limits. Use the templates provided if available.</p>
@@ -141,11 +133,16 @@ export default function HelpPage() {
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card id="guide-reviewers" className="border-border/50 scroll-mt-24">
                     <CardHeader>
-                      <CardTitle>Guide for Reviewers</CardTitle>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10">
+                          <Users className="h-5 w-5 text-secondary" />
+                        </div>
+                        <CardTitle>Guide for Reviewers</CardTitle>
+                      </div>
                     </CardHeader>
-                    <CardContent className="space-y-3 text-sm text-muted-foreground">
+                    <CardContent className="space-y-4 text-sm text-muted-foreground">
                       <div>
                         <h4 className="mb-1 font-semibold text-foreground">The Review Process</h4>
                         <p className="leading-relaxed">Reviews should be constructive, objective, and timely. Evaluate the study's methodology, clarity, and contribution to the field. Maintain confidentiality throughout the process.</p>

@@ -45,3 +45,13 @@ The SSO mechanism is designed ONLY for **Just-In-Time (JIT) Handover** immediate
 - digitopub plays **zero** role in returning user authentication.
 - Returning users are directed via standard hyperlinks to OJS. OJS handles any necessary login prompts.
 
+## 6. Debug Checklist — Common Redirect Issues
+
+When users report being redirected to the wrong journal:
+
+1. **Verify `ojs_path`**: Check that the journal's `ojs_path` column in the digitopub DB matches the actual OJS journal path (case-sensitive).
+2. **Inspect the `<a>` href**: In DevTools, verify the "Submit Manuscript" button link includes the correct journal path.
+3. **Check OJS session**: OJS uses domain-wide sessions. If a user was previously logged into journal A, OJS may redirect from any generic page to journal A's context.
+4. **Test in incognito**: A fresh session (no existing OJS cookies) should navigate correctly.
+5. **Check `sso_login.php` fallback**: Ensure it defaults to `/index.php/index/login`, not a submission wizard path.
+

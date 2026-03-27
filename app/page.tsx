@@ -164,7 +164,7 @@ export default function HomePage() {
             <div className="container mx-auto px-4 md:px-6">
               <div className="mx-auto max-w-3xl rounded-2xl bg-gradient-to-br from-primary to-secondary p-8 text-center text-primary-foreground md:p-12">
                 <h2 className="mb-4 text-3xl font-bold md:text-4xl">Ready to Publish?</h2>
-                <p className="mb-8 text-lg opacity-90 leading-relaxed">Join thousands of researchers sharing their work with the global scientific community.</p>
+                <p className="mb-8 text-lg opacity-90 leading-relaxed">Join our growing community of researchers sharing their work with the global scientific community.</p>
                 <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
                   <Button size="lg" variant="secondary" asChild>
                     <Link href="/register">Get Started</Link>

@@ -60,3 +60,28 @@ rules:
       - "Payment endpoints must use a separate feature module under src/features/billing/."
       - "Subscription status must not gate OJS submission flow."
       - "Payment state must not leak into SSO tokens or OJS provisioning."
+
+  - id: no-static-fake-data
+    description: "UI must never display hardcoded sample data, simulated metrics, or fake statistics."
+    strict: true
+    enforcement:
+      - "All numerical displays must source from API endpoints or show explicit 'Coming Soon' states."
+      - "No setTimeout-based simulated loading of fake metrics."
+      - "No hardcoded distribution arrays or sample data constants."
+      - "Marketing copy must not include unverifiable numerical claims."
+
+  - id: feature-module-isolation
+    description: "Each feature must have its own module under src/features/ with schemas, types, api, server, and components."
+    strict: false
+    enforcement:
+      - "FAQ logic must not live inside the solutions module."
+      - "Routes must be named to match their domain (e.g., /api/faqs for FAQs, /api/solutions for Solutions)."
+      - "Schemas must be in separate files for reuse in admin forms."
+
+  - id: content-source-separation
+    description: "Pages that display user-facing content must clearly separate CMS-driven from static content."
+    strict: false
+    enforcement:
+      - "CMS content must be fetched from API endpoints, not hardcoded."
+      - "Static content (e.g., core values, help guides) is acceptable if it represents stable brand or process information."
+      - "Any section showing metrics or statistics must use real data from API."
