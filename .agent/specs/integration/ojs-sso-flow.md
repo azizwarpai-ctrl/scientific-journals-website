@@ -43,7 +43,13 @@ The SSO mechanism is designed ONLY for **Just-In-Time (JIT) Handover** immediate
 
 ## 5. Returning User Flow
 - digitopub plays **zero** role in returning user authentication.
-- Returning users are directed via standard hyperlinks to OJS. OJS handles any necessary login prompts.
+- Returning users are directed via standard hyperlinks to OJS.
+- **Post-Login Destination Control**: All links to OJS that may trigger a login prompt MUST include a `source` query parameter containing the intended destination path (e.g., `https://submitmanager.com/index.php/login?source=/index.php/{journalPath}/submission`). This ensures OJS honors the specific journal context after the user authenticates, regardless of previous session state.
+
+## 6. Anti-Caching Requirements (Hostinger/CDNs)
+To prevent sessions from leaking or being blocked by stale 403/401 responses (common in Varnish/Hostinger environments):
+- digitopub server MUST emit `Cache-Control: no-store, no-cache, must-revalidate` for all API routes.
+- SSO consumption endpoints MUST ensure no intermediate proxies cache the redirect destination.
 
 ## 6. Debug Checklist — Common Redirect Issues
 

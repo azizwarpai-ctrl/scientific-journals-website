@@ -98,17 +98,17 @@ digitopub MUST NOT:
 ## Content Management Boundaries
 
 ### CMS-Driven (Admin Panel)
-- **About page**: Mission, vision, who we are, brand philosophy (via `/api/about`)
+- **About page**: Mission, vision, who we are, brand philosophy, and Core Values (via `/api/about`)
+- **Help page**: Author and Reviewer guides, hero content (via `/api/help`)
 - **FAQs**: Question/answer pairs with categories (via `/api/faqs`)
-- **Solutions**: Company solutions with descriptions and features (via `/api/solutions`)
+- **Solutions**: Company solutions with descriptions, icons, and features (via `/api/solutions`)
 - **Journals**: Synced from OJS, editable via admin (via `/api/journals`)
 - **Platform Statistics**: Real-time metrics from OJS DB (via `/api/statistics`)
 
 ### Static (Acceptable)
-- **Core values** on About page — brand constants that rarely change
-- **Help guides** (Author/Reviewer guides) — standard academic publishing guidance
 - **Navigation structure** — Navbar, Footer, routing
 - **SEO metadata** — Page titles, meta descriptions
+- **Core UI components** — Buttons, Cards, Layouts
 
 ### Forbidden Static Content
 - **Sample/fake data** — No hardcoded statistics, distributions, or simulated metrics
@@ -119,10 +119,10 @@ digitopub MUST NOT:
 
 | Endpoint | Model | Purpose |
 |----------|-------|---------|
-| `/api/faqs` | `FAQ` (`faq_solutions` table) | FAQ entries for the Help Center |
-| `/api/solutions` | `Solution` (`solutions` table) | Company solutions displayed on /solutions |
+| `/api/faqs` | `FAQ` | Centralized FAQ entries for the Help Center |
+| `/api/solutions` | `Solution` | Company solutions for /solutions |
 | `/api/journals` | `Journal` | Journal listing and management |
-| `/api/about` | `SystemSetting` | About page CMS content |
-| `/api/statistics` | OJS DB query | Platform-wide real-time stats |
-| `/api/metrics` | OJS DB query | Home page counter metrics |
+| `/api/about` | `SystemSetting` | About page CMS content (including Core Values) |
+| `/api/help` | `SystemSetting` | Help page CMS content (Guides) |
+| `/api/statistics` | OJS DB | Platform-wide real-time stats |
 
