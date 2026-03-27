@@ -4,32 +4,21 @@ import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { BookOpen, FileText, Users, HelpCircle, ChevronRight, Loader2 } from "lucide-react"
+import { BookOpen, FileText, Users, HelpCircle, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 
 import { useGetFaqs } from "@/src/features/faq"
 import { useGetHelpContent } from "@/src/features/help"
+import { defaultHelpContent } from "@/src/features/help/schemas/help-schema"
 
 export default function HelpPage() {
-  const { data: faqs = [], isLoading: isFaqLoading } = useGetFaqs()
-  const { data: helpData, isLoading: isHelpLoading, isError: isHelpError } = useGetHelpContent()
+  const { data: faqResponse, isLoading: isFaqLoading } = useGetFaqs(1, 50)
+  const { data: helpResponse, isLoading: isHelpLoading } = useGetHelpContent()
 
-  if (isHelpLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
-  const content = helpData || {
-    heroTitle: "Help Center",
-    heroSubtitle: "Find answers, guides and support for your publishing journey",
-    authorGuide: { title: "Guide for Authors", content: [] },
-    reviewerGuide: { title: "Guide for Reviewers", content: [] }
-  }
+  const faqs = faqResponse?.data || []
+  const content = helpResponse || defaultHelpContent
 
   const quickLinks = [
     { icon: BookOpen, title: "Guide for Authors", href: "#guide-authors", color: "primary" as const },
@@ -48,8 +37,17 @@ export default function HelpPage() {
           <section className="bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-12 md:py-16">
             <div className="container mx-auto px-4 md:px-6">
               <div className="mx-auto max-w-3xl text-center">
-                <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">{content.heroTitle}</h1>
-                <p className="text-lg text-muted-foreground">{content.heroSubtitle}</p>
+                {isHelpLoading ? (
+                  <div className="space-y-4">
+                    <Skeleton className="mx-auto h-12 w-64 md:h-14" />
+                    <Skeleton className="mx-auto h-6 w-full max-w-md" />
+                  </div>
+                ) : (
+                  <>
+                    <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">{content.heroTitle}</h1>
+                    <p className="text-lg text-muted-foreground">{content.heroSubtitle}</p>
+                  </>
+                )}
               </div>
             </div>
           </section>
@@ -65,7 +63,7 @@ export default function HelpPage() {
                     const isExternal = link.href.startsWith("/")
                     const Wrapper = isExternal ? Link : "a"
                     return (
-                      <Wrapper key={link.title} href={link.href}>
+                      <Wrapper key={link.title} href={link.href as any}>
                         <Card className="group cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1 border-border/50 h-full">
                           <CardContent className="pt-6 text-center">
                             <div className="mb-3 flex justify-center">
@@ -125,41 +123,73 @@ export default function HelpPage() {
               {/* User Guides */}
               <GSAPWrapper animation="slideUp" delay={0.4}>
                 <div className="mt-8 grid gap-6 md:grid-cols-2">
+                  {/* Authors Guide */}
                   <Card id="guide-authors" className="border-border/50 scroll-mt-24">
                     <CardHeader>
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                           <BookOpen className="h-5 w-5 text-primary" />
                         </div>
-                        <CardTitle>{content.authorGuide.title}</CardTitle>
+                        <CardTitle>
+                          {isHelpLoading ? (
+                            <Skeleton className="h-6 w-32" />
+                          ) : (
+                            content.authorGuide.title
+                          )}
+                        </CardTitle>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4 text-sm text-muted-foreground">
-                      {content.authorGuide.content.map((item, i) => (
-                        <div key={i}>
-                          <h4 className="mb-1 font-semibold text-foreground">{item.heading}</h4>
-                          <p className="leading-relaxed">{item.text}</p>
-                        </div>
-                      ))}
+                      {isHelpLoading ? (
+                        [...Array(3)].map((_, i) => (
+                          <div key={i} className="space-y-2">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-12 w-full" />
+                          </div>
+                        ))
+                      ) : (
+                        content.authorGuide.content.map((item: any, i: number) => (
+                          <div key={i}>
+                            <h4 className="mb-1 font-semibold text-foreground">{item.heading}</h4>
+                            <p className="leading-relaxed">{item.text}</p>
+                          </div>
+                        ))
+                      )}
                     </CardContent>
                   </Card>
 
+                  {/* Reviewers Guide */}
                   <Card id="guide-reviewers" className="border-border/50 scroll-mt-24">
                     <CardHeader>
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10">
                           <Users className="h-5 w-5 text-secondary" />
                         </div>
-                        <CardTitle>{content.reviewerGuide.title}</CardTitle>
+                        <CardTitle>
+                          {isHelpLoading ? (
+                            <Skeleton className="h-6 w-32" />
+                          ) : (
+                            content.reviewerGuide.title
+                          )}
+                        </CardTitle>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4 text-sm text-muted-foreground">
-                      {content.reviewerGuide.content.map((item, i) => (
-                        <div key={i}>
-                          <h4 className="mb-1 font-semibold text-foreground">{item.heading}</h4>
-                          <p className="leading-relaxed">{item.text}</p>
-                        </div>
-                      ))}
+                      {isHelpLoading ? (
+                        [...Array(3)].map((_, i) => (
+                          <div key={i} className="space-y-2">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-12 w-full" />
+                          </div>
+                        ))
+                      ) : (
+                        content.reviewerGuide.content.map((item: any, i: number) => (
+                          <div key={i}>
+                            <h4 className="mb-1 font-semibold text-foreground">{item.heading}</h4>
+                            <p className="leading-relaxed">{item.text}</p>
+                          </div>
+                        ))
+                      )}
                     </CardContent>
                   </Card>
                 </div>

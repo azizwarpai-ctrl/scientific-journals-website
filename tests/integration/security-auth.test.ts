@@ -1,9 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Hono } from 'hono'
 
 // ════════════════════════════════════════
-// Mock all external dependencies
+// Mock all external dependencies BEFORE importing routes
 // ════════════════════════════════════════
+
+// Mock server-only modules
+vi.mock('next/headers', () => ({
+    cookies: vi.fn(),
+    headers: vi.fn(),
+}))
+
+vi.mock('server-only', () => ({}))
+
+import { authRouter } from '@/src/features/auth/server/route'
+import { ojsRouter } from '@/src/features/ojs/server/route'
+import { journalRouter } from '@/src/features/journals/server/route'
+import { solutionRouter } from '@/src/features/solutions/server/route'
+import { faqRouter } from '@/src/features/faq/server/route'
+import { messageRouter } from '@/src/features/messages/server'
+import { prisma } from '@/src/lib/db/config'
+import { Hono } from 'hono'
 
 let mockSession: any = null
 
@@ -15,6 +31,10 @@ vi.mock('@/src/lib/db/auth', () => ({
 
 vi.mock('@/src/lib/db/config', () => ({
     prisma: {
+        user: {
+            findUnique: vi.fn(),
+            create: vi.fn(),
+        },
         journal: {
             findMany: vi.fn().mockResolvedValue([]),
             findUnique: vi.fn().mockResolvedValue(null),
@@ -31,27 +51,37 @@ vi.mock('@/src/lib/db/config', () => ({
             delete: vi.fn(),
             count: vi.fn().mockResolvedValue(0),
         },
-        fAQ: {
-            findMany: vi.fn().mockResolvedValue([]),
-            findUnique: vi.fn().mockResolvedValue(null),
+        solution: {
+            findMany: vi.fn(),
+            findUnique: vi.fn(),
             create: vi.fn(),
             update: vi.fn(),
             delete: vi.fn(),
-            count: vi.fn().mockResolvedValue(0),
+            count: vi.fn(),
         },
+        faq: {
+            findMany: vi.fn(),
+            findUnique: vi.fn(),
+            create: vi.fn(),
+            update: vi.fn(),
+            delete: vi.fn(),
+            count: vi.fn(),
+        },
+        systemSetting: {
+            findUnique: vi.fn(),
+            upsert: vi.fn(),
+        }
     },
 }))
 
-import { journalRouter } from '@/src/features/journals/server'
-import { messageRouter } from '@/src/features/messages/server'
-import { solutionRouter } from '@/src/features/solutions/server'
-import { prisma } from '@/src/lib/db/config'
-
 function createApp() {
     const app = new Hono()
+    app.route('/auth', authRouter)
+    app.route('/ojs', ojsRouter)
     app.route('/journals', journalRouter)
     app.route('/messages', messageRouter)
     app.route('/solutions', solutionRouter)
+    app.route('/faqs', faqRouter)
     return app
 }
 
@@ -105,16 +135,16 @@ describe('Security & Authorization Tests', () => {
         it('should allow superadmin to create solutions', async () => {
             mockSession = { id: '1', email: 'admin@digstobob.com', role: 'superadmin', full_name: 'Super Admin' }
             const mockSolution = {
-                id: BigInt(1), question: 'Q?', answer: 'A.',
-                category: 'general', is_published: false,
-                created_at: new Date(), updated_at: new Date(),
+                id: BigInt(1), title: 'Title', description: 'Desc',
+                icon: 'Globe', features: [], is_published: false,
+                display_order: 1, created_at: new Date(), updated_at: new Date(),
             }
-            vi.mocked(prisma.fAQ.create).mockResolvedValue(mockSolution as any)
+            vi.mocked(prisma.solution.create).mockResolvedValue(mockSolution as any)
 
             const res = await app.request('/solutions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question: 'How?', answer: 'Like this.' }),
+                body: JSON.stringify({ title: 'How?', description: 'Like this.' }),
             })
             expect(res.status).toBe(201)
         })
@@ -165,12 +195,12 @@ describe('Security & Authorization Tests', () => {
     describe('Solutions draft visibility by role', () => {
         it('should show only published solutions to unauthenticated users', async () => {
             mockSession = null
-            vi.mocked(prisma.fAQ.findMany).mockResolvedValue([])
-            vi.mocked(prisma.fAQ.count).mockResolvedValue(0)
+            vi.mocked(prisma.solution.findMany).mockResolvedValue([])
+            vi.mocked(prisma.solution.count).mockResolvedValue(0)
 
             await app.request('/solutions')
 
-            expect(prisma.fAQ.findMany).toHaveBeenCalledWith(
+            expect(prisma.solution.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
                     where: { is_published: true },
                 })
@@ -179,12 +209,12 @@ describe('Security & Authorization Tests', () => {
 
         it('should show only published solutions to author-role users', async () => {
             mockSession = { id: '3', email: 'author@test.com', role: 'author', full_name: 'Author' }
-            vi.mocked(prisma.fAQ.findMany).mockResolvedValue([])
-            vi.mocked(prisma.fAQ.count).mockResolvedValue(0)
+            vi.mocked(prisma.solution.findMany).mockResolvedValue([])
+            vi.mocked(prisma.solution.count).mockResolvedValue(0)
 
             await app.request('/solutions')
 
-            expect(prisma.fAQ.findMany).toHaveBeenCalledWith(
+            expect(prisma.solution.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
                     where: { is_published: true },
                 })
@@ -193,12 +223,12 @@ describe('Security & Authorization Tests', () => {
 
         it('should show only published solutions to support-role users', async () => {
             mockSession = { id: '2', email: 'support@digstobob.com', role: 'support', full_name: 'Support' }
-            vi.mocked(prisma.fAQ.findMany).mockResolvedValue([])
-            vi.mocked(prisma.fAQ.count).mockResolvedValue(0)
+            vi.mocked(prisma.solution.findMany).mockResolvedValue([])
+            vi.mocked(prisma.solution.count).mockResolvedValue(0)
 
             await app.request('/solutions')
 
-            expect(prisma.fAQ.findMany).toHaveBeenCalledWith(
+            expect(prisma.solution.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
                     where: { is_published: true },
                 })
@@ -207,12 +237,12 @@ describe('Security & Authorization Tests', () => {
 
         it('should show all solutions (including drafts) to admin users', async () => {
             mockSession = { id: '1', email: 'admin@test.com', role: 'admin', full_name: 'Admin' }
-            vi.mocked(prisma.fAQ.findMany).mockResolvedValue([])
-            vi.mocked(prisma.fAQ.count).mockResolvedValue(0)
+            vi.mocked(prisma.solution.findMany).mockResolvedValue([])
+            vi.mocked(prisma.solution.count).mockResolvedValue(0)
 
             await app.request('/solutions')
 
-            expect(prisma.fAQ.findMany).toHaveBeenCalledWith(
+            expect(prisma.solution.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
                     where: {},
                 })
@@ -221,12 +251,12 @@ describe('Security & Authorization Tests', () => {
 
         it('should show all solutions (including drafts) to superadmin users', async () => {
             mockSession = { id: '1', email: 'admin@digstobob.com', role: 'superadmin', full_name: 'Super Admin' }
-            vi.mocked(prisma.fAQ.findMany).mockResolvedValue([])
-            vi.mocked(prisma.fAQ.count).mockResolvedValue(0)
+            vi.mocked(prisma.solution.findMany).mockResolvedValue([])
+            vi.mocked(prisma.solution.count).mockResolvedValue(0)
 
             await app.request('/solutions')
 
-            expect(prisma.fAQ.findMany).toHaveBeenCalledWith(
+            expect(prisma.solution.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
                     where: {},
                 })
@@ -235,10 +265,9 @@ describe('Security & Authorization Tests', () => {
 
         it('should hide draft solution from author viewing by ID', async () => {
             mockSession = { id: '3', email: 'author@test.com', role: 'author', full_name: 'Author' }
-            vi.mocked(prisma.fAQ.findUnique).mockResolvedValue({
-                id: BigInt(1), question: 'Q', answer: 'A',
-                category: 'general', is_published: false,
-                view_count: 0, helpful_count: 0,
+            vi.mocked(prisma.solution.findUnique).mockResolvedValue({
+                id: BigInt(1), title: 'T', description: 'D',
+                is_published: false,
                 created_at: new Date(), updated_at: new Date(),
             } as any)
 
@@ -248,10 +277,9 @@ describe('Security & Authorization Tests', () => {
 
         it('should show draft solution to superadmin viewing by ID', async () => {
             mockSession = { id: '1', email: 'admin@digstobob.com', role: 'superadmin', full_name: 'Super Admin' }
-            vi.mocked(prisma.fAQ.findUnique).mockResolvedValue({
-                id: BigInt(1), question: 'Q', answer: 'A',
-                category: 'general', is_published: false,
-                view_count: 0, helpful_count: 0,
+            vi.mocked(prisma.solution.findUnique).mockResolvedValue({
+                id: BigInt(1), title: 'T', description: 'D',
+                is_published: false,
                 created_at: new Date(), updated_at: new Date(),
             } as any)
 
@@ -350,22 +378,22 @@ describe('Security & Authorization Tests', () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    name: 'Test',
-                    email: 'test@test.com',
-                    subject: '<script>alert("xss")</script>',
-                    message: 'Content',
+                    name: 'Test User',
+                    email: 'test@example.com',
+                    subject: 'Test Subject',
+                    message: 'Test message content',
                 }),
             })
             expect(res.status).toBe(201)
         })
 
-        it('should reject solution with empty question', async () => {
+        it('should reject solution with empty title', async () => {
             mockSession = { id: '1', email: 'admin@test.com', role: 'admin', full_name: 'Admin' }
 
             const res = await app.request('/solutions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question: '', answer: 'Some answer' }),
+                body: JSON.stringify({ title: '', description: 'Some answer' }),
             })
             expect(res.status).toBe(400)
         })

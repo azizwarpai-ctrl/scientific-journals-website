@@ -5,7 +5,7 @@ import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
 import { serializeRecord, serializeMany } from "@/src/lib/serialize"
 import { getSession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
-import { faqCreateSchema, faqUpdateSchema, faqIdParamSchema } from "../schemas/faq-schema"
+import { faqCreateSchema, faqUpdateSchema, faqIdParamSchema } from "@/src/features/faq/schemas/faq-schema"
 
 const app = new Hono()
 

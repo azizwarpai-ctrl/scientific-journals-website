@@ -51,7 +51,7 @@ To prevent sessions from leaking or being blocked by stale 403/401 responses (co
 - digitopub server MUST emit `Cache-Control: no-store, no-cache, must-revalidate` for all API routes.
 - SSO consumption endpoints MUST ensure no intermediate proxies cache the redirect destination.
 
-## 6. Debug Checklist — Common Redirect Issues
+## 7. Debug Checklist — Common Redirect Issues
 
 When users report being redirected to the wrong journal:
 

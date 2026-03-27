@@ -123,6 +123,6 @@ digitopub MUST NOT:
 | `/api/solutions` | `Solution` | Company solutions for /solutions |
 | `/api/journals` | `Journal` | Journal listing and management |
 | `/api/about` | `SystemSetting` | About page CMS content (including Core Values) |
-| `/api/help` | `SystemSetting` | Help page CMS content (Guides) |
+| `/api/help` | `SystemSetting` | Help page CMS content (hero + guides) |
 | `/api/statistics` | OJS DB | Platform-wide real-time stats |
 

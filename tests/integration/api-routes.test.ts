@@ -1,4 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { journalRouter } from '@/src/features/journals/server/route'
+import { messageRouter } from '@/src/features/messages/server'
+import { solutionRouter } from '@/src/features/solutions/server/route'
+import { prisma } from '@/src/lib/db/config'
 import { Hono } from 'hono'
 
 // ════════════════════════════════════════
@@ -32,7 +36,15 @@ vi.mock('@/src/lib/db/config', () => ({
             delete: vi.fn(),
             count: vi.fn().mockResolvedValue(0),
         },
-        fAQ: {
+        faq: {
+            findMany: vi.fn().mockResolvedValue([]),
+            findUnique: vi.fn().mockResolvedValue(null),
+            create: vi.fn(),
+            update: vi.fn(),
+            delete: vi.fn(),
+            count: vi.fn().mockResolvedValue(0),
+        },
+        solution: {
             findMany: vi.fn().mockResolvedValue([]),
             findUnique: vi.fn().mockResolvedValue(null),
             create: vi.fn(),
@@ -42,12 +54,6 @@ vi.mock('@/src/lib/db/config', () => ({
         },
     },
 }))
-
-// Now import route modules
-import { journalRouter } from '@/src/features/journals/server'
-import { messageRouter } from '@/src/features/messages/server'
-import { solutionRouter } from '@/src/features/solutions/server'
-import { prisma } from '@/src/lib/db/config'
 
 // Helper to create Hono test app
 function createApp() {
@@ -314,14 +320,14 @@ describe('API Integration Tests', () => {
         describe('GET /solutions', () => {
             it('should return only published solutions for unauthenticated users', async () => {
                 mockSession = null
-                vi.mocked(prisma.fAQ.findMany).mockResolvedValue([])
-                vi.mocked(prisma.fAQ.count).mockResolvedValue(0)
+                vi.mocked(prisma.solution.findMany).mockResolvedValue([])
+                vi.mocked(prisma.solution.count).mockResolvedValue(0)
 
                 const res = await app.request('/solutions')
                 expect(res.status).toBe(200)
 
                 // Check that findMany was called with is_published filter
-                expect(prisma.fAQ.findMany).toHaveBeenCalledWith(
+                expect(prisma.solution.findMany).toHaveBeenCalledWith(
                     expect.objectContaining({
                         where: { is_published: true },
                     })
@@ -330,12 +336,12 @@ describe('API Integration Tests', () => {
 
             it('should return all solutions for admin', async () => {
                 mockSession = { id: '1', email: 'admin@test.com', role: 'admin' }
-                vi.mocked(prisma.fAQ.findMany).mockResolvedValue([])
-                vi.mocked(prisma.fAQ.count).mockResolvedValue(0)
+                vi.mocked(prisma.solution.findMany).mockResolvedValue([])
+                vi.mocked(prisma.solution.count).mockResolvedValue(0)
 
                 await app.request('/solutions')
 
-                expect(prisma.fAQ.findMany).toHaveBeenCalledWith(
+                expect(prisma.solution.findMany).toHaveBeenCalledWith(
                     expect.objectContaining({
                         where: {},
                     })
@@ -351,8 +357,8 @@ describe('API Integration Tests', () => {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        question: 'How do I submit?',
-                        answer: 'Follow the steps on the portal.',
+                        title: 'Digital Publishing',
+                        description: 'Modern solutions.',
                     }),
                 })
                 expect(res.status).toBe(401)
@@ -365,8 +371,8 @@ describe('API Integration Tests', () => {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        question: 'How do I submit?',
-                        answer: 'Follow the steps.',
+                        title: 'Digital Publishing',
+                        description: 'Modern solutions.',
                     }),
                 })
                 expect(res.status).toBe(403)
@@ -375,18 +381,20 @@ describe('API Integration Tests', () => {
             it('should create solution as admin', async () => {
                 mockSession = { id: '1', email: 'admin@test.com', role: 'admin' }
                 const mockSolution = {
-                    id: BigInt(1), question: 'Q?', answer: 'A.',
-                    category: 'general', is_published: false,
-                    created_at: new Date(), updated_at: new Date(),
+                    id: BigInt(1), title: 'Digital Publishing', description: 'Solutions.',
+                    icon: 'Globe', features: [], is_published: false,
+                    display_order: 1, created_at: new Date(), updated_at: new Date(),
                 }
-                vi.mocked(prisma.fAQ.create).mockResolvedValue(mockSolution as any)
+                vi.mocked(prisma.solution.create).mockResolvedValue(mockSolution as any)
 
                 const res = await app.request('/solutions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        question: 'How do I submit?',
-                        answer: 'Follow the steps.',
+                        title: 'Digital Publishing',
+                        description: 'Modern solutions.',
+                        icon: 'Globe',
+                        features: ['A', 'B']
                     }),
                 })
                 expect(res.status).toBe(201)
@@ -402,8 +410,8 @@ describe('API Integration Tests', () => {
 
             it('should delete as admin', async () => {
                 mockSession = { id: '1', email: 'admin@test.com', role: 'admin' }
-                vi.mocked(prisma.fAQ.findUnique).mockResolvedValue({ id: BigInt(1) } as any)
-                vi.mocked(prisma.fAQ.delete).mockResolvedValue({} as any)
+                vi.mocked(prisma.solution.findUnique).mockResolvedValue({ id: BigInt(1) } as any)
+                vi.mocked(prisma.solution.delete).mockResolvedValue({} as any)
 
                 const res = await app.request('/solutions/1', { method: 'DELETE' })
                 expect(res.status).toBe(200)

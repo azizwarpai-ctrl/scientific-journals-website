@@ -8,9 +8,9 @@ export const aboutContentSchema = z.object({
   whoWeAreText: z.string().trim().min(1),
   brandPhilosophyText: z.string().trim().min(1),
   coreValues: z.array(z.object({
-    icon: z.string(),
-    title: z.string(),
-    desc: z.string(),
+    icon: z.string().trim().min(1),
+    title: z.string().trim().min(1),
+    desc: z.string().trim().min(1),
     color: z.enum(["primary", "secondary"]),
   })).optional(),
 })

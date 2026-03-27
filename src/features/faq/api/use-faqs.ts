@@ -1,22 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import type { Faq } from "../types/faq-type"
-import type { FaqCreate, FaqUpdate } from "../schemas/faq-schema"
+import type { Faq } from "@/src/features/faq/types/faq-type"
+import type { FaqCreate, FaqUpdate } from "@/src/features/faq/schemas/faq-schema"
 import { client } from "@/src/lib/rpc"
 import { toast } from "sonner"
 
-export const useGetFaqs = () => {
-    return useQuery<Faq[], Error>({
-        queryKey: ["faqs"],
+export const useGetFaqs = (page = 1, limit = 10) => {
+    return useQuery<{ data: Faq[], pagination: { total: number, page: number, limit: number } }, Error>({
+        queryKey: ["faqs", page, limit],
         queryFn: async () => {
-            const response = await client.faqs.$get()
+            const response = await client.faqs.$get({
+                query: { page: page.toString(), limit: limit.toString() }
+            })
 
             if (!response.ok) {
                 const error = await response.json() as { error?: string }
                 throw new Error(error.error || "Failed to fetch FAQs")
             }
 
-            const { data } = await response.json()
-            return data as Faq[]
+            return await response.json()
         },
         staleTime: 5 * 60 * 1000,
     })

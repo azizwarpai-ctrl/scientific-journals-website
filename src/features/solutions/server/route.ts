@@ -1,5 +1,6 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
+import { getSession } from "@/src/lib/db/auth"
 import { requireAdmin } from "@/src/lib/auth-middleware"
 import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
 import { serializeRecord, serializeMany } from "@/src/lib/serialize"
@@ -10,15 +11,17 @@ import {
   solutionUpdateSchema,
   solutionIdParamSchema,
   SOLUTION_SELECT,
-} from "../schemas/solution-schema"
+} from "@/src/features/solutions/schemas/solution-schema"
 
-const app = new Hono()
+const app = new Hono<{ Variables: { session: any } }>()
 
-// GET /solutions - Public listing (published only, ordered by display_order)
+// GET /solutions - Public listing (published only, or all for admin)
 app.get("/", async (c) => {
   try {
+    const session = await getSession()
+    const isAdmin = session?.role === "admin" || session?.role === "superadmin"
     const pagination = parsePagination(c)
-    const where = { is_published: true }
+    const where = isAdmin ? {} : { is_published: true }
 
     const [solutions, total] = await Promise.all([
       prisma.solution.findMany({
@@ -42,12 +45,15 @@ app.get("/", async (c) => {
 app.get("/:id", zValidator("param", solutionIdParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
+    const session = await getSession()
+    const isAdmin = session?.role === "admin" || session?.role === "superadmin"
+
     const solution = await prisma.solution.findUnique({
       where: { id: BigInt(id) },
       select: SOLUTION_SELECT,
     })
 
-    if (!solution || !solution.is_published) {
+    if (!solution || (!isAdmin && !solution.is_published)) {
       return c.json({ success: false, error: "Solution not found" }, 404)
     }
 
