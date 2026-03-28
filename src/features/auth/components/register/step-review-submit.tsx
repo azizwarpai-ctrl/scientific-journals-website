@@ -1,10 +1,11 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Loader2 } from "lucide-react"
+import { Loader2, ExternalLink } from "lucide-react"
 import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
 import { COUNTRIES } from "@/src/features/auth/components/register/countries-data"
 import { useOjsRegister, type OjsRegisterResponse } from "@/src/features/auth/api/use-ojs-register"
+import { useState } from "react"
 
 const ROLE_LABELS: Record<string, string> = {
   author: "Author",
@@ -31,6 +32,9 @@ function SummaryRow({
   )
 }
 
+/** Countdown seconds before auto-redirect */
+const REDIRECT_DELAY_SECONDS = 3
+
 export function StepReviewSubmit() {
   const {
     personalInfo,
@@ -46,6 +50,9 @@ export function StepReviewSubmit() {
     getPayload,
     selectedJournalPath,
   } = useRegistrationStore()
+
+  const [redirecting, setRedirecting] = useState(false)
+  const [countdown, setCountdown] = useState(REDIRECT_DELAY_SECONDS)
 
   const countryName =
     COUNTRIES.find((c) => c.code === personalInfo.country)?.name ??
@@ -64,7 +71,20 @@ export function StepReviewSubmit() {
       setSubmitting(false)
 
       if (data.status === "sso_redirect" && data.ssoUrl) {
-        window.location.href = data.ssoUrl;
+        // Show redirect indicator before navigating
+        setRedirecting(true)
+        setCountdown(REDIRECT_DELAY_SECONDS)
+        const url = data.ssoUrl
+
+        let remaining = REDIRECT_DELAY_SECONDS
+        const timer = setInterval(() => {
+          remaining -= 1
+          setCountdown(remaining)
+          if (remaining <= 0) {
+            clearInterval(timer)
+            window.location.href = url
+          }
+        }, 1000)
       } else {
         setSubmissionError("Registration succeeded but SSO handover failed. Please contact support.")
       }
@@ -77,6 +97,37 @@ export function StepReviewSubmit() {
       payload,
       journalPath: selectedJournalPath || ""
     })
+  }
+
+  // ── Redirect state ──
+  if (redirecting) {
+    return (
+      <div className="space-y-6 text-center py-8">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+          <ExternalLink className="h-8 w-8 text-green-600 dark:text-green-400" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold text-green-700 dark:text-green-400">
+            Account Created Successfully!
+          </h2>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            You will be redirected to the submission system in{" "}
+            <span className="font-bold text-foreground">{countdown}</span>{" "}
+            {countdown === 1 ? "second" : "seconds"}…
+          </p>
+        </div>
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Preparing your journal session…</span>
+        </div>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 p-3 max-w-sm mx-auto">
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            <ExternalLink className="inline h-3 w-3 mr-1" />
+            You are being redirected to <strong>Submit Manager</strong> (OJS) — our external manuscript submission platform.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -194,6 +245,14 @@ export function StepReviewSubmit() {
             policyAgreements.publishingEthics ? "Accepted" : "Not accepted"
           }
         />
+      </div>
+
+      {/* Redirect notice */}
+      <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20 p-3">
+        <p className="text-xs text-blue-700 dark:text-blue-400">
+          <ExternalLink className="inline h-3 w-3 mr-1" />
+          After registration, you will be redirected to <strong>Submit Manager</strong> — our manuscript submission platform powered by OJS.
+        </p>
       </div>
 
       {/* Error display */}
