@@ -117,6 +117,8 @@ digitopub MUST NOT:
 
 ## API Route Architecture
 
+### CMS & Content Routes
+
 | Endpoint | Model | Purpose |
 |----------|-------|---------|
 | `/api/faqs` | `FAQ` | Centralized FAQ entries for the Help Center |
@@ -127,4 +129,15 @@ digitopub MUST NOT:
 | `/api/statistics` | OJS DB | Platform-wide real-time stats |
 | `/api/email-templates` | `EmailTemplate` | Dynamic email template management |
 | `/api/billing` | `Subscription, PricingPlan (+ Stripe integration)` | Billing and subscription management |
+| `/api/search` | `Journal, Solution, FAQ` | Unified full-text search across content types |
+
+### OJS Integration Routes
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/ojs/register/register` | `POST` | Provision a new user into OJS and return SSO redirect URL |
+| `/api/ojs/sso/validate` | `GET` | Stateless HMAC token validation (called by `sso_login.php`) |
+| `/api/ojs/journals` | `GET` | Fetch journal list from OJS database (cached) |
+| `/api/ojs/sync` | `GET` | Cron-triggered journal sync (requires `Bearer CRON_SECRET`) |
+| `/api/ojs/health` | `GET` | OJS connectivity diagnostic endpoint |
 

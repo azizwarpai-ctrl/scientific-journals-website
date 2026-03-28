@@ -14,8 +14,25 @@ The SSO mechanism is designed ONLY for **Just-In-Time (JIT) Handover** immediate
 - **Stateless:** digitopub maintains no database or session entry for these tokens.
 
 ## 3. Provisioning & Issuance (digitopub)
-- Tokens are issued **only** by `src/features/ojs/server/provision-route.ts` immediately after a successful MySQL row insertion into the OJS database.
-- The system MUST NOT expose any public API endpoint that accepts an email address and returns a signed SSO token. (e.g., no `POST /api/ojs/sso`).
+
+### Endpoint
+- **Path:** `POST /api/ojs/register/register`
+- **Handler:** `src/features/ojs/server/provision-route.ts`
+- **Rate Limited:** 5 requests per IP per 15-minute window (IP-based, in-memory)
+- **Input Validation:** `registerSchema` (Zod) on JSON body
+- **Query Parameter:** `journalPath` (optional) — scopes the post-SSO redirect to the target journal's submission wizard
+
+### Flow
+1. Validate request body and check rate limit.
+2. Provision user into OJS via `ojs-user-bridge.php` (Bearer-authenticated).
+3. Generate stateless HMAC token: `base64(payload).sha256_hmac_signature`.
+4. Fire-and-forget registration confirmation email.
+5. Construct SSO redirect URL: `{OJS_BASE_URL}/sso_login.php?token=...&redirect=/index.php/{journalPath}/submission&source=...`.
+6. Return `201` with `{ ssoUrl, status: "sso_redirect" }` — the frontend performs the redirect.
+
+### Key Rules
+- Tokens are issued **only** by `provision-route.ts` immediately after successful OJS user provisioning.
+- The system MUST NOT expose any public API endpoint that accepts an email address and returns a signed SSO token (e.g., no `POST /api/ojs/sso`).
 
 ## 4. Consumption (`sso_login.php`)
 - `sso_login.php` resides on the OJS domain.
