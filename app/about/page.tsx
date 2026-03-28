@@ -56,6 +56,15 @@ function StatCard({
 }
 
 export default function AboutPage() {
+<<<<<<< HEAD
+=======
+  // Sample quality metrics (these will be replaced by real API data when available)
+  const qualityMetrics = {
+    acceptanceRate: 32, // 32%
+    avgReviewTime: 2.4, // 2.4 weeks
+  }
+
+>>>>>>> fix/dynamic-content-and-sso
   const { data: aboutData, isLoading: isAboutLoading, isError: isAboutError } = useGetAboutContent()
   const { data: statsData, isLoading: isStatsLoading, isError: isStatsError } = useGetPlatformStatistics()
 
@@ -274,6 +283,71 @@ export default function AboutPage() {
                   label="Countries Reached" 
                 />
               </div>
+<<<<<<< HEAD
+=======
+
+              {/* Detailed Analytics */}
+              <div className="grid gap-8 lg:grid-cols-3">
+                {/* Field Distribution */}
+                <Card className="lg:col-span-2 border-border/50">
+                  <CardContent className="pt-6">
+                    <div className="mb-6 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold">Journals by Field</h3>
+                        <p className="text-sm text-muted-foreground">Distribution across academic disciplines (Illustrative data)</p>
+                      </div>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <BookOpen className="h-5 w-5 text-primary" />
+                      </div>
+                    </div>
+                    <div className="space-y-5">
+                      {SAMPLE_FIELD_DISTRIBUTION.map((item) => (
+                        <MetricBar 
+                          key={item.field}
+                          label={item.field}
+                          value={item.count}
+                          max={item.total}
+                          color={item.color}
+                        />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+
+
+                <div className="space-y-6">
+                  {/* Quality Metrics */}
+                  <Card className="border-border/50">
+                    <CardContent className="pt-6">
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="text-lg font-bold">Quality Metrics</h3>
+                        <span className="text-[10px] uppercase tracking-wider font-bold bg-muted px-2 py-0.5 rounded text-muted-foreground">Sample Data</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <RadialProgress 
+                          value={qualityMetrics.acceptanceRate} 
+                          max={100} 
+                          label="Acceptance Rate" 
+                          sublabel="Industry avg: 30%"
+                          color="primary"
+                          size={100}
+                        />
+                        <RadialProgress 
+                          value={qualityMetrics.avgReviewTime} 
+                          max={5} 
+                          label="Avg. Review Time" 
+                          sublabel="Weeks"
+                          color="secondary"
+                          size={100}
+                          unit="w"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+>>>>>>> fix/dynamic-content-and-sso
             </div>
           </section>
         </GSAPWrapper>

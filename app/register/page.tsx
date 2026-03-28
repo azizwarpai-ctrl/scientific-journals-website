@@ -1,13 +1,26 @@
 "use client"
 
+import { useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { RegistrationWizard } from "@/src/features/auth/components/register/registration-wizard"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
+import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
 
 export default function RegisterPage() {
+  const searchParams = useSearchParams()
+  const { setSelectedJournalPath } = useRegistrationStore()
+
+  // Hydrate the journal path from URL so SSO redirects to the correct journal
+  useEffect(() => {
+    const journalPath = searchParams.get("journalPath")
+    if (journalPath) {
+      setSelectedJournalPath(journalPath)
+    }
+  }, [searchParams, setSelectedJournalPath])
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />

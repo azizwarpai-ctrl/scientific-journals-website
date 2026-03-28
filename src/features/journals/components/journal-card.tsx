@@ -51,7 +51,8 @@ export function JournalCard({
       {/* Image Container with Academic Gradient Treatment */}
       <div className={cn(
         "relative w-full overflow-hidden bg-slate-50 dark:bg-slate-900",
-        "after:absolute after:inset-0 after:bg-gradient-to-t after:from-slate-900/80 after:via-slate-900/20 after:to-transparent",
+        "after:absolute after:inset-0 after:bg-gradient-to-t after:from-white/80 after:via-white/20 after:to-transparent",
+        "dark:after:from-slate-900/80 dark:after:via-slate-900/20",
         "after:opacity-60 group-hover:after:opacity-80 after:transition-opacity after:duration-500",
         imageHeight
       )}>
