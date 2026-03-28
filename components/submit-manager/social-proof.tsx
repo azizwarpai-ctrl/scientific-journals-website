@@ -1,15 +1,11 @@
 "use client"
 
-import { useGetOjsJournals } from "@/src/features/ojs/api/use-get-ojs-journals"
+import { useGetPlatformStatistics } from "@/src/features/statistics"
 import { Building2, FileText, CheckCircle2, Users } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export function SubmitManagerSocialProof() {
-    const { data: journalsData, isLoading } = useGetOjsJournals()
-
-    // Determine counts to show (use real data if available, otherwise placeholders)
-    const journalCount = journalsData?.data?.length || 120
-    const abstractViews = 450 // Static placeholder until we add real stats
-    const articleCount = 12 // Placeholder 
+    const { data: stats, isLoading } = useGetPlatformStatistics()
 
     return (
         <section className="border-t border-b bg-card py-16">
@@ -23,34 +19,50 @@ export function SubmitManagerSocialProof() {
                 <div className="mx-auto grid max-w-4xl grid-cols-2 gap-8 md:grid-cols-4">
                     <div className="flex flex-col items-center justify-center space-y-2 text-center">
                         <Building2 className="h-8 w-8 text-primary mb-2 opacity-80" />
-                        <h4 className="text-3xl font-bold tracking-tight">
-                            {isLoading ? "..." : `${journalCount}+`}
-                        </h4>
+                        {isLoading ? (
+                            <Skeleton className="h-9 w-16" />
+                        ) : (
+                            <h4 className="text-3xl font-bold tracking-tight">
+                                {stats?.totalJournals ?? "—"}+
+                            </h4>
+                        )}
                         <p className="text-sm font-medium text-muted-foreground">Connected Journals</p>
                     </div>
 
                     <div className="flex flex-col items-center justify-center space-y-2 text-center">
                         <FileText className="h-8 w-8 text-primary mb-2 opacity-80" />
-                        <h4 className="text-3xl font-bold tracking-tight">
-                            {isLoading ? "..." : `${articleCount}k+`}
-                        </h4>
+                        {isLoading ? (
+                            <Skeleton className="h-9 w-16" />
+                        ) : (
+                            <h4 className="text-3xl font-bold tracking-tight">
+                                {stats?.totalArticles ?? "—"}+
+                            </h4>
+                        )}
                         <p className="text-sm font-medium text-muted-foreground">Published Articles</p>
                     </div>
 
                     <div className="flex flex-col items-center justify-center space-y-2 text-center">
                         <Users className="h-8 w-8 text-primary mb-2 opacity-80" />
-                        <h4 className="text-3xl font-bold tracking-tight">
-                            {isLoading ? "..." : "8.5k+"}
-                        </h4>
-                        <p className="text-sm font-medium text-muted-foreground">Active Reviewers</p>
+                        {isLoading ? (
+                            <Skeleton className="h-9 w-16" />
+                        ) : (
+                            <h4 className="text-3xl font-bold tracking-tight">
+                                {stats?.totalUsers ?? "—"}+
+                            </h4>
+                        )}
+                        <p className="text-sm font-medium text-muted-foreground">Active Users</p>
                     </div>
 
                     <div className="flex flex-col items-center justify-center space-y-2 text-center">
                         <CheckCircle2 className="h-8 w-8 text-primary mb-2 opacity-80" />
-                        <h4 className="text-3xl font-bold tracking-tight">
-                            {isLoading ? "..." : "99.9%"}
-                        </h4>
-                        <p className="text-sm font-medium text-muted-foreground">Uptime Guarantee</p>
+                        {isLoading ? (
+                            <Skeleton className="h-9 w-16" />
+                        ) : (
+                            <h4 className="text-3xl font-bold tracking-tight">
+                                {stats?.countriesCount ?? "—"}+
+                            </h4>
+                        )}
+                        <p className="text-sm font-medium text-muted-foreground">Countries Reached</p>
                     </div>
                 </div>
             </div>

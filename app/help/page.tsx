@@ -4,10 +4,12 @@ import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { BookOpen, FileText, Users, HelpCircle, ChevronRight } from "lucide-react"
+import { BookOpen, FileText, Users, HelpCircle, ChevronRight, Search } from "lucide-react"
 import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
+import { Input } from "@/components/ui/input"
+import { useState, useMemo } from "react"
 
 import { useGetFaqs } from "@/src/features/faq"
 import { useGetHelpContent } from "@/src/features/help"
@@ -16,15 +18,40 @@ import { defaultHelpContent } from "@/src/features/help/schemas/help-schema"
 export default function HelpPage() {
   const { data: faqResponse, isLoading: isFaqLoading } = useGetFaqs(1, 50)
   const { data: helpResponse, isLoading: isHelpLoading } = useGetHelpContent()
+  const [faqFilter, setFaqFilter] = useState("")
 
   const faqs = faqResponse?.data || []
   const content = helpResponse || defaultHelpContent
 
+  // Filter FAQs by search term
+  const filteredFaqs = useMemo(() => {
+    if (!faqFilter.trim()) return faqs
+    const q = faqFilter.toLowerCase()
+    return faqs.filter(
+      (faq) =>
+        faq.question.toLowerCase().includes(q) ||
+        faq.answer?.toLowerCase().includes(q)
+    )
+  }, [faqs, faqFilter])
+
+  // Group FAQs by category for better organization
+  const groupedFaqs = useMemo(() => {
+    const groups: Record<string, typeof filteredFaqs> = {}
+    for (const faq of filteredFaqs) {
+      const cat = faq.category || "General"
+      if (!groups[cat]) groups[cat] = []
+      groups[cat].push(faq)
+    }
+    return groups
+  }, [filteredFaqs])
+
+  const hasCategories = Object.keys(groupedFaqs).length > 1
+
   const quickLinks = [
-    { icon: BookOpen, title: "Guide for Authors", href: "#guide-authors", color: "primary" as const },
-    { icon: Users, title: "Guide for Reviewers", href: "#guide-reviewers", color: "secondary" as const },
-    { icon: FileText, title: "Submission Help", href: "/help/submission-service", color: "primary" as const },
-    { icon: HelpCircle, title: "Technical Support", href: "/help/technical-support", color: "secondary" as const },
+    { icon: BookOpen, title: "Guide for Authors", description: "Submission guidelines & requirements", href: "#guide-authors", color: "primary" as const },
+    { icon: Users, title: "Guide for Reviewers", description: "Review process & expectations", href: "#guide-reviewers", color: "secondary" as const },
+    { icon: FileText, title: "Submission Help", description: "Get help with your manuscript", href: "/help/submission-service", color: "primary" as const },
+    { icon: HelpCircle, title: "Technical Support", description: "Report technical issues", href: "/help/technical-support", color: "secondary" as const },
   ]
 
   return (
@@ -60,10 +87,10 @@ export default function HelpPage() {
               <GSAPWrapper animation="slideUp" delay={0.2}>
                 <div className="mb-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                   {quickLinks.map((link) => {
-                    const isExternal = link.href.startsWith("/")
-                    const Wrapper = isExternal ? Link : "a"
+                    const isRoute = link.href.startsWith("/")
+                    const Wrapper = isRoute ? Link : "a"
                     return (
-                      <Wrapper key={link.title} href={link.href as any}>
+                      <Wrapper key={link.title} href={link.href as string}>
                         <Card className="group cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1 border-border/50 h-full">
                           <CardContent className="pt-6 text-center">
                             <div className="mb-3 flex justify-center">
@@ -76,6 +103,7 @@ export default function HelpPage() {
                               </div>
                             </div>
                             <h3 className="font-semibold">{link.title}</h3>
+                            <p className="mt-1 text-xs text-muted-foreground">{link.description}</p>
                             <ChevronRight className="mx-auto mt-2 h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                           </CardContent>
                         </Card>
@@ -89,33 +117,83 @@ export default function HelpPage() {
               <GSAPWrapper animation="fadeIn" delay={0.3}>
                 <Card className="border-border/50">
                   <CardHeader>
-                    <CardTitle>Frequently Asked Questions</CardTitle>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <CardTitle>Frequently Asked Questions</CardTitle>
+                      {!isFaqLoading && faqs.length > 3 && (
+                        <div className="relative w-full sm:w-64">
+                          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            id="faq-search"
+                            type="search"
+                            placeholder="Filter FAQs..."
+                            className="pl-9 h-9 text-sm"
+                            value={faqFilter}
+                            onChange={(e) => setFaqFilter(e.target.value)}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <Accordion type="single" collapsible className="w-full">
-                      {isFaqLoading ? (
-                        <div className="space-y-4 py-4">
-                          {[...Array(5)].map((_, i) => (
-                            <div key={i} className="border-b pb-4">
-                              <Skeleton className="h-6 w-3/4" />
+                    {isFaqLoading ? (
+                      <div className="space-y-4 py-4">
+                        {[...Array(5)].map((_, i) => (
+                          <div key={i} className="border-b pb-4">
+                            <Skeleton className="h-6 w-3/4" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : filteredFaqs.length > 0 ? (
+                      hasCategories ? (
+                        // Grouped by category
+                        <div className="space-y-6">
+                          {Object.entries(groupedFaqs).map(([category, items]) => (
+                            <div key={category}>
+                              <h3 className="mb-3 text-sm font-semibold text-primary uppercase tracking-wider">
+                                {category}
+                              </h3>
+                              <Accordion type="single" collapsible className="w-full">
+                                {items.map((faq, idx) => (
+                                  <AccordionItem key={faq.id} value={`${category}-item-${idx}`}>
+                                    <AccordionTrigger className="text-left">{faq.question}</AccordionTrigger>
+                                    <AccordionContent className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                                      {faq.answer}
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                ))}
+                              </Accordion>
                             </div>
                           ))}
                         </div>
-                      ) : faqs.length > 0 ? (
-                        faqs.map((faq, idx) => (
-                          <AccordionItem key={faq.id} value={`item-${idx}`}>
-                            <AccordionTrigger>{faq.question}</AccordionTrigger>
-                            <AccordionContent className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                              {faq.answer}
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))
                       ) : (
-                        <div className="py-8 text-center text-muted-foreground">
-                          No FAQ items found.
-                        </div>
-                      )}
-                    </Accordion>
+                        // Flat list
+                        <Accordion type="single" collapsible className="w-full">
+                          {filteredFaqs.map((faq, idx) => (
+                            <AccordionItem key={faq.id} value={`item-${idx}`}>
+                              <AccordionTrigger className="text-left">{faq.question}</AccordionTrigger>
+                              <AccordionContent className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                                {faq.answer}
+                              </AccordionContent>
+                            </AccordionItem>
+                          ))}
+                        </Accordion>
+                      )
+                    ) : faqFilter ? (
+                      <div className="py-8 text-center text-muted-foreground">
+                        <Search className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+                        <p>No FAQs matching &ldquo;{faqFilter}&rdquo;</p>
+                        <button
+                          className="mt-2 text-sm text-primary hover:underline"
+                          onClick={() => setFaqFilter("")}
+                        >
+                          Clear filter
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="py-8 text-center text-muted-foreground">
+                        No FAQ items found.
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </GSAPWrapper>
@@ -148,7 +226,7 @@ export default function HelpPage() {
                           </div>
                         ))
                       ) : (
-                        content.authorGuide.content.map((item: any, i: number) => (
+                        content.authorGuide.content.map((item: { heading: string; text: string }, i: number) => (
                           <div key={i}>
                             <h4 className="mb-1 font-semibold text-foreground">{item.heading}</h4>
                             <p className="leading-relaxed">{item.text}</p>
@@ -183,7 +261,7 @@ export default function HelpPage() {
                           </div>
                         ))
                       ) : (
-                        content.reviewerGuide.content.map((item: any, i: number) => (
+                        content.reviewerGuide.content.map((item: { heading: string; text: string }, i: number) => (
                           <div key={i}>
                             <h4 className="mb-1 font-semibold text-foreground">{item.heading}</h4>
                             <p className="leading-relaxed">{item.text}</p>
