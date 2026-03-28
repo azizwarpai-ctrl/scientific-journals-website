@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
@@ -165,25 +164,14 @@ function StatCard({
 }
 
 export default function AboutPage() {
-  interface QualityMetrics {
-    acceptanceRate: number;
-    avgReviewTime: number;
+  // Sample quality metrics (these will be replaced by real API data when available)
+  const qualityMetrics = {
+    acceptanceRate: 32, // 32%
+    avgReviewTime: 2.4, // 2.4 weeks
   }
 
-  const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null)
   const { data: aboutData, isLoading: isAboutLoading, isError: isAboutError } = useGetAboutContent()
   const { data: statsData, isLoading: isStatsLoading, isError: isStatsError } = useGetPlatformStatistics()
-
-  useEffect(() => {
-    // Simulate fetching quality metrics since the API is not yet available
-    const timer = setTimeout(() => {
-      setQualityMetrics({
-        acceptanceRate: 32, // 32%
-        avgReviewTime: 2.4, // 2.4 weeks
-      })
-    }, 1500)
-    return () => clearTimeout(timer)
-  }, [])
 
   if (isAboutLoading || isStatsLoading) {
     return (
@@ -421,31 +409,25 @@ export default function AboutPage() {
                         <h3 className="text-lg font-bold">Quality Metrics</h3>
                         <span className="text-[10px] uppercase tracking-wider font-bold bg-muted px-2 py-0.5 rounded text-muted-foreground">Sample Data</span>
                       </div>
-                      {qualityMetrics ? (
-                        <div className="grid grid-cols-2 gap-4">
-                          <RadialProgress 
-                            value={(qualityMetrics as QualityMetrics).acceptanceRate} 
-                            max={100} 
-                            label="Acceptance Rate" 
-                            sublabel="Industry avg: 30%"
-                            color="primary"
-                            size={100}
-                          />
-                          <RadialProgress 
-                            value={(qualityMetrics as QualityMetrics).avgReviewTime} 
-                            max={5} 
-                            label="Avg. Review Time" 
-                            sublabel="Weeks"
-                            color="secondary"
-                            size={100}
-                            unit="w"
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center p-6 text-sm text-muted-foreground">
-                          Metrics currently unavailable
-                        </div>
-                      )}
+                      <div className="grid grid-cols-2 gap-4">
+                        <RadialProgress 
+                          value={qualityMetrics.acceptanceRate} 
+                          max={100} 
+                          label="Acceptance Rate" 
+                          sublabel="Industry avg: 30%"
+                          color="primary"
+                          size={100}
+                        />
+                        <RadialProgress 
+                          value={qualityMetrics.avgReviewTime} 
+                          max={5} 
+                          label="Avg. Review Time" 
+                          sublabel="Weeks"
+                          color="secondary"
+                          size={100}
+                          unit="w"
+                        />
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
