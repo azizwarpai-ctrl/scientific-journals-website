@@ -8,6 +8,7 @@ export const PUBLIC_ROUTES = [
   "/journals",
   "/journals/[id]",
   "/solutions",
+  "/search",
   "/submit-manager",
   "/register",
   "/admin/login",
@@ -28,6 +29,7 @@ export const ADMIN_ROUTES = [
   "/admin/faq",
   "/admin/settings",
   "/admin/email-templates",
+  "/admin/pricing",
 ]
 
 export const API_ROUTES = ["/api"]

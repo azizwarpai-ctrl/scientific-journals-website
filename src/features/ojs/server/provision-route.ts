@@ -5,6 +5,14 @@ import { provisionOjsUser } from "./ojs-user-service"
 import { dispatchEmailEvent } from "@/src/lib/email/event-dispatcher"
 import crypto from "crypto"
 import { getSsoSecret } from "@/src/features/ojs/server/sso-utils"
+import { checkRateLimit } from "@/src/lib/rate-limiter"
+
+/** Registration rate limit: 5 requests per IP per 15 minutes */
+const REGISTRATION_RATE_LIMIT = {
+  maxRequests: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  keyPrefix: "reg",
+} as const
 
 const app = new Hono()
 
@@ -12,6 +20,20 @@ const app = new Hono()
 // Provision a new user into OJS and redirect to SSO
 app.post("/register", zValidator("json", registerSchema), async (c) => {
   try {
+    // Rate limiting — extract real IP from proxy headers or fall back to socket
+    const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim()
+      || c.req.header("x-real-ip")
+      || "unknown"
+
+    const rateCheck = checkRateLimit(ip, REGISTRATION_RATE_LIMIT)
+
+    if (!rateCheck.allowed) {
+      c.res.headers.set("Retry-After", String(Math.ceil(rateCheck.retryAfterMs / 1000)))
+      return c.json({
+        success: false,
+        error: "Too many registration attempts. Please try again later.",
+      }, 429)
+    }
     const payload = c.req.valid("json")
     const { email, firstName, lastName } = payload
 
