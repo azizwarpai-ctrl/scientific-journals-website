@@ -14,6 +14,7 @@ import { aboutRouter } from "@/src/features/about/server"
 import { statisticsRouter } from "@/src/features/statistics/server"
 import { emailTemplateRouter } from "@/src/features/email-templates/server"
 import { billingRouter } from "@/src/features/billing/server"
+import { searchRouter } from "@/src/features/search/server"
 import { fetchFromDatabase } from "@/src/features/ojs/server/ojs-service"
 import { triggerStartupSync } from "@/src/features/ojs/server/sync-ojs-journals"
 
@@ -31,6 +32,7 @@ const apiApp = new Hono()
     .route("/statistics", statisticsRouter)
     .route("/email-templates", emailTemplateRouter)
     .route("/billing", billingRouter)
+    .route("/search", searchRouter)
 
 
 const app = new Hono().basePath("/api")
