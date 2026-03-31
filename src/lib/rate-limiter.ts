@@ -47,7 +47,7 @@ export interface RateLimitResult {
   allowed: boolean
   remaining: number
   resetAt: number
-  retryAfterMs: number
+  retryAfter: number
 }
 
 /**
@@ -69,7 +69,7 @@ export function checkRateLimit(ip: string, config: RateLimitConfig): RateLimitRe
       allowed: true,
       remaining: maxRequests - 1,
       resetAt,
-      retryAfterMs: 0,
+      retryAfter: 0,
     }
   }
 
@@ -80,7 +80,7 @@ export function checkRateLimit(ip: string, config: RateLimitConfig): RateLimitRe
       allowed: true,
       remaining: maxRequests - entry.count,
       resetAt: entry.resetAt,
-      retryAfterMs: 0,
+      retryAfter: 0,
     }
   }
 
@@ -89,6 +89,6 @@ export function checkRateLimit(ip: string, config: RateLimitConfig): RateLimitRe
     allowed: false,
     remaining: 0,
     resetAt: entry.resetAt,
-    retryAfterMs: entry.resetAt - now,
+    retryAfter: Math.ceil((entry.resetAt - now) / 1000),
   }
 }

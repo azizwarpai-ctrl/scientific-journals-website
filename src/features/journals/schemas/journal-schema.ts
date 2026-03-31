@@ -23,5 +23,10 @@ export const journalIdParamSchema = z.object({
   id: z.string().regex(/^\d+$/, "Invalid journal ID"),
 })
 
+/** Accepts any string identifier: ojs_path slug, ojs_id, or numeric id */
+export const journalSlugParamSchema = z.object({
+  id: z.string().trim().min(1, "Journal identifier is required").max(100, "Journal identifier must be at most 100 characters"),
+})
+
 export type JournalCreate = z.infer<typeof journalCreateSchema>
 export type JournalUpdate = z.infer<typeof journalUpdateSchema>

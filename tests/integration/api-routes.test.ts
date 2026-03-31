@@ -23,6 +23,7 @@ vi.mock('@/src/lib/db/config', () => ({
         journal: {
             findMany: vi.fn().mockResolvedValue([]),
             findUnique: vi.fn().mockResolvedValue(null),
+            findFirst: vi.fn().mockResolvedValue(null),
             create: vi.fn(),
             update: vi.fn(),
             delete: vi.fn(),
@@ -112,6 +113,7 @@ describe('API Integration Tests', () => {
 
         describe('GET /journals/:id', () => {
             it('should return 404 for non-existent journal', async () => {
+                vi.mocked(prisma.journal.findFirst).mockResolvedValue(null)
                 vi.mocked(prisma.journal.findUnique).mockResolvedValue(null)
 
                 const res = await app.request('/api/journals/999')
@@ -123,7 +125,12 @@ describe('API Integration Tests', () => {
                     id: BigInt(1), title: 'Test', field: 'CS', status: 'active',
                     created_at: new Date(), updated_at: new Date(), created_by: BigInt(1),
                 }
-                vi.mocked(prisma.journal.findUnique).mockResolvedValue(mockJournal as any)
+                // findFirst (ojs_path lookup) returns null, findUnique (ojs_id) returns null,
+                // findUnique (BigInt id) returns the journal
+                vi.mocked(prisma.journal.findFirst).mockResolvedValue(null)
+                vi.mocked(prisma.journal.findUnique)
+                    .mockResolvedValueOnce(null) // ojs_id lookup
+                    .mockResolvedValueOnce(mockJournal as any) // BigInt id lookup
 
                 const res = await app.request('/api/journals/1')
                 expect(res.status).toBe(200)
@@ -133,9 +140,14 @@ describe('API Integration Tests', () => {
                 expect(body.data.id).toBe('1')
             })
 
-            it('should reject non-numeric ID', async () => {
-                const res = await app.request('/api/journals/abc')
-                expect(res.status).toBe(400)
+            it('should accept slug-based identifiers (any string)', async () => {
+                // Slug-based routing: the API now accepts any string (ojs_path, ojs_id, or numeric id)
+                vi.mocked(prisma.journal.findFirst).mockResolvedValue(null)
+                vi.mocked(prisma.journal.findUnique).mockResolvedValue(null)
+
+                const res = await app.request('/api/journals/my-journal-slug')
+                // Should return 404, not 400 — meaning the slug was accepted and looked up
+                expect(res.status).toBe(404)
             })
         })
 

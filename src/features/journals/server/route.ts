@@ -4,11 +4,11 @@ import { requireAdmin } from "@/src/lib/auth-middleware"
 import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
 import { serializeRecord, serializeMany } from "@/src/lib/serialize"
 import { prisma } from "@/src/lib/db/config"
-import { journalCreateSchema, journalUpdateSchema, journalIdParamSchema } from "../schemas/journal-schema"
+import { journalCreateSchema, journalUpdateSchema, journalIdParamSchema, journalSlugParamSchema } from "@/src/features/journals/schemas/journal-schema"
 
 const app = new Hono()
 
-const JOURNAL_SELECT = {
+const LIST_JOURNAL_SELECT = {
   id: true,
   title: true,
   abbreviation: true,
@@ -31,6 +31,12 @@ const JOURNAL_SELECT = {
   ojs_path: true,
 } as const
 
+const DETAIL_JOURNAL_SELECT = {
+  ...LIST_JOURNAL_SELECT,
+  aims_and_scope: true,
+  author_guidelines: true,
+} as const
+
 // ─── GET /journals — Public listing (Prisma only) ───────────────────
 
 app.get("/", async (c) => {
@@ -38,7 +44,7 @@ app.get("/", async (c) => {
     const pagination = parsePagination(c)
     let [journals, total] = await Promise.all([
       prisma.journal.findMany({
-        select: JOURNAL_SELECT,
+        select: LIST_JOURNAL_SELECT,
         orderBy: { created_at: "desc" },
         take: pagination.limit,
         skip: pagination.offset,
@@ -60,7 +66,7 @@ app.get("/", async (c) => {
           // Re-query after sync
           const [newJournals, newTotal] = await Promise.all([
             prisma.journal.findMany({
-              select: JOURNAL_SELECT,
+              select: LIST_JOURNAL_SELECT,
               orderBy: { created_at: "desc" },
               take: pagination.limit,
               skip: pagination.offset,
@@ -83,23 +89,31 @@ app.get("/", async (c) => {
   }
 })
 
-// ─── GET /journals/:id — Public detail ──────────────────────────────
+// ─── GET /journals/:id — Public detail (supports slug, ojs_id, or numeric id) ──
 
-app.get("/:id", zValidator("param", journalIdParamSchema), async (c) => {
+app.get("/:id", zValidator("param", journalSlugParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
 
-    // First try lookup by ojs_id (for OJS-sourced navigation)
+    // 1. Try lookup by ojs_path (slug-based URL — primary)
     let journal = await prisma.journal.findUnique({
-      where: { ojs_id: id },
-      select: JOURNAL_SELECT,
+      where: { ojs_path: id },
+      select: DETAIL_JOURNAL_SELECT,
     })
 
-    // Fallback to internal BigInt id (for admin-created journals)
+    // 2. Fallback to ojs_id (for legacy OJS-sourced navigation)
+    if (!journal) {
+      journal = await prisma.journal.findUnique({
+        where: { ojs_id: id },
+        select: DETAIL_JOURNAL_SELECT,
+      })
+    }
+
+    // 3. Fallback to internal BigInt id (for admin-created journals)
     if (!journal && /^\d+$/.test(id)) {
       journal = await prisma.journal.findUnique({
         where: { id: BigInt(id) },
-        select: JOURNAL_SELECT,
+        select: DETAIL_JOURNAL_SELECT,
       })
     }
 
@@ -141,7 +155,7 @@ app.post("/", requireAdmin, zValidator("json", journalCreateSchema), async (c) =
         status: data.status || "active",
         created_by: BigInt(session.id),
       },
-      select: JOURNAL_SELECT,
+      select: DETAIL_JOURNAL_SELECT,
     })
 
     return c.json(
@@ -180,7 +194,7 @@ app.patch("/:id", requireAdmin, zValidator("param", journalIdParamSchema), zVali
     const journal = await prisma.journal.update({
       where: { id: BigInt(id) },
       data: updateData,
-      select: JOURNAL_SELECT,
+      select: DETAIL_JOURNAL_SELECT,
     })
 
     return c.json(

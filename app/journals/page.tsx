@@ -17,6 +17,7 @@ export default function JournalsPage() {
   const formattedJournals = journals.map((j: Journal) => ({
     id: j.id,
     ojs_id: j.ojs_id,
+    ojs_path: j.ojs_path,
     title: j.title || "Currently unavailable",
     coverImage: j.cover_image_url || "/images/logodigitopub.png",
     description: j.description || null,

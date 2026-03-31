@@ -21,29 +21,36 @@ import {
   Database,
   Eye,
   Scale,
-  CheckCircle2,
 } from "lucide-react"
+import DOMPurify from "isomorphic-dompurify"
 
 
 import { useGetJournal, useJournalId } from "@/src/features/journals"
 
-import { JournalDetailSkeleton } from "@/components/skeletons/journal-detail-skeleton"
-import { JournalError } from "@/components/errors/error-states"
-import { JournalNotFound } from "@/components/states/not-found-states"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/src/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { JournalError } from "@/components/errors/error-states"
+import { JournalNotFound } from "@/components/states/not-found-states"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { JournalDetailSkeleton } from "@/components/skeletons/journal-detail-skeleton"
 
 export default function JournalDetailPage() {
   const id = useJournalId()
   const [activeTab, setActiveTab] = useState("about")
 
-
   const { data: journal, isLoading, error } = useGetJournal(id)
+
+  const sanitizeContent = (html: string | null | undefined) => {
+    if (!html) return ""
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
+      ALLOWED_ATTR: [],
+    })
+  }
+
 
   if (isLoading) {
     return (
@@ -81,13 +88,18 @@ export default function JournalDetailPage() {
     )
   }
 
+  const safeAimsAndScope = sanitizeContent(journal.aims_and_scope)
+  const safeAuthorGuidelines = sanitizeContent(journal.author_guidelines)
+
   const ojsBaseUrl = process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"
   const ojsDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
-  const directUrl = journal.ojs_path ? `${ojsDomain}/index.php/${journal.ojs_path}/submission` : null
+  
+  // URL priority: ojs_path slug → ojs_id → numeric db id
+  const targetSlug = [journal.ojs_path, journal.ojs_id, journal.id].find(s => s && String(s).trim()) || journal.id
+  const directUrl = `${ojsDomain}/index.php/${targetSlug}/submission`
 
   const renderSubmitButton = (buttonClass: string = "", variant: "default" | "outline" = "default", children: React.ReactNode) => {
-    if (!directUrl || !journal.ojs_path) return null;
-
+    if (!ojsDomain) return null;
     return (
       <Button size={variant === "outline" ? "default" : "lg"} variant={variant} className={buttonClass} asChild>
         <Link href={directUrl}>
@@ -348,35 +360,25 @@ export default function JournalDetailPage() {
                         <h2 className="text-xl font-bold">Aims & Scope</h2>
                       </div>
                       <div className="prose prose-slate max-w-none dark:prose-invert">
-                        <p className="text-base leading-relaxed text-muted-foreground">
-                          {journal.description ? (
-                            <>
-              Our goal is to publish high-quality original research, reviews, and case studies that contribute
-              to the understanding and practice of {journal.field || 'this field'} worldwide. We welcome submissions that advance
-              scientific knowledge and provide practical insights for researchers, practitioners, and policymakers.
-                            </>
-                          ) : (
-                            "The journal aims to publish cutting-edge research in its field. We encourage submissions that demonstrate methodological rigor, theoretical significance, and practical relevance."
-                          )}
-                        </p>
-                      </div>
-
-                      {/* Scope Highlights */}
-                      <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                        {[
-                          { title: "Original Research", desc: "Peer-reviewed empirical studies" },
-                          { title: "Review Articles", desc: "Comprehensive literature reviews" },
-                          { title: "Case Studies", desc: "Practical applications" },
-                          { title: "Short Communications", desc: "Preliminary findings" },
-                        ].map((item, idx) => (
-                          <div key={idx} className="flex items-start gap-3 p-4 rounded-xl bg-muted/40 border border-border/40">
-                            <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                            <div>
-                              <h4 className="font-semibold text-sm">{item.title}</h4>
-                              <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
-                            </div>
+                        {journal.aims_and_scope ? (
+                          <div
+                            className="text-base leading-relaxed text-muted-foreground"
+                            dangerouslySetInnerHTML={{ __html: safeAimsAndScope }}
+                          />
+                        ) : (
+                          <div className="text-center py-8">
+                            <Scale className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
+                            <p className="text-muted-foreground">Aims & Scope information is being prepared for this journal.</p>
+                            {journal.website_url && (
+                              <Button variant="outline" size="sm" className="mt-4" asChild>
+                                <Link href={journal.website_url} target="_blank" rel="noopener noreferrer">
+                                  View on OJS Portal
+                                  <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                                </Link>
+                              </Button>
+                            )}
                           </div>
-                        ))}
+                        )}
                       </div>
                     </div>
                   </TabsContent>
@@ -387,7 +389,7 @@ export default function JournalDetailPage() {
                         <div className="p-2.5 rounded-lg bg-primary/10">
                           <Shield className="h-5 w-5 text-primary" />
                         </div>
-                        <h2 className="text-xl font-bold">Submission Policies</h2>
+                        <h2 className="text-xl font-bold">Author Guidelines</h2>
                       </div>
                       <div className="space-y-6">
                         <Card className="border-border/60 bg-muted/30 shadow-none">
@@ -407,22 +409,25 @@ export default function JournalDetailPage() {
                           </CardContent>
                         </Card>
 
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          {[
-                            { title: "Submission Format", desc: "Online via submission portal" },
-                            { title: "Review Process", desc: "Double-blind peer review" },
-                            { title: "Citation Style", desc: "Follow journal guidelines" },
-                            { title: "Plagiarism Check", desc: "All submissions screened" },
-                          ].map((item, idx) => (
-                            <div key={idx} className="flex items-start gap-3 p-4 rounded-xl bg-muted/40 border border-border/40">
-                              <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                              <div>
-                                <h4 className="font-semibold text-sm">{item.title}</h4>
-                                <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                        {journal.author_guidelines ? (
+                          <div
+                            className="prose prose-slate max-w-none dark:prose-invert text-sm leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: safeAuthorGuidelines }}
+                          />
+                        ) : (
+                          <div className="text-center py-8">
+                            <FileText className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
+                            <p className="text-muted-foreground">Detailed author guidelines are being prepared for this journal.</p>
+                            {directUrl && (
+                              <Button variant="outline" size="sm" className="mt-4" asChild>
+                                <Link href={directUrl}>
+                                  Submit via OJS Portal
+                                  <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                                </Link>
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </TabsContent>

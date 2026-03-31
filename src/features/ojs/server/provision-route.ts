@@ -25,12 +25,12 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
       || c.req.header("x-real-ip")
       || "unknown"
 
-    const rateCheck = (process.env.NODE_ENV !== "production" && process.env.TEST_DISABLE_RATE_LIMIT === "true")
-      ? { allowed: true, retryAfterMs: 0 }
+    const rateCheck = process.env.NODE_ENV === "test" && process.env.TEST_DISABLE_RATE_LIMIT === "true"
+      ? { allowed: true, retryAfter: 0, remaining: Infinity, resetAt: 0 }
       : checkRateLimit(ip, REGISTRATION_RATE_LIMIT)
 
     if (!rateCheck.allowed) {
-      c.res.headers.set("Retry-After", String(Math.ceil(rateCheck.retryAfterMs / 1000)))
+      c.res.headers.set("Retry-After", String(rateCheck.retryAfter))
       return c.json({
         success: false,
         error: "Too many registration attempts. Please try again later.",

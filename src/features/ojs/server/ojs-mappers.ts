@@ -44,6 +44,8 @@ export const ojsJournalRowSchema = z.object({
     abbreviation: z.string().nullable().optional(),
     contact_name: z.string().nullable().optional(),
     country: z.string().nullable().optional(),
+    aims_and_scope: z.string().nullable().optional(),
+    author_guidelines: z.string().nullable().optional(),
 })
 
 export type OjsJournalRow = z.infer<typeof ojsJournalRowSchema>
@@ -76,5 +78,18 @@ export function mapOjsJournalRow(row: OjsJournalRow, baseUrl: string): OjsJourna
         abbreviation: row.abbreviation || null,
         contact_name: row.contact_name || null,
         country: row.country || null,
+        // Sanitize OJS HTML content — keep basic block elements, strip scripts/styles
+        aims_and_scope: row.aims_and_scope
+            ? sanitizeHtml(row.aims_and_scope, {
+                allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
+                allowedAttributes: {},
+              }).trim() || null
+            : null,
+        author_guidelines: row.author_guidelines
+            ? sanitizeHtml(row.author_guidelines, {
+                allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
+                allowedAttributes: {},
+              }).trim() || null
+            : null,
     })
 }

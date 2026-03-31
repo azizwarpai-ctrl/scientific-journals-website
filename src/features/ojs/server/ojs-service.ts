@@ -29,7 +29,9 @@ export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJou
             js_pub.setting_value AS publisher,
             js_abbrev.setting_value AS abbreviation,
             js_contact.setting_value AS contact_name,
-            js_country.setting_value AS country
+            js_country.setting_value AS country,
+            js_aims.setting_value AS aims_and_scope,
+            js_guidelines.setting_value AS author_guidelines
         FROM journals j
         LEFT JOIN journal_settings js_name
             ON js_name.journal_id = j.journal_id
@@ -87,6 +89,14 @@ export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJou
             ON js_country.journal_id = j.journal_id
             AND js_country.setting_name = 'country'
             AND js_country.locale = ''
+        LEFT JOIN journal_settings js_aims
+            ON js_aims.journal_id = j.journal_id
+            AND js_aims.setting_name = 'aimsAndScope'
+            AND js_aims.locale = j.primary_locale
+        LEFT JOIN journal_settings js_guidelines
+            ON js_guidelines.journal_id = j.journal_id
+            AND js_guidelines.setting_name = 'authorGuidelines'
+            AND js_guidelines.locale = j.primary_locale
         ${enabledFilter}
         ORDER BY j.seq ASC
     `)
