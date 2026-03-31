@@ -54,10 +54,14 @@ const validPayload = {
 describe('Provision Route (POST /ojs/register)', () => {
     let app: ReturnType<typeof createApp>
     let originalEnv: NodeJS.ProcessEnv
+    let originalRateLimitFlag: string | undefined
 
     beforeEach(() => {
         vi.clearAllMocks()
         originalEnv = { ...process.env }
+        originalRateLimitFlag = process.env.TEST_DISABLE_RATE_LIMIT
+        // Opt-in to bypass rate limiting for tests
+        process.env.TEST_DISABLE_RATE_LIMIT = "true"
         process.env.SSO_SECRET = TEST_SSO_SECRET
         process.env.OJS_BASE_URL = 'https://submitmanager.com'
         app = createApp()
@@ -65,6 +69,11 @@ describe('Provision Route (POST /ojs/register)', () => {
 
     afterEach(() => {
         process.env = originalEnv
+        if (originalRateLimitFlag === undefined) {
+            delete process.env.TEST_DISABLE_RATE_LIMIT
+        } else {
+            process.env.TEST_DISABLE_RATE_LIMIT = originalRateLimitFlag
+        }
     })
 
     // ═══════════════════════════════════════
