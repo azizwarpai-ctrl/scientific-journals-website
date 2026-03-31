@@ -35,6 +35,8 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                         website_url: baseUrl ? `${baseUrl}/index.php/${journal.path}` : null,
                         ojs_path: journal.path,
                         status: journal.enabled ? "active" : "inactive",
+                        aims_and_scope: journal.aims_and_scope ?? null,
+                        author_guidelines: journal.author_guidelines ?? null,
                         updated_at: new Date(),
                     },
                     create: {
@@ -51,6 +53,8 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                         website_url: baseUrl ? `${baseUrl}/index.php/${journal.path}` : null,
                         ojs_path: journal.path,
                         status: journal.enabled ? "active" : "inactive",
+                        aims_and_scope: journal.aims_and_scope ?? null,
+                        author_guidelines: journal.author_guidelines ?? null,
                     },
                 })
             )

@@ -130,6 +130,7 @@ export default function HomePage() {
                       <JournalCard
                         id={journal.id}
                         ojsId={journal.ojs_id}
+                        ojsPath={journal.ojs_path}
                         title={journal.title}
                         description={journal.description || "Currently unavailable"}
                         field={journal.field}

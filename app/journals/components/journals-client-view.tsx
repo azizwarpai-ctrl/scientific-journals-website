@@ -10,6 +10,7 @@ import { GSAPWrapper } from "@/components/gsap-wrapper"
 interface Journal {
   id: string
   ojs_id?: string | null
+  ojs_path?: string | null
   title: string
   description?: string | null
   issn?: string | null
@@ -129,6 +130,7 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
                 key={journal.id}
                 id={journal.id}
                 ojsId={journal.ojs_id}
+                ojsPath={journal.ojs_path}
                 title={journal.title}
                 description={journal.description}
                 issn={journal.issn}

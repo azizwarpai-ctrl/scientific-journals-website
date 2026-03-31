@@ -4,7 +4,7 @@ import { requireAdmin } from "@/src/lib/auth-middleware"
 import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
 import { serializeRecord, serializeMany } from "@/src/lib/serialize"
 import { prisma } from "@/src/lib/db/config"
-import { journalCreateSchema, journalUpdateSchema, journalIdParamSchema } from "../schemas/journal-schema"
+import { journalCreateSchema, journalUpdateSchema, journalIdParamSchema, journalSlugParamSchema } from "../schemas/journal-schema"
 
 const app = new Hono()
 
@@ -29,6 +29,8 @@ const JOURNAL_SELECT = {
   created_by: true,
   ojs_id: true,
   ojs_path: true,
+  aims_and_scope: true,
+  author_guidelines: true,
 } as const
 
 // ─── GET /journals — Public listing (Prisma only) ───────────────────
@@ -83,19 +85,27 @@ app.get("/", async (c) => {
   }
 })
 
-// ─── GET /journals/:id — Public detail ──────────────────────────────
+// ─── GET /journals/:id — Public detail (supports slug, ojs_id, or numeric id) ──
 
-app.get("/:id", zValidator("param", journalIdParamSchema), async (c) => {
+app.get("/:id", zValidator("param", journalSlugParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
 
-    // First try lookup by ojs_id (for OJS-sourced navigation)
-    let journal = await prisma.journal.findUnique({
-      where: { ojs_id: id },
+    // 1. Try lookup by ojs_path (slug-based URL — primary)
+    let journal = await prisma.journal.findFirst({
+      where: { ojs_path: id },
       select: JOURNAL_SELECT,
     })
 
-    // Fallback to internal BigInt id (for admin-created journals)
+    // 2. Fallback to ojs_id (for legacy OJS-sourced navigation)
+    if (!journal) {
+      journal = await prisma.journal.findUnique({
+        where: { ojs_id: id },
+        select: JOURNAL_SELECT,
+      })
+    }
+
+    // 3. Fallback to internal BigInt id (for admin-created journals)
     if (!journal && /^\d+$/.test(id)) {
       journal = await prisma.journal.findUnique({
         where: { id: BigInt(id) },

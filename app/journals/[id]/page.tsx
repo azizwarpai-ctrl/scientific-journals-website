@@ -348,35 +348,25 @@ export default function JournalDetailPage() {
                         <h2 className="text-xl font-bold">Aims & Scope</h2>
                       </div>
                       <div className="prose prose-slate max-w-none dark:prose-invert">
-                        <p className="text-base leading-relaxed text-muted-foreground">
-                          {journal.description ? (
-                            <>
-              Our goal is to publish high-quality original research, reviews, and case studies that contribute
-              to the understanding and practice of {journal.field || 'this field'} worldwide. We welcome submissions that advance
-              scientific knowledge and provide practical insights for researchers, practitioners, and policymakers.
-                            </>
-                          ) : (
-                            "The journal aims to publish cutting-edge research in its field. We encourage submissions that demonstrate methodological rigor, theoretical significance, and practical relevance."
-                          )}
-                        </p>
-                      </div>
-
-                      {/* Scope Highlights */}
-                      <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                        {[
-                          { title: "Original Research", desc: "Peer-reviewed empirical studies" },
-                          { title: "Review Articles", desc: "Comprehensive literature reviews" },
-                          { title: "Case Studies", desc: "Practical applications" },
-                          { title: "Short Communications", desc: "Preliminary findings" },
-                        ].map((item, idx) => (
-                          <div key={idx} className="flex items-start gap-3 p-4 rounded-xl bg-muted/40 border border-border/40">
-                            <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                            <div>
-                              <h4 className="font-semibold text-sm">{item.title}</h4>
-                              <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
-                            </div>
+                        {journal.aims_and_scope ? (
+                          <div
+                            className="text-base leading-relaxed text-muted-foreground"
+                            dangerouslySetInnerHTML={{ __html: journal.aims_and_scope }}
+                          />
+                        ) : (
+                          <div className="text-center py-8">
+                            <Scale className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
+                            <p className="text-muted-foreground">Aims & Scope information is being prepared for this journal.</p>
+                            {journal.website_url && (
+                              <Button variant="outline" size="sm" className="mt-4" asChild>
+                                <Link href={journal.website_url} target="_blank" rel="noopener noreferrer">
+                                  View on OJS Portal
+                                  <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                                </Link>
+                              </Button>
+                            )}
                           </div>
-                        ))}
+                        )}
                       </div>
                     </div>
                   </TabsContent>
@@ -387,7 +377,7 @@ export default function JournalDetailPage() {
                         <div className="p-2.5 rounded-lg bg-primary/10">
                           <Shield className="h-5 w-5 text-primary" />
                         </div>
-                        <h2 className="text-xl font-bold">Submission Policies</h2>
+                        <h2 className="text-xl font-bold">Author Guidelines</h2>
                       </div>
                       <div className="space-y-6">
                         <Card className="border-border/60 bg-muted/30 shadow-none">
@@ -407,22 +397,25 @@ export default function JournalDetailPage() {
                           </CardContent>
                         </Card>
 
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          {[
-                            { title: "Submission Format", desc: "Online via submission portal" },
-                            { title: "Review Process", desc: "Double-blind peer review" },
-                            { title: "Citation Style", desc: "Follow journal guidelines" },
-                            { title: "Plagiarism Check", desc: "All submissions screened" },
-                          ].map((item, idx) => (
-                            <div key={idx} className="flex items-start gap-3 p-4 rounded-xl bg-muted/40 border border-border/40">
-                              <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                              <div>
-                                <h4 className="font-semibold text-sm">{item.title}</h4>
-                                <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                        {journal.author_guidelines ? (
+                          <div
+                            className="prose prose-slate max-w-none dark:prose-invert text-sm leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: journal.author_guidelines }}
+                          />
+                        ) : (
+                          <div className="text-center py-8">
+                            <FileText className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
+                            <p className="text-muted-foreground">Detailed author guidelines are being prepared for this journal.</p>
+                            {directUrl && (
+                              <Button variant="outline" size="sm" className="mt-4" asChild>
+                                <Link href={directUrl}>
+                                  Submit via OJS Portal
+                                  <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                                </Link>
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </TabsContent>

@@ -14,6 +14,8 @@ export const ojsJournalSchema = z.object({
     abbreviation: z.string().nullable().optional(),
     contact_name: z.string().nullable().optional(),
     country: z.string().nullable().optional(),
+    aims_and_scope: z.string().nullable().optional(),
+    author_guidelines: z.string().nullable().optional(),
 })
 
 export const ojsJournalsResponseSchema = z.object({

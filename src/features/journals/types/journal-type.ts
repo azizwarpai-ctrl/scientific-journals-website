@@ -19,6 +19,8 @@ export interface Journal {
   created_by: string | null
   ojs_id: string | null
   ojs_path: string | null
+  aims_and_scope: string | null
+  author_guidelines: string | null
 }
 
 export interface JournalResponse {

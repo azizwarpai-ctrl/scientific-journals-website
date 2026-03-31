@@ -39,6 +39,7 @@ vi.mock('@/src/lib/db/config', () => ({
         journal: {
             findMany: vi.fn().mockResolvedValue([]),
             findUnique: vi.fn().mockResolvedValue(null),
+            findFirst: vi.fn().mockResolvedValue(null),
             create: vi.fn(),
             update: vi.fn(),
             delete: vi.fn(),
@@ -385,14 +386,22 @@ describe('Security & Authorization Tests', () => {
     // INPUT VALIDATION EDGE CASES
     // ═══════════════════════════════════════
     describe('Input validation edge cases', () => {
-        it('should reject negative journal ID', async () => {
+        it('should return 404 for negative journal ID (treated as slug)', async () => {
+            // With slug-based routing, "-1" is a valid identifier string that gets looked up and not found
+            vi.mocked(prisma.journal.findFirst).mockResolvedValue(null)
+            vi.mocked(prisma.journal.findUnique).mockResolvedValue(null)
+
             const res = await app.request('/api/journals/-1')
-            expect(res.status).toBe(400)
+            expect(res.status).toBe(404)
         })
 
-        it('should reject journal ID with special characters', async () => {
-            const res = await app.request('/api/journals/1;DROP TABLE')
-            expect(res.status).toBe(400)
+        it('should return 404 for journal ID with special characters (treated as slug)', async () => {
+            // With slug-based routing, special chars are accepted as slugs and looked up
+            vi.mocked(prisma.journal.findFirst).mockResolvedValue(null)
+            vi.mocked(prisma.journal.findUnique).mockResolvedValue(null)
+
+            const res = await app.request('/api/journals/1;DROP%20TABLE')
+            expect(res.status).toBe(404)
         })
 
         it('should reject extremely long journal title', async () => {

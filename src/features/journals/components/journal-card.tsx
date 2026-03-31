@@ -13,6 +13,7 @@ export interface JournalCardProps {
   publisher?: string | null
   coverImage?: string | null
   ojsId?: string | number | null
+  ojsPath?: string | null
   variant?: "default" | "featured" | "compact"
 }
 
@@ -25,9 +26,11 @@ export function JournalCard({
   publisher,
   coverImage,
   ojsId,
+  ojsPath,
   variant = "default",
 }: JournalCardProps) {
-  const segment = encodeURIComponent(ojsId ?? id)
+  // URL priority: ojs_path slug → ojs_id → numeric db id
+  const segment = encodeURIComponent(ojsPath ?? ojsId ?? id)
   const href = `/journals/${segment}`
   
   const imageHeight = {
