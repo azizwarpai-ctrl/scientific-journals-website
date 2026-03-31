@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { BookOpen, Zap } from "lucide-react"
 import Link from "next/link"
 import { JournalCard } from "@/src/features/journals/components/journal-card"
-import { motion, useScroll, useTransform } from "framer-motion"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { AnimatedCounter } from "@/components/animated-counter"
 import { useGetJournals } from "@/src/features/journals"
@@ -19,13 +18,6 @@ import { JournalCardSkeleton } from "@/components/skeletons/journal-card-skeleto
 export default function HomePage() {
   const { data: journals = [], isLoading: isLoadingOjs, isError: isErrorOjs } = useGetJournals()
   const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetPlatformStatistics()
-
-  // Scroll animations for the 3D Spline model
-  const { scrollY } = useScroll()
-  // Pin the model via parallax (y closely follows scrollY), so it smoothly reaches the Journals section
-  const splineY = useTransform(scrollY, [0, 1000], [0, 420])
-  const splineX = useTransform(scrollY, [0, 1000], [0, 150]) // Scrolls slightly to the right
-  const splineScale = useTransform(scrollY, [0, 1000], [1, 1.2]) // Smoother, lower-angle zoom
 
   const statConfigs = [
     { label: "Active Journals", value: stats?.totalJournals, color: "text-blue-500 dark:text-blue-400" },
@@ -39,44 +31,44 @@ export default function HomePage() {
       <Navbar />
 
       <main className="flex-1 overflow-x-hidden">
-        {/* Hero Section */}
+        {/* Hero Section — always dark, regardless of system theme */}
         <GSAPWrapper animation="fadeIn">
-          <section className="relative flex min-h-[90vh] items-center bg-slate-50 dark:bg-slate-950 py-20 md:py-32 transition-colors duration-500">
-            {/* 3D Scene — anchored to lower-right quadrant as background */}
-            <motion.div
-              style={{ y: splineY, x: splineX, scale: splineScale }}
-              className="absolute -bottom-[5%] -right-[5%] z-0 h-[100%] w-[100%] md:h-[120%] md:w-[70%] pointer-events-none origin-center"
-            >
-              <SplineScene />
-            </motion.div>
+          {/* `dark` class isolates this section into forced dark mode */}
+          <div className="dark">
+            <section className="relative flex min-h-[90vh] items-center bg-slate-950 py-20 md:py-32">
+              {/* 3D Scene — fixed in lower-right quadrant, no scroll movement */}
+              <div className="absolute -bottom-[5%] -right-[5%] z-0 h-[100%] w-[100%] md:h-[120%] md:w-[70%] pointer-events-none origin-center">
+                <SplineScene />
+              </div>
 
-            <div className="container relative z-10 mx-auto px-4 md:px-6 pointer-events-none">
-              <div className="mx-auto max-w-3xl text-center pointer-events-auto">
-                <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-slate-900/10 dark:border-white/10 bg-slate-900/5 dark:bg-white/5 px-4 py-2 text-sm font-medium text-sky-600 dark:text-sky-300 backdrop-blur-md">
-                  <Zap className="h-4 w-4 text-sky-500 dark:text-sky-400" />
-                  Scientific Excellence
-                </div>
-                <h1 className="mb-6 text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white md:text-7xl drop-shadow-2xl">
-                  Modern Platform for <br className="hidden md:block" />
-                  <span className="bg-gradient-to-r from-sky-500 to-indigo-500 dark:from-sky-400 dark:to-indigo-400 bg-clip-text text-transparent">Scientific Publishing</span>
-                </h1>
-                <p className="mb-8 text-xl leading-relaxed text-slate-600 dark:text-slate-300 text-pretty drop-shadow-md">
-                  Comprehensive solutions for digital journals, submission management, and global scientific distribution.
-                </p>
-                <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
-                  <Button size="lg" className="rounded-full px-8 shadow-lg shadow-sky-500/20" asChild>
-                    <Link href="/journals">
-                      <BookOpen className="mr-2 h-5 w-5" />
-                      Explore Journals
-                    </Link>
-                  </Button>
-                  <Button size="lg" variant="outline" className="rounded-full border-slate-900/20 dark:border-white/20 bg-transparent px-8 text-slate-900 dark:text-white backdrop-blur-md hover:bg-slate-900/5 dark:hover:bg-white/10" asChild>
-                    <Link href="/about">Learn More</Link>
-                  </Button>
+              <div className="container relative z-10 mx-auto px-4 md:px-6 pointer-events-none">
+                <div className="mx-auto max-w-3xl text-center pointer-events-auto">
+                  <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-sky-300 backdrop-blur-md">
+                    <Zap className="h-4 w-4 text-sky-400" />
+                    Scientific Excellence
+                  </div>
+                  <h1 className="mb-6 text-5xl font-extrabold tracking-tight text-white md:text-7xl drop-shadow-2xl">
+                    Modern Platform for <br className="hidden md:block" />
+                    <span className="bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent">Scientific Publishing</span>
+                  </h1>
+                  <p className="mb-8 text-xl leading-relaxed text-slate-300 text-pretty drop-shadow-md">
+                    Comprehensive solutions for digital journals, submission management, and global scientific distribution.
+                  </p>
+                  <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
+                    <Button size="lg" className="rounded-full px-8 shadow-lg shadow-sky-500/20" asChild>
+                      <Link href="/journals">
+                        <BookOpen className="mr-2 h-5 w-5" />
+                        Explore Journals
+                      </Link>
+                    </Button>
+                    <Button size="lg" variant="outline" className="rounded-full border-white/20 bg-transparent px-8 text-white backdrop-blur-md hover:bg-white/10" asChild>
+                      <Link href="/about">Learn More</Link>
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
         </GSAPWrapper>
 
         {/* Stats Section */}
