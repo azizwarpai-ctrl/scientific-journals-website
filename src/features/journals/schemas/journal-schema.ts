@@ -25,7 +25,7 @@ export const journalIdParamSchema = z.object({
 
 /** Accepts any string identifier: ojs_path slug, ojs_id, or numeric id */
 export const journalSlugParamSchema = z.object({
-  id: z.string().min(1, "Journal identifier is required"),
+  id: z.string().trim().min(1, "Journal identifier is required").max(100, "Journal identifier must be at most 100 characters"),
 })
 
 export type JournalCreate = z.infer<typeof journalCreateSchema>

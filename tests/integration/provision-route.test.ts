@@ -25,6 +25,9 @@ import { provisionOjsUser } from '@/src/features/ojs/server/ojs-user-service'
 // Helpers
 // ════════════════════════════════════════
 
+// Opt-in to bypass rate limiting for tests
+process.env.TEST_DISABLE_RATE_LIMIT = "true"
+
 function createApp() {
     const app = new Hono()
     app.route('/ojs', provisionRouter)

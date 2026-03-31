@@ -21,29 +21,35 @@ import {
   Database,
   Eye,
   Scale,
-  CheckCircle2,
 } from "lucide-react"
+import DOMPurify from "dompurify"
 
 
 import { useGetJournal, useJournalId } from "@/src/features/journals"
 
-import { JournalDetailSkeleton } from "@/components/skeletons/journal-detail-skeleton"
-import { JournalError } from "@/components/errors/error-states"
-import { JournalNotFound } from "@/components/states/not-found-states"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/src/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { JournalError } from "@/components/errors/error-states"
+import { JournalNotFound } from "@/components/states/not-found-states"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { JournalDetailSkeleton } from "@/components/skeletons/journal-detail-skeleton"
 
 export default function JournalDetailPage() {
   const id = useJournalId()
   const [activeTab, setActiveTab] = useState("about")
 
-
   const { data: journal, isLoading, error } = useGetJournal(id)
+
+  const sanitizeContent = (html: string | null | undefined) => {
+    if (!html) return ""
+    return typeof window !== "undefined" ? DOMPurify.sanitize(html) : html
+  }
+
+  const safeAimsAndScope = sanitizeContent(journal?.aims_and_scope)
+  const safeAuthorGuidelines = sanitizeContent(journal?.author_guidelines)
 
   if (isLoading) {
     return (
@@ -351,7 +357,7 @@ export default function JournalDetailPage() {
                         {journal.aims_and_scope ? (
                           <div
                             className="text-base leading-relaxed text-muted-foreground"
-                            dangerouslySetInnerHTML={{ __html: journal.aims_and_scope }}
+                            dangerouslySetInnerHTML={{ __html: safeAimsAndScope }}
                           />
                         ) : (
                           <div className="text-center py-8">
@@ -400,7 +406,7 @@ export default function JournalDetailPage() {
                         {journal.author_guidelines ? (
                           <div
                             className="prose prose-slate max-w-none dark:prose-invert text-sm leading-relaxed"
-                            dangerouslySetInnerHTML={{ __html: journal.author_guidelines }}
+                            dangerouslySetInnerHTML={{ __html: safeAuthorGuidelines }}
                           />
                         ) : (
                           <div className="text-center py-8">

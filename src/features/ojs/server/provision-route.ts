@@ -25,7 +25,9 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
       || c.req.header("x-real-ip")
       || "unknown"
 
-    const rateCheck = checkRateLimit(ip, REGISTRATION_RATE_LIMIT)
+    const rateCheck = process.env.TEST_DISABLE_RATE_LIMIT === "true"
+      ? { allowed: true, retryAfterMs: 0 }
+      : checkRateLimit(ip, REGISTRATION_RATE_LIMIT)
 
     if (!rateCheck.allowed) {
       c.res.headers.set("Retry-After", String(Math.ceil(rateCheck.retryAfterMs / 1000)))

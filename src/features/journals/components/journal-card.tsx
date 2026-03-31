@@ -30,7 +30,8 @@ export function JournalCard({
   variant = "default",
 }: JournalCardProps) {
   // URL priority: ojs_path slug → ojs_id → numeric db id
-  const segment = encodeURIComponent(ojsPath ?? ojsId ?? id)
+  const chosen = [ojsPath, ojsId, id].find(s => s && String(s).trim()) || id
+  const segment = encodeURIComponent(String(chosen))
   const href = `/journals/${segment}`
   
   const imageHeight = {
