@@ -36,7 +36,7 @@ export default function HomePage() {
           {/* `dark` class isolates this section into forced dark mode */}
           <div className="dark">
             <section className="relative flex min-h-[90vh] items-center bg-slate-950 py-20 md:py-32">
-              {/* 3D Scene — fixed in lower-right quadrant, no scroll movement */}
+              {/* 3D Scene — positioned absolutely in the lower-right quadrant, no scroll movement */}
               <div className="absolute -bottom-[5%] -right-[5%] z-0 h-[100%] w-[100%] md:h-[120%] md:w-[70%] pointer-events-none origin-center">
                 <SplineScene />
               </div>
