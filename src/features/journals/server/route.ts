@@ -128,7 +128,53 @@ app.get("/:id", zValidator("param", journalSlugParamSchema), async (c) => {
   }
 })
 
+// ─── GET /journals/:id/stats — Real-time OJS Metrics ─────────────────
+
+app.get("/:id/stats", zValidator("param", journalSlugParamSchema), async (c) => {
+  try {
+    const { id } = c.req.valid("param")
+
+    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
+    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
+    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+
+    if (!journal) {
+      return c.json({ success: false, error: "Journal not found" }, 404)
+    }
+
+    if (!journal.ojs_id) {
+      return c.json({ success: true, data: { articles: 0, issues: 0 }, message: "No OJS data" }, 200)
+    }
+
+    const { isOjsConfigured, ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
+    
+    if (!isOjsConfigured()) {
+       return c.json({ success: true, data: { articles: 0, issues: 0 }, message: "No OJS data" }, 200)
+    }
+
+    try {
+      // Run queries in parallel
+      const [articlesResult, issuesResult] = await Promise.all([
+        ojsQuery<{ count: number }>('SELECT CAST(COUNT(*) AS UNSIGNED) as count FROM submissions WHERE context_id = ? AND status = 3', [journal.ojs_id]),
+        ojsQuery<{ count: number }>('SELECT CAST(COUNT(*) AS UNSIGNED) as count FROM issues WHERE journal_id = ? AND published = 1', [journal.ojs_id])
+      ])
+
+      const articles = Number(articlesResult?.[0]?.count || 0)
+      const issues = Number(issuesResult?.[0]?.count || 0)
+
+      return c.json({ success: true, data: { articles, issues } }, 200)
+    } catch (queryError) {
+      console.error("OJS Query Error:", queryError)
+      return c.json({ success: false, error: "Failed to fetch OJS stats" }, 502)
+    }
+  } catch (error) {
+    console.error("Error fetching journal stats:", error)
+    return c.json({ success: false, error: "Failed to fetch journal stats" }, 500)
+  }
+})
+
 // ─── POST /journals — Admin create (Prisma only) ────────────────────
+
 
 app.post("/", requireAdmin, zValidator("json", journalCreateSchema), async (c) => {
   try {

@@ -25,8 +25,9 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                     where: { ojs_id: String(journal.journal_id) },
                 })
 
-                // Only write ojs_path if incoming path is non-null and the existing DB path is NULL
-                const safeOjsPath = existing?.ojs_path ? existing.ojs_path : (journal.path || null)
+                // OJS is the source of truth - always use its path if available, otherwise fallback to existing
+                const trimmedJournalPath = journal.path?.trim() || ''
+                const safeOjsPath = trimmedJournalPath || existing?.ojs_path || null
 
                 if (existing) {
                     return prisma.journal.update({
@@ -40,7 +41,7 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                             publisher: journal.publisher || null,
                             abbreviation: journal.abbreviation || null,
                             editor_in_chief: journal.contact_name || null,
-                            website_url: baseUrl ? `${baseUrl}/index.php/${journal.path}` : null,
+                            website_url: baseUrl && safeOjsPath ? `${baseUrl}/index.php/${safeOjsPath}` : null,
                             ojs_path: safeOjsPath,
                             status: journal.enabled ? "active" : "inactive",
                             aims_and_scope: journal.aims_and_scope ?? null,
@@ -62,7 +63,7 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                             publisher: journal.publisher || null,
                             abbreviation: journal.abbreviation || null,
                             editor_in_chief: journal.contact_name || null,
-                            website_url: baseUrl ? `${baseUrl}/index.php/${journal.path}` : null,
+                            website_url: baseUrl && safeOjsPath ? `${baseUrl}/index.php/${safeOjsPath}` : null,
                             ojs_path: safeOjsPath,
                             status: journal.enabled ? "active" : "inactive",
                             aims_and_scope: journal.aims_and_scope ?? null,

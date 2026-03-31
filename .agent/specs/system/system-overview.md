@@ -141,3 +141,9 @@ digitopub MUST NOT:
 | `/api/ojs/sync` | `GET` | Cron-triggered journal sync (requires `Bearer CRON_SECRET`) |
 | `/api/ojs/health` | `GET` | OJS connectivity diagnostic endpoint |
 
+## Core Environment Variables
+
+### Important Variables
+- `OJS_BASE_URL`: The server-side base URL for the OJS installation (e.g. `https://submitmanager.com/ojs`). This is used for backend operations.
+- `NEXT_PUBLIC_OJS_BASE_URL`: Exposed to the frontend. Used to dynamically construct direct submission URLs and SSO fallback paths without hardcoding the domain in client components. Must mirror the server configuration.
+- `OJS_DATABASE_*`: Database connection configurations to directly query OJS stats and perform robust synchronizations.

@@ -25,9 +25,10 @@ import {
 import DOMPurify from "isomorphic-dompurify"
 
 
-import { useGetJournal, useJournalId } from "@/src/features/journals"
+import { useGetJournal, useGetJournalStats, useJournalId } from "@/src/features/journals"
 
 import { Navbar } from "@/components/navbar"
+import CollapsibleContent from "@/components/ui/collapsible-content"
 import { Footer } from "@/components/footer"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -42,6 +43,7 @@ export default function JournalDetailPage() {
   const [activeTab, setActiveTab] = useState("about")
 
   const { data: journal, isLoading, error } = useGetJournal(id)
+  const { data: stats } = useGetJournalStats(id)
 
   const sanitizeContent = (html: string | null | undefined) => {
     if (!html) return ""
@@ -92,14 +94,31 @@ export default function JournalDetailPage() {
   const safeAuthorGuidelines = sanitizeContent(journal.author_guidelines)
 
   const ojsBaseUrl = process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"
-  const ojsDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
-  
-  // URL priority: ojs_path slug → ojs_id → numeric db id
-  const targetSlug = [journal.ojs_path, journal.ojs_id, journal.id].find(s => s && String(s).trim()) || journal.id
-  const directUrl = `${ojsDomain}/index.php/${targetSlug}/submission`
+  // Ensure we have a trailing slash removed for consistent URL building
+  const ojsDomain = ojsBaseUrl.endsWith('/') ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
+
+  // URL priority: ojs_path slug → website_url slug → numeric db id
+  let targetSlug = journal.ojs_path
+  if (!targetSlug) {
+    console.warn('Journal ojs_path missing, falling back to website_url')
+    if (journal.website_url) {
+      try {
+        const url = new URL(journal.website_url)
+        const parts = url.pathname.split('/')
+        targetSlug = parts.filter(Boolean).pop() || ''
+      } catch {
+        const urlWithoutProtocol = journal.website_url.replace(/^https?:\/\//, '')
+        const parts = urlWithoutProtocol.split('/')
+        targetSlug = parts.filter(Boolean).pop() || ''
+      }
+    }
+  }
+
+  const directUrl = targetSlug ? `${ojsDomain}/index.php/${targetSlug}/submission` : null
+
 
   const renderSubmitButton = (buttonClass: string = "", variant: "default" | "outline" = "default", children: React.ReactNode) => {
-    if (!ojsDomain) return null;
+    if (!ojsDomain || !directUrl) return null;
     return (
       <Button size={variant === "outline" ? "default" : "lg"} variant={variant} className={buttonClass} asChild>
         <Link href={directUrl}>
@@ -287,11 +306,9 @@ export default function JournalDetailPage() {
                         </div>
                         <h2 className="text-xl font-bold">Journal Overview</h2>
                       </div>
-                      <div className="prose prose-slate max-w-none dark:prose-invert">
-                        <p className="text-base leading-relaxed text-muted-foreground">
-                          {journal.description || "Journal description is currently being updated. Please check back soon for more information about this publication."}
-                        </p>
-                      </div>
+                      <CollapsibleContent maxHeight={300} className="prose prose-slate max-w-none dark:prose-invert">
+                        {journal.description || "Journal description is currently being updated. Please check back soon for more information about this publication."}
+                      </CollapsibleContent>
 
                       {/* Quick Stats */}
                       <div className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -359,7 +376,7 @@ export default function JournalDetailPage() {
                         </div>
                         <h2 className="text-xl font-bold">Aims & Scope</h2>
                       </div>
-                      <div className="prose prose-slate max-w-none dark:prose-invert">
+                      <CollapsibleContent maxHeight={300} className="prose prose-slate max-w-none dark:prose-invert">
                         {journal.aims_and_scope ? (
                           <div
                             className="text-base leading-relaxed text-muted-foreground"
@@ -379,7 +396,7 @@ export default function JournalDetailPage() {
                             )}
                           </div>
                         )}
-                      </div>
+                      </CollapsibleContent>
                     </div>
                   </TabsContent>
 
@@ -409,25 +426,29 @@ export default function JournalDetailPage() {
                           </CardContent>
                         </Card>
 
-                        {journal.author_guidelines ? (
-                          <div
-                            className="prose prose-slate max-w-none dark:prose-invert text-sm leading-relaxed"
-                            dangerouslySetInnerHTML={{ __html: safeAuthorGuidelines }}
-                          />
-                        ) : (
-                          <div className="text-center py-8">
-                            <FileText className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
-                            <p className="text-muted-foreground">Detailed author guidelines are being prepared for this journal.</p>
-                            {directUrl && (
-                              <Button variant="outline" size="sm" className="mt-4" asChild>
-                                <Link href={directUrl}>
-                                  Submit via OJS Portal
-                                  <ExternalLink className="ml-2 h-3.5 w-3.5" />
-                                </Link>
-                              </Button>
-                            )}
-                          </div>
-                        )}
+                        <CollapsibleContent maxHeight={300} className="prose prose-slate max-w-none dark:prose-invert text-sm leading-relaxed">
+                          {journal.author_guidelines ? (
+                            <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed overflow-hidden">
+                              <div dangerouslySetInnerHTML={{ __html: safeAuthorGuidelines }} />
+                              
+                              {directUrl && (
+                                <div className="mt-8 pt-6 border-t border-border/60">
+                                  <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full font-semibold px-8 h-12 shadow-sm" asChild>
+                                    <Link href={directUrl}>
+                                      Submit via OJS Portal
+                                      <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                                    </Link>
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8">
+                              <FileText className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
+                              <p className="text-muted-foreground">Detailed author guidelines are being prepared for this journal.</p>
+                            </div>
+                          )}
+                        </CollapsibleContent>
                       </div>
                     </div>
                   </TabsContent>
@@ -486,6 +507,23 @@ export default function JournalDetailPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Journal Statistics Card */}
+                {stats !== undefined && (
+                  <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
+                    <h3 className="text-lg font-bold mb-5 pb-3 border-b border-border/60">Journal Statistics</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex flex-col items-center justify-center p-4 rounded-xl bg-primary/5 border border-primary/10">
+                        <span className="text-2xl font-bold text-primary">{stats.articles}</span>
+                        <span className="text-xs text-muted-foreground mt-1 text-center">Published Articles</span>
+                      </div>
+                      <div className="flex flex-col items-center justify-center p-4 rounded-xl bg-primary/5 border border-primary/10">
+                        <span className="text-2xl font-bold text-primary">{stats.issues}</span>
+                        <span className="text-xs text-muted-foreground mt-1 text-center">Total Issues</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Contact Card */}
                 <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
