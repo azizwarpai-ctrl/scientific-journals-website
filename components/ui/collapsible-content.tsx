@@ -43,11 +43,9 @@ export default function CollapsibleContent({ maxHeight = 300, children, classNam
         id={contentId} 
         ref={contentRef} 
         style={containerStyle}
-        role="region"
-        aria-hidden={needsCollapse && !expanded ? 'true' : 'false'}
       >
         {children}
-        {needsCollapse && !expanded && <div style={gradientStyle} />}
+        {needsCollapse && !expanded && <div style={gradientStyle} aria-hidden="true" />}
       </div>
       {needsCollapse && (
         <button

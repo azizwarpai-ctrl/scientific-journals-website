@@ -26,7 +26,8 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                 })
 
                 // OJS is the source of truth - always use its path if available, otherwise fallback to existing
-                const safeOjsPath = (journal.path || existing?.ojs_path || "").trim() || null
+                const trimmedJournalPath = journal.path?.trim() || ''
+                const safeOjsPath = trimmedJournalPath || existing?.ojs_path || null
 
                 if (existing) {
                     return prisma.journal.update({

@@ -114,16 +114,11 @@ export default function JournalDetailPage() {
     }
   }
 
-  // Final fallback to numeric id (should rarely happen)
-  if (!targetSlug) {
-    targetSlug = String(journal.id)
-  }
-
-  const directUrl = `${ojsDomain}/index.php/${targetSlug}/submission`
+  const directUrl = targetSlug ? `${ojsDomain}/index.php/${targetSlug}/submission` : null
 
 
   const renderSubmitButton = (buttonClass: string = "", variant: "default" | "outline" = "default", children: React.ReactNode) => {
-    if (!ojsDomain) return null;
+    if (!ojsDomain || !directUrl) return null;
     return (
       <Button size={variant === "outline" ? "default" : "lg"} variant={variant} className={buttonClass} asChild>
         <Link href={directUrl}>
@@ -436,14 +431,16 @@ export default function JournalDetailPage() {
                             <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed overflow-hidden">
                               <div dangerouslySetInnerHTML={{ __html: safeAuthorGuidelines }} />
                               
-                              <div className="mt-8 pt-6 border-t border-border/60">
-                                <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full font-semibold px-8 h-12 shadow-sm" asChild>
-                                  <Link href={directUrl}>
-                                    Submit via OJS Portal
-                                    <ExternalLink className="ml-2 h-3.5 w-3.5" />
-                                  </Link>
-                                </Button>
-                              </div>
+                              {directUrl && (
+                                <div className="mt-8 pt-6 border-t border-border/60">
+                                  <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full font-semibold px-8 h-12 shadow-sm" asChild>
+                                    <Link href={directUrl}>
+                                      Submit via OJS Portal
+                                      <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                                    </Link>
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="text-center py-8">
@@ -512,7 +509,7 @@ export default function JournalDetailPage() {
                 </div>
 
                 {/* Journal Statistics Card */}
-                {stats && (stats.articles > 0 || stats.issues > 0) && (
+                {stats !== undefined && (
                   <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
                     <h3 className="text-lg font-bold mb-5 pb-3 border-b border-border/60">Journal Statistics</h3>
                     <div className="grid grid-cols-2 gap-4">
