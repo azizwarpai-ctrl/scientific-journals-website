@@ -45,30 +45,35 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                             status: journal.enabled ? "active" : "inactive",
                             aims_and_scope: journal.aims_and_scope ?? null,
                             author_guidelines: journal.author_guidelines ?? null,
-                            updated_at: new Date(),
                         },
                     })
                 }
 
-                return prisma.journal.create({
-                    data: {
-                        ojs_id: String(journal.journal_id),
-                        title: journal.name || journal.path,
-                        description: journal.description || null,
-                        field: "General Science",
-                        cover_image_url: journal.thumbnail_url || null,
-                        issn: journal.issn || null,
-                        e_issn: journal.e_issn || null,
-                        publisher: journal.publisher || null,
-                        abbreviation: journal.abbreviation || null,
-                        editor_in_chief: journal.contact_name || null,
-                        website_url: baseUrl ? `${baseUrl}/index.php/${journal.path}` : null,
-                        ojs_path: safeOjsPath,
-                        status: journal.enabled ? "active" : "inactive",
-                        aims_and_scope: journal.aims_and_scope ?? null,
-                        author_guidelines: journal.author_guidelines ?? null,
-                    },
-                })
+                try {
+                    return await prisma.journal.create({
+                        data: {
+                            ojs_id: String(journal.journal_id),
+                            title: journal.name || journal.path,
+                            description: journal.description || null,
+                            field: "General Science",
+                            cover_image_url: journal.thumbnail_url || null,
+                            issn: journal.issn || null,
+                            e_issn: journal.e_issn || null,
+                            publisher: journal.publisher || null,
+                            abbreviation: journal.abbreviation || null,
+                            editor_in_chief: journal.contact_name || null,
+                            website_url: baseUrl ? `${baseUrl}/index.php/${journal.path}` : null,
+                            ojs_path: safeOjsPath,
+                            status: journal.enabled ? "active" : "inactive",
+                            aims_and_scope: journal.aims_and_scope ?? null,
+                            author_guidelines: journal.author_guidelines ?? null,
+                        },
+                    })
+                } catch (error: any) {
+                    // Ignore P2002 Unique constraint failures which happen if another sync raced us
+                    if (error?.code !== "P2002") throw error
+                    return null
+                }
             })
         )
 
@@ -79,7 +84,7 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                 errors++
                 const journal = batch[j]
                 console.error(
-                    `[OJS_SYNC] Failed to upsert journal ${journal.journal_id} (${journal.path}):`,
+                    `[OJS_SYNC] Failed to sync journal ${journal.journal_id} (${journal.path}):`,
                     (results[j] as PromiseRejectedResult).reason
                 )
             }

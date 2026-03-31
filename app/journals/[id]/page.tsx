@@ -48,8 +48,6 @@ export default function JournalDetailPage() {
     return DOMPurify.sanitize(html)
   }
 
-  const safeAimsAndScope = sanitizeContent(journal?.aims_and_scope)
-  const safeAuthorGuidelines = sanitizeContent(journal?.author_guidelines)
 
   if (isLoading) {
     return (
@@ -86,6 +84,9 @@ export default function JournalDetailPage() {
       </div>
     )
   }
+
+  const safeAimsAndScope = sanitizeContent(journal.aims_and_scope)
+  const safeAuthorGuidelines = sanitizeContent(journal.author_guidelines)
 
   const ojsBaseUrl = process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"
   const ojsDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
