@@ -23,5 +23,5 @@ The "Submit Manuscript" button on journal detail pages (`app/journals/[id]/page.
 - The Submit Manuscript button MUST always respect the actively viewed journal and hardcode the explicit OJS path for that journal.
 - The registration wizard MUST propagate the originating journal's `ojs_path` through the entire flow via `selectedJournalPath` in the registration store.
 - No component may rely on OJS cookie context, "last visited" state, or session-derived journal context.
-- If `journalPath` cannot be determined, the SSO redirect MUST default to the OJS dashboard (`/index.php/index/login`), NOT to any submission wizard.
+- **Path Resolution Fallback Rule:** If `ojs_path` is null or missing for a journal, the UI MUST attempt to derive the target slug from the `website_url` before falling back to `id`. If no valid `journalPath` can be determined, the SSO redirect MUST default to the OJS dashboard (`/index.php/index/login`), NOT to any submission wizard.
 

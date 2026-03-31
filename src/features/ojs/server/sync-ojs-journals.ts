@@ -25,8 +25,8 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                     where: { ojs_id: String(journal.journal_id) },
                 })
 
-                // Only write ojs_path if incoming path is non-null and the existing DB path is NULL
-                const safeOjsPath = existing?.ojs_path ? existing.ojs_path : (journal.path || null)
+                // OJS is the source of truth - always use its path if available, otherwise fallback to existing
+                const safeOjsPath = journal.path || existing?.ojs_path || null
 
                 if (existing) {
                     return prisma.journal.update({

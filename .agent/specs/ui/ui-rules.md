@@ -46,3 +46,8 @@ The "Submit Manuscript" button behavior must be purely stateless and direct. It 
 ### Home Page (`/`)
 - Featured journals section shows latest 6 journals (sorted by `created_at DESC`).
 - CTA copy must not include unverifiable claims.
+
+## 7. Long Form Content
+- **Collapsible Pattern**: For content sections that can exceed a typical viewport height (e.g., Aims & Scope, Author Guidelines), the UI MUST use the `CollapsibleContent` component.
+- **Max Height Enforcement**: Set appropriate `maxHeight` values (e.g., `300px`) to prevent overwhelming the page layout.
+- **Read More Toggle**: Provide a clean "Read More" and "Read Less" toggle button to allow the user to expand the content without creating endless scrolling.
