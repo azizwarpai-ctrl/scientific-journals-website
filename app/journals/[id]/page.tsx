@@ -45,7 +45,10 @@ export default function JournalDetailPage() {
 
   const sanitizeContent = (html: string | null | undefined) => {
     if (!html) return ""
-    return DOMPurify.sanitize(html)
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
+      ALLOWED_ATTR: [],
+    })
   }
 
 
@@ -96,7 +99,6 @@ export default function JournalDetailPage() {
   const directUrl = `${ojsDomain}/index.php/${targetSlug}/submission`
 
   const renderSubmitButton = (buttonClass: string = "", variant: "default" | "outline" = "default", children: React.ReactNode) => {
-    if (!directUrl) return null;
 
     return (
       <Button size={variant === "outline" ? "default" : "lg"} variant={variant} className={buttonClass} asChild>
