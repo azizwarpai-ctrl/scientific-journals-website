@@ -26,7 +26,7 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                 })
 
                 // OJS is the source of truth - always use its path if available, otherwise fallback to existing
-                const safeOjsPath = journal.path || existing?.ojs_path || null
+                const safeOjsPath = (journal.path || existing?.ojs_path || "").trim() || null
 
                 if (existing) {
                     return prisma.journal.update({
@@ -40,7 +40,7 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                             publisher: journal.publisher || null,
                             abbreviation: journal.abbreviation || null,
                             editor_in_chief: journal.contact_name || null,
-                            website_url: baseUrl ? `${baseUrl}/index.php/${journal.path}` : null,
+                            website_url: baseUrl && safeOjsPath ? `${baseUrl}/index.php/${safeOjsPath}` : null,
                             ojs_path: safeOjsPath,
                             status: journal.enabled ? "active" : "inactive",
                             aims_and_scope: journal.aims_and_scope ?? null,
@@ -62,7 +62,7 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                             publisher: journal.publisher || null,
                             abbreviation: journal.abbreviation || null,
                             editor_in_chief: journal.contact_name || null,
-                            website_url: baseUrl ? `${baseUrl}/index.php/${journal.path}` : null,
+                            website_url: baseUrl && safeOjsPath ? `${baseUrl}/index.php/${safeOjsPath}` : null,
                             ojs_path: safeOjsPath,
                             status: journal.enabled ? "active" : "inactive",
                             aims_and_scope: journal.aims_and_scope ?? null,

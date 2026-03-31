@@ -15,11 +15,18 @@ export const useGetJournalStats = (id: string) => {
             })
 
             if (!response.ok) {
-                const error = await response.json()
-                throw new Error((error as any).error || "Failed to fetch journal stats")
+                let errorMsg = "Failed to fetch journal stats"
+                try {
+                    const errorJson = await response.json() as any
+                    if (errorJson?.error) errorMsg = errorJson.error
+                } catch {
+                    // Ignore parsing error
+                }
+                throw new Error(errorMsg)
             }
 
-            return await response.json() as JournalStats
+            const payload = await response.json() as { success: boolean, data: JournalStats, message?: string }
+            return payload.data
         },
         enabled: !!id,
         staleTime: 5 * 60 * 1000,

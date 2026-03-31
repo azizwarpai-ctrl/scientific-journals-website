@@ -96,25 +96,31 @@ export default function JournalDetailPage() {
   const ojsBaseUrl = process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"
   // Ensure we have a trailing slash removed for consistent URL building
   const ojsDomain = ojsBaseUrl.endsWith('/') ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
-  // Ensure we have a trailing slash removed for consistent URL building
 
-
-  
-  // URL priority: ojs_path slug → ojs_id → numeric db id
+  // URL priority: ojs_path slug → website_url slug → numeric db id
   let targetSlug = journal.ojs_path
-    if (!targetSlug) {
-      console.warn('Journal ojs_path missing, falling back to website_url')
-      // Use website_url if available, stripping any trailing path after the journal base
-      if (journal.website_url) {
+  if (!targetSlug) {
+    console.warn('Journal ojs_path missing, falling back to website_url')
+    if (journal.website_url) {
+      try {
         const url = new URL(journal.website_url)
-        // Assume the journal base is the last segment before possible /index.php
         const parts = url.pathname.split('/')
+        targetSlug = parts.filter(Boolean).pop() || ''
+      } catch {
+        const urlWithoutProtocol = journal.website_url.replace(/^https?:\/\//, '')
+        const parts = urlWithoutProtocol.split('/')
         targetSlug = parts.filter(Boolean).pop() || ''
       }
     }
-    // Final fallback to numeric id (should rarely happen)
-    if (!targetSlug) targetSlug = String(journal.id)
-    const directUrl = `${ojsDomain}/index.php/${targetSlug}/submission`
+  }
+
+  // Final fallback to numeric id (should rarely happen)
+  if (!targetSlug) {
+    targetSlug = String(journal.id)
+  }
+
+  const directUrl = `${ojsDomain}/index.php/${targetSlug}/submission`
+
 
   const renderSubmitButton = (buttonClass: string = "", variant: "default" | "outline" = "default", children: React.ReactNode) => {
     if (!ojsDomain) return null;
@@ -427,21 +433,23 @@ export default function JournalDetailPage() {
 
                         <CollapsibleContent maxHeight={300} className="prose prose-slate max-w-none dark:prose-invert text-sm leading-relaxed">
                           {journal.author_guidelines ? (
-                            <div
-                              dangerouslySetInnerHTML={{ __html: safeAuthorGuidelines }}
-                            />
-                          ) : (
-                            <div className="text-center py-8">
-                              <FileText className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
-                              <p className="text-muted-foreground">Detailed author guidelines are being prepared for this journal.</p>
-                              {directUrl && (
-                                <Button variant="outline" size="sm" className="mt-4" asChild>
+                            <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed overflow-hidden">
+                              {/* eslint-disable-next-line react/no-danger */}
+                              <div dangerouslySetInnerHTML={{ __html: safeAuthorGuidelines }} />
+                              
+                              <div className="mt-8 pt-6 border-t border-border/60">
+                                <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full font-semibold px-8 h-12 shadow-sm" asChild>
                                   <Link href={directUrl}>
                                     Submit via OJS Portal
                                     <ExternalLink className="ml-2 h-3.5 w-3.5" />
                                   </Link>
                                 </Button>
-                              )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-center py-8">
+                              <FileText className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
+                              <p className="text-muted-foreground">Detailed author guidelines are being prepared for this journal.</p>
                             </div>
                           )}
                         </CollapsibleContent>

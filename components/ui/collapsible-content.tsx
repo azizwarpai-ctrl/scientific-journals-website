@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useId } from 'react';
 
 interface CollapsibleContentProps {
   maxHeight?: number; // in pixels, default 300
@@ -10,6 +10,7 @@ export default function CollapsibleContent({ maxHeight = 300, children, classNam
   const [expanded, setExpanded] = useState(false);
   const [needsCollapse, setNeedsCollapse] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const contentId = useId();
 
   useEffect(() => {
     if (contentRef.current) {
@@ -38,12 +39,21 @@ export default function CollapsibleContent({ maxHeight = 300, children, classNam
 
   return (
     <div className={className}>
-      <div ref={contentRef} style={containerStyle}>
+      <div 
+        id={contentId} 
+        ref={contentRef} 
+        style={containerStyle}
+        role="region"
+        aria-hidden={needsCollapse && !expanded ? 'true' : 'false'}
+      >
         {children}
         {needsCollapse && !expanded && <div style={gradientStyle} />}
       </div>
       {needsCollapse && (
         <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={contentId}
           onClick={() => setExpanded(!expanded)}
           className="mt-2 text-sm font-medium text-primary hover:underline"
         >

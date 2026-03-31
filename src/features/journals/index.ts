@@ -4,7 +4,7 @@ export type { Journal, JournalResponse } from "./types/journal-type"
 export { useCreateJournal } from "./api/use-create-journal"
 export { useGetJournals } from "./api/use-get-journals"
 export { useGetJournal } from "./api/use-get-journal"
-export { useGetJournalStats } from "./api/use-get-journal-stats"
+export { useGetJournalStats } from "@/src/features/journals/api/use-get-journal-stats"
 export { useJournalId } from "./hooks/use-journal-id"
 
 // Journal Registration Multi-Step Wizard
