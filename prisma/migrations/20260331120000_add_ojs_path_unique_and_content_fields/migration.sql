@@ -1,7 +1,7 @@
 -- Deduplicate existing ojs_path before creating unique index
 UPDATE journals j1
 JOIN journals j2 ON j1.ojs_path = j2.ojs_path AND j1.id > j2.id
-SET j1.ojs_path = CONCAT(j1.ojs_path, '-', j1.id)
+SET j1.ojs_path = NULL
 WHERE j1.ojs_path IS NOT NULL;
 
 -- AlterTable

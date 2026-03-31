@@ -20,26 +20,38 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
     for (let i = 0; i < ojsJournals.length; i += BATCH_SIZE) {
         const batch = ojsJournals.slice(i, i + BATCH_SIZE)
         const results = await Promise.allSettled(
-            batch.map((journal) =>
-                prisma.journal.upsert({
+            batch.map(async (journal) => {
+                const existing = await prisma.journal.findUnique({
                     where: { ojs_id: String(journal.journal_id) },
-                    update: {
-                        title: journal.name || journal.path,
-                        description: journal.description || null,
-                        cover_image_url: journal.thumbnail_url || null,
-                        issn: journal.issn || null,
-                        e_issn: journal.e_issn || null,
-                        publisher: journal.publisher || null,
-                        abbreviation: journal.abbreviation || null,
-                        editor_in_chief: journal.contact_name || null,
-                        website_url: baseUrl ? `${baseUrl}/index.php/${journal.path}` : null,
-                        ojs_path: journal.path,
-                        status: journal.enabled ? "active" : "inactive",
-                        aims_and_scope: journal.aims_and_scope ?? null,
-                        author_guidelines: journal.author_guidelines ?? null,
-                        updated_at: new Date(),
-                    },
-                    create: {
+                })
+
+                // Only write ojs_path if incoming path is non-null and the existing DB path is NULL
+                const safeOjsPath = existing?.ojs_path ? existing.ojs_path : (journal.path || null)
+
+                if (existing) {
+                    return prisma.journal.update({
+                        where: { id: existing.id },
+                        data: {
+                            title: journal.name || journal.path,
+                            description: journal.description || null,
+                            cover_image_url: journal.thumbnail_url || null,
+                            issn: journal.issn || null,
+                            e_issn: journal.e_issn || null,
+                            publisher: journal.publisher || null,
+                            abbreviation: journal.abbreviation || null,
+                            editor_in_chief: journal.contact_name || null,
+                            website_url: baseUrl ? `${baseUrl}/index.php/${journal.path}` : null,
+                            ojs_path: safeOjsPath,
+                            status: journal.enabled ? "active" : "inactive",
+                            aims_and_scope: journal.aims_and_scope ?? null,
+                            author_guidelines: journal.author_guidelines ?? null,
+                            updated_at: new Date(),
+                        },
+                    })
+                }
+
+                return prisma.journal.create({
+                    data: {
                         ojs_id: String(journal.journal_id),
                         title: journal.name || journal.path,
                         description: journal.description || null,
@@ -51,13 +63,13 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                         abbreviation: journal.abbreviation || null,
                         editor_in_chief: journal.contact_name || null,
                         website_url: baseUrl ? `${baseUrl}/index.php/${journal.path}` : null,
-                        ojs_path: journal.path,
+                        ojs_path: safeOjsPath,
                         status: journal.enabled ? "active" : "inactive",
                         aims_and_scope: journal.aims_and_scope ?? null,
                         author_guidelines: journal.author_guidelines ?? null,
                     },
                 })
-            )
+            })
         )
 
         for (let j = 0; j < results.length; j++) {

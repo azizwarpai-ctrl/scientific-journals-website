@@ -22,7 +22,7 @@ import {
   Eye,
   Scale,
 } from "lucide-react"
-import DOMPurify from "dompurify"
+import DOMPurify from "isomorphic-dompurify"
 
 
 import { useGetJournal, useJournalId } from "@/src/features/journals"
@@ -45,7 +45,7 @@ export default function JournalDetailPage() {
 
   const sanitizeContent = (html: string | null | undefined) => {
     if (!html) return ""
-    return typeof window !== "undefined" ? DOMPurify.sanitize(html) : html
+    return DOMPurify.sanitize(html)
   }
 
   const safeAimsAndScope = sanitizeContent(journal?.aims_and_scope)
@@ -89,10 +89,13 @@ export default function JournalDetailPage() {
 
   const ojsBaseUrl = process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"
   const ojsDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
-  const directUrl = journal.ojs_path ? `${ojsDomain}/index.php/${journal.ojs_path}/submission` : null
+  
+  // URL priority: ojs_path slug → ojs_id → numeric db id
+  const targetSlug = [journal.ojs_path, journal.ojs_id, journal.id].find(s => s && String(s).trim()) || journal.id
+  const directUrl = `${ojsDomain}/index.php/${targetSlug}/submission`
 
   const renderSubmitButton = (buttonClass: string = "", variant: "default" | "outline" = "default", children: React.ReactNode) => {
-    if (!directUrl || !journal.ojs_path) return null;
+    if (!directUrl) return null;
 
     return (
       <Button size={variant === "outline" ? "default" : "lg"} variant={variant} className={buttonClass} asChild>
