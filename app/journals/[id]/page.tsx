@@ -434,7 +434,6 @@ export default function JournalDetailPage() {
                         <CollapsibleContent maxHeight={300} className="prose prose-slate max-w-none dark:prose-invert text-sm leading-relaxed">
                           {journal.author_guidelines ? (
                             <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed overflow-hidden">
-                              {/* eslint-disable-next-line react/no-danger */}
                               <div dangerouslySetInnerHTML={{ __html: safeAuthorGuidelines }} />
                               
                               <div className="mt-8 pt-6 border-t border-border/60">
