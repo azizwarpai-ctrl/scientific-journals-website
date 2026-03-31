@@ -99,7 +99,7 @@ export default function JournalDetailPage() {
   const directUrl = `${ojsDomain}/index.php/${targetSlug}/submission`
 
   const renderSubmitButton = (buttonClass: string = "", variant: "default" | "outline" = "default", children: React.ReactNode) => {
-
+    if (!ojsDomain) return null;
     return (
       <Button size={variant === "outline" ? "default" : "lg"} variant={variant} className={buttonClass} asChild>
         <Link href={directUrl}>
