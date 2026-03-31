@@ -25,7 +25,7 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
       || c.req.header("x-real-ip")
       || "unknown"
 
-    const rateCheck = process.env.TEST_DISABLE_RATE_LIMIT === "true"
+    const rateCheck = (process.env.NODE_ENV !== "production" && process.env.TEST_DISABLE_RATE_LIMIT === "true")
       ? { allowed: true, retryAfterMs: 0 }
       : checkRateLimit(ip, REGISTRATION_RATE_LIMIT)
 
