@@ -1,87 +1,42 @@
 "use client"
 
 import { Search } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { useSearchStore } from "@/src/features/search"
-import { useCallback } from "react"
-import { useRouter } from "next/navigation"
 
 interface SearchBarProps {
-  /** Controlled value */
-  value: string
-  onChange: (val: string) => void
-  onSubmit?: (val: string) => void
   placeholder?: string
-  autoFocus?: boolean
   id?: string
+  // Kept for backward compatibility with pages that might still pass them
+  value?: string
+  onChange?: (val: string) => void
+  autoFocus?: boolean
 }
 
 /**
- * Reusable search bar for the /search results page.
- * Pressing Enter navigates to /search?q=... .
- * Clicking the ⌘K badge opens the command palette instead.
+ * Visual trigger for the Command Palette.
+ * Replaces the old functional search bar.
  */
 export function SearchBar({
-  value,
-  onChange,
-  onSubmit,
   placeholder = "Search journals, solutions, and FAQs…",
-  autoFocus = false,
-  id = "search-bar-input",
+  id = "search-bar-trigger",
 }: SearchBarProps) {
-  const router = useRouter()
   const { open } = useSearchStore()
 
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault()
-      const q = value.trim()
-      if (q.length >= 2) {
-        if (onSubmit) {
-          onSubmit(q)
-        } else {
-          router.push(`/search?q=${encodeURIComponent(q)}`)
-        }
-      }
-    },
-    [value, onSubmit, router],
-  )
-
   return (
-    <form onSubmit={handleSubmit} className="relative w-full">
-      {/* Search icon */}
-      <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+    <button
+      type="button"
+      id={id}
+      onClick={open}
+      className="relative flex w-full items-center gap-2 rounded-full border-2 border-border bg-background px-4 py-3 text-left text-sm text-muted-foreground transition-all hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 active:scale-[0.98]"
+    >
+      <Search className="h-5 w-5 shrink-0 opacity-50" />
+      <span className="flex-1 truncate">{placeholder}</span>
 
-      {/* Input */}
-      <Input
-        id={id}
-        type="search"
-        placeholder={placeholder}
-        className="h-12 rounded-full border-2 pl-12 pr-32 text-base transition-shadow focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        autoFocus={autoFocus}
-        autoComplete="off"
-      />
-
-      {/* Right side: ⌘K badge + submit button */}
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-        {/* Command palette hint */}
-        <button
-          type="button"
-          onClick={open}
-          aria-label="Open command palette (Ctrl+K)"
-          className="hidden sm:flex items-center gap-0.5 rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
-        >
-          ⌘K
-        </button>
-
-        {/* Submit */}
-        <Button type="submit" size="sm" className="rounded-full" disabled={value.trim().length < 2}>
-          Search
-        </Button>
-      </div>
-    </form>
+      {/* ⌘K badge */}
+      <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+        <span className="text-xs">⌘</span>K
+      </kbd>
+    </button>
   )
 }
+

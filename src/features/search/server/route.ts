@@ -12,105 +12,104 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
     const { q, type, limit: limitStr } = c.req.valid("query")
     const limit = Math.min(parseInt(limitStr, 10) || 20, 50)
 
-    const results: SearchResult[] = []
+    const words = q.trim().split(/\s+/).filter(Boolean)
+    if (words.length === 0) {
+      return c.json({ success: true, data: { results: [], total: 0, query: q } })
+    }
+
+    const promises: Promise<SearchResult[]>[] = []
 
     // Search Journals
     if (type === "all" || type === "journal") {
-      const journals = await prisma.journal.findMany({
-        where: {
-          status: "active",
-          OR: [
-            { title: { contains: q } },
-            { description: { contains: q } },
-            { field: { contains: q } },
-            { publisher: { contains: q } },
-          ],
-        },
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          field: true,
-        },
-        take: type === "all" ? Math.ceil(limit / 3) : limit,
-        orderBy: { title: "asc" },
-      })
-
-      for (const j of journals) {
-        results.push({
-          id: j.id.toString(),
-          type: "journal",
-          title: j.title,
-          description: j.description?.slice(0, 150) || "",
-          url: `/journals/${j.id}`,
-          field: j.field,
-        })
-      }
+      promises.push(
+        prisma.journal
+          .findMany({
+            where: {
+              status: "active",
+              AND: words.map((w) => ({
+                OR: [
+                  { title: { contains: w } },
+                  { description: { contains: w } },
+                  { field: { contains: w } },
+                  { publisher: { contains: w } },
+                ],
+              })),
+            },
+            select: { id: true, title: true, description: true, field: true },
+            take: type === "all" ? Math.ceil(limit / 3) : limit,
+            orderBy: { title: "asc" },
+          })
+          .then((journals) =>
+            journals.map((j) => ({
+              id: j.id.toString(),
+              type: "journal" as const,
+              title: j.title,
+              description: j.description?.slice(0, 150) || "",
+              url: `/journals/${j.id}`,
+              field: j.field,
+            }))
+          )
+      )
     }
 
     // Search Solutions
     if (type === "all" || type === "solution") {
-      const solutions = await prisma.solution.findMany({
-        where: {
-          is_published: true,
-          OR: [
-            { title: { contains: q } },
-            { description: { contains: q } },
-          ],
-        },
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          icon: true,
-        },
-        take: type === "all" ? Math.ceil(limit / 3) : limit,
-        orderBy: { display_order: "asc" },
-      })
-
-      for (const s of solutions) {
-        results.push({
-          id: s.id.toString(),
-          type: "solution",
-          title: s.title,
-          description: s.description?.slice(0, 150) || "",
-          url: "/solutions",
-          icon: s.icon,
-        })
-      }
+      promises.push(
+        prisma.solution
+          .findMany({
+            where: {
+              is_published: true,
+              AND: words.map((w) => ({
+                OR: [{ title: { contains: w } }, { description: { contains: w } }],
+              })),
+            },
+            select: { id: true, title: true, description: true, icon: true },
+            take: type === "all" ? Math.ceil(limit / 3) : limit,
+            orderBy: { display_order: "asc" },
+          })
+          .then((solutions) =>
+            solutions.map((s) => ({
+              id: s.id.toString(),
+              type: "solution" as const,
+              title: s.title,
+              description: s.description?.slice(0, 150) || "",
+              url: "/solutions",
+              icon: s.icon,
+            }))
+          )
+      )
     }
 
     // Search FAQs
     if (type === "all" || type === "faq") {
-      const faqs = await prisma.fAQ.findMany({
-        where: {
-          is_published: true,
-          OR: [
-            { question: { contains: q } },
-            { answer: { contains: q } },
-          ],
-        },
-        select: {
-          id: true,
-          question: true,
-          answer: true,
-          category: true,
-        },
-        take: type === "all" ? Math.ceil(limit / 3) : limit,
-        orderBy: { created_at: "desc" },
-      })
-
-      for (const f of faqs) {
-        results.push({
-          id: f.id.toString(),
-          type: "faq",
-          title: f.question,
-          description: f.answer?.slice(0, 150) || "",
-          url: "/help",
-          field: f.category,
-        })
-      }
+      promises.push(
+        prisma.fAQ
+          .findMany({
+            where: {
+              is_published: true,
+              AND: words.map((w) => ({
+                OR: [{ question: { contains: w } }, { answer: { contains: w } }],
+              })),
+            },
+            select: { id: true, question: true, answer: true, category: true },
+            take: type === "all" ? Math.ceil(limit / 3) : limit,
+            orderBy: { created_at: "desc" },
+          })
+          .then((faqs) =>
+            faqs.map((f) => ({
+              id: f.id.toString(),
+              type: "faq" as const,
+              title: f.question,
+              description: f.answer?.slice(0, 150) || "",
+              url: "/help",
+              field: f.category,
+            }))
+          )
+      )
     }
+
+    const resultsArray = await Promise.all(promises)
+    const results = resultsArray.flat()
 
     return c.json({
       success: true,

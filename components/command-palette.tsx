@@ -62,7 +62,13 @@ export function CommandPalette() {
   useEffect(() => {
     if (isOpen) {
       // Small delay lets the DOM mount before we focus
-      const t = setTimeout(() => inputRef.current?.focus(), 50)
+      const t = setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus()
+          // Ensure cursor is at the end if there is text
+          inputRef.current.setSelectionRange(inputRef.current.value.length, inputRef.current.value.length)
+        }
+      }, 50)
       return () => clearTimeout(t)
     } else {
       setInputValue("")
@@ -71,7 +77,7 @@ export function CommandPalette() {
   }, [isOpen])
 
   // ── Data ─────────────────────────────────────────────────────────────────
-  const { data, isLoading } = useSearch(debouncedQuery)
+  const { data, isFetching } = useSearch(debouncedQuery)
   const results = data?.data?.results ?? []
 
   // Group results by content type
@@ -97,13 +103,25 @@ export function CommandPalette() {
     }
   }, [close, router, debouncedQuery])
 
+  // ── Loading state delay to prevent flicker ────────────────────────────────
+  const [showLoadingState, setShowLoadingState] = useState(false)
+  useEffect(() => {
+    let t: NodeJS.Timeout
+    if (isFetching && debouncedQuery.length >= 2) {
+      t = setTimeout(() => setShowLoadingState(true), 200) // 200ms delay
+    } else {
+      setShowLoadingState(false)
+    }
+    return () => clearTimeout(t)
+  }, [isFetching, debouncedQuery])
+
   // ── Guard: nothing to render when closed ─────────────────────────────────
   if (!isOpen) return null
 
   const isIdle = !debouncedQuery || debouncedQuery.length < 2
-  const showLoading = !isIdle && isLoading
-  const showNoResults = !isIdle && !isLoading && results.length === 0
-  const showResults = !isIdle && !isLoading && results.length > 0
+  const showLoading = !isIdle && showLoadingState
+  const showNoResults = !isIdle && !isFetching && results.length === 0
+  const showResults = !isIdle && results.length > 0
 
   return (
     // ── Overlay ─────────────────────────────────────────────────────────────
