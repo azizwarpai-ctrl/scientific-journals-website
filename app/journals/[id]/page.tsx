@@ -22,7 +22,7 @@ import {
   Eye,
   Scale,
 } from "lucide-react"
-import DOMPurify from "isomorphic-dompurify"
+
 
 
 import { useGetJournal, useGetJournalStats, useJournalId } from "@/src/features/journals"
@@ -45,8 +45,11 @@ export default function JournalDetailPage() {
   const { data: journal, isLoading, error } = useGetJournal(id)
   const { data: stats } = useGetJournalStats(id)
 
-  const sanitizeContent = (html: string | null | undefined) => {
+  const sanitizeContent = (html: string | null | undefined): string => {
     if (!html) return ""
+    if (typeof window === "undefined") return html // SSR: return raw, browser will sanitize
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const DOMPurify = require("dompurify")
     return DOMPurify.sanitize(html, {
       ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
       ALLOWED_ATTR: [],

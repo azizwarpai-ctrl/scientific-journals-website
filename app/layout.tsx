@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
 import { QueryProvider } from "@/components/query-provider"
 import { GlobalToaster } from "@/components/global-toaster"
+import { CommandPalette } from "@/components/command-palette"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -44,6 +45,8 @@ export default function RootLayout({
           storageKey="digitopub-theme"
         >
           <QueryProvider>
+            {/* Global command palette — Ctrl+K from anywhere */}
+            <CommandPalette />
             {children}
           </QueryProvider>
           <Analytics />
