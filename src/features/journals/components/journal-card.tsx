@@ -39,6 +39,9 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
           "bg-card text-card-foreground",
           "border border-border/40",
 
+          /* dark mode: explicit contrast */
+          "dark:bg-zinc-900 dark:border-zinc-800",
+
           /* shadow & depth */
           "shadow-md",
 
@@ -48,7 +51,11 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
           /* hover effects */
           "hover:scale-[1.03]",
           "hover:shadow-xl hover:shadow-primary/10",
-          "hover:border-primary/40"
+          "hover:border-primary/40",
+
+          /* dark mode: glow on hover */
+          "dark:hover:shadow-lg dark:hover:shadow-primary/20",
+          "dark:hover:border-primary/50"
         )}
       >
         {/* ── Image area ─────────────────────────────────── ~75 % */}
@@ -75,12 +82,13 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
             </div>
           )}
 
-          {/* Dark overlay – fades in on hover for spotlight focus */}
+          {/* Dark overlay – always visible in dark mode, fades in on hover in light */}
           <div
             className={cn(
               "pointer-events-none absolute inset-0",
-              "bg-gradient-to-t from-black/70 via-black/20 to-transparent",
+              "bg-gradient-to-t from-black/60 via-black/10 to-transparent",
               "opacity-0 group-hover:opacity-100",
+              "dark:opacity-40 dark:group-hover:opacity-70",
               "transition-opacity duration-300"
             )}
             aria-hidden
@@ -88,13 +96,13 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
         </div>
 
         {/* ── Content area ───────────────────────────────── ~25 % */}
-        <div className="flex flex-[1] flex-col justify-between gap-2 px-4 py-4">
+        <div className="flex flex-[1] items-center justify-between gap-2 px-4 py-3">
           {/* Title – max 2 lines with ellipsis */}
           <h3
             className={cn(
               "text-sm font-semibold leading-snug tracking-tight",
-              "line-clamp-2",
-              "text-foreground",
+              "line-clamp-2 flex-1 min-w-0",
+              "text-foreground dark:text-white",
               "transition-colors duration-300",
               "group-hover:text-primary"
             )}
@@ -103,14 +111,14 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
             {title}
           </h3>
 
-          {/* "View Details" button */}
+          {/* "View Details" — right-aligned */}
           <span
             className={cn(
-              "inline-flex items-center gap-1.5 self-start",
+              "inline-flex items-center gap-1 shrink-0",
               "text-xs font-medium",
-              "text-muted-foreground/70",
+              "text-muted-foreground/70 dark:text-zinc-400",
               "transition-all duration-300",
-              "group-hover:text-primary group-hover:gap-2"
+              "group-hover:text-primary group-hover:gap-1.5"
             )}
             aria-hidden
           >

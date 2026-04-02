@@ -1,10 +1,11 @@
 "use client"
 
+import { useEffect, useRef, useState } from "react"
 import { SplineScene } from "@/components/spline-scene"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import { BookOpen, Zap } from "lucide-react"
+import { BookOpen, Zap, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { JournalCard } from "@/src/features/journals/components/journal-card"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
@@ -18,6 +19,30 @@ import { JournalCardSkeleton } from "@/components/skeletons/journal-card-skeleto
 export default function HomePage() {
   const { data: journals = [], isLoading: isLoadingOjs, isError: isErrorOjs } = useGetJournals()
   const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetPlatformStatistics()
+
+  /* ── 3D scene scroll-fade ─────────────────────────────────── */
+  const heroRef = useRef<HTMLElement>(null)
+  const [splineOpacity, setSplineOpacity] = useState(1)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!heroRef.current) return
+      const rect = heroRef.current.getBoundingClientRect()
+      // Fade out as the hero section leaves the viewport
+      const ratio = Math.max(0, Math.min(1, (rect.bottom) / (rect.height * 0.6)))
+      setSplineOpacity(ratio)
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  /* ── Horizontal scroll controls ───────────────────────────── */
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const scrollBy = (dir: "left" | "right") => {
+    if (!scrollRef.current) return
+    const amount = 300
+    scrollRef.current.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" })
+  }
 
   const statConfigs = [
     { label: "Active Journals", value: stats?.totalJournals, color: "text-blue-500 dark:text-blue-400" },
@@ -35,9 +60,13 @@ export default function HomePage() {
         <GSAPWrapper animation="fadeIn">
           {/* `dark` class isolates this section into forced dark mode */}
           <div className="dark">
-            <section className="relative flex min-h-[90vh] items-center bg-slate-950 py-20 md:py-32">
-              {/* 3D Scene — positioned absolutely in the lower-right quadrant, no scroll movement */}
-              <div className="absolute -bottom-[5%] -right-[5%] z-0 h-[100%] w-[100%] md:h-[120%] md:w-[70%] pointer-events-none origin-center">
+            <section ref={heroRef} className="relative flex min-h-[90vh] items-center bg-slate-950 py-20 md:py-32">
+              {/* 3D Scene — FIXED to viewport, fades on scroll past hero */}
+              <div
+                className="fixed bottom-0 right-0 z-0 h-screen w-full md:w-[70%] pointer-events-none origin-center"
+                style={{ opacity: splineOpacity, transition: "opacity 0.15s ease-out" }}
+                aria-hidden="true"
+              >
                 <SplineScene />
               </div>
 
@@ -112,9 +141,11 @@ export default function HomePage() {
               </div>
 
               {isLoadingOjs ? (
-                <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                  {[...Array(5)].map((_, i) => (
-                    <JournalCardSkeleton key={i} />
+                <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 snap-x snap-mandatory scroll-smooth">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="min-w-[250px] max-w-[280px] shrink-0 snap-start">
+                      <JournalCardSkeleton />
+                    </div>
                   ))}
                 </div>
               ) : isErrorOjs ? (
@@ -124,19 +155,43 @@ export default function HomePage() {
                   <p className="mt-1 text-sm">Could not fetch journals from the synchronized internal database.</p>
                 </div>
               ) : journals && journals.length > 0 ? (
-                <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                  {journals.slice(0, 10).map((journal: Journal, idx: number) => {
-                    const slug = String([journal.ojs_path, journal.ojs_id, journal.id].find(s => s && String(s).trim()) || journal.id)
-                    return (
-                      <GSAPWrapper key={journal.id} animation="slideUp" delay={0.4 + idx * 0.05}>
-                        <JournalCard
-                          title={journal.title}
-                          coverImage={journal.cover_image_url}
-                          slug={slug}
-                        />
-                      </GSAPWrapper>
-                    )
-                  })}
+                <div className="relative group/carousel">
+                  {/* Left scroll button */}
+                  <button
+                    onClick={() => scrollBy("left")}
+                    className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 hidden md:flex h-10 w-10 items-center justify-center rounded-full bg-background/90 dark:bg-zinc-800/90 border border-border shadow-lg backdrop-blur-sm opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-300 hover:bg-background dark:hover:bg-zinc-700"
+                    aria-label="Scroll left"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+
+                  {/* Horizontal scroll container */}
+                  <div
+                    ref={scrollRef}
+                    className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 snap-x snap-mandatory scroll-smooth"
+                  >
+                    {journals.slice(0, 10).map((journal: Journal, idx: number) => {
+                      const slug = String([journal.ojs_path, journal.ojs_id, journal.id].find(s => s && String(s).trim()) || journal.id)
+                      return (
+                        <GSAPWrapper key={journal.id} animation="slideUp" delay={0.4 + idx * 0.05} className="min-w-[250px] max-w-[280px] shrink-0 snap-start">
+                          <JournalCard
+                            title={journal.title}
+                            coverImage={journal.cover_image_url}
+                            slug={slug}
+                          />
+                        </GSAPWrapper>
+                      )
+                    })}
+                  </div>
+
+                  {/* Right scroll button */}
+                  <button
+                    onClick={() => scrollBy("right")}
+                    className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 hidden md:flex h-10 w-10 items-center justify-center rounded-full bg-background/90 dark:bg-zinc-800/90 border border-border shadow-lg backdrop-blur-sm opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-300 hover:bg-background dark:hover:bg-zinc-700"
+                    aria-label="Scroll right"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
                 </div>
               ) : (
                 <div className="text-center py-16 text-muted-foreground">
