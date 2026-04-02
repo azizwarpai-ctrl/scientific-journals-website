@@ -1,167 +1,124 @@
-import { InteractiveCard } from "@/components/ui/interactive-card"
-import { CardContent } from "@/components/ui/card"
+"use client"
+
 import Image from "next/image"
-import { BookOpen, ExternalLink, Globe, Hash } from "lucide-react"
+import Link from "next/link"
+import { BookOpen, ArrowRight } from "lucide-react"
 import { cn } from "@/src/lib/utils"
 
+/* ------------------------------------------------------------------ */
+/*  Props – simplified for the spotlight card                          */
+/* ------------------------------------------------------------------ */
 export interface JournalCardProps {
-  id: string
+  /** Display title (max 2 lines, truncated) */
   title: string
-  description?: string | null
-  issn?: string | null
-  field?: string | null
-  publisher?: string | null
+  /** Full URL or path to cover image */
   coverImage?: string | null
-  ojsId?: string | number | null
-  ojsPath?: string | null
-  variant?: "default" | "featured" | "compact"
+  /** URL-safe slug used for /journals/[slug] routing */
+  slug: string
 }
 
-export function JournalCard({
-  id,
-  title,
-  description,
-  issn,
-  field,
-  publisher,
-  coverImage,
-  ojsId,
-  ojsPath,
-  variant = "default",
-}: JournalCardProps) {
-  // URL priority: ojs_path slug → ojs_id → numeric db id
-  const chosen = [ojsPath, ojsId, id].find(s => s && String(s).trim()) || id
-  const segment = encodeURIComponent(String(chosen))
-  const href = `/journals/${segment}`
-  
-  const imageHeight = {
-    compact: "h-48",
-    default: "h-56",
-    featured: "h-72",
-  }[variant]
-
-  const isCompact = variant === "compact"
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
+export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
+  const href = `/journals/${encodeURIComponent(slug)}`
 
   return (
-    <InteractiveCard 
-      href={href} 
-      className={cn(
-        "h-full overflow-hidden",
-        "border-border/50 hover:border-primary/30",
-        "shadow-sm hover:shadow-xl hover:shadow-primary/5",
-        "transition-all duration-500 ease-out"
-      )}
+    <Link
+      href={href}
+      className="group block outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-2xl"
+      aria-label={`View details for ${title}`}
     >
-      {/* Image Container with Academic Gradient Treatment */}
-      <div className={cn(
-        "relative w-full overflow-hidden bg-slate-50 dark:bg-slate-900",
-        "after:absolute after:inset-0 after:bg-gradient-to-t after:from-white/80 after:via-white/20 after:to-transparent",
-        "dark:after:from-slate-900/80 dark:after:via-slate-900/20",
-        "after:opacity-60 group-hover:after:opacity-80 after:transition-opacity after:duration-500",
-        imageHeight
-      )}>
-        {coverImage ? (
-          <Image
-            src={coverImage}
-            alt={`Cover for ${title}`}
-            fill
-            className="object-cover transition-all duration-700 ease-out group-hover:scale-105 group-hover:brightness-110"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900">
-            <BookOpen className="h-20 w-20 text-slate-300 dark:text-slate-700 transition-transform duration-500 group-hover:scale-110" />
-          </div>
-        )}
-        
-        {/* Field Badge - Positioned with Academic Authority */}
-        {field && (
-          <div className="absolute top-4 left-4 z-10">
-            <span className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5",
-              "bg-white/95 dark:bg-slate-950/95 backdrop-blur-md",
-              "text-xs font-semibold text-slate-800 dark:text-slate-200",
-              "border border-slate-200/50 dark:border-slate-800/50",
-              "shadow-lg shadow-black/5",
-              "transform transition-all duration-300 group-hover:translate-y-0.5"
-            )}>
-              <Globe className="h-3 w-3 text-primary" />
-              {field}
-            </span>
-          </div>
-        )}
+      <article
+        className={cn(
+          /* shape & aspect */
+          "relative flex flex-col overflow-hidden rounded-2xl",
+          "aspect-[3/4]",
 
-        {/* ISSN Badge - Bottom Right for Academic Credibility */}
-        {issn && !isCompact && (
-          <div className="absolute bottom-4 right-4 z-10">
-            <span className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1",
-              "bg-black/40 backdrop-blur-md text-white/90",
-              "text-[10px] font-mono font-medium tracking-wider uppercase",
-              "border border-white/10",
-              "opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0",
-              "transition-all duration-300 delay-75"
-            )}>
-              <Hash className="h-3 w-3" />
-              ISSN {issn}
-            </span>
-          </div>
+          /* surface */
+          "bg-card text-card-foreground",
+          "border border-border/40",
+
+          /* shadow & depth */
+          "shadow-md",
+
+          /* transitions */
+          "transition-all duration-300 ease-out",
+
+          /* hover effects */
+          "hover:scale-[1.03]",
+          "hover:shadow-xl hover:shadow-primary/10",
+          "hover:border-primary/40"
         )}
-      </div>
-      
-      <CardContent className={cn(
-        "flex flex-col flex-1",
-        isCompact ? "p-4" : "p-6"
-      )}>
-        {/* Title with Improved Typography */}
-        <h3 className={cn(
-          "font-bold tracking-tight text-foreground line-clamp-2 supports-[text-wrap:balance]:text-balance",
-          "group-hover:text-primary transition-colors duration-300",
-          isCompact ? "text-base mb-2" : "text-lg mb-3 leading-snug"
-        )}>
-          {title}
-        </h3>
-        
-        {/* Description with Better Readability */}
-        {description && !isCompact && (
-          <p className="mb-4 text-sm text-muted-foreground/80 line-clamp-3 leading-relaxed flex-1">
-            {description}
-          </p>
-        )}
-        
-        {/* Metadata Footer */}
-        <div className={cn(
-          "mt-auto pt-4 flex items-center justify-between",
-          "border-t border-border/60",
-          isCompact && "pt-3"
-        )}>
-          <div className="flex flex-col gap-1 min-w-0 flex-1">
-            {publisher && (
-              <span className="text-xs font-medium text-slate-600 dark:text-slate-400 truncate">
-                {publisher}
-              </span>
+      >
+        {/* ── Image area ─────────────────────────────────── ~75 % */}
+        <div className="relative w-full flex-[3] min-h-0 overflow-hidden bg-muted">
+          {coverImage ? (
+            <Image
+              src={coverImage}
+              alt={`Cover for ${title}`}
+              fill
+              className={cn(
+                "object-cover",
+                "transition-transform duration-500 ease-out",
+                "group-hover:scale-110"
+              )}
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+            />
+          ) : (
+            /* Fallback when no image */
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-muted/60">
+              <BookOpen
+                className="h-16 w-16 text-muted-foreground/30 transition-transform duration-500 group-hover:scale-110"
+                aria-hidden
+              />
+            </div>
+          )}
+
+          {/* Dark overlay – fades in on hover for spotlight focus */}
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-0",
+              "bg-gradient-to-t from-black/70 via-black/20 to-transparent",
+              "opacity-0 group-hover:opacity-100",
+              "transition-opacity duration-300"
             )}
-            {issn && isCompact && (
-              <span className="text-[10px] font-mono text-muted-foreground/70">
-                ISSN: {issn}
-              </span>
+            aria-hidden
+          />
+        </div>
+
+        {/* ── Content area ───────────────────────────────── ~25 % */}
+        <div className="flex flex-[1] flex-col justify-between gap-2 px-4 py-4">
+          {/* Title – max 2 lines with ellipsis */}
+          <h3
+            className={cn(
+              "text-sm font-semibold leading-snug tracking-tight",
+              "line-clamp-2",
+              "text-foreground",
+              "transition-colors duration-300",
+              "group-hover:text-primary"
             )}
-          </div>
-          
-          {/* Action Indicator */}
-          <span className={cn(
-            "flex items-center gap-1 text-xs font-semibold text-primary",
-            "opacity-70 group-hover:opacity-100 transform group-hover:translate-x-0.5",
-            "transition-all duration-300"
-          )}>
-            {!isCompact && "View"}
-            <ExternalLink className={cn(
-              "transition-transform duration-300 group-hover:rotate-12",
-              isCompact ? "h-3.5 w-3.5" : "h-4 w-4"
-            )} />
+            title={title}
+          >
+            {title}
+          </h3>
+
+          {/* "View Details" button */}
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 self-start",
+              "text-xs font-medium",
+              "text-muted-foreground/70",
+              "transition-all duration-300",
+              "group-hover:text-primary group-hover:gap-2"
+            )}
+            aria-hidden
+          >
+            View Details
+            <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
           </span>
         </div>
-      </CardContent>
-    </InteractiveCard>
+      </article>
+    </Link>
   )
 }

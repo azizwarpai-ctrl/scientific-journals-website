@@ -124,21 +124,26 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
             Showing {filteredJournals.length} journal{filteredJournals.length !== 1 ? "s" : ""}
           </div>
 
-          <GSAPWrapper animation="slideUp" staggerChildren={0.05} className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredJournals.map((journal) => (
-              <JournalCard
-                key={journal.id}
-                id={journal.id}
-                ojsId={journal.ojs_id}
-                ojsPath={journal.ojs_path}
-                title={journal.title}
-                description={journal.description}
-                issn={journal.issn}
-                field={journal.field}
-                publisher={journal.publisher}
-                coverImage={journal.coverImage}
-              />
-            ))}
+          <GSAPWrapper
+            animation="slideUp"
+            staggerChildren={0.05}
+            className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+          >
+            {filteredJournals.map((journal) => {
+              const slug = String(
+                [journal.ojs_path, journal.ojs_id, journal.id].find(
+                  (s) => s && String(s).trim()
+                ) || journal.id
+              )
+              return (
+                <JournalCard
+                  key={journal.id}
+                  title={journal.title}
+                  coverImage={journal.coverImage}
+                  slug={slug}
+                />
+              )
+            })}
           </GSAPWrapper>
 
           {filteredJournals.length === 0 && (

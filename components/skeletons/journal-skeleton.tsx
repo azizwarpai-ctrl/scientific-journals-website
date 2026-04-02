@@ -1,33 +1,31 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 
+/**
+ * Single skeleton card matching the spotlight JournalCard layout.
+ */
 export function JournalCardSkeleton() {
   return (
-    <Card className="h-full border-none shadow-md overflow-hidden">
-      <Skeleton className="h-48 w-full rounded-none" />
-      <CardHeader className="space-y-2">
-        <Skeleton className="h-4 w-1/4" />
-        <Skeleton className="h-6 w-3/4" />
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-full" />
-          <Skeleton className="h-3 w-full" />
-          <Skeleton className="h-3 w-2/3" />
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-border/40 bg-card shadow-md aspect-[3/4]">
+      <Skeleton className="flex-[3] w-full rounded-none" />
+      <div className="flex flex-[1] flex-col justify-between gap-2 px-4 py-4">
+        <div className="space-y-1.5">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/5" />
         </div>
-        <div className="flex justify-between items-center pt-4 border-t">
-          <Skeleton className="h-4 w-1/4" />
-          <Skeleton className="h-9 w-1/3" />
-        </div>
-      </CardContent>
-    </Card>
+        <Skeleton className="h-3.5 w-24" />
+      </div>
+    </div>
   )
 }
 
+/**
+ * Grid of skeleton cards used on the journals list page.
+ * Grid columns mirror the real card grid: 2 → 3 → 4 → 5.
+ */
 export function JournalListSkeleton() {
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, i) => (
+    <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {Array.from({ length: 10 }).map((_, i) => (
         <JournalCardSkeleton key={i} />
       ))}
     </div>

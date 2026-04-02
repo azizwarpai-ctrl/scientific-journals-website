@@ -112,8 +112,8 @@ export default function HomePage() {
               </div>
 
               {isLoadingOjs ? (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {[...Array(6)].map((_, i) => (
+                <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {[...Array(5)].map((_, i) => (
                     <JournalCardSkeleton key={i} />
                   ))}
                 </div>
@@ -124,21 +124,19 @@ export default function HomePage() {
                   <p className="mt-1 text-sm">Could not fetch journals from the synchronized internal database.</p>
                 </div>
               ) : journals && journals.length > 0 ? (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {journals.slice(0, 6).map((journal: Journal, idx: number) => (
-                    <GSAPWrapper key={journal.id} animation="slideUp" delay={0.4 + idx * 0.1}>
-                      <JournalCard
-                        id={journal.id}
-                        ojsId={journal.ojs_id}
-                        ojsPath={journal.ojs_path}
-                        title={journal.title}
-                        description={journal.description || "Currently unavailable"}
-                        field={journal.field}
-                        coverImage={journal.cover_image_url}
-                        variant="featured"
-                      />
-                    </GSAPWrapper>
-                  ))}
+                <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {journals.slice(0, 10).map((journal: Journal, idx: number) => {
+                    const slug = String([journal.ojs_path, journal.ojs_id, journal.id].find(s => s && String(s).trim()) || journal.id)
+                    return (
+                      <GSAPWrapper key={journal.id} animation="slideUp" delay={0.4 + idx * 0.05}>
+                        <JournalCard
+                          title={journal.title}
+                          coverImage={journal.cover_image_url}
+                          slug={slug}
+                        />
+                      </GSAPWrapper>
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-16 text-muted-foreground">
