@@ -45,7 +45,11 @@ export function CommandPalette() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault()
-        isOpen ? close() : open()
+        if (isOpen) {
+          close()
+        } else {
+          open()
+        }
       }
     }
     document.addEventListener("keydown", handleKeyDown)
