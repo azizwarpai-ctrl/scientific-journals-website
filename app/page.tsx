@@ -20,9 +20,10 @@ export default function HomePage() {
   const { data: journals = [], isLoading: isLoadingOjs, isError: isErrorOjs } = useGetJournals()
   const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetPlatformStatistics()
 
-  /* ── 3D scene scroll-fade ─────────────────────────────────── */
+  /* ── 3D scene scroll-fade & parallax ──────────────────────── */
   const heroRef = useRef<HTMLElement>(null)
   const [splineOpacity, setSplineOpacity] = useState(1)
+  const [splineTranslateY, setSplineTranslateY] = useState(0)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -31,6 +32,8 @@ export default function HomePage() {
       // Fade out as the hero section leaves the viewport
       const ratio = Math.max(0, Math.min(1, (rect.bottom) / (rect.height * 0.6)))
       setSplineOpacity(ratio)
+      // Parallax effect: push the model down slightly as we scroll
+      setSplineTranslateY(window.scrollY * 0.5)
     }
     window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)
@@ -61,10 +64,14 @@ export default function HomePage() {
           {/* `dark` class isolates this section into forced dark mode */}
           <div className="dark">
             <section ref={heroRef} className="relative flex min-h-[90vh] items-center bg-slate-950 py-20 md:py-32">
-              {/* 3D Scene — FIXED to viewport, fades on scroll past hero */}
+              {/* 3D Scene — FIXED to viewport, fades and translate on scroll past hero */}
               <div
                 className="fixed bottom-0 right-0 z-0 h-screen w-full md:w-[70%] pointer-events-none origin-center"
-                style={{ opacity: splineOpacity, transition: "opacity 0.15s ease-out" }}
+                style={{ 
+                  opacity: splineOpacity, 
+                  transform: `translateY(${splineTranslateY}px)`,
+                  transition: "opacity 0.15s ease-out" 
+                }}
                 aria-hidden="true"
               >
                 <SplineScene />
