@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useRef } from "react"
 import { SplineScene } from "@/components/spline-scene"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
@@ -19,25 +19,6 @@ import { JournalCardSkeleton } from "@/components/skeletons/journal-card-skeleto
 export default function HomePage() {
   const { data: journals = [], isLoading: isLoadingOjs, isError: isErrorOjs } = useGetJournals()
   const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetPlatformStatistics()
-
-  /* ── 3D scene scroll-fade & parallax ──────────────────────── */
-  const heroRef = useRef<HTMLElement>(null)
-  const [splineOpacity, setSplineOpacity] = useState(1)
-  const [splineTranslateY, setSplineTranslateY] = useState(0)
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!heroRef.current) return
-      const rect = heroRef.current.getBoundingClientRect()
-      // Fade out as the hero section leaves the viewport
-      const ratio = Math.max(0, Math.min(1, (rect.bottom) / (rect.height * 0.6)))
-      setSplineOpacity(ratio)
-      // Parallax effect: push the model down slightly as we scroll
-      setSplineTranslateY(window.scrollY * 0.5)
-    }
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
 
   /* ── Horizontal scroll controls ───────────────────────────── */
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -58,25 +39,23 @@ export default function HomePage() {
     <div className="flex min-h-screen flex-col">
       <Navbar />
 
-      <main className="flex-1 overflow-x-hidden">
-        {/* Hero Section — always dark, regardless of system theme */}
-        <GSAPWrapper animation="fadeIn">
+      <main className="flex-1 overflow-x-hidden relative">
+        {/* Layer 1: Global hero background (scrolls away) */}
+        <div className="absolute top-0 left-0 w-full h-[100vh] bg-slate-950 z-[0]" />
+
+        {/* Layer 2: Fixed 3D Scene (permanently visible) */}
+        <div
+          className="fixed bottom-0 right-0 z-[1] h-screen w-full md:w-[70%] pointer-events-none origin-center"
+          aria-hidden="true"
+        >
+          <SplineScene />
+        </div>
+
+        {/* Layer 3: Hero Content */}
+        <GSAPWrapper animation="fadeIn" className="relative z-[2]">
           {/* `dark` class isolates this section into forced dark mode */}
           <div className="dark">
-            <section ref={heroRef} className="relative flex min-h-[90vh] items-center bg-slate-950 py-20 md:py-32">
-              {/* 3D Scene — FIXED to viewport, fades and translate on scroll past hero */}
-              <div
-                className="fixed bottom-0 right-0 z-0 h-screen w-full md:w-[70%] pointer-events-none origin-center"
-                style={{ 
-                  opacity: splineOpacity, 
-                  transform: `translateY(${splineTranslateY}px)`,
-                  transition: "opacity 0.15s ease-out" 
-                }}
-                aria-hidden="true"
-              >
-                <SplineScene />
-              </div>
-
+            <section className="relative flex min-h-[90vh] items-center py-20 md:py-32">
               <div className="container relative z-10 mx-auto px-4 md:px-6 pointer-events-none">
                 <div className="mx-auto max-w-3xl text-center pointer-events-auto">
                   <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-sky-300 backdrop-blur-md">
@@ -107,9 +86,12 @@ export default function HomePage() {
           </div>
         </GSAPWrapper>
 
+        {/* Layer 4: Content Sections with High-Contrast Glass Backdrop */}
+        <div className="relative z-[3] bg-background/90 backdrop-blur-md border-t border-border/50 shadow-[0_-20px_40px_-20px_rgba(0,0,0,0.1)]">
+        
         {/* Stats Section */}
         <GSAPWrapper animation="slideUp" delay={0.2}>
-          <section className="border-y bg-muted/30 py-12">
+          <section className="border-y border-border/50 py-12">
             <div className="container mx-auto px-4 md:px-6">
               {isLoadingStats ? (
                 <HomeStatsSkeleton />
@@ -135,7 +117,7 @@ export default function HomePage() {
 
         {/* Featured Journals */}
         <GSAPWrapper animation="fadeIn" delay={0.3}>
-          <section className="bg-muted/30 py-20">
+          <section className="py-20">
             <div className="container mx-auto px-4 md:px-6">
               <div className="mb-12 flex items-center justify-between">
                 <div>
@@ -230,6 +212,7 @@ export default function HomePage() {
             </div>
           </section>
         </GSAPWrapper>
+        </div>
       </main>
 
       <Footer />
