@@ -31,9 +31,9 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
     >
       <article
         className={cn(
-          /* shape & aspect */
+          /* shape & fixed height */
           "relative flex flex-col overflow-hidden rounded-2xl",
-          "aspect-[3/4]",
+          "h-[320px]",
 
           /* surface */
           "bg-card text-card-foreground",
@@ -58,8 +58,8 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
           "dark:hover:border-primary/50"
         )}
       >
-        {/* ── Image area ─────────────────────────────────── ~75 % */}
-        <div className="relative w-full flex-[3] min-h-0 overflow-hidden bg-muted">
+        {/* ── Image area ─────────────────────────────────── 78 % */}
+        <div className="relative w-full h-[78%] min-h-0 overflow-hidden bg-muted">
           {coverImage ? (
             <Image
               src={coverImage}
@@ -95,13 +95,13 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
           />
         </div>
 
-        {/* ── Content area ───────────────────────────────── ~25 % */}
-        <div className="flex flex-[1] items-center justify-between gap-2 px-4 py-3">
-          {/* Title – max 2 lines with ellipsis */}
+        {/* ── Content area ───────────────────────────────── 22 % */}
+        <div className="flex h-[22%] flex-col items-center justify-center gap-1 px-3 py-2">
+          {/* Title – centered, max 2 lines with ellipsis */}
           <h3
             className={cn(
               "text-sm font-semibold leading-snug tracking-tight",
-              "line-clamp-2 flex-1 min-w-0",
+              "line-clamp-2 w-full text-center",
               "text-foreground dark:text-white",
               "transition-colors duration-300",
               "group-hover:text-primary"
@@ -111,11 +111,11 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
             {title}
           </h3>
 
-          {/* "View Details" — right-aligned */}
+          {/* "View Details" — centered below title */}
           <span
             className={cn(
-              "inline-flex items-center gap-1 shrink-0",
-              "text-xs font-medium",
+              "inline-flex items-center gap-1",
+              "text-[11px] font-medium",
               "text-muted-foreground/70 dark:text-zinc-400",
               "transition-all duration-300",
               "group-hover:text-primary group-hover:gap-1.5"
@@ -123,7 +123,7 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
             aria-hidden
           >
             View Details
-            <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
+            <ArrowRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
           </span>
         </div>
       </article>
