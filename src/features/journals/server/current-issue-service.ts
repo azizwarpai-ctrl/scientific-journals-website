@@ -1,0 +1,246 @@
+/**
+ * Current Issue Service
+ *
+ * Fetches the current (or latest published) issue for a journal directly
+ * from the OJS MySQL database using the established ojsQuery() pattern.
+ *
+ * OJS Schema References (from dbkgvcunttgs97.sql):
+ * - journals.current_issue_id → FK to issues.issue_id
+ * - issues: issue_id, journal_id, volume, number, year, published, date_published
+ * - issue_settings: EAV (title, description per locale)
+ * - publications: publication_id, submission_id, issue_id, section_id, status, seq
+ * - publication_settings: EAV (title, abstract per locale)
+ * - submissions: submission_id, context_id, status (3 = published)
+ * - authors: author_id, publication_id, seq
+ * - author_settings: EAV (givenName, familyName per locale)
+ * - sections: section_id, journal_id, seq
+ * - section_settings: EAV (title per locale)
+ */
+
+import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import type { CurrentIssue, CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/journals/types/current-issue-types"
+
+// ─── Raw Row Types (from OJS MySQL) ─────────────────────────────────
+
+interface IssueRow {
+  issue_id: number
+  volume: number | null
+  number: string | null
+  year: number | null
+  published: number
+  date_published: string | null
+  show_volume: number
+  show_number: number
+  show_year: number
+  show_title: number
+  url_path: string | null
+  title: string | null
+  description: string | null
+}
+
+interface ArticleRow {
+  publication_id: number
+  submission_id: number
+  title: string | null
+  abstract: string | null
+  date_published: string | null
+  pub_seq: number
+  section_id: number | null
+  section_seq: number | null
+  section_title: string | null
+}
+
+interface AuthorRow {
+  author_id: number
+  publication_id: number
+  seq: number
+  given_name: string | null
+  family_name: string | null
+}
+
+// ─── Main Service Function ──────────────────────────────────────────
+
+/**
+ * Fetches the current issue and its articles for the given OJS journal.
+ *
+ * Resolution order:
+ * 1. journals.current_issue_id (editor-designated current issue)
+ * 2. Fallback: latest published issue by date_published DESC
+ *
+ * @param ojsJournalId - The OJS journal_id (stored as journal.ojs_id in Digitopub)
+ * @returns CurrentIssue with articles and authors, or null if no published issue exists
+ */
+export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIssue | null> {
+  // Strict numeric validation to prevent partial parses like "12abc"
+  if (!/^\d+$/.test(ojsJournalId)) {
+    console.error("Invalid OJS journal ID (not numeric):", ojsJournalId)
+    return null
+  }
+
+  const journalId = parseInt(ojsJournalId, 10)
+
+  // ── Step 1: Resolve current issue ──────────────────────────────
+
+  const issueRows = await ojsQuery<IssueRow>(
+    `SELECT
+      i.issue_id,
+      i.volume,
+      i.number,
+      i.year,
+      i.published,
+      i.date_published,
+      i.show_volume,
+      i.show_number,
+      i.show_year,
+      i.show_title,
+      i.url_path,
+      is_title.setting_value AS title,
+      is_desc.setting_value AS description
+    FROM journals j
+    INNER JOIN issues i ON i.issue_id = COALESCE(
+      (SELECT i1.issue_id 
+       FROM issues i1 
+       WHERE i1.issue_id = j.current_issue_id 
+         AND i1.journal_id = j.journal_id 
+         AND i1.published = 1),
+      (SELECT i2.issue_id
+       FROM issues i2
+       WHERE i2.journal_id = j.journal_id
+         AND i2.published = 1
+       ORDER BY i2.date_published DESC, i2.issue_id DESC
+       LIMIT 1)
+    )
+    LEFT JOIN issue_settings is_title
+      ON is_title.issue_id = i.issue_id
+      AND is_title.setting_name = 'title'
+      AND is_title.locale = j.primary_locale
+    LEFT JOIN issue_settings is_desc
+      ON is_desc.issue_id = i.issue_id
+      AND is_desc.setting_name = 'description'
+      AND is_desc.locale = j.primary_locale
+    WHERE j.journal_id = ?
+      AND i.published = 1
+    LIMIT 1`,
+    [journalId]
+  )
+
+  if (issueRows.length === 0) return null
+
+  const issue = issueRows[0]
+
+  // ── Step 2: Fetch articles for this issue ──────────────────────
+
+  const articleRows = await ojsQuery<ArticleRow>(
+    `SELECT
+      p.publication_id,
+      p.date_published,
+      p.seq AS pub_seq,
+      s.submission_id,
+      ps_title.setting_value AS title,
+      ps_abstract.setting_value AS abstract,
+      sec.section_id,
+      sec.seq AS section_seq,
+      sec_title.setting_value AS section_title
+    FROM publications p
+    INNER JOIN submissions s
+      ON s.submission_id = p.submission_id
+    LEFT JOIN publication_settings ps_title
+      ON ps_title.publication_id = p.publication_id
+      AND ps_title.setting_name = 'title'
+      AND ps_title.locale = (SELECT primary_locale FROM journals WHERE journal_id = ?)
+    LEFT JOIN publication_settings ps_abstract
+      ON ps_abstract.publication_id = p.publication_id
+      AND ps_abstract.setting_name = 'abstract'
+      AND ps_abstract.locale = (SELECT primary_locale FROM journals WHERE journal_id = ?)
+    LEFT JOIN sections sec
+      ON sec.section_id = p.section_id
+    LEFT JOIN section_settings sec_title
+      ON sec_title.section_id = sec.section_id
+      AND sec_title.setting_name = 'title'
+      AND sec_title.locale = (SELECT primary_locale FROM journals WHERE journal_id = ?)
+    WHERE p.issue_id = ?
+      AND p.status = 3
+      AND s.status = 3
+    ORDER BY sec.seq ASC, p.seq ASC`,
+    [journalId, journalId, journalId, issue.issue_id]
+  )
+
+  if (articleRows.length === 0) {
+    // Issue exists but has no articles — return issue metadata with empty array
+    return mapIssueRow(issue, [])
+  }
+
+  // ── Step 3: Batch-fetch authors for all publications ──────────
+
+  const publicationIds = articleRows.map((a) => a.publication_id)
+
+  // Build parameterized IN clause — mysql2 expands arrays with ?
+  const authorRows = await ojsQuery<AuthorRow>(
+    `SELECT
+      a.author_id,
+      a.publication_id,
+      a.seq,
+      as_given.setting_value AS given_name,
+      as_family.setting_value AS family_name
+    FROM authors a
+    LEFT JOIN author_settings as_given
+      ON as_given.author_id = a.author_id
+      AND as_given.setting_name = 'givenName'
+      AND as_given.locale = (SELECT primary_locale FROM journals WHERE journal_id = ?)
+    LEFT JOIN author_settings as_family
+      ON as_family.author_id = a.author_id
+      AND as_family.setting_name = 'familyName'
+      AND as_family.locale = (SELECT primary_locale FROM journals WHERE journal_id = ?)
+    WHERE a.publication_id IN (?)
+      AND a.include_in_browse = 1
+    ORDER BY a.publication_id, a.seq ASC`,
+    [journalId, journalId, publicationIds]
+  )
+
+  // ── Step 4: Group authors by publication_id ───────────────────
+
+  const authorsByPub = new Map<number, CurrentIssueAuthor[]>()
+  for (const row of authorRows) {
+    const existing = authorsByPub.get(row.publication_id) || []
+    existing.push({
+      givenName: row.given_name,
+      familyName: row.family_name,
+    })
+    authorsByPub.set(row.publication_id, existing)
+  }
+
+  // ── Step 5: Map articles with their authors ───────────────────
+
+  const articles: CurrentIssueArticle[] = articleRows.map((row) => ({
+    publicationId: row.publication_id,
+    submissionId: row.submission_id,
+    title: row.title,
+    abstract: row.abstract,
+    authors: authorsByPub.get(row.publication_id) || [],
+    datePublished: row.date_published,
+    sectionTitle: row.section_title,
+    sectionId: row.section_id,
+  }))
+
+  return mapIssueRow(issue, articles)
+}
+
+// ─── Mappers ────────────────────────────────────────────────────────
+
+function mapIssueRow(row: IssueRow, articles: CurrentIssueArticle[]): CurrentIssue {
+  return {
+    issueId: row.issue_id,
+    title: row.title,
+    volume: row.volume,
+    number: row.number,
+    year: row.year,
+    datePublished: row.date_published,
+    description: row.description,
+    showVolume: row.show_volume === 1,
+    showNumber: row.show_number === 1,
+    showYear: row.show_year === 1,
+    showTitle: row.show_title === 1,
+    urlPath: row.url_path,
+    articles,
+  }
+}

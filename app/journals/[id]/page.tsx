@@ -37,6 +37,8 @@ import { JournalError } from "@/components/errors/error-states"
 import { JournalNotFound } from "@/components/states/not-found-states"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JournalDetailSkeleton } from "@/components/skeletons/journal-detail-skeleton"
+import { CurrentIssueSection } from "./components/current-issue-section"
+import { Newspaper as NewspaperIcon } from "lucide-react"
 
 export default function JournalDetailPage() {
   const id = useJournalId()
@@ -296,7 +298,22 @@ export default function JournalDetailPage() {
                       <FileText className="mr-2 h-4 w-4" />
                       Author Guidelines
                     </TabsTrigger>
+                    <TabsTrigger
+                      value="current"
+                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                    >
+                      <NewspaperIcon className="mr-2 h-4 w-4" />
+                      Current Issue
+                    </TabsTrigger>
                   </TabsList>
+
+                  <TabsContent value="current" className="mt-8">
+                    <CurrentIssueSection 
+                      journalId={journal.id.toString()} 
+                      ojsDomain={ojsDomain} 
+                      ojsPath={targetSlug}
+                    />
+                  </TabsContent>
 
                   <TabsContent value="about" className="mt-8 space-y-8">
                     {/* Description Section */}
@@ -492,6 +509,17 @@ export default function JournalDetailPage() {
                       <span className="flex items-center gap-2">
                         <BookOpen className="h-4 w-4" />
                         Aims & Scope
+                      </span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between border-border/60 hover:bg-muted/50"
+                      onClick={() => setActiveTab("current")}
+                    >
+                      <span className="flex items-center gap-2">
+                        <NewspaperIcon className="h-4 w-4" />
+                        Current Issue
                       </span>
                       <ChevronRight className="h-4 w-4" />
                     </Button>
