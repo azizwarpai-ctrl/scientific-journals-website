@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import type { SearchResponse } from "../schemas/search-schema"
 
-export function useSearch(query: string, type: "all" | "journal" | "solution" | "faq" = "all") {
+export function useSearch(query: string, type: "all" | "journal" | "solution" | "faq" | "page" = "all") {
   return useQuery<SearchResponse>({
     queryKey: ["search", query, type],
 

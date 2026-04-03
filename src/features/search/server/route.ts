@@ -4,6 +4,16 @@ import { prisma } from "@/src/lib/db/config"
 import { searchQuerySchema } from "../schemas/search-schema"
 import type { SearchResult } from "../schemas/search-schema"
 
+const STATIC_PAGES = [
+  { title: "About Us", description: "Learn about DigitoPub and our mission to elevate scientific publishing.", url: "/about", field: "Company" },
+  { title: "Help Hub", description: "Find answers and support for your publishing needs and common questions.", url: "/help", field: "Support" },
+  { title: "Solutions", description: "Explore our software solutions designed for modern publishers.", url: "/solutions", field: "Services" },
+  { title: "Submit Manager", description: "Manage and track your scientific manuscript submissions securely.", url: "/submit-manager", field: "Platform" },
+  { title: "Journals Directory", description: "Browse all our published scientific and academic journals.", url: "/journals", field: "Directory" },
+  { title: "Contact Us", description: "Get in touch with our support and editorial team.", url: "/contact", field: "Support" },
+  { title: "Register / Sign Up", description: "Create a new account on the DigitoPub platform.", url: "/register", field: "Account" }
+]
+
 const app = new Hono()
 
 // GET /search?q=...&type=all|journal|solution|faq&limit=20
@@ -105,6 +115,29 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
               field: f.category,
             }))
           )
+      )
+    }
+
+    // Search Static Pages
+    if (type === "all" || type === "page") {
+      promises.push(
+        Promise.resolve(
+          STATIC_PAGES.filter(p =>
+            words.every(w => {
+              const lowerW = w.toLowerCase()
+              return p.title.toLowerCase().includes(lowerW) ||
+                     p.description.toLowerCase().includes(lowerW) ||
+                     p.field.toLowerCase().includes(lowerW)
+            })
+          ).slice(0, type === "all" ? Math.ceil(limit / 3) : limit).map(p => ({
+            id: p.url,
+            type: "page" as const,
+            title: p.title,
+            description: p.description,
+            url: p.url,
+            field: p.field
+          }))
+        )
       )
     }
 

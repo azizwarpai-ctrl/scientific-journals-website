@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Command } from "cmdk"
-import { Search, BookOpen, Zap, HelpCircle, Loader2, X, ArrowUpRight } from "lucide-react"
+import { Search, BookOpen, Zap, HelpCircle, Loader2, X, ArrowUpRight, FileText } from "lucide-react"
 import { useSearch, useSearchStore } from "@/src/features/search"
 import type { SearchResult } from "@/src/features/search"
 
@@ -27,6 +27,12 @@ const TYPE_CONFIG = {
     color: "text-emerald-500 dark:text-emerald-400",
     bg: "bg-emerald-500/10 dark:bg-emerald-400/10",
   },
+  page: {
+    icon: FileText,
+    label: "Page",
+    color: "text-purple-500 dark:text-purple-400",
+    bg: "bg-purple-500/10 dark:bg-purple-400/10",
+  },
 } as const
 
 type ResultType = keyof typeof TYPE_CONFIG
@@ -40,7 +46,7 @@ export function CommandPalette() {
   const [debouncedQuery, setDebouncedQuery] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // ── Global keyboard shortcut: Ctrl+K / Cmd+K ─────────────────────────────
+  // ── Global keyboard shortcut: Ctrl+K / Cmd+K and Escape ──────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -51,9 +57,12 @@ export function CommandPalette() {
           open()
         }
       }
+      if (e.key === "Escape" && isOpen) {
+        close()
+      }
     }
-    document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
   }, [isOpen, open, close])
 
   // ── Debounce input → query (300 ms) ──────────────────────────────────────
@@ -148,7 +157,7 @@ export function CommandPalette() {
         onMouseDown={(e) => e.stopPropagation()}
         style={{ animation: "cmdPaletteIn 180ms cubic-bezier(0.16,1,0.3,1) both" }}
       >
-        <Command shouldFilter={false} className="flex flex-col">
+        <Command shouldFilter={false} loop className="flex flex-col">
           {/* ── Input row ─────────────────────────────────────────────────── */}
           <div className="flex items-center gap-3 border-b border-border px-4 py-3">
             {showLoading ? (
@@ -159,10 +168,22 @@ export function CommandPalette() {
 
             <Command.Input
               ref={inputRef}
+              autoFocus
               value={inputValue}
               onValueChange={setInputValue}
               placeholder="Search journals, solutions, FAQs…"
               className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/60 caret-primary"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  // If no item is selected by cmdk, trigger a programmatic search
+                  const activeItem = document.querySelector('[cmdk-item][data-selected="true"]')
+                  if (!activeItem && inputValue.trim()) {
+                    e.preventDefault()
+                    close()
+                    router.push(`/search?q=${encodeURIComponent(inputValue.trim())}`)
+                  }
+                }
+              }}
             />
 
             {inputValue && (
