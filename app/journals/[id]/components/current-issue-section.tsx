@@ -1,6 +1,7 @@
+"use client"
+
 import { useState } from "react"
 import Link from "next/link"
-import Image from "next/image"
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -28,6 +29,7 @@ interface CurrentIssueSectionProps {
 
 export function CurrentIssueSection({ journalId, ojsDomain, ojsPath }: CurrentIssueSectionProps) {
   const { data: response, isLoading, error, refetch } = useGetCurrentIssue(journalId)
+  const [hasCoverError, setHasCoverError] = useState(false)
   const issue = response?.data
 
   if (isLoading) return <CurrentIssueSkeleton />
@@ -83,30 +85,22 @@ export function CurrentIssueSection({ journalId, ojsDomain, ojsPath }: CurrentIs
           
           {/* Issue Cover Focus Area */}
           <div className="relative md:w-1/3 lg:w-1/4 bg-muted/20 border-b md:border-b-0 md:border-r border-border/50 p-6 flex flex-col items-center justify-center min-h-[300px]">
-            {issue.issueCoverUrl ? (
+            {issue.issueCoverUrl && !hasCoverError ? (
               <div className="relative w-full aspect-[3/4] max-w-[240px] overflow-hidden rounded-md shadow-md ring-1 ring-border/30">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img 
                   src={issue.issueCoverUrl} 
                   alt={getIssueTitle(issue)}
                   className="object-cover w-full h-full"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    target.parentElement?.classList.add('hidden');
-                    const fallback = target.parentElement?.nextElementSibling;
-                    if (fallback) fallback.classList.remove('hidden');
-                  }}
+                  onError={() => setHasCoverError(true)}
                 />
               </div>
-            ) : null}
-            
-            <div className={issue.issueCoverUrl ? "hidden w-full h-full" : "w-full h-full"}>
+            ) : (
                <div className="w-full aspect-[3/4] max-w-[240px] rounded-md bg-muted/40 border border-border/40 border-dashed flex flex-col items-center justify-center text-muted-foreground shadow-inner mx-auto">
                 <Newspaper className="h-10 w-10 mb-3 opacity-20" />
-                <span className="text-xs uppercase tracking-widest font-semibold opacity-50">No Cover Available</span>
+                <span className="text-xs uppercase tracking-widest font-semibold opacity-50 text-center px-4">No Cover Available</span>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Issue Meta & Description */}
@@ -191,6 +185,7 @@ export function CurrentIssueSection({ journalId, ojsDomain, ojsPath }: CurrentIs
 
 function ArticleItem({ article, ojsDomain, ojsPath }: { article: CurrentIssueArticle, ojsDomain: string, ojsPath: string | null }) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [hasCoverError, setHasCoverError] = useState(false)
   
   const articleUrl = ojsPath 
     ? `${ojsDomain}/index.php/${ojsPath}/article/view/${article.submissionId}`
@@ -213,26 +208,19 @@ function ArticleItem({ article, ojsDomain, ojsPath }: { article: CurrentIssueArt
     <div className="group flex flex-col h-full rounded-2xl border border-border/40 bg-card overflow-hidden transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:-translate-y-1">
       {/* Visual Cover Area */}
       <div className="relative aspect-[16/9] w-full bg-muted/30 border-b border-border/30 overflow-hidden flex-shrink-0">
-        {article.articleCoverUrl ? (
+        {article.articleCoverUrl && !hasCoverError ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img 
             src={article.articleCoverUrl} 
             alt={`Cover for ${article.title || 'article'}`}
             className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-              const fallback = target.nextElementSibling;
-              if (fallback) fallback.classList.remove('hidden');
-            }}
+            onError={() => setHasCoverError(true)}
           />
-        ) : null}
-        
-        <div className={article.articleCoverUrl ? "hidden absolute inset-0" : "absolute inset-0"}>
-          <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/30 bg-gradient-to-br from-muted/20 to-muted/50">
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/30 bg-gradient-to-br from-muted/20 to-muted/50">
              <FileText className="h-12 w-12 mb-2" strokeWidth={1} />
           </div>
-        </div>
+        )}
         
         {/* Modern floating badge */}
         {article.sectionTitle && (

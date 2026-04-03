@@ -38,19 +38,23 @@ const DETAIL_JOURNAL_SELECT = {
 } as const
 
 // ─── GET /journals/debug-covers (TEMPORARY FOR OJS SCHEMA) ──────────
-app.get("/debug-covers", async (c) => {
+app.get("/debug-covers", requireAdmin, async (c) => {
   try {
     const { ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
     
-    const issueSettings = await ojsQuery("SELECT DISTINCT setting_name FROM issue_settings WHERE setting_name LIKE '%cover%'")
-    const isCovers = await ojsQuery("SELECT * FROM issue_settings WHERE setting_name = 'coverImage' LIMIT 5")
+    const [issueSettings, isCovers, pubSettings, pubCovers] = await Promise.all([
+      ojsQuery("SELECT DISTINCT setting_name FROM issue_settings WHERE setting_name LIKE '%cover%'"),
+      ojsQuery("SELECT * FROM issue_settings WHERE setting_name = 'coverImage' LIMIT 5"),
+      ojsQuery("SELECT DISTINCT setting_name FROM publication_settings WHERE setting_name LIKE '%cover%'"),
+      ojsQuery("SELECT * FROM publication_settings WHERE setting_name = 'coverImage' LIMIT 5")
+    ])
     
-    const pubSettings = await ojsQuery("SELECT DISTINCT setting_name FROM publication_settings WHERE setting_name LIKE '%cover%'")
-    const pubCovers = await ojsQuery("SELECT * FROM publication_settings WHERE setting_name = 'coverImage' LIMIT 5")
-    
-    return c.json({ issueSettings, isCovers, pubSettings, pubCovers })
+    return c.json({ 
+      success: true, 
+      data: { issueSettings, isCovers, pubSettings, pubCovers } 
+    })
   } catch (err: any) {
-    return c.json({ error: err.message }, 500)
+    return c.json({ success: false, message: err.message }, 500)
   }
 })
 

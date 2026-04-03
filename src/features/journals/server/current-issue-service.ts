@@ -22,7 +22,9 @@
  * - section_settings: EAV (title per locale)
  */
 
+import path from "node:path"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import type { CurrentIssue, CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/journals/types/current-issue-types"
 
 // ─── Raw Row Types (from OJS MySQL) ─────────────────────────────────
@@ -107,9 +109,10 @@ function parseOjsCoverFilename(raw: string | null): string | null {
 
 function buildCoverUrl(journalId: number, filename: string | null): string | null {
   if (!filename) return null
-  const baseUrl = process.env.NEXT_PUBLIC_OJS_BASE_URL || process.env.OJS_BASE_URL || "https://submitmanager.com/ojs"
-  const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
-  return `${cleanBaseUrl}/public/journals/${journalId}/${filename}`
+  const baseUrl = getOjsBaseUrl()
+  // Sanitize filename to prevent path traversal and ensure valid URL
+  const sanitizedFilename = encodeURIComponent(path.basename(filename))
+  return `${baseUrl}/public/journals/${journalId}/${sanitizedFilename}`
 }
 
 interface AuthorRow {
