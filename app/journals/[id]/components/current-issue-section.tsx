@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -84,19 +85,20 @@ export function CurrentIssueSection({ journalId, ojsDomain, ojsPath }: CurrentIs
         <div className="flex flex-col md:flex-row">
           
           {/* Issue Cover Focus Area */}
-          <div className="relative md:w-1/3 lg:w-1/4 bg-muted/20 border-b md:border-b-0 md:border-r border-border/50 p-6 flex flex-col items-center justify-center min-h-[300px]">
+          <div className="relative md:w-2/5 lg:w-1/3 bg-muted/20 border-b md:border-b-0 md:border-r border-border/50 p-6 flex flex-col items-center justify-center min-h-[400px]">
             {issue.issueCoverUrl && !hasCoverError ? (
-              <div className="relative w-full aspect-[3/4] max-w-[240px] overflow-hidden rounded-md shadow-md ring-1 ring-border/30">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img 
+              <div className="relative w-full aspect-[3/4] max-w-[320px] overflow-hidden rounded-md shadow-md ring-1 ring-border/30">
+                <Image 
                   src={issue.issueCoverUrl} 
                   alt={getIssueTitle(issue)}
-                  className="object-cover w-full h-full"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 320px"
+                  className="object-cover"
                   onError={() => setHasCoverError(true)}
                 />
               </div>
             ) : (
-               <div className="w-full aspect-[3/4] max-w-[240px] rounded-md bg-muted/40 border border-border/40 border-dashed flex flex-col items-center justify-center text-muted-foreground shadow-inner mx-auto">
+               <div className="w-full aspect-[3/4] max-w-[320px] rounded-md bg-muted/40 border border-border/40 border-dashed flex flex-col items-center justify-center text-muted-foreground shadow-inner mx-auto">
                 <Newspaper className="h-10 w-10 mb-3 opacity-20" />
                 <span className="text-xs uppercase tracking-widest font-semibold opacity-50 text-center px-4">No Cover Available</span>
               </div>
@@ -207,13 +209,14 @@ function ArticleItem({ article, ojsDomain, ojsPath }: { article: CurrentIssueArt
   return (
     <div className="group relative flex flex-col sm:flex-row rounded-2xl border border-border/40 bg-card overflow-hidden transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:-translate-y-1">
       {/* Visual Cover Area */}
-      <div className="relative sm:w-48 md:w-56 flex-shrink-0 aspect-[3/4] sm:aspect-auto bg-muted/30 border-b sm:border-b-0 sm:border-r border-border/30 overflow-hidden min-h-[240px]">
+      <div className="relative sm:w-56 md:w-64 flex-shrink-0 aspect-[3/4] sm:aspect-auto bg-muted/5 border-b sm:border-b-0 sm:border-r border-border/30 overflow-hidden min-h-[280px]">
         {article.articleCoverUrl && !hasCoverError ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img 
+          <Image 
             src={article.articleCoverUrl} 
             alt={`Cover for ${article.title || 'article'}`}
-            className="object-cover w-full h-full absolute inset-0 transition-transform duration-700 group-hover:scale-105"
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-contain object-center p-4 transition-transform duration-300 group-hover:scale-[1.02]"
             onError={() => setHasCoverError(true)}
           />
         ) : (
