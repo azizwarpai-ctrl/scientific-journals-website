@@ -110,7 +110,7 @@ export function CommandPalette() {
   )
 
   const handleViewAll = useCallback(() => {
-    if (debouncedQuery.length >= 2) {
+    if (debouncedQuery.length >= 1) {
       close()
       router.push(`/search?q=${encodeURIComponent(debouncedQuery)}`)
     }
@@ -120,7 +120,7 @@ export function CommandPalette() {
   const [showLoadingState, setShowLoadingState] = useState(false)
   useEffect(() => {
     let t: NodeJS.Timeout
-    if (isFetching && debouncedQuery.length >= 2) {
+    if (isFetching && debouncedQuery.length >= 1) {
       t = setTimeout(() => setShowLoadingState(true), 200) // 200ms delay
     } else {
       setShowLoadingState(false)
@@ -131,7 +131,7 @@ export function CommandPalette() {
   // ── Guard: nothing to render when closed ─────────────────────────────────
   if (!isOpen) return null
 
-  const isIdle = !debouncedQuery || debouncedQuery.length < 2
+  const isIdle = !debouncedQuery || debouncedQuery.length < 1
   const showLoading = !isIdle && showLoadingState
   const showNoResults = !isIdle && !isFetching && results.length === 0
   const showResults = !isIdle && results.length > 0

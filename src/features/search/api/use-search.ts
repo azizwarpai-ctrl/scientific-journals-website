@@ -16,7 +16,7 @@ export function useSearch(query: string, type: "all" | "journal" | "solution" | 
       return response.json() as Promise<SearchResponse>
     },
 
-    enabled: query.trim().length >= 2,
+    enabled: query.trim().length >= 1,
 
     // Keep previous results visible while new ones load (no flicker)
     placeholderData: (prev) => prev,
