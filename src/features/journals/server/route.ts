@@ -173,6 +173,44 @@ app.get("/:id/stats", zValidator("param", journalSlugParamSchema), async (c) => 
   }
 })
 
+// ─── GET /journals/:id/current-issue — Current Issue from OJS ────────
+
+app.get("/:id/current-issue", zValidator("param", journalSlugParamSchema), async (c) => {
+  try {
+    const { id } = c.req.valid("param")
+
+    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
+    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
+    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+
+    if (!journal) {
+      return c.json({ success: false, error: "Journal not found" }, 404)
+    }
+
+    if (!journal.ojs_id) {
+      return c.json({ success: true, data: null, message: "No OJS data" }, 200)
+    }
+
+    const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
+
+    if (!isOjsConfigured()) {
+      return c.json({ success: true, data: null, message: "OJS not configured" }, 200)
+    }
+
+    try {
+      const { fetchCurrentIssue } = await import("./current-issue-service")
+      const currentIssue = await fetchCurrentIssue(journal.ojs_id)
+      return c.json({ success: true, data: currentIssue }, 200)
+    } catch (queryError) {
+      console.error("OJS Current Issue Query Error:", queryError)
+      return c.json({ success: false, error: "Failed to fetch current issue from OJS" }, 502)
+    }
+  } catch (error) {
+    console.error("Error fetching current issue:", error)
+    return c.json({ success: false, error: "Failed to fetch current issue" }, 500)
+  }
+})
+
 // ─── POST /journals — Admin create (Prisma only) ────────────────────
 
 
