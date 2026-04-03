@@ -87,6 +87,19 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
   const journalId = parseInt(ojsJournalId, 10)
   console.log(`[CurrentIssue] Fetching for OJS journal_id=${journalId}`)
 
+  // ── Step 0: Fetch journal's primary locale ──────────────────────
+  const journalRows = await ojsQuery<{ primary_locale: string }>(
+    "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
+    [journalId]
+  )
+
+  if (journalRows.length === 0) {
+    console.error(`[CurrentIssue] Journal not found for journal_id=${journalId}`)
+    return null
+  }
+
+  const primaryLocale = journalRows[0].primary_locale
+
   // ── Step 1: Resolve the issue_id ──────────────────────────────
   // Two separate simple queries — no correlated subqueries, no COALESCE in JOINs
 
@@ -156,21 +169,22 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
     LEFT JOIN issue_settings is_title
       ON is_title.issue_id = i.issue_id
       AND is_title.setting_name = 'title'
-      AND is_title.locale = (SELECT primary_locale FROM journals WHERE journal_id = ?)
+      AND is_title.locale = ?
     LEFT JOIN issue_settings is_desc
       ON is_desc.issue_id = i.issue_id
       AND is_desc.setting_name = 'description'
-      AND is_desc.locale = (SELECT primary_locale FROM journals WHERE journal_id = ?)
+      AND is_desc.locale = ?
     WHERE i.issue_id = ?
     LIMIT 1`,
-    [journalId, journalId, resolvedIssueId]
+    [primaryLocale, primaryLocale, resolvedIssueId]
   )
 
   console.log(`[CurrentIssue] Issue metadata: ${issueRows.length} rows`)
 
   if (issueRows.length === 0) {
-    console.error(`[CurrentIssue] UNEXPECTED: issue_id=${resolvedIssueId} resolved but metadata query returned 0 rows`)
-    return null
+    const errorMsg = `[CurrentIssue] UNEXPECTED: issue_id=${resolvedIssueId} resolved but metadata query returned 0 rows for journal_id=${journalId}`
+    console.error(errorMsg)
+    throw new Error(errorMsg)
   }
 
   const issue = issueRows[0]
@@ -194,22 +208,22 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
     LEFT JOIN publication_settings ps_title
       ON ps_title.publication_id = p.publication_id
       AND ps_title.setting_name = 'title'
-      AND ps_title.locale = (SELECT primary_locale FROM journals WHERE journal_id = ?)
+      AND ps_title.locale = ?
     LEFT JOIN publication_settings ps_abstract
       ON ps_abstract.publication_id = p.publication_id
       AND ps_abstract.setting_name = 'abstract'
-      AND ps_abstract.locale = (SELECT primary_locale FROM journals WHERE journal_id = ?)
+      AND ps_abstract.locale = ?
     LEFT JOIN sections sec
       ON sec.section_id = p.section_id
     LEFT JOIN section_settings sec_title
       ON sec_title.section_id = sec.section_id
       AND sec_title.setting_name = 'title'
-      AND sec_title.locale = (SELECT primary_locale FROM journals WHERE journal_id = ?)
+      AND sec_title.locale = ?
     WHERE p.issue_id = ?
       AND p.status = 3
       AND s.status = 3
     ORDER BY sec.seq ASC, p.seq ASC`,
-    [journalId, journalId, journalId, resolvedIssueId]
+    [primaryLocale, primaryLocale, primaryLocale, resolvedIssueId]
   )
 
   console.log(`[CurrentIssue] Articles: ${articleRows.length} rows for issue_id=${resolvedIssueId}`)
@@ -235,15 +249,15 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
     LEFT JOIN author_settings as_given
       ON as_given.author_id = a.author_id
       AND as_given.setting_name = 'givenName'
-      AND as_given.locale = (SELECT primary_locale FROM journals WHERE journal_id = ?)
+      AND as_given.locale = ?
     LEFT JOIN author_settings as_family
       ON as_family.author_id = a.author_id
       AND as_family.setting_name = 'familyName'
-      AND as_family.locale = (SELECT primary_locale FROM journals WHERE journal_id = ?)
+      AND as_family.locale = ?
     WHERE a.publication_id IN (?)
       AND a.include_in_browse = 1
     ORDER BY a.publication_id, a.seq ASC`,
-    [journalId, journalId, publicationIds]
+    [primaryLocale, primaryLocale, publicationIds]
   )
 
   console.log(`[CurrentIssue] Authors: ${authorRows.length} rows for ${publicationIds.length} publications`)
