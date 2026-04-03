@@ -92,11 +92,11 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
         </div>
 
         {/* ── Content area ───────────────────────────────── */}
-        <div className="flex flex-col flex-grow items-start justify-between gap-3 p-5">
+        <div className="flex flex-col flex-grow items-center justify-center gap-2.5 p-3.5">
           {/* Title */}
           <h3
             className={cn(
-              "text-base font-bold leading-snug tracking-tight",
+              "text-sm font-semibold leading-tight tracking-tight text-center",
               "line-clamp-2 w-full",
               "text-foreground dark:text-zinc-100",
               "transition-colors duration-300",
@@ -107,13 +107,13 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
             {title}
           </h3>
 
-          {/* "View Details" Button Placeholder */}
-          <div className="mt-auto w-full pt-2">
+          {/* "View Details" Button */}
+          <div className="flex w-full justify-center">
             <span
               className={cn(
-                "inline-flex w-full items-center justify-center gap-2",
-                "rounded-xl bg-muted/80 dark:bg-zinc-800 px-4 py-2.5",
-                "text-sm font-semibold text-foreground dark:text-zinc-200",
+                "inline-flex items-center justify-center gap-1.5",
+                "rounded-lg bg-muted/70 dark:bg-zinc-800/80 px-3 py-1.5",
+                "text-xs font-medium text-foreground dark:text-zinc-200",
                 "transition-all duration-300",
                 "group-hover:bg-primary group-hover:text-primary-foreground",
                 "dark:group-hover:bg-primary dark:group-hover:text-primary-foreground"
@@ -121,7 +121,7 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
               aria-hidden
             >
               View Details
-              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+              <ArrowRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
             </span>
           </div>
         </div>

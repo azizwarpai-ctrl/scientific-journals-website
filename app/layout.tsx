@@ -12,8 +12,21 @@ export const metadata: Metadata = {
   title: "DigitoPub - Scientific Journals Platform",
   description: "Professional academic publishing platform showcasing scientific journals with digital innovation",
   icons: {
-    icon: "/favicon.ico?v=2",
-    apple: "/apple-icon.png",
+    icon: "/icon.jpeg",
+  },
+  openGraph: {
+    images: [
+      {
+        url: "/icon.jpeg",
+        width: 1200,
+        height: 630,
+        alt: "DigitoPub Logo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/icon.jpeg"],
   },
 }
 

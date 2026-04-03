@@ -56,11 +56,12 @@ export function Navbar() {
           >
             <Search className="h-3.5 w-3.5" />
             <span>Search…</span>
-            <span className="ml-1 hidden items-center gap-0.5 xl:inline-flex">
-              <kbd className="inline-flex h-5 items-center rounded border border-border bg-background px-1 font-mono text-[10px] text-muted-foreground">
+            <span className="ml-2 hidden items-center gap-1 xl:inline-flex whitespace-nowrap">
+              <kbd className="inline-flex h-5 items-center justify-center rounded border border-border bg-muted/60 px-1.5 font-sans text-[11px] font-semibold text-muted-foreground shadow-sm">
                 Ctrl
               </kbd>
-              <kbd className="inline-flex h-5 items-center rounded border border-border bg-background px-1 font-mono text-[10px] text-muted-foreground">
+              <span className="font-sans text-[10px] font-medium text-muted-foreground">+</span>
+              <kbd className="inline-flex h-5 items-center justify-center rounded border border-border bg-muted/60 px-1.5 font-sans text-[11px] font-semibold text-muted-foreground shadow-sm">
                 K
               </kbd>
             </span>

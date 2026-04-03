@@ -33,9 +33,15 @@ export function SearchBar({
       <span className="flex-1 truncate">{placeholder}</span>
 
       {/* Ctrl K badge */}
-      <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-        <span className="text-xs">Ctrl</span>K
-      </kbd>
+      <span className="hidden sm:inline-flex items-center gap-1 whitespace-nowrap">
+        <kbd className="inline-flex h-5 items-center justify-center rounded border border-border bg-muted/60 px-1.5 font-sans text-[11px] font-semibold text-muted-foreground shadow-sm">
+          Ctrl
+        </kbd>
+        <span className="font-sans text-[10px] font-medium text-muted-foreground">+</span>
+        <kbd className="inline-flex h-5 items-center justify-center rounded border border-border bg-muted/60 px-1.5 font-sans text-[11px] font-semibold text-muted-foreground shadow-sm">
+          K
+        </kbd>
+      </span>
     </button>
   )
 }
