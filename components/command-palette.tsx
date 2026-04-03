@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Command } from "cmdk"
-import { Search, BookOpen, Zap, HelpCircle, Loader2, X, ArrowUpRight, FileText } from "lucide-react"
+import { Search, BookOpen, Zap, HelpCircle, Loader2, X, ArrowUpRight, FileText, User, Tag, ScrollText } from "lucide-react"
 import { useSearch, useSearchStore } from "@/src/features/search"
 import type { SearchResult } from "@/src/features/search"
 
@@ -32,6 +32,24 @@ const TYPE_CONFIG = {
     label: "Page",
     color: "text-purple-500 dark:text-purple-400",
     bg: "bg-purple-500/10 dark:bg-purple-400/10",
+  },
+  article: {
+    icon: ScrollText,
+    label: "Article",
+    color: "text-rose-500 dark:text-rose-400",
+    bg: "bg-rose-500/10 dark:bg-rose-400/10",
+  },
+  author: {
+    icon: User,
+    label: "Author",
+    color: "text-indigo-500 dark:text-indigo-400",
+    bg: "bg-indigo-500/10 dark:bg-indigo-400/10",
+  },
+  category: {
+    icon: Tag,
+    label: "Category",
+    color: "text-cyan-500 dark:text-cyan-400",
+    bg: "bg-cyan-500/10 dark:bg-cyan-400/10",
   },
 } as const
 

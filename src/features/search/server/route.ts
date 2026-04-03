@@ -2,7 +2,7 @@ import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { prisma } from "@/src/lib/db/config"
 import { searchQuerySchema } from "../schemas/search-schema"
-import type { SearchResult } from "../schemas/search-schema"
+import type { SearchableItem } from "../schemas/search-schema"
 
 const STATIC_PAGES = [
   { title: "About Us", description: "Learn about DigitoPub and our mission to elevate scientific publishing.", url: "/about", field: "Company" },
@@ -14,10 +14,10 @@ const STATIC_PAGES = [
   { title: "Register / Sign Up", description: "Create a new account on the DigitoPub platform.", url: "/register", field: "Account" }
 ]
 
-// ─── 3. In-Memory Caching for Static Pages ──────────────────────────────────────
-let staticPagesCache: SearchResult[] | null = null
+// ─── Static Caches ──────────────────────────────────────────────────────────────
+let staticPagesCache: SearchableItem[] | null = null
 
-function getStaticPages(): SearchResult[] {
+function getStaticPages(): SearchableItem[] {
   if (staticPagesCache) return staticPagesCache
   
   staticPagesCache = STATIC_PAGES.map(p => ({
@@ -25,13 +25,14 @@ function getStaticPages(): SearchResult[] {
     type: "page" as const,
     title: p.title,
     description: p.description,
+    content: `${p.title} ${p.description} ${p.field}`, // Searchable depth
     url: p.url,
     field: p.field
   }))
   return staticPagesCache
 }
 
-// ─── 1. Timeout Handling Utility ────────────────────────────────────────────────
+// ─── Timeout Wrapper ────────────────────────────────────────────────────────────
 function withTimeout<T>(promise: Promise<T>, ms: number = 3000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`Query timed out after ${ms}ms`)), ms)
@@ -47,33 +48,44 @@ function withTimeout<T>(promise: Promise<T>, ms: number = 3000): Promise<T> {
   })
 }
 
-// ─── 2. Result Ranking System ───────────────────────────────────────────────────
-function scoreResult(result: SearchResult, words: string[]): number {
+// ─── Weighted Ranking Engine ────────────────────────────────────────────────────
+// Exact title match: +50
+// Partial title: +30
+// Content match: +25
+// Description match: +15
+// Category/tag match: +10
+function scoreResult(result: SearchableItem, words: string[]): number {
   let score = 0
   const title = result.title.toLowerCase()
   const desc = (result.description || "").toLowerCase()
+  const content = (result.content || "").toLowerCase()
   const field = (result.field || "").toLowerCase()
+  const categoryStr = (result.type === "category" ? title : field)
 
   for (const w of words) {
     const lowerW = w.toLowerCase()
     
-    // Title match -> highest weight
-    if (title === lowerW) score += 50
-    else if (title.startsWith(lowerW)) score += 30
-    else if (title.includes(lowerW)) score += 20
+    // Title checks
+    if (title === lowerW) {
+      score += 50
+    } else if (title.includes(lowerW)) {
+      score += 30
+    }
     
-    // Description match -> medium weight
-    if (desc.includes(lowerW)) score += 10
+    // Deep content checks
+    if (content.includes(lowerW)) score += 25
     
-    // Field/Category match -> lower weight
-    if (field.includes(lowerW)) score += 5
+    // Description checks
+    if (desc.includes(lowerW)) score += 15
+    
+    // Category / Tag checks
+    if (categoryStr.includes(lowerW)) score += 10
   }
   return score
 }
 
 const app = new Hono()
 
-// GET /search?q=...&type=all|journal|solution|faq&limit=20
 app.get("/", zValidator("query", searchQuerySchema), async (c) => {
   try {
     const { q, type, limit: limitStr } = c.req.valid("query")
@@ -84,19 +96,21 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
       return c.json({ success: true, data: { results: [], total: 0, query: q } })
     }
 
-    const promises: Promise<SearchResult[]>[] = []
+    const promises: Promise<SearchableItem[]>[] = []
     
-    // ─── 4. Partial Failure Detection ─────────────────────────────────────────────
+    // ─── Fault Isolation Protocol ─────────────────────────────────────────────────
     let hasError = false
-    const safePromise = <T extends SearchResult>(promise: Promise<T[]>) => 
+    const safePromise = <T extends SearchableItem>(promise: Promise<T[]>) => 
       withTimeout(promise, 3000).catch((error) => {
         hasError = true
         console.error("[SEARCH_QUERY_ERROR]", error.message || error)
         return [] as T[]
       })
 
-    // Search Journals
-    if (type === "all" || type === "journal") {
+    const requestAll = type === "all"
+
+    // 1. Search Journals
+    if (requestAll || type === "journal") {
       promises.push(
         safePromise(
           prisma.journal
@@ -107,20 +121,22 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
                   OR: [
                     { title: { contains: w, mode: "insensitive" } },
                     { description: { contains: w, mode: "insensitive" } },
+                    { aims_and_scope: { contains: w, mode: "insensitive" } },
                     { field: { contains: w, mode: "insensitive" } },
                     { publisher: { contains: w, mode: "insensitive" } },
                   ],
                 })),
               },
-              select: { id: true, title: true, description: true, field: true },
-              take: type === "all" ? Math.ceil(limit / 3) : limit,
+              select: { id: true, title: true, description: true, aims_and_scope: true, field: true },
+              take: limit,
             })
             .then((journals) =>
               journals.map((j) => ({
-                id: j.id.toString(),
+                id: `journal-${j.id.toString()}`,
                 type: "journal" as const,
                 title: j.title,
                 description: j.description?.slice(0, 150) || "",
+                content: (j.aims_and_scope || j.description || "").slice(0, 500),
                 url: `/journals/${j.id}`,
                 field: j.field,
               }))
@@ -129,8 +145,105 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
       )
     }
 
-    // Search Solutions
-    if (type === "all" || type === "solution") {
+    // 2. Search Articles (Deep content retrieval logic)
+    if (requestAll || type === "article") {
+      promises.push(
+        safePromise(
+          prisma.publishedArticle
+            .findMany({
+              where: {
+                AND: words.map((w) => ({
+                  OR: [
+                    { submission: { manuscript_title: { contains: w, mode: "insensitive" } } },
+                    { submission: { abstract: { contains: w, mode: "insensitive" } } },
+                    { submission: { author_name: { contains: w, mode: "insensitive" } } },
+                  ]
+                }))
+              },
+              include: { submission: { select: { manuscript_title: true, abstract: true, author_name: true } }, journal: { select: { field: true } } },
+              take: limit,
+            })
+            .then((articles) => 
+               articles.map((a) => ({
+                 id: `article-${a.id.toString()}`,
+                 type: "article" as const,
+                 title: a.submission?.manuscript_title || "Unknown Article",
+                 description: `Authored by ${a.submission?.author_name || 'N/A'}.`,
+                 content: a.submission?.abstract || "",
+                 url: a.doi ? `/article/${a.doi}` : `/article-id/${a.id}`,
+                 field: a.journal?.field
+               }))
+            )
+        )
+      )
+    }
+
+    // 3. Search Authors (AdminUser logic mapping)
+    if (requestAll || type === "author") {
+       promises.push(
+         safePromise(
+           prisma.adminUser
+             .findMany({
+               where: {
+                 AND: words.map((w) => ({
+                   OR: [
+                     { full_name: { contains: w, mode: "insensitive" } },
+                     { affiliation: { contains: w, mode: "insensitive" } },
+                     { biography: { contains: w, mode: "insensitive" } },
+                     { department: { contains: w, mode: "insensitive" } },
+                   ]
+                 }))
+               },
+               select: { id: true, full_name: true, affiliation: true, biography: true, department: true },
+               take: limit,
+             })
+             .then((users) =>
+               users.map((u) => ({
+                 id: `author-${u.id.toString()}`,
+                 type: "author" as const,
+                 title: u.full_name,
+                 description: u.affiliation || u.department || "Independent Researcher",
+                 content: u.biography || "",
+                 url: `/authors/${u.id}`,
+                 field: u.department
+               }))
+             )
+         )
+       )
+    }
+
+    // 4. Dynamic Semantic Categories Engine
+    if (requestAll || type === "category") {
+       promises.push(
+         safePromise(
+           prisma.journal
+             .findMany({
+               where: {
+                 AND: words.map((w) => ({
+                   field: { contains: w, mode: "insensitive" }
+                 }))
+               },
+               select: { field: true },
+               distinct: ['field'],
+               take: limit,
+             })
+             .then((categories) => 
+               categories.map((c) => ({
+                 id: `cat-${c.field.toLowerCase()}`,
+                 type: "category" as const,
+                 title: c.field,
+                 description: `Explore journals and articles in ${c.field}`,
+                 content: c.field,
+                 url: `/journals?category=${encodeURIComponent(c.field)}`,
+                 field: c.field
+               }))
+             )
+         )
+       )
+    }
+
+    // 5. Search Solutions
+    if (requestAll || type === "solution") {
       promises.push(
         safePromise(
           prisma.solution
@@ -142,14 +255,15 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
                 })),
               },
               select: { id: true, title: true, description: true, icon: true },
-              take: type === "all" ? Math.ceil(limit / 3) : limit,
+              take: limit,
             })
             .then((solutions) =>
               solutions.map((s) => ({
-                id: s.id.toString(),
+                id: `solution-${s.id.toString()}`,
                 type: "solution" as const,
                 title: s.title,
                 description: s.description?.slice(0, 150) || "",
+                content: s.description || "",
                 url: "/solutions",
                 icon: s.icon,
               }))
@@ -158,8 +272,8 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
       )
     }
 
-    // Search FAQs
-    if (type === "all" || type === "faq") {
+    // 6. Search FAQs
+    if (requestAll || type === "faq") {
       promises.push(
         safePromise(
           prisma.fAQ
@@ -171,14 +285,15 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
                 })),
               },
               select: { id: true, question: true, answer: true, category: true },
-              take: type === "all" ? Math.ceil(limit / 3) : limit,
+              take: limit,
             })
             .then((faqs) =>
               faqs.map((f) => ({
-                id: f.id.toString(),
+                id: `faq-${f.id.toString()}`,
                 type: "faq" as const,
                 title: f.question,
-                description: f.answer?.slice(0, 150) || "",
+                description: f.category ? `Category: ${f.category}` : "Help Article",
+                content: f.answer || "",
                 url: "/help",
                 field: f.category,
               }))
@@ -187,19 +302,14 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
       )
     }
 
-    // Search Static Pages
-    if (type === "all" || type === "page") {
+    // 7. Search Static Pages
+    if (requestAll || type === "page") {
       promises.push(
         safePromise(
           Promise.resolve(
             getStaticPages().filter(p =>
-              words.every(w => {
-                const lowerW = w.toLowerCase()
-                return p.title.toLowerCase().includes(lowerW) ||
-                       p.description.toLowerCase().includes(lowerW) ||
-                       (p.field && p.field.toLowerCase().includes(lowerW))
-              })
-            ).slice(0, type === "all" ? Math.ceil(limit / 3) : limit)
+              words.every(w => p.content.toLowerCase().includes(w.toLowerCase()))
+            ).slice(0, limit)
           )
         )
       )
@@ -208,22 +318,21 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
     const resultsArray = await Promise.all(promises)
     let results = resultsArray.flat()
 
-    // ─── Rank and Sort Results ────────────────────────────────────────────────────
+    // ─── Ranking and Normalization Engine ─────────────────────────────────────────
     results = results.sort((a, b) => scoreResult(b, words) - scoreResult(a, words))
-
-    // Ensure we don't accidentally exceed the absolute search limit after flattening
+    
+    // Enforce aggregate slice constraint accurately
     results = results.slice(0, limit)
 
-    // ─── Return Response ──────────────────────────────────────────────────────────
-    const responseData: any = {
+    // ─── Response Payload ─────────────────────────────────────────────────────────
+    const responseData: { results: SearchableItem[], total: number, query: string, warning?: string } = {
       results,
       total: results.length,
       query: q,
     }
 
-    // ─── 5. Partial Failure Detection Warning ─────────────────────────────────────
     if (hasError) {
-      responseData.warning = "Some results may be incomplete" // Graceful degradation warning
+      responseData.warning = "Partial results. Some databases failed to respond seamlessly."
     }
 
     return c.json({
@@ -231,8 +340,8 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
       data: responseData,
     })
   } catch (error) {
-    console.error("[SEARCH_ERROR]", error)
-    return c.json({ success: false, error: "Search failed" }, 500)
+    console.error("[GLOBAL_SEARCH_ERROR]", error)
+    return c.json({ success: false, error: "Search engine failed to aggregate globally." }, 500)
   }
 })
 

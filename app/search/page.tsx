@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SearchBar } from "@/components/search-bar"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
-import { Search, BookOpen, Zap, HelpCircle, ArrowRight, SearchX } from "lucide-react"
+import { Search, BookOpen, Zap, HelpCircle, ArrowRight, SearchX, FileText, User, Tag, ScrollText } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
@@ -19,18 +19,30 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   journal: BookOpen,
   solution: Zap,
   faq: HelpCircle,
+  page: FileText,
+  article: ScrollText,
+  author: User,
+  category: Tag,
 }
 
 const TYPE_LABELS: Record<string, string> = {
   journal: "Journal",
   solution: "Solution",
   faq: "FAQ",
+  page: "Page",
+  article: "Article",
+  author: "Author",
+  category: "Category",
 }
 
 const TYPE_COLORS: Record<string, string> = {
   journal: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
   solution: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   faq: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  page: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+  article: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+  author: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+  category: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
 }
 
 function SearchPageContent() {
