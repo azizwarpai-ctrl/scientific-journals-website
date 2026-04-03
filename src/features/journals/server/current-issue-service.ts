@@ -18,7 +18,7 @@
  */
 
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
-import type { CurrentIssue, CurrentIssueArticle, CurrentIssueAuthor } from "../types/current-issue-types"
+import type { CurrentIssue, CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/journals/types/current-issue-types"
 
 // ─── Raw Row Types (from OJS MySQL) ─────────────────────────────────
 
@@ -95,7 +95,7 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
       i.show_title,
       i.url_path,
       is_title.setting_value AS title,
-      is_title.setting_value AS description
+      is_desc.setting_value AS description
     FROM journals j
     INNER JOIN issues i ON i.issue_id = COALESCE(
       (SELECT i1.issue_id 

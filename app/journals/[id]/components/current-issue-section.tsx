@@ -170,6 +170,7 @@ function ArticleItem({ article, ojsDomain, ojsPath }: { article: CurrentIssueArt
 
   const authorNames = article.authors
     .map(a => `${a.givenName || ''} ${a.familyName || ''}`.trim())
+    .filter(Boolean)
     .join(", ")
 
   return (
