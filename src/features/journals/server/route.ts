@@ -37,6 +37,23 @@ const DETAIL_JOURNAL_SELECT = {
   author_guidelines: true,
 } as const
 
+// ─── GET /journals/debug-covers (TEMPORARY FOR OJS SCHEMA) ──────────
+app.get("/debug-covers", async (c) => {
+  try {
+    const { ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
+    
+    const issueSettings = await ojsQuery("SELECT DISTINCT setting_name FROM issue_settings WHERE setting_name LIKE '%cover%'")
+    const isCovers = await ojsQuery("SELECT * FROM issue_settings WHERE setting_name = 'coverImage' LIMIT 5")
+    
+    const pubSettings = await ojsQuery("SELECT DISTINCT setting_name FROM publication_settings WHERE setting_name LIKE '%cover%'")
+    const pubCovers = await ojsQuery("SELECT * FROM publication_settings WHERE setting_name = 'coverImage' LIMIT 5")
+    
+    return c.json({ issueSettings, isCovers, pubSettings, pubCovers })
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500)
+  }
+})
+
 // ─── GET /journals — Public listing (Prisma only) ───────────────────
 
 app.get("/", async (c) => {
