@@ -23,6 +23,7 @@ export interface CurrentIssueArticle {
   datePublished: string | null
   sectionTitle: string | null
   sectionId: number | null
+  articleCoverUrl: string | null
 }
 
 export interface CurrentIssue {
@@ -39,4 +40,5 @@ export interface CurrentIssue {
   showTitle: boolean
   urlPath: string | null
   articles: CurrentIssueArticle[]
+  issueCoverUrl: string | null
 }

@@ -22,7 +22,9 @@
  * - section_settings: EAV (title per locale)
  */
 
+import path from "node:path"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import type { CurrentIssue, CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/journals/types/current-issue-types"
 
 // ─── Raw Row Types (from OJS MySQL) ─────────────────────────────────
@@ -41,6 +43,7 @@ interface IssueRow {
   url_path: string | null
   title: string | null
   description: string | null
+  cover_image_raw: string | null
 }
 
 interface ArticleRow {
@@ -53,6 +56,63 @@ interface ArticleRow {
   section_id: number | null
   section_seq: number | null
   section_title: string | null
+  cover_image_raw: string | null
+}
+
+// ─── Cover Image Parser ─────────────────────────────────────────────
+
+/**
+ * Extracts the filename from a raw OJS coverImage setting value.
+ * OJS can store covers as plain strings, JSON, or PHP serialized arrays.
+ */
+function parseOjsCoverFilename(raw: string | null): string | null {
+  if (!raw) return null
+
+  // 1. JSON Format (Newer OJS versions) -> {"en_US":{"uploadName":"cover.png"}} or similar
+  if (raw.startsWith("{") || raw.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(raw)
+      // Attempt to extract 'uploadName' recursively or linearly
+      const jsonString = JSON.stringify(parsed)
+      const match = jsonString.match(/"uploadName"\s*:\s*"([^"]+)"/)
+      if (match && match[1]) return match[1]
+      
+      // Secondary simplistic scan if uploadName exist but matched weirdly
+      if (parsed?.uploadName) return parsed.uploadName
+      
+      for (const key in parsed) {
+        if (parsed[key]?.uploadName) return parsed[key].uploadName
+      }
+    } catch {
+      // Move to next check if parse fails
+    }
+  }
+
+  // 2. PHP Serialized Array (Older OJS versions) -> a:2:{s:10:"uploadName";s:12:"filename.png"...}
+  if (raw.includes('uploadName";s:')) {
+    const match = raw.match(/uploadName";s:\d+:"([^"]+)"/)
+    if (match && match[1]) return match[1]
+  }
+
+  // 3. Plain String (Direct filename starting with convention)
+  if (raw.match(/^(cover_issue_|article_|cover_)/)) {
+    return raw
+  }
+
+  // Fallback: assume the raw string is the filename if it ends in standard extensions
+  if (raw.match(/\.(jpg|jpeg|png|webp|gif)$/i)) {
+    return raw.trim()
+  }
+
+  return null
+}
+
+function buildCoverUrl(journalId: number, filename: string | null): string | null {
+  if (!filename) return null
+  const baseUrl = getOjsBaseUrl()
+  // Sanitize filename to prevent path traversal and ensure valid URL
+  const sanitizedFilename = encodeURIComponent(path.basename(filename))
+  return `${baseUrl}/public/journals/${journalId}/${sanitizedFilename}`
 }
 
 interface AuthorRow {
@@ -164,7 +224,8 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
       i.show_title,
       i.url_path,
       is_title.setting_value AS title,
-      is_desc.setting_value AS description
+      is_desc.setting_value AS description,
+      is_cover.setting_value AS cover_image_raw
     FROM issues i
     LEFT JOIN issue_settings is_title
       ON is_title.issue_id = i.issue_id
@@ -174,9 +235,13 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
       ON is_desc.issue_id = i.issue_id
       AND is_desc.setting_name = 'description'
       AND is_desc.locale = ?
+    LEFT JOIN issue_settings is_cover
+      ON is_cover.issue_id = i.issue_id
+      AND is_cover.setting_name = 'coverImage'
+      AND is_cover.locale = ?
     WHERE i.issue_id = ?
     LIMIT 1`,
-    [primaryLocale, primaryLocale, resolvedIssueId]
+    [primaryLocale, primaryLocale, primaryLocale, resolvedIssueId]
   )
 
   console.log(`[CurrentIssue] Issue metadata: ${issueRows.length} rows`)
@@ -201,7 +266,8 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
       ps_abstract.setting_value AS abstract,
       sec.section_id,
       sec.seq AS section_seq,
-      sec_title.setting_value AS section_title
+      sec_title.setting_value AS section_title,
+      ps_cover.setting_value AS cover_image_raw
     FROM publications p
     INNER JOIN submissions s
       ON s.submission_id = p.submission_id
@@ -213,6 +279,10 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
       ON ps_abstract.publication_id = p.publication_id
       AND ps_abstract.setting_name = 'abstract'
       AND ps_abstract.locale = ?
+    LEFT JOIN publication_settings ps_cover
+      ON ps_cover.publication_id = p.publication_id
+      AND ps_cover.setting_name = 'coverImage'
+      AND ps_cover.locale = ?
     LEFT JOIN sections sec
       ON sec.section_id = p.section_id
     LEFT JOIN section_settings sec_title
@@ -223,14 +293,14 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
       AND p.status = 3
       AND s.status = 3
     ORDER BY sec.seq ASC, p.seq ASC`,
-    [primaryLocale, primaryLocale, primaryLocale, resolvedIssueId]
+    [primaryLocale, primaryLocale, primaryLocale, primaryLocale, resolvedIssueId]
   )
 
   console.log(`[CurrentIssue] Articles: ${articleRows.length} rows for issue_id=${resolvedIssueId}`)
 
   if (articleRows.length === 0) {
     // Issue exists but has no articles — return issue metadata with empty array
-    return mapIssueRow(issue, [])
+    return mapIssueRow(journalId, issue, [])
   }
 
   // ── Step 4: Batch-fetch authors for all publications ──────────
@@ -285,14 +355,15 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
     datePublished: row.date_published,
     sectionTitle: row.section_title,
     sectionId: row.section_id,
+    articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(row.cover_image_raw)),
   }))
 
-  return mapIssueRow(issue, articles)
+  return mapIssueRow(journalId, issue, articles)
 }
 
 // ─── Mappers ────────────────────────────────────────────────────────
 
-function mapIssueRow(row: IssueRow, articles: CurrentIssueArticle[]): CurrentIssue {
+function mapIssueRow(journalId: number, row: IssueRow, articles: CurrentIssueArticle[]): CurrentIssue {
   return {
     issueId: row.issue_id,
     title: row.title,
@@ -307,5 +378,6 @@ function mapIssueRow(row: IssueRow, articles: CurrentIssueArticle[]): CurrentIss
     showTitle: row.show_title === 1,
     urlPath: row.url_path,
     articles,
+    issueCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(row.cover_image_raw)),
   }
 }
