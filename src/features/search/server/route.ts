@@ -81,6 +81,13 @@ function scoreResult(result: SearchableItem, words: string[]): number {
     // Category / Tag checks
     if (categoryStr.includes(lowerW)) score += 10
   }
+  
+  // ✅ ADDITIONAL BOOST:
+  // Journal results must receive a priority boost to ensure visibility
+  if (result.type === "journal") {
+    score += 40
+  }
+  
   return score
 }
 
@@ -141,6 +148,45 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
                 field: j.field,
               }))
             )
+        )
+      )
+
+      // Indirectly extract Journals from PublishedArticles (CASE 2: Prisma Indirect Source)
+      promises.push(
+        safePromise(
+          prisma.publishedArticle
+            .findMany({
+              where: {
+                journal: {
+                  AND: words.map((w) => ({
+                    OR: [
+                      { title: { contains: w, mode: "insensitive" } },
+                      { description: { contains: w, mode: "insensitive" } },
+                      { aims_and_scope: { contains: w, mode: "insensitive" } },
+                    ],
+                  })),
+                },
+              },
+              include: { journal: { select: { id: true, title: true, description: true, aims_and_scope: true, field: true } } },
+              take: limit,
+            })
+            .then((articles) => {
+              const uJournals = new Map()
+              articles.forEach((a) => {
+                if (a.journal && !uJournals.has(a.journal.id.toString())) {
+                  uJournals.set(a.journal.id.toString(), a.journal)
+                }
+              })
+              return Array.from(uJournals.values()).map((j: any) => ({
+                id: `journal-${j.id.toString()}`,
+                type: "journal" as const,
+                title: j.title,
+                description: j.description?.slice(0, 150) || "",
+                content: (j.aims_and_scope || j.description || "").slice(0, 500),
+                url: `/journals/${j.id}`,
+                field: j.field,
+              }))
+            })
         )
       )
     }
@@ -316,7 +362,17 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
     }
 
     const resultsArray = await Promise.all(promises)
-    let results = resultsArray.flat()
+    let rawResults = resultsArray.flat()
+
+    // ─── Deduplication ─────────────────────────────────────────────────────────────
+    const uniqueMap = new Map<string, SearchableItem>()
+    rawResults.forEach((r) => {
+      // Keep the element. In case of updates we just prefer the first encountered.
+      if (!uniqueMap.has(r.id)) {
+        uniqueMap.set(r.id, r)
+      }
+    })
+    let results = Array.from(uniqueMap.values())
 
     // ─── Ranking and Normalization Engine ─────────────────────────────────────────
     results = results.sort((a, b) => scoreResult(b, words) - scoreResult(a, words))
