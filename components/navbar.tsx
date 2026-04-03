@@ -58,7 +58,7 @@ export function Navbar() {
             <span>Search…</span>
             <span className="ml-1 hidden items-center gap-0.5 xl:inline-flex">
               <kbd className="inline-flex h-5 items-center rounded border border-border bg-background px-1 font-mono text-[10px] text-muted-foreground">
-                ⌘
+                Ctrl
               </kbd>
               <kbd className="inline-flex h-5 items-center rounded border border-border bg-background px-1 font-mono text-[10px] text-muted-foreground">
                 K

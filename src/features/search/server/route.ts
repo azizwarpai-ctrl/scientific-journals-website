@@ -126,11 +126,11 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
                 status: "active",
                 AND: words.map((w) => ({
                   OR: [
-                    { title: { contains: w, mode: "insensitive" } },
-                    { description: { contains: w, mode: "insensitive" } },
-                    { aims_and_scope: { contains: w, mode: "insensitive" } },
-                    { field: { contains: w, mode: "insensitive" } },
-                    { publisher: { contains: w, mode: "insensitive" } },
+                    { title: { contains: w } },
+                    { description: { contains: w } },
+                    { aims_and_scope: { contains: w } },
+                    { field: { contains: w } },
+                    { publisher: { contains: w } },
                   ],
                 })),
               },
@@ -160,9 +160,9 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
                 journal: {
                   AND: words.map((w) => ({
                     OR: [
-                      { title: { contains: w, mode: "insensitive" } },
-                      { description: { contains: w, mode: "insensitive" } },
-                      { aims_and_scope: { contains: w, mode: "insensitive" } },
+                      { title: { contains: w } },
+                      { description: { contains: w } },
+                      { aims_and_scope: { contains: w } },
                     ],
                   })),
                 },
@@ -200,9 +200,9 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
               where: {
                 AND: words.map((w) => ({
                   OR: [
-                    { submission: { manuscript_title: { contains: w, mode: "insensitive" } } },
-                    { submission: { abstract: { contains: w, mode: "insensitive" } } },
-                    { submission: { author_name: { contains: w, mode: "insensitive" } } },
+                    { submission: { manuscript_title: { contains: w } } },
+                    { submission: { abstract: { contains: w } } },
+                    { submission: { author_name: { contains: w } } },
                   ]
                 }))
               },
@@ -233,10 +233,10 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
                where: {
                  AND: words.map((w) => ({
                    OR: [
-                     { full_name: { contains: w, mode: "insensitive" } },
-                     { affiliation: { contains: w, mode: "insensitive" } },
-                     { biography: { contains: w, mode: "insensitive" } },
-                     { department: { contains: w, mode: "insensitive" } },
+                     { full_name: { contains: w } },
+                     { affiliation: { contains: w } },
+                     { biography: { contains: w } },
+                     { department: { contains: w } },
                    ]
                  }))
                },
@@ -266,7 +266,7 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
              .findMany({
                where: {
                  AND: words.map((w) => ({
-                   field: { contains: w, mode: "insensitive" }
+                   field: { contains: w }
                  }))
                },
                select: { field: true },
@@ -297,7 +297,7 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
               where: {
                 is_published: true,
                 AND: words.map((w) => ({
-                  OR: [{ title: { contains: w, mode: "insensitive" } }, { description: { contains: w, mode: "insensitive" } }],
+                  OR: [{ title: { contains: w } }, { description: { contains: w } }],
                 })),
               },
               select: { id: true, title: true, description: true, icon: true },
@@ -327,7 +327,7 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
               where: {
                 is_published: true,
                 AND: words.map((w) => ({
-                  OR: [{ question: { contains: w, mode: "insensitive" } }, { answer: { contains: w, mode: "insensitive" } }],
+                  OR: [{ question: { contains: w } }, { answer: { contains: w } }],
                 })),
               },
               select: { id: true, question: true, answer: true, category: true },
