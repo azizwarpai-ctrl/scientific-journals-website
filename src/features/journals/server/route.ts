@@ -54,7 +54,7 @@ app.get("/debug-covers", requireAdmin, async (c) => {
       data: { issueSettings, isCovers, pubSettings, pubCovers } 
     })
   } catch (err: any) {
-    return c.json({ success: false, message: err.message }, 500)
+    return c.json({ success: false, error: err.message }, 500)
   }
 })
 

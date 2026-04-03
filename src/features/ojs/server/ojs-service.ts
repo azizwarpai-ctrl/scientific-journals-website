@@ -1,4 +1,4 @@
-import { getOjsBaseUrl } from "../utils/ojs-config"
+import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import { ojsQuery } from "./ojs-client"
 import { mapOjsJournalRow, type OjsJournalRow } from "./ojs-mappers"
 import type { OjsJournal } from "../schemas/ojs-schema"

@@ -205,7 +205,7 @@ function ArticleItem({ article, ojsDomain, ojsPath }: { article: CurrentIssueArt
     .join(", ")
 
   return (
-    <div className="group flex flex-col h-full rounded-2xl border border-border/40 bg-card overflow-hidden transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:-translate-y-1">
+    <div className="group relative flex flex-col h-full rounded-2xl border border-border/40 bg-card overflow-hidden transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:-translate-y-1">
       {/* Visual Cover Area */}
       <div className="relative aspect-[16/9] w-full bg-muted/30 border-b border-border/30 overflow-hidden flex-shrink-0">
         {article.articleCoverUrl && !hasCoverError ? (
