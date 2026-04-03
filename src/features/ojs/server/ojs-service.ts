@@ -1,13 +1,10 @@
+import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import { ojsQuery } from "./ojs-client"
 import { mapOjsJournalRow, type OjsJournalRow } from "./ojs-mappers"
 import type { OjsJournal } from "../schemas/ojs-schema"
 
 export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJournal[]> {
-    const baseUrl = process.env.OJS_BASE_URL
-
-    if (!baseUrl) {
-        throw new Error("OJS_BASE_URL environment variable is missing but required for OJS integration.")
-    }
+    const baseUrl = getOjsBaseUrl()
 
     const enabledFilter = includeDisabled ? "" : "WHERE j.enabled = 1"
     const rows = await ojsQuery<OjsJournalRow>(`
