@@ -165,8 +165,8 @@ export function CurrentIssueSection({ journalId, ojsDomain, ojsPath }: CurrentIs
               <div className="h-px flex-1 bg-gradient-to-r from-border/80 to-transparent" />
             </div>
             
-            {/* Grid Layout applies here */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {/* List Layout */}
+            <div className="flex flex-col gap-6">
               {articles.map((article) => (
                 <ArticleItem 
                   key={article.publicationId} 
@@ -205,15 +205,15 @@ function ArticleItem({ article, ojsDomain, ojsPath }: { article: CurrentIssueArt
     .join(", ")
 
   return (
-    <div className="group relative flex flex-col h-full rounded-2xl border border-border/40 bg-card overflow-hidden transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:-translate-y-1">
+    <div className="group relative flex flex-col sm:flex-row rounded-2xl border border-border/40 bg-card overflow-hidden transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:-translate-y-1">
       {/* Visual Cover Area */}
-      <div className="relative aspect-[16/9] w-full bg-muted/30 border-b border-border/30 overflow-hidden flex-shrink-0">
+      <div className="relative sm:w-48 md:w-56 flex-shrink-0 aspect-[3/4] sm:aspect-auto bg-muted/30 border-b sm:border-b-0 sm:border-r border-border/30 overflow-hidden min-h-[240px]">
         {article.articleCoverUrl && !hasCoverError ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img 
             src={article.articleCoverUrl} 
             alt={`Cover for ${article.title || 'article'}`}
-            className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105"
+            className="object-cover w-full h-full absolute inset-0 transition-transform duration-700 group-hover:scale-105"
             onError={() => setHasCoverError(true)}
           />
         ) : (
