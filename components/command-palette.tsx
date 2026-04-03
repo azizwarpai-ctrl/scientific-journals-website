@@ -49,7 +49,7 @@ export function CommandPalette() {
   // ── Global keyboard shortcut: Ctrl+K / Cmd+K and Escape ──────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      if (e.ctrlKey && e.key === "k") {
         e.preventDefault()
         if (isOpen) {
           close()

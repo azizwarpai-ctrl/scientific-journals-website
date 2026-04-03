@@ -32,9 +32,9 @@ export function SearchBar({
       <Search className="h-5 w-5 shrink-0 opacity-50" />
       <span className="flex-1 truncate">{placeholder}</span>
 
-      {/* ⌘K badge */}
+      {/* Ctrl K badge */}
       <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-        <span className="text-xs">⌘</span>K
+        <span className="text-xs">Ctrl</span>K
       </kbd>
     </button>
   )
