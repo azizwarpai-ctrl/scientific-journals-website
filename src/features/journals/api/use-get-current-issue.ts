@@ -2,8 +2,13 @@ import { useQuery } from "@tanstack/react-query"
 import { client } from "@/src/lib/rpc"
 import type { CurrentIssue } from "../types/current-issue-types"
 
+export interface CurrentIssueResponse {
+    data: CurrentIssue | null;
+    message?: string;
+}
+
 export const useGetCurrentIssue = (id: string) => {
-    const query = useQuery<CurrentIssue | null, Error>({
+    const query = useQuery<CurrentIssueResponse, Error>({
         queryKey: ["journal-current-issue", id],
         queryFn: async () => {
             const response = await client.journals[":id"]["current-issue"].$get({
@@ -22,7 +27,10 @@ export const useGetCurrentIssue = (id: string) => {
             }
 
             const payload = await response.json() as { success: boolean, data: CurrentIssue | null, message?: string }
-            return payload.data
+            return {
+                data: payload.data,
+                message: payload.message,
+            }
         },
         enabled: !!id,
         staleTime: 5 * 60 * 1000,

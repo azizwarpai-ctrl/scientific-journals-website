@@ -71,8 +71,13 @@ interface AuthorRow {
  * @returns CurrentIssue with articles and authors, or null if no published issue exists
  */
 export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIssue | null> {
+  // Strict numeric validation to prevent partial parses like "12abc"
+  if (!/^\d+$/.test(ojsJournalId)) {
+    console.error("Invalid OJS journal ID (not numeric):", ojsJournalId)
+    return null
+  }
+
   const journalId = parseInt(ojsJournalId, 10)
-  if (isNaN(journalId)) return null
 
   // ── Step 1: Resolve current issue ──────────────────────────────
 
@@ -90,10 +95,14 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
       i.show_title,
       i.url_path,
       is_title.setting_value AS title,
-      is_desc.setting_value AS description
+      is_title.setting_value AS description
     FROM journals j
     INNER JOIN issues i ON i.issue_id = COALESCE(
-      j.current_issue_id,
+      (SELECT i1.issue_id 
+       FROM issues i1 
+       WHERE i1.issue_id = j.current_issue_id 
+         AND i1.journal_id = j.journal_id 
+         AND i1.published = 1),
       (SELECT i2.issue_id
        FROM issues i2
        WHERE i2.journal_id = j.journal_id

@@ -5,8 +5,8 @@ export { useCreateJournal } from "./api/use-create-journal"
 export { useGetJournals } from "./api/use-get-journals"
 export { useGetJournal } from "./api/use-get-journal"
 export { useGetJournalStats } from "@/src/features/journals/api/use-get-journal-stats"
-export { useGetCurrentIssue } from "./api/use-get-current-issue"
-export type { CurrentIssue, CurrentIssueArticle, CurrentIssueAuthor } from "./types/current-issue-types"
+export { useGetCurrentIssue } from "@/src/features/journals/api/use-get-current-issue"
+export type { CurrentIssue, CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/journals/types/current-issue-types"
 export { useJournalId } from "./hooks/use-journal-id"
 
 // Journal Registration Multi-Step Wizard

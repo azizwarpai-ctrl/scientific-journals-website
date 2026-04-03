@@ -27,13 +27,43 @@ interface CurrentIssueSectionProps {
 }
 
 export function CurrentIssueSection({ journalId, ojsDomain, ojsPath }: CurrentIssueSectionProps) {
-  const { data: issue, isLoading, error, refetch } = useGetCurrentIssue(journalId)
+  const { data: response, isLoading, error, refetch } = useGetCurrentIssue(journalId)
+  const issue = response?.data
 
   if (isLoading) return <CurrentIssueSkeleton />
   if (error) return <CurrentIssueError retry={() => refetch()} />
   if (!issue || !issue.articles || issue.articles.length === 0) {
     const ojsUrl = ojsPath ? `${ojsDomain}/index.php/${ojsPath}/issue/current` : null
-    return <CurrentIssueNotFound ojsUrl={ojsUrl} />
+    return <CurrentIssueNotFound ojsUrl={ojsUrl} message={response?.message} />
+  }
+
+  // Dynamic title helpers to respect visibility flags and avoid nulls
+  const getIssueTitle = (issue: CurrentIssue) => {
+    if (issue.showTitle && issue.title) return issue.title
+    
+    const parts = []
+    if (issue.showVolume && issue.volume) parts.push(`Vol. ${issue.volume}`)
+    if (issue.showNumber && issue.number) parts.push(`No. ${issue.number}`)
+    const titleBase = parts.join(", ")
+    
+    return issue.showYear && issue.year 
+      ? `${titleBase}${titleBase ? ' ' : ''}(${issue.year})`
+      : titleBase || "Current Issue"
+  }
+
+  const getIssueSubtitle = (issue: CurrentIssue) => {
+    // Only show subtitle if title is currently showing the editor-set title
+    if (!issue.showTitle || !issue.title) return null
+    if (!issue.showVolume && !issue.showNumber && !issue.showYear) return null
+
+    const parts = []
+    if (issue.showVolume && issue.volume) parts.push(`Vol. ${issue.volume}`)
+    if (issue.showNumber && issue.number) parts.push(`No. ${issue.number}`)
+    const subtitleBase = parts.join(", ")
+
+    return issue.showYear && issue.year
+      ? `${subtitleBase}${subtitleBase ? ' ' : ''}(${issue.year})`
+      : subtitleBase
   }
 
   // Group articles by section
@@ -57,14 +87,12 @@ export function CurrentIssueSection({ journalId, ojsDomain, ojsPath }: CurrentIs
               <span className="text-sm font-bold uppercase tracking-wider">Current Issue</span>
             </div>
             <h2 className="text-2xl font-bold tracking-tight">
-              {issue.showTitle && issue.title ? issue.title : `Vol. ${issue.volume}, No. ${issue.number} (${issue.year})`}
+              {getIssueTitle(issue)}
             </h2>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-              {(issue.showVolume || issue.showNumber || issue.showYear) && issue.showTitle && (
+              {getIssueSubtitle(issue) && (
                 <span className="font-medium">
-                  {issue.showVolume && `Vol. ${issue.volume}`}
-                  {issue.showNumber && `${issue.showVolume ? ', ' : ''}No. ${issue.number}`}
-                  {issue.showYear && ` (${issue.year})`}
+                  {getIssueSubtitle(issue)}
                 </span>
               )}
               {issue.datePublished && (
@@ -185,7 +213,10 @@ function ArticleItem({ article, ojsDomain, ojsPath }: { article: CurrentIssueArt
         {article.abstract && (
           <div className="pt-2">
             <button
+              type="button"
               onClick={() => setIsExpanded(!isExpanded)}
+              aria-expanded={isExpanded}
+              aria-controls={`abstract-${article.publicationId}`}
               className="flex items-center gap-1.5 text-xs font-bold text-primary hover:text-primary/80 transition-colors bg-primary/5 px-2.5 py-1 rounded-md"
             >
               {isExpanded ? (
@@ -202,7 +233,12 @@ function ArticleItem({ article, ojsDomain, ojsPath }: { article: CurrentIssueArt
             </button>
 
             {isExpanded && (
-              <div className="mt-4 animate-in slide-in-from-top-2 duration-300">
+              <div 
+                id={`abstract-${article.publicationId}`}
+                role="region"
+                aria-label={`Abstract for ${article.title}`}
+                className="mt-4 animate-in slide-in-from-top-2 duration-300"
+              >
                 <div className="rounded-lg bg-muted/30 p-4 border border-border/40">
                   <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
                     <BookOpen className="h-3.5 w-3.5" />
