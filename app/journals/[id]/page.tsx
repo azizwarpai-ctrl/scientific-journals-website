@@ -309,7 +309,7 @@ export default function JournalDetailPage() {
 
                   <TabsContent value="current" className="mt-8">
                     <CurrentIssueSection 
-                      journalId={journal.id.toString()} 
+                      journalId={id} 
                       ojsDomain={ojsDomain} 
                       ojsPath={targetSlug}
                     />
