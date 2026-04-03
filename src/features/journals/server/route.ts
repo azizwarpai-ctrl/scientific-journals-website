@@ -199,10 +199,12 @@ app.get("/:id/current-issue", zValidator("param", journalSlugParamSchema), async
 
     try {
       const { fetchCurrentIssue } = await import("./current-issue-service")
+      console.log(`[CurrentIssue API] Calling fetchCurrentIssue with ojs_id="${journal.ojs_id}" (resolved from param="${id}", prisma_id=${journal.id})`)
       const currentIssue = await fetchCurrentIssue(journal.ojs_id)
+      console.log(`[CurrentIssue API] Result: ${currentIssue ? `issue_id=${currentIssue.issueId}, articles=${currentIssue.articles.length}` : "null"}`)
       return c.json({ success: true, data: currentIssue }, 200)
     } catch (queryError) {
-      console.error("OJS Current Issue Query Error:", queryError)
+      console.error("[CurrentIssue API] OJS Query Error:", queryError)
       return c.json({ success: false, error: "Failed to fetch current issue from OJS" }, 502)
     }
   } catch (error) {
