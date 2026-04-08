@@ -22,9 +22,8 @@
  * - section_settings: EAV (title per locale)
  */
 
-import path from "node:path"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
-import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
+import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
 import type { CurrentIssue, CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/journals/types/current-issue-types"
 
 // ─── Raw Row Types (from OJS MySQL) ─────────────────────────────────
@@ -59,61 +58,8 @@ interface ArticleRow {
   cover_image_raw: string | null
 }
 
-// ─── Cover Image Parser ─────────────────────────────────────────────
 
-/**
- * Extracts the filename from a raw OJS coverImage setting value.
- * OJS can store covers as plain strings, JSON, or PHP serialized arrays.
- */
-function parseOjsCoverFilename(raw: string | null): string | null {
-  if (!raw) return null
 
-  // 1. JSON Format (Newer OJS versions) -> {"en_US":{"uploadName":"cover.png"}} or similar
-  if (raw.startsWith("{") || raw.startsWith("[")) {
-    try {
-      const parsed = JSON.parse(raw)
-      // Attempt to extract 'uploadName' recursively or linearly
-      const jsonString = JSON.stringify(parsed)
-      const match = jsonString.match(/"uploadName"\s*:\s*"([^"]+)"/)
-      if (match && match[1]) return match[1]
-      
-      // Secondary simplistic scan if uploadName exist but matched weirdly
-      if (parsed?.uploadName) return parsed.uploadName
-      
-      for (const key in parsed) {
-        if (parsed[key]?.uploadName) return parsed[key].uploadName
-      }
-    } catch {
-      // Move to next check if parse fails
-    }
-  }
-
-  // 2. PHP Serialized Array (Older OJS versions) -> a:2:{s:10:"uploadName";s:12:"filename.png"...}
-  if (raw.includes('uploadName";s:')) {
-    const match = raw.match(/uploadName";s:\d+:"([^"]+)"/)
-    if (match && match[1]) return match[1]
-  }
-
-  // 3. Plain String (Direct filename starting with convention)
-  if (raw.match(/^(cover_issue_|article_|cover_)/)) {
-    return raw
-  }
-
-  // Fallback: assume the raw string is the filename if it ends in standard extensions
-  if (raw.match(/\.(jpg|jpeg|png|webp|gif)$/i)) {
-    return raw.trim()
-  }
-
-  return null
-}
-
-function buildCoverUrl(journalId: number, filename: string | null): string | null {
-  if (!filename) return null
-  const baseUrl = getOjsBaseUrl()
-  // Sanitize filename to prevent path traversal and ensure valid URL
-  const sanitizedFilename = encodeURIComponent(path.basename(filename))
-  return `${baseUrl}/public/journals/${journalId}/${sanitizedFilename}`
-}
 
 interface AuthorRow {
   author_id: number
