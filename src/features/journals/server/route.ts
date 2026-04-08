@@ -1,5 +1,6 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
+import { z } from "zod"
 import { requireAdmin } from "@/src/lib/auth-middleware"
 import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
 import { serializeRecord, serializeMany } from "@/src/lib/serialize"
@@ -274,18 +275,15 @@ app.get("/:id/archive", zValidator("param", journalSlugParamSchema), async (c) =
   }
 })
 
-// ─── GET /journals/:id/issues/:issueId — Single Issue Detail from OJS ─
+const journalIssueParamSchema = z.object({
+  id: z.string().min(1),
+  issueId: z.string().regex(/^\d+$/, "Issue ID must be numeric")
+})
 
-app.get("/:id/issues/:issueId", zValidator("param", journalSlugParamSchema), async (c) => {
+app.get("/:id/issues/:issueId", zValidator("param", journalIssueParamSchema), async (c) => {
   try {
-    const { id } = c.req.valid("param")
-    const issueIdParam = c.req.param("issueId")
-
-    if (!issueIdParam || !/^\d+$/.test(issueIdParam)) {
-      return c.json({ success: false, error: "Invalid issue ID" }, 400)
-    }
-
-    const issueId = parseInt(issueIdParam, 10)
+    const { id, issueId: rawIssueId } = c.req.valid("param")
+    const issueId = parseInt(rawIssueId, 10)
 
     let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
     if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })

@@ -17,6 +17,7 @@ import { ArchiveSkeleton } from "@/components/skeletons/archive-skeleton"
 import { ArchiveError } from "@/components/errors/archive-error"
 import { ArchiveEmpty } from "@/components/states/archive-empty"
 import { ArchiveIssueDetail } from "./archive-issue-detail"
+import { getIssueTitle, getIssueSubtitle } from "./issue-helpers"
 
 interface ArchiveSectionProps {
   journalId: string
@@ -92,33 +93,7 @@ function ArchiveIssueCard({
 }) {
   const [hasCoverError, setHasCoverError] = useState(false)
 
-  const getIssueLabel = (issue: ArchiveIssue): string => {
-    if (issue.showTitle && issue.title) return issue.title
 
-    const parts: string[] = []
-    if (issue.showVolume && issue.volume) parts.push(`Vol. ${issue.volume}`)
-    if (issue.showNumber && issue.number) parts.push(`No. ${issue.number}`)
-    const base = parts.join(", ")
-
-    return issue.showYear && issue.year
-      ? `${base}${base ? " " : ""}(${issue.year})`
-      : base || "Untitled Issue"
-  }
-
-  const getIssueSubLabel = (issue: ArchiveIssue): string | null => {
-    if (!issue.showTitle || !issue.title) return null
-
-    const parts: string[] = []
-    if (issue.showVolume && issue.volume) parts.push(`Vol. ${issue.volume}`)
-    if (issue.showNumber && issue.number) parts.push(`No. ${issue.number}`)
-    const base = parts.join(", ")
-
-    if (!base && (!issue.showYear || !issue.year)) return null
-
-    return issue.showYear && issue.year
-      ? `${base}${base ? " " : ""}(${issue.year})`
-      : base
-  }
 
   return (
     <button
@@ -132,7 +107,7 @@ function ArchiveIssueCard({
         {issue.issueCoverUrl && !hasCoverError ? (
           <Image
             src={issue.issueCoverUrl}
-            alt={getIssueLabel(issue)}
+            alt={getIssueTitle(issue)}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -170,12 +145,12 @@ function ArchiveIssueCard({
       {/* Content */}
       <div className="p-5 flex-1 flex flex-col gap-2">
         <h3 className="font-bold text-base leading-tight line-clamp-2 group-hover:text-primary transition-colors">
-          {getIssueLabel(issue)}
+          {getIssueTitle(issue)}
         </h3>
 
-        {getIssueSubLabel(issue) && (
+        {getIssueSubtitle(issue) && (
           <p className="text-sm text-muted-foreground font-medium">
-            {getIssueSubLabel(issue)}
+            {getIssueSubtitle(issue)}
           </p>
         )}
 

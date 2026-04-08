@@ -16,6 +16,17 @@
 import path from "node:path"
 import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 
+function findUploadName(obj: any): string | null {
+  if (obj === null || typeof obj !== "object") return null
+  if (typeof obj.uploadName === "string" && obj.uploadName) return obj.uploadName
+
+  for (const key of Object.keys(obj)) {
+    const found = findUploadName(obj[key])
+    if (found) return found
+  }
+  return null
+}
+
 /**
  * Extracts the filename from a raw OJS coverImage setting value.
  * OJS can store covers as plain strings, JSON, or PHP serialized arrays.
@@ -27,14 +38,11 @@ export function parseOjsCoverFilename(raw: string | null): string | null {
   if (raw.startsWith("{") || raw.startsWith("[")) {
     try {
       const parsed = JSON.parse(raw)
-      // Attempt to extract 'uploadName' recursively or linearly
-      const jsonString = JSON.stringify(parsed)
-      const match = jsonString.match(/"uploadName"\s*:\s*"([^"]+)"/)
-      if (match && match[1]) return match[1]
-      
-      // Secondary simplistic scan if uploadName exist but matched weirdly
+      const found = findUploadName(parsed)
+      if (found) return found
+
+      // Secondary simplistic scan just in case
       if (parsed?.uploadName) return parsed.uploadName
-      
       for (const key in parsed) {
         if (parsed[key]?.uploadName) return parsed[key].uploadName
       }

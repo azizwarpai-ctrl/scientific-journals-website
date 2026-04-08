@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { CurrentIssueSkeleton } from "@/components/skeletons/current-issue-skeleton"
 import { CurrentIssueError } from "@/components/errors/current-issue-error"
 import { ArticleItem } from "./article-item"
+import { getIssueTitle, getIssueSubtitle } from "./issue-helpers"
 
 interface ArchiveIssueDetailProps {
   journalId: string
@@ -75,34 +76,6 @@ export function ArchiveIssueDetail({
         </div>
       </div>
     )
-  }
-
-  // ── Title Helpers ─────────────────────────────────────────────
-  const getIssueTitle = (iss: CurrentIssue) => {
-    if (iss.showTitle && iss.title) return iss.title
-
-    const parts: string[] = []
-    if (iss.showVolume && iss.volume) parts.push(`Vol. ${iss.volume}`)
-    if (iss.showNumber && iss.number) parts.push(`No. ${iss.number}`)
-    const titleBase = parts.join(", ")
-
-    return iss.showYear && iss.year
-      ? `${titleBase}${titleBase ? " " : ""}(${iss.year})`
-      : titleBase || "Issue Detail"
-  }
-
-  const getIssueSubtitle = (iss: CurrentIssue) => {
-    if (!iss.showTitle || !iss.title) return null
-    if (!iss.showVolume && !iss.showNumber && !iss.showYear) return null
-
-    const parts: string[] = []
-    if (iss.showVolume && iss.volume) parts.push(`Vol. ${iss.volume}`)
-    if (iss.showNumber && iss.number) parts.push(`No. ${iss.number}`)
-    const subtitleBase = parts.join(", ")
-
-    return iss.showYear && iss.year
-      ? `${subtitleBase}${subtitleBase ? " " : ""}(${iss.year})`
-      : subtitleBase
   }
 
   // ── Group articles by section ─────────────────────────────────
@@ -191,7 +164,10 @@ export function ArchiveIssueDetail({
                 <div
                   className="text-base leading-relaxed text-muted-foreground/90 prose prose-base max-w-none dark:prose-invert"
                   dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(issue.description),
+                    __html: DOMPurify.sanitize(issue.description, {
+                      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li'],
+                      ALLOWED_ATTR: [],
+                    }),
                   }}
                 />
               )}

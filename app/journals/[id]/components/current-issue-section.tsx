@@ -17,6 +17,7 @@ import { CurrentIssueSkeleton } from "@/components/skeletons/current-issue-skele
 import { CurrentIssueError } from "@/components/errors/current-issue-error"
 import { CurrentIssueNotFound } from "@/components/states/current-issue-not-found"
 import { ArticleItem } from "./article-item"
+import { getIssueTitle, getIssueSubtitle } from "./issue-helpers"
 
 interface CurrentIssueSectionProps {
   journalId: string
@@ -36,33 +37,6 @@ export function CurrentIssueSection({ journalId, ojsDomain, ojsPath }: CurrentIs
     return <CurrentIssueNotFound ojsUrl={ojsUrl} message={response?.message} />
   }
 
-  // Dynamic title helpers to respect visibility flags and avoid nulls
-  const getIssueTitle = (issue: CurrentIssue) => {
-    if (issue.showTitle && issue.title) return issue.title
-    
-    const parts = []
-    if (issue.showVolume && issue.volume) parts.push(`Vol. ${issue.volume}`)
-    if (issue.showNumber && issue.number) parts.push(`No. ${issue.number}`)
-    const titleBase = parts.join(", ")
-    
-    return issue.showYear && issue.year 
-      ? `${titleBase}${titleBase ? ' ' : ''}(${issue.year})`
-      : titleBase || "Current Issue"
-  }
-
-  const getIssueSubtitle = (issue: CurrentIssue) => {
-    if (!issue.showTitle || !issue.title) return null
-    if (!issue.showVolume && !issue.showNumber && !issue.showYear) return null
-
-    const parts = []
-    if (issue.showVolume && issue.volume) parts.push(`Vol. ${issue.volume}`)
-    if (issue.showNumber && issue.number) parts.push(`No. ${issue.number}`)
-    const subtitleBase = parts.join(", ")
-
-    return issue.showYear && issue.year
-      ? `${subtitleBase}${subtitleBase ? ' ' : ''}(${issue.year})`
-      : subtitleBase
-  }
 
   // Group articles by section
   const groupedArticles = issue.articles.reduce((groups: Record<string, CurrentIssueArticle[]>, article) => {
@@ -133,7 +107,12 @@ export function CurrentIssueSection({ journalId, ojsDomain, ojsPath }: CurrentIs
               {issue.description && (
                 <div 
                   className="text-base leading-relaxed text-muted-foreground/90 prose prose-base max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(issue.description) }}
+                  dangerouslySetInnerHTML={{ 
+                    __html: DOMPurify.sanitize(issue.description, {
+                      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li'],
+                      ALLOWED_ATTR: [],
+                    }) 
+                  }}
                 />
               )}
             </div>
