@@ -38,7 +38,8 @@ import { JournalNotFound } from "@/components/states/not-found-states"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JournalDetailSkeleton } from "@/components/skeletons/journal-detail-skeleton"
 import { CurrentIssueSection } from "./components/current-issue-section"
-import { Newspaper as NewspaperIcon } from "lucide-react"
+import { ArchiveSection } from "./components/archive-section"
+import { Newspaper as NewspaperIcon, Archive as ArchiveIcon } from "lucide-react"
 
 export default function JournalDetailPage() {
   const id = useJournalId()
@@ -305,10 +306,25 @@ export default function JournalDetailPage() {
                       <NewspaperIcon className="mr-2 h-4 w-4" />
                       Current Issue
                     </TabsTrigger>
+                    <TabsTrigger
+                      value="archive"
+                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                    >
+                      <ArchiveIcon className="mr-2 h-4 w-4" />
+                      Archive
+                    </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="current" className="mt-8">
                     <CurrentIssueSection 
+                      journalId={id} 
+                      ojsDomain={ojsDomain} 
+                      ojsPath={targetSlug}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="archive" className="mt-8">
+                    <ArchiveSection 
                       journalId={id} 
                       ojsDomain={ojsDomain} 
                       ojsPath={targetSlug}
@@ -520,6 +536,17 @@ export default function JournalDetailPage() {
                       <span className="flex items-center gap-2">
                         <NewspaperIcon className="h-4 w-4" />
                         Current Issue
+                      </span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between border-border/60 hover:bg-muted/50"
+                      onClick={() => setActiveTab("archive")}
+                    >
+                      <span className="flex items-center gap-2">
+                        <ArchiveIcon className="h-4 w-4" />
+                        Archive
                       </span>
                       <ChevronRight className="h-4 w-4" />
                     </Button>
