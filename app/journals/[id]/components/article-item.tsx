@@ -10,6 +10,7 @@ import {
   User,
   FileText
 } from "lucide-react"
+import { useParams } from "next/navigation"
 import DOMPurify from "dompurify"
 
 import type { CurrentIssueArticle } from "@/src/features/journals"
@@ -27,6 +28,9 @@ interface ArticleItemProps {
 export function ArticleItem({ article }: ArticleItemProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [hasCoverError, setHasCoverError] = useState(false)
+  const params = useParams()
+  const journalId = params?.id as string
+  const articleUrl = `/journals/${journalId}/articles/${article.publicationId}`
 
   const sanitizeAbstract = (html: string | null | undefined): string => {
     if (!html) return ""
@@ -73,9 +77,11 @@ export function ArticleItem({ article }: ArticleItemProps) {
       <div className="p-6 flex flex-col flex-1 gap-4">
         <div className="space-y-3 flex-1">
           {/* Title */}
-          <h4 className="text-lg font-bold leading-tight line-clamp-3 group-hover:text-primary transition-colors">
-            {article.title || "Untitled"}
-          </h4>
+          <Link href={articleUrl} className="focus:outline-none focus:ring-2 focus:ring-primary/20 rounded-sm">
+            <h4 className="text-lg font-bold leading-tight line-clamp-3 group-hover:text-primary transition-colors">
+              {article.title || "Untitled"}
+            </h4>
+          </Link>
 
           {/* Authors */}
           {authorNames && (
@@ -138,14 +144,21 @@ export function ArticleItem({ article }: ArticleItemProps) {
             <span />
           )}
 
-          {article.pdfUrl && (
-             <Button asChild variant="ghost" size="sm" className="h-8 gap-2 text-primary hover:bg-primary/10 rounded-full px-4 -mr-2">
-               <Link href={article.pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                 Download PDF
-                 <Download className="h-3.5 w-3.5 opacity-70" />
-               </Link>
-             </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="h-8 gap-2 rounded-full px-4">
+              <Link href={articleUrl}>
+                 View Article
+              </Link>
+            </Button>
+            {article.pdfUrl && (
+               <Button asChild variant="ghost" size="sm" className="h-8 gap-2 text-primary hover:bg-primary/10 rounded-full px-4 -mr-2">
+                 <a href={article.pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                   Download PDF
+                   <Download className="h-3.5 w-3.5 opacity-70" />
+                 </a>
+               </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
