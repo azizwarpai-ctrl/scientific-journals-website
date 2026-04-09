@@ -319,6 +319,53 @@ app.get("/:id/issues/:issueId", zValidator("param", journalIssueParamSchema), as
   }
 })
 
+const journalArticleParamSchema = z.object({
+  id: z.string().min(1),
+  publicationId: z.string().regex(/^\d+$/, "Publication ID must be numeric")
+})
+
+app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamSchema), async (c) => {
+  try {
+    const { id, publicationId: rawPubId } = c.req.valid("param")
+    const publicationId = parseInt(rawPubId, 10)
+
+    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
+    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
+    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+
+    if (!journal) {
+      return c.json({ success: false, error: "Journal not found" }, 404)
+    }
+
+    if (!journal.ojs_id) {
+      return c.json({ success: true, data: null, message: "No OJS data" }, 200)
+    }
+
+    const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
+
+    if (!isOjsConfigured()) {
+      return c.json({ success: true, data: null, message: "OJS not configured" }, 200)
+    }
+
+    try {
+      const { fetchArticleDetail } = await import("./article-detail-service")
+      console.log(`[ArticleDetail API] Calling fetchArticleDetail(ojs_id="${journal.ojs_id}", pubId=${publicationId})`)
+      const detail = await fetchArticleDetail(journal.ojs_id, publicationId)
+      
+      if (!detail) {
+        return c.json({ success: false, error: "Article not found" }, 404)
+      }
+      return c.json({ success: true, data: detail }, 200)
+    } catch (queryError) {
+      console.error("[ArticleDetail API] OJS Query Error:", queryError)
+      return c.json({ success: false, error: "Failed to fetch article detail from OJS" }, 502)
+    }
+  } catch (error) {
+    console.error("Error fetching article detail:", error)
+    return c.json({ success: false, error: "Failed to fetch article detail" }, 500)
+  }
+})
+
 // ─── POST /journals — Admin create (Prisma only) ────────────────────
 
 
@@ -423,6 +470,55 @@ app.delete("/:id", requireAdmin, zValidator("param", journalIdParamSchema), asyn
   } catch (error) {
     console.error("Error deleting journal:", error)
     return c.json({ success: false, error: "Failed to delete journal" }, 500)
+  }
+})
+
+/**
+ * Proxy for OJS PDFs to strip restrictive framing headers
+ */
+app.get("/proxy-pdf", async (c) => {
+  const urlBase64 = c.req.query("url")
+
+  if (!urlBase64) {
+    return c.text("Missing URL parameter", 400)
+  }
+
+  try {
+    const targetUrl = Buffer.from(urlBase64, 'base64').toString('utf-8')
+    
+    // Safety check: ensure we are only proxying PDFs
+    if (!targetUrl.toLowerCase().includes('download') && !targetUrl.toLowerCase().endsWith('.pdf')) {
+      return c.text("Invalid URL target", 403)
+    }
+
+    const response = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Digitopub PDF Proxy/1.0',
+      }
+    })
+
+    if (!response.ok) {
+      return new Response(`Failed to fetch from upstream: ${response.statusText}`, { status: response.status })
+    }
+
+    // Pipe the response back to the client, but omit framing restrictions
+    const headers = new Headers(response.headers)
+    headers.delete('X-Frame-Options')
+    headers.delete('Content-Security-Policy')
+    
+    // Force content type to application/pdf so the browser renders it
+    headers.set('Content-Type', 'application/pdf')
+    // Encourage inline viewing instead of downloading
+    headers.set('Content-Disposition', 'inline')
+    
+    return new Response(response.body, {
+      status: 200,
+      headers
+    })
+  } catch (error) {
+    console.error("PDF Proxy Error:", error)
+    return c.text("Internal Server Error", 500)
   }
 })
 
