@@ -497,7 +497,12 @@ app.get("/proxy-pdf", async (c) => {
 
     // 2. Strict Origin/hostname Validation
     const allowedHostname = new URL(OJS_BASE_URL).hostname
-    if (targetUrl.hostname !== allowedHostname && !targetUrl.hostname.endsWith('digitopub.com')) {
+    const isAllowedOrigin = targetUrl.hostname === allowedHostname || 
+                            targetUrl.hostname.endsWith('.' + allowedHostname) ||
+                            targetUrl.hostname === 'digitopub.com' ||
+                            targetUrl.hostname.endsWith('.digitopub.com')
+
+    if (!isAllowedOrigin) {
       console.warn(`[Proxy] Blocked attempt to fetch from unauthorized domain: ${targetUrl.hostname}`)
       return c.text("Unauthorized target domain", 403)
     }
@@ -534,10 +539,13 @@ app.get("/proxy-pdf", async (c) => {
       headers.delete('X-Frame-Options')
       headers.delete('Content-Security-Policy')
       
-      // Force content type to application/pdf so the browser renders it
-      headers.set('Content-Type', 'application/pdf')
-      // Encourage inline viewing instead of downloading
-      headers.set('Content-Disposition', 'inline')
+      const upstreamContentType = response.headers.get('content-type')?.toLowerCase() || ''
+      
+      // Only force PDF headers if the upstream content is actually a PDF
+      if (upstreamContentType.includes('application/pdf')) {
+        headers.set('Content-Type', 'application/pdf')
+        headers.set('Content-Disposition', 'inline')
+      }
       
       return new Response(response.body, {
         status: 200,

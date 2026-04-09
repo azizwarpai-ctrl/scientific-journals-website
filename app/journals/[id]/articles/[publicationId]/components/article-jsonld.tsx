@@ -38,7 +38,9 @@ export function ArticleJsonLd({ article }: { article: ArticleDetail }) {
       ...(a.affiliation && {
         affiliation: { "@type": "Organization", name: a.affiliation },
       }),
-      ...(a.orcid && { sameAs: a.orcid }),
+      ...(a.orcid && { 
+        sameAs: a.orcid.startsWith("http") ? a.orcid : `https://orcid.org/${a.orcid}` 
+      }),
     })),
     isPartOf: {
       "@type": "PublicationIssue",
@@ -47,7 +49,9 @@ export function ArticleJsonLd({ article }: { article: ArticleDetail }) {
         "@type": ["PublicationVolume", "Periodical"],
         name: article.journalTitle || undefined,
         volumeNumber: article.volume || undefined,
-        issn: [article.issn, article.eIssn].filter(Boolean),
+        ...([article.issn, article.eIssn].filter(Boolean).length > 0 && { 
+          issn: [article.issn, article.eIssn].filter(Boolean) 
+        }),
       },
     },
     ...(article.pdfUrl && {

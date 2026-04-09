@@ -1,10 +1,12 @@
 import { ArrowLeft, BookOpen, Clock, Calendar } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import DOMPurify from "isomorphic-dompurify"
 
 import { resolveJournalOjsId } from "@/src/features/journals/server/resolve-journal"
 import { fetchIssueIdByVolumeNumber, fetchIssueWithArticles } from "@/src/features/journals/server/archive-issue-service"
 import { ArticleItem } from "../../../components/article-item"
+import type { CurrentIssueArticle } from "@/src/features/journals"
 
 interface PageProps {
   params: Promise<{
@@ -17,12 +19,18 @@ interface PageProps {
 export default async function IssueDetailPage({ params }: PageProps) {
   const { id, volume, number } = await params
   
+  // Validate volume is a number
+  const volumeNum = parseInt(volume, 10)
+  if (isNaN(volumeNum)) {
+    notFound()
+  }
+
   const journalLookup = await resolveJournalOjsId(id)
   if (!journalLookup) notFound()
 
   const issueId = await fetchIssueIdByVolumeNumber(
     journalLookup.ojsId, 
-    parseInt(volume, 10), 
+    volumeNum, 
     number
   )
   
@@ -30,6 +38,12 @@ export default async function IssueDetailPage({ params }: PageProps) {
 
   const issue = await fetchIssueWithArticles(journalLookup.ojsId, issueId)
   if (!issue) notFound()
+
+  // Sanitize description for server-side injection
+  const safeDescription = issue.description ? DOMPurify.sanitize(issue.description, {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
+    ALLOWED_ATTR: [],
+  }) : ""
 
   return (
     <div className="container max-w-[1200px] py-10 lg:py-16 mx-auto px-4 sm:px-6">
@@ -77,10 +91,10 @@ export default async function IssueDetailPage({ params }: PageProps) {
               )}
             </div>
 
-            {issue.description && (
+            {safeDescription && (
               <div 
                 className="pt-4 text-muted-foreground leading-relaxed max-w-3xl prose prose-sm dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: issue.description }}
+                dangerouslySetInnerHTML={{ __html: safeDescription }}
               />
             )}
           </div>
@@ -94,8 +108,8 @@ export default async function IssueDetailPage({ params }: PageProps) {
           </div>
 
           <div className="grid gap-6">
-            {issue.articles.map((article) => (
-              <ArticleItem key={article.publicationId} article={article as any} />
+            {issue.articles.map((article: CurrentIssueArticle) => (
+              <ArticleItem key={article.publicationId} article={article} />
             ))}
           </div>
         </div>

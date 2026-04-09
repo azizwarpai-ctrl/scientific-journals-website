@@ -1,4 +1,4 @@
-import type { ArticleDetail } from "../types/article-detail-types"
+import type { ArticleDetail } from "@/src/features/journals"
 
 export type CitationFormat = "apa" | "mla" | "chicago" | "bibtex"
 
@@ -28,7 +28,18 @@ function formatAuthorsAPA(authors: ArticleDetail['authors']): string {
 }
 
 export function generateCitation(article: ArticleDetail, format: CitationFormat): string {
-  const year = escapeHtml(article.year || (article.datePublished ? new Date(article.datePublished).getFullYear() : "n.d."))
+  // Robust year extraction
+  let year: string | number = "n.d."
+  if (article.year) {
+    year = article.year
+  } else if (article.datePublished) {
+    const d = new Date(article.datePublished)
+    if (!isNaN(d.getTime())) {
+      year = d.getFullYear()
+    }
+  }
+
+  const escapedYear = escapeHtml(year)
   const title = escapeHtml(article.title || "Untitled")
   const journal = escapeHtml(article.journalAbbreviation || article.journalTitle || "Unknown Journal")
   const volume = article.volume ? escapeHtml(article.volume) : ""
@@ -38,7 +49,7 @@ export function generateCitation(article: ArticleDetail, format: CitationFormat)
   
   if (format === "apa") {
     const authorsStr = formatAuthorsAPA(article.authors)
-    return `${authorsStr} (${year}). ${title}. <i>${journal}</i>, <i>${volume}</i>${issue}${pages}.${doiStr}`
+    return `${authorsStr} (${escapedYear}). ${title}. <i>${journal}</i>, <i>${volume}</i>${issue}${pages}.${doiStr}`
   }
 
   if (format === "mla") {
@@ -62,7 +73,7 @@ export function generateCitation(article: ArticleDetail, format: CitationFormat)
     const parts = [
       `<i>${journal}</i>`,
       volNo,
-      year.toString(),
+      escapedYear.toString(),
       pStr,
       doiStr.trim()
     ].filter(Boolean).join(", ")
@@ -85,22 +96,22 @@ export function generateCitation(article: ArticleDetail, format: CitationFormat)
     const noStr = article.issueNumber ? `, no. ${escapeHtml(article.issueNumber)}` : ""
     const pgStr = article.pages ? `: ${escapeHtml(article.pages)}` : ""
 
-    return `${authorsStr} "${title}." <i>${journal}</i> ${volume}${noStr} (${year})${pgStr}.${doiStr}`
+    return `${authorsStr} "${title}." <i>${journal}</i> ${volume}${noStr} (${escapedYear})${pgStr}.${doiStr}`
   }
 
   if (format === "bibtex") {
+    // BibTeX should NOT be HTML escaped as it's a raw data format
     const authorsStr = article.authors.length > 0 
-      ? article.authors.map(a => `${escapeHtml(a.familyName || '')}, ${escapeHtml(a.givenName || '')}`).join(" and ")
+      ? article.authors.map(a => `${a.familyName || ''}, ${a.givenName || ''}`).join(" and ")
       : "Anonymous"
     
-    const id = article.authors.length > 0
-      ? `${escapeHtml(article.authors[0]?.familyName || 'Author')}${year}`.replace(/\s+/g, "")
-      : `Anonymous${year}`
+    const firstAuthor = article.authors[0]?.familyName || 'Author'
+    const bibtexId = `${firstAuthor}${year}`.replace(/[^a-zA-Z0-9]/g, "")
     
-    return `@article{${id},
+    return `@article{${bibtexId},
   author = {${authorsStr}},
-  title = {${title}},
-  journal = {${journal}},
+  title = {${article.title || 'Untitled'}},
+  journal = {${article.journalAbbreviation || article.journalTitle || 'Unknown Journal'}},
   volume = {${article.volume || ''}},
   number = {${article.issueNumber || ''}},
   year = {${year}},
@@ -109,6 +120,6 @@ export function generateCitation(article: ArticleDetail, format: CitationFormat)
 }`
   }
 
-  return `${title} (${year})`
+  return `${title} (${escapedYear})`
 }
 

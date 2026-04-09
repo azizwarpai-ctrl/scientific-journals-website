@@ -25,13 +25,13 @@ interface PageProps {
  */
 const getArticleData = cache(async (id: string, publicationId: string) => {
   const publicationIdNum = parseInt(publicationId, 10)
-  if (isNaN(publicationIdNum)) return null
+  if (isNaN(publicationIdNum)) return { error: "INVALID_ID" }
 
   const journalLookup = await resolveJournalOjsId(id)
-  if (!journalLookup) return null
+  if (!journalLookup) return { error: "JOURNAL_NOT_FOUND" }
 
   const article = await fetchArticleDetail(journalLookup.ojsId, publicationIdNum)
-  if (!article) return null
+  if (!article) return { error: "ARTICLE_NOT_FOUND" }
 
   return { article, journalLookup }
 })
@@ -48,7 +48,7 @@ export async function generateMetadata(
   const resolvedParams = await params
   const data = await getArticleData(resolvedParams.id, resolvedParams.publicationId)
   
-  if (!data) return {}
+  if (!data || "error" in data) return {}
 
   const { article } = data
   const abstractText = article.abstract ? article.abstract.replace(/<[^>]*>?/gm, '').substring(0, 160) : ''
@@ -78,17 +78,21 @@ export default async function ArticleDetailPage({ params }: PageProps) {
   const resolvedParams = await params
   const data = await getArticleData(resolvedParams.id, resolvedParams.publicationId)
 
-  if (!data) {
-    // If the publicationId was NaN, it returns null
-    const publicationIdNum = parseInt(resolvedParams.publicationId, 10)
-    if (isNaN(publicationIdNum)) {
+  if ("error" in data) {
+    if (data.error === "INVALID_ID") {
       notFound()
     }
+
+    const title = data.error === "JOURNAL_NOT_FOUND" ? "Journal Not Found" : "Article Not Found"
+    const message = data.error === "JOURNAL_NOT_FOUND" 
+      ? "The requested journal could not be found in our database." 
+      : "The specific article could not be located. It may have been moved or removed."
 
     return (
       <ErrorState 
         journalId={resolvedParams.id} 
-        message="Journal or article not found. Cannot load details." 
+        title={title}
+        message={message} 
       />
     )
   }
@@ -127,13 +131,13 @@ export default async function ArticleDetailPage({ params }: PageProps) {
   )
 }
 
-function ErrorState({ journalId, message }: { journalId: string, message: string }) {
+function ErrorState({ journalId, title, message }: { journalId: string, title: string, message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <div className="bg-destructive/10 p-4 rounded-full mb-4">
         <ArrowLeft className="h-8 w-8 text-destructive" />
       </div>
-      <h2 className="text-2xl font-bold mb-2">Article Not Found</h2>
+      <h2 className="text-2xl font-bold mb-2">{title}</h2>
       <p className="text-muted-foreground max-w-md mx-auto mb-6">
         {message}
       </p>

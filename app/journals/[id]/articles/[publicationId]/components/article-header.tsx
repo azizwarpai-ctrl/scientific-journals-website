@@ -88,7 +88,7 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
                 )}
                 {author.orcid && (
                   <a 
-                    href={author.orcid} 
+                    href={author.orcid.startsWith("http") ? author.orcid : `https://orcid.org/${author.orcid}`} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-xs text-primary hover:underline flex items-center gap-1 mt-1 font-medium"
