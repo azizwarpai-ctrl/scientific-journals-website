@@ -185,8 +185,8 @@ export async function fetchIssueWithArticles(
   console.log(`[IssueDetail] Fetching issue_id=${issueId} for journal_id=${journalId}`)
 
   // ── Step 0: Fetch journal locale ───────────────────────────────
-  const journalRows = await ojsQuery<{ primary_locale: string }>(
-    "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
+  const journalRows = await ojsQuery<{ primary_locale: string; url_path: string }>(
+    "SELECT primary_locale, path AS url_path FROM journals WHERE journal_id = ? LIMIT 1",
     [journalId]
   )
 
@@ -196,6 +196,7 @@ export async function fetchIssueWithArticles(
   }
 
   const primaryLocale = journalRows[0].primary_locale
+  const journalUrlPath = journalRows[0].url_path
 
   // ── Step 1: Fetch issue metadata (validates ownership + published) ─
   const issueRows = await ojsQuery<IssueMetadataRow>(
@@ -241,7 +242,7 @@ export async function fetchIssueWithArticles(
 
   const issue = issueRows[0]
 
-  const articles = await fetchArticlesWithAuthors(issueId, journalId, primaryLocale)
+  const articles = await fetchArticlesWithAuthors(issueId, journalId, primaryLocale, journalUrlPath)
 
   return mapIssueRow(journalId, issue, articles)
 }

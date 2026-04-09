@@ -21,11 +21,9 @@ import { getIssueTitle, getIssueSubtitle } from "./issue-helpers"
 
 interface CurrentIssueSectionProps {
   journalId: string
-  ojsDomain: string
-  ojsPath: string | null
 }
 
-export function CurrentIssueSection({ journalId, ojsDomain, ojsPath }: CurrentIssueSectionProps) {
+export function CurrentIssueSection({ journalId }: CurrentIssueSectionProps) {
   const { data: response, isLoading, error, refetch } = useGetCurrentIssue(journalId)
   const [hasCoverError, setHasCoverError] = useState(false)
   const issue = response?.data
@@ -33,8 +31,7 @@ export function CurrentIssueSection({ journalId, ojsDomain, ojsPath }: CurrentIs
   if (isLoading) return <CurrentIssueSkeleton />
   if (error) return <CurrentIssueError retry={() => refetch()} />
   if (!issue || !issue.articles || issue.articles.length === 0) {
-    const ojsUrl = ojsPath ? `${ojsDomain}/index.php/${ojsPath}/issue/current` : null
-    return <CurrentIssueNotFound ojsUrl={ojsUrl} message={response?.message} />
+    return <CurrentIssueNotFound message={response?.message} />
   }
 
 
@@ -46,7 +43,7 @@ export function CurrentIssueSection({ journalId, ojsDomain, ojsPath }: CurrentIs
     return groups
   }, {})
 
-  const ojsIssueUrl = ojsPath ? `${ojsDomain}/index.php/${ojsPath}/issue/view/${issue.issueId}` : null
+
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500">
@@ -117,16 +114,6 @@ export function CurrentIssueSection({ journalId, ojsDomain, ojsPath }: CurrentIs
               )}
             </div>
 
-            {ojsIssueUrl && (
-              <div className="mt-8 pt-6 border-t border-border/30 flex justify-start">
-                <Button asChild size="default" className="font-semibold gap-2 shadow-sm rounded-full px-6">
-                  <Link href={ojsIssueUrl} target="_blank" rel="noopener noreferrer">
-                    View Full Issue on OJS
-                    <ExternalLink className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -148,8 +135,6 @@ export function CurrentIssueSection({ journalId, ojsDomain, ojsPath }: CurrentIs
                 <ArticleItem 
                   key={article.publicationId} 
                   article={article} 
-                  ojsDomain={ojsDomain} 
-                  ojsPath={ojsPath}
                 />
               ))}
             </div>

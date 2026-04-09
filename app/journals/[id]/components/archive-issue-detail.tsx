@@ -22,16 +22,12 @@ import { getIssueTitle, getIssueSubtitle } from "./issue-helpers"
 interface ArchiveIssueDetailProps {
   journalId: string
   issueId: number
-  ojsDomain: string
-  ojsPath: string | null
   onBack: () => void
 }
 
 export function ArchiveIssueDetail({
   journalId,
   issueId,
-  ojsDomain,
-  ojsPath,
   onBack,
 }: ArchiveIssueDetailProps) {
   const { data: response, isLoading, error, refetch } = useGetIssueDetail(journalId, issueId)
@@ -89,9 +85,6 @@ export function ArchiveIssueDetail({
     {}
   )
 
-  const ojsIssueUrl = ojsPath
-    ? `${ojsDomain}/index.php/${ojsPath}/issue/view/${issue.issueId}`
-    : null
 
   return (
     <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -173,24 +166,6 @@ export function ArchiveIssueDetail({
               )}
             </div>
 
-            {ojsIssueUrl && (
-              <div className="mt-8 pt-6 border-t border-border/30 flex justify-start">
-                <Button
-                  asChild
-                  size="default"
-                  className="font-semibold gap-2 shadow-sm rounded-full px-6"
-                >
-                  <Link
-                    href={ojsIssueUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    View Full Issue on OJS
-                    <ExternalLink className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -212,8 +187,6 @@ export function ArchiveIssueDetail({
                   <ArticleItem
                     key={article.publicationId}
                     article={article}
-                    ojsDomain={ojsDomain}
-                    ojsPath={ojsPath}
                   />
                 ))}
               </div>
