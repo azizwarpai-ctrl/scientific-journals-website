@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import type { Metadata, ResolvingMetadata } from "next"
 import { notFound } from "next/navigation"
+import { cache } from "react"
 
 import { fetchArticleDetail } from "@/src/features/journals/server/article-detail-service"
 import { resolveJournalOjsId } from "@/src/features/journals/server/resolve-journal"
@@ -19,6 +20,23 @@ interface PageProps {
 }
 
 /**
+ * Shared data fetcher memoized per request.
+ * Deduplicates database queries between metadata generation and page rendering.
+ */
+const getArticleData = cache(async (id: string, publicationId: string) => {
+  const publicationIdNum = parseInt(publicationId, 10)
+  if (isNaN(publicationIdNum)) return null
+
+  const journalLookup = await resolveJournalOjsId(id)
+  if (!journalLookup) return null
+
+  const article = await fetchArticleDetail(journalLookup.ojsId, publicationIdNum)
+  if (!article) return null
+
+  return { article, journalLookup }
+})
+
+/**
  * Generate highly optimized Server-Side SEO tags based on the Article metadata.
  * Uses robust fetching to ensure Google Scholar and cross-ref can accurately
  * index articles directly from the Digitopub system.
@@ -28,16 +46,11 @@ export async function generateMetadata(
   parent: ResolvingMetadata
 ): Promise<Metadata> {
   const resolvedParams = await params
-  const publicationIdNum = parseInt(resolvedParams.publicationId, 10)
+  const data = await getArticleData(resolvedParams.id, resolvedParams.publicationId)
   
-  if (isNaN(publicationIdNum)) return {}
+  if (!data) return {}
 
-  const journalLookup = await resolveJournalOjsId(resolvedParams.id)
-  if (!journalLookup) return {}
-
-  const article = await fetchArticleDetail(journalLookup.ojsId, publicationIdNum)
-  if (!article) return {}
-
+  const { article } = data
   const abstractText = article.abstract ? article.abstract.replace(/<[^>]*>?/gm, '').substring(0, 160) : ''
   const authorNames = article.authors.map(a => `${a.givenName || ''} ${a.familyName || ''}`.trim())
 
@@ -63,33 +76,24 @@ export async function generateMetadata(
  */
 export default async function ArticleDetailPage({ params }: PageProps) {
   const resolvedParams = await params
-  const publicationIdNum = parseInt(resolvedParams.publicationId, 10)
+  const data = await getArticleData(resolvedParams.id, resolvedParams.publicationId)
 
-  if (isNaN(publicationIdNum)) {
-    notFound()
-  }
+  if (!data) {
+    // If the publicationId was NaN, it returns null
+    const publicationIdNum = parseInt(resolvedParams.publicationId, 10)
+    if (isNaN(publicationIdNum)) {
+      notFound()
+    }
 
-  const journalLookup = await resolveJournalOjsId(resolvedParams.id)
-
-  if (!journalLookup) {
     return (
       <ErrorState 
         journalId={resolvedParams.id} 
-        message="Journal not found system-wide. Cannot load article details." 
+        message="Journal or article not found. Cannot load details." 
       />
     )
   }
 
-  const article = await fetchArticleDetail(journalLookup.ojsId, publicationIdNum)
-
-  if (!article) {
-    return (
-      <ErrorState 
-        journalId={resolvedParams.id} 
-        message="The article you are looking for could not be found or has been removed." 
-      />
-    )
-  }
+  const { article } = data
 
   return (
     <>

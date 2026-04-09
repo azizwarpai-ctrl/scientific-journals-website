@@ -25,6 +25,8 @@ interface GalleyRow {
   locale: string | null
 }
 
+const OJS_STATUS_PUBLISHED = 3
+
 export async function fetchArticleDetail(
   ojsJournalId: string,
   publicationId: number
@@ -67,7 +69,7 @@ export async function fetchArticleDetail(
     LEFT JOIN journal_settings js_eissn ON js_eissn.journal_id = j.journal_id AND js_eissn.setting_name = 'onlineIssn' AND js_eissn.locale = ''
     LEFT JOIN sections sec ON sec.section_id = p.section_id
     LEFT JOIN section_settings sec_title ON sec_title.section_id = sec.section_id AND sec_title.setting_name = 'title' AND sec_title.locale = j.primary_locale
-    WHERE p.publication_id = ? AND s.context_id = ? AND p.status = 3 AND s.status = 3
+    WHERE p.publication_id = ? AND s.context_id = ? AND p.status = ${OJS_STATUS_PUBLISHED} AND s.status = ${OJS_STATUS_PUBLISHED}
     LIMIT 1`,
     [publicationId, journalId]
   )
