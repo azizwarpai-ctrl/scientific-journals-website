@@ -95,8 +95,8 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
   console.log(`[CurrentIssue] Fetching for OJS journal_id=${journalId}`)
 
   // ── Step 0: Fetch journal's primary locale ──────────────────────
-  const journalRows = await ojsQuery<{ primary_locale: string }>(
-    "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
+  const journalRows = await ojsQuery<{ primary_locale: string; url_path: string }>(
+    "SELECT primary_locale, path AS url_path FROM journals WHERE journal_id = ? LIMIT 1",
     [journalId]
   )
 
@@ -106,6 +106,7 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
   }
 
   const primaryLocale = journalRows[0].primary_locale
+  const journalUrlPath = journalRows[0].url_path
 
   // ── Step 1: Resolve the issue_id ──────────────────────────────
   // Two separate simple queries — no correlated subqueries, no COALESCE in JOINs
@@ -201,7 +202,7 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
 
   const issue = issueRows[0]
 
-  const articles = await fetchArticlesWithAuthors(resolvedIssueId, journalId, primaryLocale)
+  const articles = await fetchArticlesWithAuthors(resolvedIssueId, journalId, primaryLocale, journalUrlPath)
 
   return mapIssueRow(journalId, issue, articles)
 }

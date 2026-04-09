@@ -252,19 +252,6 @@ export default function JournalDetailPage() {
                       <ArrowRight className="h-4 w-4 ml-1" />
                     </>
                   )}
-                  {journal.website_url && (
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="rounded-lg border-white/20 text-white hover:bg-white/10 hover:border-white/30 bg-white/5 backdrop-blur-sm"
-                      asChild
-                    >
-                      <Link href={journal.website_url} target="_blank" rel="noopener noreferrer">
-                        <span>Visit Website</span>
-                        <ExternalLink className="ml-2 h-4 w-4" />
-                      </Link>
-                    </Button>
-                  )}
                 </div>
               </div>
             </div>
@@ -316,18 +303,14 @@ export default function JournalDetailPage() {
                   </TabsList>
 
                   <TabsContent value="current" className="mt-8">
-                    <CurrentIssueSection 
-                      journalId={id} 
-                      ojsDomain={ojsDomain} 
-                      ojsPath={targetSlug}
+                    <CurrentIssueSection
+                      journalId={id}
                     />
                   </TabsContent>
 
                   <TabsContent value="archive" className="mt-8">
-                    <ArchiveSection 
-                      journalId={id} 
-                      ojsDomain={ojsDomain} 
-                      ojsPath={targetSlug}
+                    <ArchiveSection
+                      journalId={id}
                     />
                   </TabsContent>
 
@@ -420,14 +403,6 @@ export default function JournalDetailPage() {
                           <div className="text-center py-8">
                             <Scale className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
                             <p className="text-muted-foreground">Aims & Scope information is being prepared for this journal.</p>
-                            {journal.website_url && (
-                              <Button variant="outline" size="sm" className="mt-4" asChild>
-                                <Link href={journal.website_url} target="_blank" rel="noopener noreferrer">
-                                  View on OJS Portal
-                                  <ExternalLink className="ml-2 h-3.5 w-3.5" />
-                                </Link>
-                              </Button>
-                            )}
                           </div>
                         )}
                       </CollapsibleContent>
@@ -464,12 +439,12 @@ export default function JournalDetailPage() {
                           {journal.author_guidelines ? (
                             <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed overflow-hidden">
                               <div dangerouslySetInnerHTML={{ __html: safeAuthorGuidelines }} />
-                              
+
                               {directUrl && (
                                 <div className="mt-8 pt-6 border-t border-border/60">
                                   <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full font-semibold px-8 h-12 shadow-sm" asChild>
                                     <Link href={directUrl}>
-                                      Submit via OJS Portal
+                                      Submit Manuscript
                                       <ExternalLink className="ml-2 h-3.5 w-3.5" />
                                     </Link>
                                   </Button>
@@ -550,17 +525,6 @@ export default function JournalDetailPage() {
                       </span>
                       <ChevronRight className="h-4 w-4" />
                     </Button>
-                    {journal.website_url && (
-                      <Button variant="outline" className="w-full justify-between border-border/60 hover:bg-muted/50" asChild>
-                        <Link href={journal.website_url} target="_blank" rel="noopener noreferrer">
-                          <span className="flex items-center gap-2">
-                            <Globe className="h-4 w-4" />
-                            Visit Website
-                          </span>
-                          <ExternalLink className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                    )}
                   </div>
                 </div>
 

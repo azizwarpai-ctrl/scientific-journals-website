@@ -6,7 +6,7 @@ import Image from "next/image"
 import {
   ChevronDown,
   ChevronUp,
-  ExternalLink,
+  Download,
   User,
   FileText
 } from "lucide-react"
@@ -18,21 +18,15 @@ import { Button } from "@/components/ui/button"
 
 interface ArticleItemProps {
   article: CurrentIssueArticle
-  ojsDomain: string
-  ojsPath: string | null
 }
 
 /**
  * Shared article card component used by both Current Issue and Archive Issue Detail.
  * Displays article cover, title, authors, abstract toggle, and action footer.
  */
-export function ArticleItem({ article, ojsDomain, ojsPath }: ArticleItemProps) {
+export function ArticleItem({ article }: ArticleItemProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [hasCoverError, setHasCoverError] = useState(false)
-
-  const articleUrl = ojsPath
-    ? `${ojsDomain}/index.php/${ojsPath}/article/view/${article.submissionId}`
-    : null
 
   const sanitizeAbstract = (html: string | null | undefined): string => {
     if (!html) return ""
@@ -80,15 +74,7 @@ export function ArticleItem({ article, ojsDomain, ojsPath }: ArticleItemProps) {
         <div className="space-y-3 flex-1">
           {/* Title */}
           <h4 className="text-lg font-bold leading-tight line-clamp-3 group-hover:text-primary transition-colors">
-            {articleUrl ? (
-              <Link href={articleUrl} target="_blank" rel="noopener noreferrer" className="focus:outline-none">
-                {article.title || "Untitled"}
-                {/* Expand click area subtly */}
-                <span className="absolute inset-0 z-10" aria-hidden="true" />
-              </Link>
-            ) : (
-              article.title || "Untitled"
-            )}
+            {article.title || "Untitled"}
           </h4>
 
           {/* Authors */}
@@ -152,11 +138,11 @@ export function ArticleItem({ article, ojsDomain, ojsPath }: ArticleItemProps) {
             <span />
           )}
 
-          {articleUrl && (
+          {article.pdfUrl && (
              <Button asChild variant="ghost" size="sm" className="h-8 gap-2 text-primary hover:bg-primary/10 rounded-full px-4 -mr-2">
-               <Link href={articleUrl} target="_blank" rel="noopener noreferrer">
-                 Read
-                 <ExternalLink className="h-3.5 w-3.5 opacity-70" />
+               <Link href={article.pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                 Download PDF
+                 <Download className="h-3.5 w-3.5 opacity-70" />
                </Link>
              </Button>
           )}
