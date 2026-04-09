@@ -483,40 +483,78 @@ app.get("/proxy-pdf", async (c) => {
     return c.text("Missing URL parameter", 400)
   }
 
+  const OJS_BASE_URL = process.env.OJS_BASE_URL || process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"
+  const timeoutMs = 15000 // 15s timeout for fetching PDF
+
   try {
-    const targetUrl = Buffer.from(urlBase64, 'base64').toString('utf-8')
+    const targetUrlStr = Buffer.from(urlBase64, 'base64').toString('utf-8')
+    const targetUrl = new URL(targetUrlStr)
     
-    // Safety check: ensure we are only proxying PDFs
-    if (!targetUrl.toLowerCase().includes('download') && !targetUrl.toLowerCase().endsWith('.pdf')) {
-      return c.text("Invalid URL target", 403)
+    // 1. Strict Protocol Enforcement
+    if (targetUrl.protocol !== 'https:') {
+      return c.text("Invalid protocol: Only HTTPS is allowed", 403)
     }
 
-    const response = await fetch(targetUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Digitopub PDF Proxy/1.0',
+    // 2. Strict Origin/hostname Validation
+    const allowedHostname = new URL(OJS_BASE_URL).hostname
+    if (targetUrl.hostname !== allowedHostname && !targetUrl.hostname.endsWith('digitopub.com')) {
+      console.warn(`[Proxy] Blocked attempt to fetch from unauthorized domain: ${targetUrl.hostname}`)
+      return c.text("Unauthorized target domain", 403)
+    }
+
+    // 3. Pathname check: ensure we are only proxying potential PDFs
+    const isPdfPath = targetUrl.pathname.toLowerCase().endsWith('.pdf') || 
+                      targetUrl.pathname.toLowerCase().includes('/article/download/')
+    
+    if (!isPdfPath) {
+       return c.text("Invalid target: Only PDF documents are allowed", 403)
+    }
+
+    // 4. Timeout Management
+    const controller = new AbortController()
+    const id = setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+      const response = await fetch(targetUrl.toString(), {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Digitopub PDF Proxy/1.1 (Security-Hardened)',
+        },
+        signal: controller.signal
+      })
+
+      clearTimeout(id)
+
+      if (!response.ok) {
+        return new Response(`Failed to fetch from upstream: ${response.statusText}`, { status: response.status })
       }
-    })
 
-    if (!response.ok) {
-      return new Response(`Failed to fetch from upstream: ${response.statusText}`, { status: response.status })
+      // Pipe the response back to the client, but omit framing restrictions
+      const headers = new Headers(response.headers)
+      headers.delete('X-Frame-Options')
+      headers.delete('Content-Security-Policy')
+      
+      // Force content type to application/pdf so the browser renders it
+      headers.set('Content-Type', 'application/pdf')
+      // Encourage inline viewing instead of downloading
+      headers.set('Content-Disposition', 'inline')
+      
+      return new Response(response.body, {
+        status: 200,
+        headers
+      })
+    } catch (fetchError: any) {
+      clearTimeout(id)
+      if (fetchError.name === 'AbortError') {
+        console.error("[Proxy] Timeout fetching PDF from:", targetUrl.toString())
+        return c.text("Request Timeout: Upstream OJS is taking too long to respond", 504)
+      }
+      throw fetchError
     }
-
-    // Pipe the response back to the client, but omit framing restrictions
-    const headers = new Headers(response.headers)
-    headers.delete('X-Frame-Options')
-    headers.delete('Content-Security-Policy')
-    
-    // Force content type to application/pdf so the browser renders it
-    headers.set('Content-Type', 'application/pdf')
-    // Encourage inline viewing instead of downloading
-    headers.set('Content-Disposition', 'inline')
-    
-    return new Response(response.body, {
-      status: 200,
-      headers
-    })
-  } catch (error) {
+  } catch (error: any) {
+    if (error instanceof TypeError && error.message.includes('Invalid URL')) {
+       return c.text("Malformed URL parameter", 400)
+    }
     console.error("PDF Proxy Error:", error)
     return c.text("Internal Server Error", 500)
   }
