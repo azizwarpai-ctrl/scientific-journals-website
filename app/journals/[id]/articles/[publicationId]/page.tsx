@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import type { Metadata, ResolvingMetadata } from "next"
 import { notFound } from "next/navigation"
@@ -64,7 +64,9 @@ export async function generateMetadata(
       description: abstractText,
       type: "article",
       authors: authorNames,
-      publishedTime: article.datePublished ? new Date(article.datePublished).toISOString() : undefined,
+      publishedTime: (article.datePublished && !isNaN(new Date(article.datePublished).getTime())) 
+        ? new Date(article.datePublished).toISOString() 
+        : undefined,
     },
   }
 }
@@ -135,7 +137,7 @@ function ErrorState({ journalId, title, message }: { journalId: string, title: s
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <div className="bg-destructive/10 p-4 rounded-full mb-4">
-        <ArrowLeft className="h-8 w-8 text-destructive" />
+        <AlertCircle className="h-8 w-8 text-destructive" />
       </div>
       <h2 className="text-2xl font-bold mb-2">{title}</h2>
       <p className="text-muted-foreground max-w-md mx-auto mb-6">

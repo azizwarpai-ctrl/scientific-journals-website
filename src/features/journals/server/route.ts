@@ -221,9 +221,13 @@ app.get("/:id/current-issue", zValidator("param", journalSlugParamSchema), async
 
     try {
       const { fetchCurrentIssue } = await import("./current-issue-service")
-      console.log(`[CurrentIssue API] Calling fetchCurrentIssue with ojs_id="${journal.ojs_id}" (resolved from param="${id}", prisma_id=${journal.id})`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[CurrentIssue API] Calling fetchCurrentIssue with ojs_id="${journal.ojs_id}" (resolved from param="${id}", prisma_id=${journal.id})`)
+      }
       const currentIssue = await fetchCurrentIssue(journal.ojs_id)
-      console.log(`[CurrentIssue API] Result: ${currentIssue ? `issue_id=${currentIssue.issueId}, articles=${currentIssue.articles.length}` : "null"}`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[CurrentIssue API] Result: ${currentIssue ? `issue_id=${currentIssue.issueId}, articles=${currentIssue.articles.length}` : "null"}`)
+      }
       return c.json({ success: true, data: currentIssue }, 200)
     } catch (queryError) {
       console.error("[CurrentIssue API] OJS Query Error:", queryError)
@@ -261,9 +265,13 @@ app.get("/:id/archive", zValidator("param", journalSlugParamSchema), async (c) =
 
     try {
       const { fetchArchiveIssues } = await import("./archive-issue-service")
-      console.log(`[Archive API] Calling fetchArchiveIssues with ojs_id="${journal.ojs_id}" (resolved from param="${id}")`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Archive API] Calling fetchArchiveIssues with ojs_id="${journal.ojs_id}" (resolved from param="${id}")`)
+      }
       const archiveIssues = await fetchArchiveIssues(journal.ojs_id)
-      console.log(`[Archive API] Result: ${archiveIssues.length} archive issues`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Archive API] Result: ${archiveIssues.length} archive issues`)
+      }
       return c.json({ success: true, data: archiveIssues }, 200)
     } catch (queryError) {
       console.error("[Archive API] OJS Query Error:", queryError)
@@ -305,9 +313,13 @@ app.get("/:id/issues/:issueId", zValidator("param", journalIssueParamSchema), as
 
     try {
       const { fetchIssueWithArticles } = await import("./archive-issue-service")
-      console.log(`[IssueDetail API] Calling fetchIssueWithArticles(ojs_id="${journal.ojs_id}", issueId=${issueId})`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[IssueDetail API] Calling fetchIssueWithArticles(ojs_id="${journal.ojs_id}", issueId=${issueId})`)
+      }
       const issueDetail = await fetchIssueWithArticles(journal.ojs_id, issueId)
-      console.log(`[IssueDetail API] Result: ${issueDetail ? `issue_id=${issueDetail.issueId}, articles=${issueDetail.articles.length}` : "null"}`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[IssueDetail API] Result: ${issueDetail ? `issue_id=${issueDetail.issueId}, articles=${issueDetail.articles.length}` : "null"}`)
+      }
       return c.json({ success: true, data: issueDetail }, 200)
     } catch (queryError) {
       console.error("[IssueDetail API] OJS Query Error:", queryError)
@@ -349,7 +361,9 @@ app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamS
 
     try {
       const { fetchArticleDetail } = await import("./article-detail-service")
-      console.log(`[ArticleDetail API] Calling fetchArticleDetail(ojs_id="${journal.ojs_id}", pubId=${publicationId})`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[ArticleDetail API] Calling fetchArticleDetail(ojs_id="${journal.ojs_id}", pubId=${publicationId})`)
+      }
       const detail = await fetchArticleDetail(journal.ojs_id, publicationId)
       
       if (!detail) {
@@ -503,7 +517,9 @@ app.get("/proxy-pdf", async (c) => {
                             targetUrl.hostname.endsWith('.digitopub.com')
 
     if (!isAllowedOrigin) {
-      console.warn(`[Proxy] Blocked attempt to fetch from unauthorized domain: ${targetUrl.hostname}`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`[Proxy] Blocked attempt to fetch from unauthorized domain: ${targetUrl.hostname}`)
+      }
       return c.text("Unauthorized target domain", 403)
     }
 

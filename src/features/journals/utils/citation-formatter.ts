@@ -12,6 +12,22 @@ function escapeHtml(text: string | number | null | undefined): string {
     .replace(/'/g, "&#039;")
 }
 
+function bibtexEscape(text: string | number | null | undefined): string {
+  if (text === null || text === undefined) return ""
+  return String(text)
+    .replace(/\\/g, "\\\\") // Must be first
+    .replace(/{/g, "\\{")
+    .replace(/}/g, "\\}")
+    .replace(/%/g, "\\%")
+    .replace(/\$/g, "\\$")
+    .replace(/#/g, "\\#")
+    .replace(/&/g, "\\&")
+    .replace(/_/g, "\\_")
+    .replace(/\^/g, "\\^")
+    .replace(/~/g, "\\~")
+    .trim()
+}
+
 function formatAuthorsAPA(authors: ArticleDetail['authors']): string {
   if (!authors || authors.length === 0) return "Anonymous"
   
@@ -86,9 +102,14 @@ export function generateCitation(article: ArticleDetail, format: CitationFormat)
     let authorsStr = "Anonymous"
     if (authors.length === 1) {
       authorsStr = `${escapeHtml(authors[0].familyName || '')}, ${escapeHtml(authors[0].givenName || '')}`
-    } else if (authors.length >= 2) {
-      const rest = authors.slice(1).map(a => `${escapeHtml(a.givenName || '')} ${escapeHtml(a.familyName || '')}`).join(", ")
-      authorsStr = `${escapeHtml(authors[0].familyName || '')}, ${escapeHtml(authors[0].givenName || '')}, and ${rest}`
+    } else if (authors.length === 2) {
+      authorsStr = `${escapeHtml(authors[0].familyName || '')}, ${escapeHtml(authors[0].givenName || '')}, and ${escapeHtml(authors[1].givenName || '')} ${escapeHtml(authors[1].familyName || '')}`
+    } else if (authors.length >= 3) {
+      const rest = authors.slice(1, -1).map(a => `${escapeHtml(a.givenName || '')} ${escapeHtml(a.familyName || '')}`)
+      const last = authors[authors.length - 1]
+      const lastStr = `${escapeHtml(last.givenName || '')} ${escapeHtml(last.familyName || '')}`
+      
+      authorsStr = `${escapeHtml(authors[0].familyName || '')}, ${escapeHtml(authors[0].givenName || '')}, ${rest.join(", ")}, and ${lastStr}`
     }
     authorsStr = authorsStr.trim()
     if (!authorsStr.endsWith(".")) authorsStr += "."
@@ -100,23 +121,23 @@ export function generateCitation(article: ArticleDetail, format: CitationFormat)
   }
 
   if (format === "bibtex") {
-    // BibTeX should NOT be HTML escaped as it's a raw data format
+    // BibTeX should NOT be HTML escaped but must be BibTeX-escaped
     const authorsStr = article.authors.length > 0 
-      ? article.authors.map(a => `${a.familyName || ''}, ${a.givenName || ''}`).join(" and ")
+      ? article.authors.map(a => `${bibtexEscape(a.familyName || '')}, ${bibtexEscape(a.givenName || '')}`).join(" and ")
       : "Anonymous"
     
     const firstAuthor = article.authors[0]?.familyName || 'Author'
-    const bibtexId = `${firstAuthor}${year}`.replace(/[^a-zA-Z0-9]/g, "")
+    const bibtexId = bibtexEscape(`${firstAuthor}${year}`.replace(/[^a-zA-Z0-9]/g, ""))
     
     return `@article{${bibtexId},
   author = {${authorsStr}},
-  title = {${article.title || 'Untitled'}},
-  journal = {${article.journalAbbreviation || article.journalTitle || 'Unknown Journal'}},
-  volume = {${article.volume || ''}},
-  number = {${article.issueNumber || ''}},
-  year = {${year}},
-  pages = {${article.pages || ''}},
-  doi = {${article.doi || ''}}
+  title = {${bibtexEscape(article.title) || 'Untitled'}},
+  journal = {${bibtexEscape(article.journalAbbreviation || article.journalTitle) || 'Unknown Journal'}},
+  volume = {${bibtexEscape(article.volume)}},
+  number = {${bibtexEscape(article.issueNumber)}},
+  year = {${bibtexEscape(year)}},
+  pages = {${bibtexEscape(article.pages)}},
+  doi = {${bibtexEscape(article.doi)}}
 }`
   }
 

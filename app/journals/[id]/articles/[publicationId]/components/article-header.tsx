@@ -40,7 +40,7 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
         </h1>
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-2 text-sm text-muted-foreground">
-          {article.datePublished && (
+          {article.datePublished && !isNaN(new Date(article.datePublished).getTime()) && (
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-primary/70" />
               <span>

@@ -45,6 +45,19 @@ export default async function IssueDetailPage({ params }: PageProps) {
     ALLOWED_ATTR: [],
   }) : ""
 
+  const isValidCoverUrl = (urlStr: string | null | undefined): boolean => {
+    if (!urlStr) return false
+    try {
+      const url = new URL(urlStr)
+      return url.protocol === 'http:' || url.protocol === 'https:'
+    } catch {
+      return false
+    }
+  }
+
+  const issueDate = issue.datePublished ? new Date(issue.datePublished) : null
+  const isValidDate = issueDate && !isNaN(issueDate.getTime())
+
   return (
     <div className="container max-w-[1200px] py-10 lg:py-16 mx-auto px-4 sm:px-6">
       {/* Back to Journal */}
@@ -59,10 +72,10 @@ export default async function IssueDetailPage({ params }: PageProps) {
       <div className="space-y-12">
         {/* Issue Header */}
         <div className="flex flex-col md:flex-row gap-8 items-start">
-          {issue.issueCoverUrl && (
+          {isValidCoverUrl(issue.issueCoverUrl) && (
             <div className="relative w-full md:w-64 aspect-[3/4] rounded-2xl overflow-hidden border border-border/40 shadow-xl flex-shrink-0">
                <img 
-                 src={issue.issueCoverUrl} 
+                 src={issue.issueCoverUrl!} 
                  alt={issue.title || "Issue Cover"}
                  className="object-cover w-full h-full"
                />
@@ -83,10 +96,10 @@ export default async function IssueDetailPage({ params }: PageProps) {
                 <Calendar className="h-4 w-4 text-primary/70" />
                 <span>{issue.year}</span>
               </div>
-              {issue.datePublished && (
+              {isValidDate && (
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-primary/70" />
-                  <span>Published: {new Date(issue.datePublished).toLocaleDateString()}</span>
+                  <span>Published: {issueDate!.toLocaleDateString()}</span>
                 </div>
               )}
             </div>
