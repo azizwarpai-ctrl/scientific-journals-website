@@ -1,6 +1,4 @@
-import { Archive, ExternalLink } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
+import { Archive } from "lucide-react"
 
 export function ArchiveEmpty({
   message = "This journal doesn't have any past published issues yet. Check back soon for archived content.",

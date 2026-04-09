@@ -24,7 +24,7 @@ import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
 import { fetchArticlesWithAuthors } from "./ojs-article-utils"
 import type { ArchiveIssue } from "@/src/features/journals/types/archive-issue-types"
-import type { CurrentIssue } from "@/src/features/journals/types/current-issue-types"
+import type { CurrentIssue, CurrentIssueArticle } from "@/src/features/journals/types/current-issue-types"
 
 // ─── Raw Row Types ──────────────────────────────────────────────────
 
@@ -252,7 +252,7 @@ export async function fetchIssueWithArticles(
 function mapIssueRow(
   journalId: number,
   row: IssueMetadataRow,
-  articles: any[] // We can use any here or import CurrentIssueArticle back
+  articles: CurrentIssueArticle[]
 ): CurrentIssue {
   return {
     issueId: row.issue_id,

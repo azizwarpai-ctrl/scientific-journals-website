@@ -1,6 +1,4 @@
-import { Newspaper, ExternalLink } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
+import { Newspaper } from "lucide-react"
 
 export function CurrentIssueNotFound({
   message = "This journal has no published issues yet. Check back soon for new content.",
