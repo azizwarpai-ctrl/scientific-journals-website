@@ -47,8 +47,7 @@ export function ArticleJsonLd({ article }: { article: ArticleDetail }) {
         "@type": ["PublicationVolume", "Periodical"],
         name: article.journalTitle || undefined,
         volumeNumber: article.volume || undefined,
-        ...(article.issn && { issn: article.issn }),
-        ...(article.eIssn && { issn: article.eIssn }),
+        issn: [article.issn, article.eIssn].filter(Boolean),
       },
     },
     ...(article.pdfUrl && {

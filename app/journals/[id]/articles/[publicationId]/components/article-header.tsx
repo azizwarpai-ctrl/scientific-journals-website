@@ -18,7 +18,10 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
           {article.journalAbbreviation || article.journalTitle}
         </Link>
         <ChevronRight className="h-4 w-4" />
-        <Link href={`/journals/${article.journalUrlPath}`} className="hover:text-primary transition-colors">
+        <Link 
+          href={`/journals/${article.journalUrlPath}/issues/${article.volume}/${article.issueNumber}`} 
+          className="hover:text-primary transition-colors"
+        >
           Vol. {article.volume} No. {article.issueNumber} ({article.year})
         </Link>
         <ChevronRight className="h-4 w-4" />
