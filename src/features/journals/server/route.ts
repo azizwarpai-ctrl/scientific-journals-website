@@ -1,5 +1,6 @@
 import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
+import { z } from "zod"
 import { requireAdmin } from "@/src/lib/auth-middleware"
 import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
 import { serializeRecord, serializeMany } from "@/src/lib/serialize"
@@ -234,7 +235,92 @@ app.get("/:id/current-issue", zValidator("param", journalSlugParamSchema), async
   }
 })
 
+// ─── GET /journals/:id/archive — Archive Issues from OJS ────────────
+
+app.get("/:id/archive", zValidator("param", journalSlugParamSchema), async (c) => {
+  try {
+    const { id } = c.req.valid("param")
+
+    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
+    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
+    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+
+    if (!journal) {
+      return c.json({ success: false, error: "Journal not found" }, 404)
+    }
+
+    if (!journal.ojs_id) {
+      return c.json({ success: true, data: [], message: "No OJS data" }, 200)
+    }
+
+    const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
+
+    if (!isOjsConfigured()) {
+      return c.json({ success: true, data: [], message: "OJS not configured" }, 200)
+    }
+
+    try {
+      const { fetchArchiveIssues } = await import("./archive-issue-service")
+      console.log(`[Archive API] Calling fetchArchiveIssues with ojs_id="${journal.ojs_id}" (resolved from param="${id}")`)
+      const archiveIssues = await fetchArchiveIssues(journal.ojs_id)
+      console.log(`[Archive API] Result: ${archiveIssues.length} archive issues`)
+      return c.json({ success: true, data: archiveIssues }, 200)
+    } catch (queryError) {
+      console.error("[Archive API] OJS Query Error:", queryError)
+      return c.json({ success: false, error: "Failed to fetch archive issues from OJS" }, 502)
+    }
+  } catch (error) {
+    console.error("Error fetching archive issues:", error)
+    return c.json({ success: false, error: "Failed to fetch archive issues" }, 500)
+  }
+})
+
+const journalIssueParamSchema = z.object({
+  id: z.string().min(1),
+  issueId: z.string().regex(/^\d+$/, "Issue ID must be numeric")
+})
+
+app.get("/:id/issues/:issueId", zValidator("param", journalIssueParamSchema), async (c) => {
+  try {
+    const { id, issueId: rawIssueId } = c.req.valid("param")
+    const issueId = parseInt(rawIssueId, 10)
+
+    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
+    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
+    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+
+    if (!journal) {
+      return c.json({ success: false, error: "Journal not found" }, 404)
+    }
+
+    if (!journal.ojs_id) {
+      return c.json({ success: true, data: null, message: "No OJS data" }, 200)
+    }
+
+    const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
+
+    if (!isOjsConfigured()) {
+      return c.json({ success: true, data: null, message: "OJS not configured" }, 200)
+    }
+
+    try {
+      const { fetchIssueWithArticles } = await import("./archive-issue-service")
+      console.log(`[IssueDetail API] Calling fetchIssueWithArticles(ojs_id="${journal.ojs_id}", issueId=${issueId})`)
+      const issueDetail = await fetchIssueWithArticles(journal.ojs_id, issueId)
+      console.log(`[IssueDetail API] Result: ${issueDetail ? `issue_id=${issueDetail.issueId}, articles=${issueDetail.articles.length}` : "null"}`)
+      return c.json({ success: true, data: issueDetail }, 200)
+    } catch (queryError) {
+      console.error("[IssueDetail API] OJS Query Error:", queryError)
+      return c.json({ success: false, error: "Failed to fetch issue detail from OJS" }, 502)
+    }
+  } catch (error) {
+    console.error("Error fetching issue detail:", error)
+    return c.json({ success: false, error: "Failed to fetch issue detail" }, 500)
+  }
+})
+
 // ─── POST /journals — Admin create (Prisma only) ────────────────────
+
 
 
 app.post("/", requireAdmin, zValidator("json", journalCreateSchema), async (c) => {
