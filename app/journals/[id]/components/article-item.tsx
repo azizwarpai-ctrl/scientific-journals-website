@@ -30,6 +30,9 @@ export function ArticleItem({ article }: ArticleItemProps) {
   const [hasCoverError, setHasCoverError] = useState(false)
   const params = useParams()
   const journalId = params?.id as string
+  
+  if (!journalId) return null
+  
   const articleUrl = `/journals/${journalId}/articles/${article.publicationId}`
 
   const sanitizeAbstract = (html: string | null | undefined): string => {
