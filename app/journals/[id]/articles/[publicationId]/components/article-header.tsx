@@ -86,17 +86,23 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
                     {author.affiliation}
                   </span>
                 )}
-                {author.orcid && (
-                  <a 
-                    href={author.orcid.startsWith("http") ? author.orcid : `https://orcid.org/${author.orcid}`} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary hover:underline flex items-center gap-1 mt-1 font-medium"
-                  >
-                    ORCID
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                )}
+                {author.orcid && (() => {
+                  const identifier = author.orcid.split('/').filter(Boolean).pop()?.trim() || "";
+                  const isValid = /^(\d{4}-){3}\d{3}[\dX]$/.test(identifier);
+                  if (!isValid) return null;
+                  
+                  return (
+                    <a 
+                      href={`https://orcid.org/${identifier}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline flex items-center gap-1 mt-1 font-medium"
+                    >
+                      ORCID
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  );
+                })()}
               </div>
             ))}
           </div>

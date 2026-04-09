@@ -24,8 +24,8 @@ interface PageProps {
  * Deduplicates database queries between metadata generation and page rendering.
  */
 const getArticleData = cache(async (id: string, publicationId: string) => {
+  if (!/^\d+$/.test(publicationId)) return { error: "INVALID_ID" }
   const publicationIdNum = parseInt(publicationId, 10)
-  if (isNaN(publicationIdNum)) return { error: "INVALID_ID" }
 
   const journalLookup = await resolveJournalOjsId(id)
   if (!journalLookup) return { error: "JOURNAL_NOT_FOUND" }
@@ -55,7 +55,7 @@ export async function generateMetadata(
   const authorNames = article.authors.map(a => `${a.givenName || ''} ${a.familyName || ''}`.trim())
 
   return {
-    title: `${article.title} | ${article.journalAbbreviation || article.journalTitle || 'Journal'}`,
+    title: `${article.title || 'Untitled Article'} | ${article.journalAbbreviation || article.journalTitle || 'Journal'}`,
     description: abstractText,
     keywords: article.keywords.join(', '),
     authors: authorNames.map(name => ({ name })),
@@ -81,22 +81,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
   const data = await getArticleData(resolvedParams.id, resolvedParams.publicationId)
 
   if ("error" in data) {
-    if (data.error === "INVALID_ID") {
-      notFound()
-    }
-
-    const title = data.error === "JOURNAL_NOT_FOUND" ? "Journal Not Found" : "Article Not Found"
-    const message = data.error === "JOURNAL_NOT_FOUND" 
-      ? "The requested journal could not be found in our database." 
-      : "The specific article could not be located. It may have been moved or removed."
-
-    return (
-      <ErrorState 
-        journalId={resolvedParams.id} 
-        title={title}
-        message={message} 
-      />
-    )
+    notFound()
   }
 
   const { article } = data
@@ -133,22 +118,4 @@ export default async function ArticleDetailPage({ params }: PageProps) {
   )
 }
 
-function ErrorState({ journalId, title, message }: { journalId: string, title: string, message: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="bg-destructive/10 p-4 rounded-full mb-4">
-        <AlertCircle className="h-8 w-8 text-destructive" />
-      </div>
-      <h2 className="text-2xl font-bold mb-2">{title}</h2>
-      <p className="text-muted-foreground max-w-md mx-auto mb-6">
-        {message}
-      </p>
-      <Link 
-        href={`/journals/${journalId}`}
-        className="text-primary hover:underline font-medium"
-      >
-        Return to Journal
-      </Link>
-    </div>
-  )
-}
+

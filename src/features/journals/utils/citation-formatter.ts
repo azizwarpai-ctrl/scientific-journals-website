@@ -46,7 +46,7 @@ function formatAuthorsAPA(authors: ArticleDetail['authors']): string {
 export function generateCitation(article: ArticleDetail, format: CitationFormat): string {
   // Robust year extraction
   let year: string | number = "n.d."
-  if (article.year) {
+  if (article.year != null) {
     year = article.year
   } else if (article.datePublished) {
     const d = new Date(article.datePublished)
@@ -58,14 +58,17 @@ export function generateCitation(article: ArticleDetail, format: CitationFormat)
   const escapedYear = escapeHtml(year)
   const title = escapeHtml(article.title || "Untitled")
   const journal = escapeHtml(article.journalAbbreviation || article.journalTitle || "Unknown Journal")
-  const volume = article.volume ? escapeHtml(article.volume) : ""
-  const issue = article.issueNumber ? `(${escapeHtml(article.issueNumber)})` : ""
+  const volume = article.volume != null ? escapeHtml(article.volume) : ""
+  const issue = article.issueNumber != null ? `(${escapeHtml(article.issueNumber)})` : ""
   const pages = article.pages ? `, ${escapeHtml(article.pages)}` : ""
   const doiStr = article.doi ? ` https://doi.org/${escapeHtml(article.doi)}` : ""
   
   if (format === "apa") {
     const authorsStr = formatAuthorsAPA(article.authors)
-    return `${authorsStr} (${escapedYear}). ${title}. <i>${journal}</i>, <i>${volume}</i>${issue}${pages}.${doiStr}`
+    // APA style: Journal Title, Volume(Issue), Pages.
+    // If volume is missing, avoid the empty italic tag and ensure correct comma placement.
+    const volSection = volume ? `, <i>${volume}</i>${issue}` : (issue ? `, ${issue}` : "")
+    return `${authorsStr} (${escapedYear}). ${title}. <i>${journal}</i>${volSection}${pages}.${doiStr}`
   }
 
   if (format === "mla") {
