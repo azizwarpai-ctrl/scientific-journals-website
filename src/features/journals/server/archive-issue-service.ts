@@ -24,7 +24,7 @@ import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
 import { fetchArticlesWithAuthors } from "./ojs-article-utils"
 import type { ArchiveIssue } from "@/src/features/journals/types/archive-issue-types"
-import type { CurrentIssue } from "@/src/features/journals/types/current-issue-types"
+import type { CurrentIssue, CurrentIssueArticle } from "@/src/features/journals/types/current-issue-types"
 
 // ─── Raw Row Types ──────────────────────────────────────────────────
 
@@ -185,8 +185,8 @@ export async function fetchIssueWithArticles(
   console.log(`[IssueDetail] Fetching issue_id=${issueId} for journal_id=${journalId}`)
 
   // ── Step 0: Fetch journal locale ───────────────────────────────
-  const journalRows = await ojsQuery<{ primary_locale: string }>(
-    "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
+  const journalRows = await ojsQuery<{ primary_locale: string; url_path: string }>(
+    "SELECT primary_locale, path AS url_path FROM journals WHERE journal_id = ? LIMIT 1",
     [journalId]
   )
 
@@ -196,6 +196,7 @@ export async function fetchIssueWithArticles(
   }
 
   const primaryLocale = journalRows[0].primary_locale
+  const journalUrlPath = journalRows[0].url_path
 
   // ── Step 1: Fetch issue metadata (validates ownership + published) ─
   const issueRows = await ojsQuery<IssueMetadataRow>(
@@ -241,7 +242,7 @@ export async function fetchIssueWithArticles(
 
   const issue = issueRows[0]
 
-  const articles = await fetchArticlesWithAuthors(issueId, journalId, primaryLocale)
+  const articles = await fetchArticlesWithAuthors(issueId, journalId, primaryLocale, journalUrlPath)
 
   return mapIssueRow(journalId, issue, articles)
 }
@@ -251,7 +252,7 @@ export async function fetchIssueWithArticles(
 function mapIssueRow(
   journalId: number,
   row: IssueMetadataRow,
-  articles: any[] // We can use any here or import CurrentIssueArticle back
+  articles: CurrentIssueArticle[]
 ): CurrentIssue {
   return {
     issueId: row.issue_id,

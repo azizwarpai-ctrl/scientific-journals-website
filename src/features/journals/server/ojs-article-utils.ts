@@ -23,10 +23,18 @@ export interface AuthorRow {
   family_name: string | null
 }
 
+export interface GalleyRow {
+  galley_id: number
+  publication_id: number
+  label: string | null
+  locale: string | null
+}
+
 export async function fetchArticlesWithAuthors(
   issueId: number,
   journalId: number,
-  primaryLocale: string
+  primaryLocale: string,
+  journalUrlPath: string
 ): Promise<CurrentIssueArticle[]> {
   // ── Fetch articles for this issue ──────────────────────
   const articleRows = await ojsQuery<ArticleRow>(
@@ -109,16 +117,50 @@ export async function fetchArticlesWithAuthors(
     authorsByPub.set(row.publication_id, existing)
   }
 
-  // ── Map articles with their authors ───────────────────
-  return articleRows.map((row) => ({
-    publicationId: row.publication_id,
-    submissionId: row.submission_id,
-    title: row.title,
-    abstract: row.abstract,
-    authors: authorsByPub.get(row.publication_id) || [],
-    datePublished: row.date_published,
-    sectionTitle: row.section_title,
-    sectionId: row.section_id,
-    articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(row.cover_image_raw)),
-  }))
+  // ── Batch-fetch galleys for all publications ──────────
+  const galleyRows = await ojsQuery<GalleyRow>(
+    `SELECT
+      pg.galley_id,
+      pg.publication_id,
+      pg.label,
+      pg.locale
+    FROM publication_galleys pg
+    WHERE pg.publication_id IN (?)
+    ORDER BY pg.publication_id, pg.seq ASC`,
+    [publicationIds]
+  )
+
+  // ── Group galleys by publication_id ───────────────────
+  const galleysByPub = new Map<number, GalleyRow[]>()
+  for (const row of galleyRows) {
+    const existing = galleysByPub.get(row.publication_id) || []
+    existing.push(row)
+    galleysByPub.set(row.publication_id, existing)
+  }
+
+  // ── Map articles with their authors and pdfUrl ───────────────────
+  return articleRows.map((row) => {
+    const galleys = galleysByPub.get(row.publication_id) || []
+    const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale) 
+      || galleys.find(g => g.label?.toLowerCase().includes('pdf'))
+    
+    const ojsBaseUrl = process.env.OJS_BASE_URL || process.env.NEXT_PUBLIC_OJS_BASE_URL || ''
+    const cleanBaseUrl = ojsBaseUrl.endsWith('/') ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
+    const pdfUrl = pdfGalley && cleanBaseUrl
+      ? `${cleanBaseUrl}/index.php/${journalUrlPath}/article/download/${row.submission_id}/${pdfGalley.galley_id}`
+      : null
+
+    return {
+      publicationId: row.publication_id,
+      submissionId: row.submission_id,
+      title: row.title,
+      abstract: row.abstract,
+      authors: authorsByPub.get(row.publication_id) || [],
+      datePublished: row.date_published,
+      sectionTitle: row.section_title,
+      sectionId: row.section_id,
+      articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(row.cover_image_raw)),
+      pdfUrl,
+    }
+  })
 }

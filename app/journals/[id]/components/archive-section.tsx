@@ -21,11 +21,9 @@ import { getIssueTitle, getIssueSubtitle } from "./issue-helpers"
 
 interface ArchiveSectionProps {
   journalId: string
-  ojsDomain: string
-  ojsPath: string | null
 }
 
-export function ArchiveSection({ journalId, ojsDomain, ojsPath }: ArchiveSectionProps) {
+export function ArchiveSection({ journalId }: ArchiveSectionProps) {
   const { data: response, isLoading, error, refetch } = useGetArchiveIssues(journalId)
   const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null)
   const archiveIssues = response?.data || []
@@ -33,8 +31,7 @@ export function ArchiveSection({ journalId, ojsDomain, ojsPath }: ArchiveSection
   if (isLoading) return <ArchiveSkeleton />
   if (error) return <ArchiveError retry={() => refetch()} />
   if (archiveIssues.length === 0) {
-    const ojsUrl = ojsPath ? `${ojsDomain}/index.php/${ojsPath}/issue/archive` : null
-    return <ArchiveEmpty ojsUrl={ojsUrl} message={response?.message} />
+    return <ArchiveEmpty message={response?.message} />
   }
 
   // ── If an issue is selected, show its detail view ─────────────
@@ -43,8 +40,6 @@ export function ArchiveSection({ journalId, ojsDomain, ojsPath }: ArchiveSection
       <ArchiveIssueDetail
         journalId={journalId}
         issueId={selectedIssueId}
-        ojsDomain={ojsDomain}
-        ojsPath={ojsPath}
         onBack={() => setSelectedIssueId(null)}
       />
     )
