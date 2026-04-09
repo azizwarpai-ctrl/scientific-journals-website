@@ -24,7 +24,7 @@ interface PageProps {
  * Deduplicates database queries between metadata generation and page rendering.
  */
 const getArticleData = cache(async (id: string, publicationId: string) => {
-  if (!/^\d+$/.test(publicationId)) return { error: "INVALID_ID" }
+  if (!/^[1-9]\d*$/.test(publicationId)) return { error: "INVALID_ID" }
   const publicationIdNum = parseInt(publicationId, 10)
 
   const journalLookup = await resolveJournalOjsId(id)
@@ -52,7 +52,9 @@ export async function generateMetadata(
 
   const { article } = data
   const abstractText = article.abstract ? article.abstract.replace(/<[^>]*>?/gm, '').substring(0, 160) : ''
-  const authorNames = article.authors.map(a => `${a.givenName || ''} ${a.familyName || ''}`.trim())
+  const authorNames = article.authors
+    .map(a => `${a.givenName || ''} ${a.familyName || ''}`.trim())
+    .filter(name => name.length > 0)
 
   return {
     title: `${article.title || 'Untitled Article'} | ${article.journalAbbreviation || article.journalTitle || 'Journal'}`,

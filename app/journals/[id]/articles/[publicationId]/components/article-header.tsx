@@ -17,14 +17,22 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
         <Link href={`/journals/${article.journalUrlPath}`} className="hover:text-primary transition-colors">
           {article.journalAbbreviation || article.journalTitle}
         </Link>
-        <ChevronRight className="h-4 w-4" />
-        <Link 
-          href={`/journals/${article.journalUrlPath}/issues/${article.volume}/${article.issueNumber}`} 
-          className="hover:text-primary transition-colors"
-        >
-          Vol. {article.volume} No. {article.issueNumber} ({article.year})
-        </Link>
-        <ChevronRight className="h-4 w-4" />
+        {article.volume != null && article.issueNumber != null && article.year != null ? (
+          <>
+            <Link 
+              href={`/journals/${article.journalUrlPath}/issues/${article.volume}/${article.issueNumber}`} 
+              className="hover:text-primary transition-colors"
+            >
+              Vol. {article.volume} No. {article.issueNumber} ({article.year})
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+          </>
+        ) : (
+          <>
+            <span className="text-muted-foreground/60 italic">Unassigned Issue</span>
+            <ChevronRight className="h-4 w-4" />
+          </>
+        )}
         <span className="text-foreground line-clamp-1">{article.title}</span>
       </nav>
 

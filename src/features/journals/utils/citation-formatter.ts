@@ -43,7 +43,11 @@ function formatAuthorsAPA(authors: ArticleDetail['authors']): string {
   }).join(", ")
 }
 
-export function generateCitation(article: ArticleDetail, format: CitationFormat): string {
+export function generateCitation(
+  article: ArticleDetail, 
+  format: CitationFormat,
+  options?: { htmlPreview?: boolean }
+): string {
   // Robust year extraction
   let year: string | number = "n.d."
   if (article.year != null) {
@@ -66,8 +70,8 @@ export function generateCitation(article: ArticleDetail, format: CitationFormat)
   if (format === "apa") {
     const authorsStr = formatAuthorsAPA(article.authors)
     // APA style: Journal Title, Volume(Issue), Pages.
-    // If volume is missing, avoid the empty italic tag and ensure correct comma placement.
-    const volSection = volume ? `, <i>${volume}</i>${issue}` : (issue ? `, ${issue}` : "")
+    // If volume is missing, avoid the empty italic tag and ensure correct comma/space logic.
+    const volSection = volume ? `, <i>${volume}</i>${issue}` : (issue ? ` ${issue}` : "")
     return `${authorsStr} (${escapedYear}). ${title}. <i>${journal}</i>${volSection}${pages}.${doiStr}`
   }
 
@@ -84,7 +88,7 @@ export function generateCitation(article: ArticleDetail, format: CitationFormat)
     authorsStr = authorsStr.trim()
     if (!authorsStr.endsWith(".")) authorsStr += "."
 
-    const volStr = article.volume ? `vol. ${escapeHtml(article.volume)}` : ""
+    const volStr = article.volume != null ? `vol. ${escapeHtml(article.volume)}` : ""
     const noStr = article.issueNumber ? `no. ${escapeHtml(article.issueNumber)}` : ""
     const volNo = [volStr, noStr].filter(Boolean).join(", ")
     const pStr = article.pages ? `pp. ${escapeHtml(article.pages)}` : ""
@@ -132,7 +136,7 @@ export function generateCitation(article: ArticleDetail, format: CitationFormat)
     const firstAuthor = article.authors[0]?.familyName || 'Author'
     const bibtexId = bibtexEscape(`${firstAuthor}${year}`.replace(/[^a-zA-Z0-9]/g, ""))
     
-    return `@article{${bibtexId},
+    const bibtex = `@article{${bibtexId},
   author = {${authorsStr}},
   title = {${bibtexEscape(article.title) || 'Untitled'}},
   journal = {${bibtexEscape(article.journalAbbreviation || article.journalTitle) || 'Unknown Journal'}},
@@ -142,6 +146,8 @@ export function generateCitation(article: ArticleDetail, format: CitationFormat)
   pages = {${bibtexEscape(article.pages)}},
   doi = {${bibtexEscape(article.doi)}}
 }`
+
+    return options?.htmlPreview ? escapeHtml(bibtex) : bibtex
   }
 
   return `${title} (${escapedYear})`

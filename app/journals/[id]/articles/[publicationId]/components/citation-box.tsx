@@ -21,7 +21,7 @@ export function CitationBox({ article }: CitationBoxProps) {
   const [format, setFormat] = useState<CitationFormat>("apa")
   const [copied, setCopied] = useState(false)
 
-  const citationHtml = generateCitation(article, format)
+  const citationHtml = generateCitation(article, format, { htmlPreview: true })
 
   const handleCopy = async () => {
     try {
