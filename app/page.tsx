@@ -40,22 +40,19 @@ export default function HomePage() {
       <Navbar />
 
       <main className="flex-1 overflow-x-hidden relative">
-        {/* Layer 1: Global hero background (scrolls away) */}
-        <div className="absolute top-0 left-0 w-full h-[100vh] bg-slate-950 z-[0]" />
-
-        {/* Layer 2: Fixed 3D Scene (permanently visible) */}
-        <div
-          className="fixed bottom-0 right-0 z-[1] h-screen w-full md:w-[70%] pointer-events-none origin-center"
-          aria-hidden="true"
-        >
-          <SplineScene />
-        </div>
-
-        {/* Layer 3: Hero Content */}
+        {/* Hero Section — contains both the 3D globe and hero content */}
         <GSAPWrapper animation="fadeIn" className="relative z-[2]">
           {/* `dark` class isolates this section into forced dark mode */}
           <div className="dark">
-            <section className="relative flex min-h-[90vh] items-center py-20 md:py-32">
+            <section className="relative flex min-h-[90vh] items-center py-20 md:py-32 overflow-hidden bg-slate-950">
+              {/* 3D Globe — absolute within the hero, clipped by overflow-hidden */}
+              <div
+                className="absolute bottom-0 right-0 z-[1] h-full w-full md:w-[70%] pointer-events-none origin-center"
+                aria-hidden="true"
+              >
+                <SplineScene />
+              </div>
+
               <div className="container relative z-10 mx-auto px-4 md:px-6 pointer-events-none">
                 <div className="mx-auto max-w-3xl text-center pointer-events-auto">
                   <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-sky-300 backdrop-blur-md">
