@@ -221,9 +221,13 @@ app.get("/:id/current-issue", zValidator("param", journalSlugParamSchema), async
 
     try {
       const { fetchCurrentIssue } = await import("./current-issue-service")
-      console.log(`[CurrentIssue API] Calling fetchCurrentIssue with ojs_id="${journal.ojs_id}" (resolved from param="${id}", prisma_id=${journal.id})`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[CurrentIssue API] Calling fetchCurrentIssue with ojs_id="${journal.ojs_id}" (resolved from param="${id}", prisma_id=${journal.id})`)
+      }
       const currentIssue = await fetchCurrentIssue(journal.ojs_id)
-      console.log(`[CurrentIssue API] Result: ${currentIssue ? `issue_id=${currentIssue.issueId}, articles=${currentIssue.articles.length}` : "null"}`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[CurrentIssue API] Result: ${currentIssue ? `issue_id=${currentIssue.issueId}, articles=${currentIssue.articles.length}` : "null"}`)
+      }
       return c.json({ success: true, data: currentIssue }, 200)
     } catch (queryError) {
       console.error("[CurrentIssue API] OJS Query Error:", queryError)
@@ -261,9 +265,13 @@ app.get("/:id/archive", zValidator("param", journalSlugParamSchema), async (c) =
 
     try {
       const { fetchArchiveIssues } = await import("./archive-issue-service")
-      console.log(`[Archive API] Calling fetchArchiveIssues with ojs_id="${journal.ojs_id}" (resolved from param="${id}")`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Archive API] Calling fetchArchiveIssues with ojs_id="${journal.ojs_id}" (resolved from param="${id}")`)
+      }
       const archiveIssues = await fetchArchiveIssues(journal.ojs_id)
-      console.log(`[Archive API] Result: ${archiveIssues.length} archive issues`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Archive API] Result: ${archiveIssues.length} archive issues`)
+      }
       return c.json({ success: true, data: archiveIssues }, 200)
     } catch (queryError) {
       console.error("[Archive API] OJS Query Error:", queryError)
@@ -305,9 +313,13 @@ app.get("/:id/issues/:issueId", zValidator("param", journalIssueParamSchema), as
 
     try {
       const { fetchIssueWithArticles } = await import("./archive-issue-service")
-      console.log(`[IssueDetail API] Calling fetchIssueWithArticles(ojs_id="${journal.ojs_id}", issueId=${issueId})`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[IssueDetail API] Calling fetchIssueWithArticles(ojs_id="${journal.ojs_id}", issueId=${issueId})`)
+      }
       const issueDetail = await fetchIssueWithArticles(journal.ojs_id, issueId)
-      console.log(`[IssueDetail API] Result: ${issueDetail ? `issue_id=${issueDetail.issueId}, articles=${issueDetail.articles.length}` : "null"}`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[IssueDetail API] Result: ${issueDetail ? `issue_id=${issueDetail.issueId}, articles=${issueDetail.articles.length}` : "null"}`)
+      }
       return c.json({ success: true, data: issueDetail }, 200)
     } catch (queryError) {
       console.error("[IssueDetail API] OJS Query Error:", queryError)
@@ -316,6 +328,55 @@ app.get("/:id/issues/:issueId", zValidator("param", journalIssueParamSchema), as
   } catch (error) {
     console.error("Error fetching issue detail:", error)
     return c.json({ success: false, error: "Failed to fetch issue detail" }, 500)
+  }
+})
+
+const journalArticleParamSchema = z.object({
+  id: z.string().min(1),
+  publicationId: z.string().regex(/^\d+$/, "Publication ID must be numeric")
+})
+
+app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamSchema), async (c) => {
+  try {
+    const { id, publicationId: rawPubId } = c.req.valid("param")
+    const publicationId = parseInt(rawPubId, 10)
+
+    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
+    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
+    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+
+    if (!journal) {
+      return c.json({ success: false, error: "Journal not found" }, 404)
+    }
+
+    if (!journal.ojs_id) {
+      return c.json({ success: true, data: null, message: "No OJS data" }, 200)
+    }
+
+    const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
+
+    if (!isOjsConfigured()) {
+      return c.json({ success: true, data: null, message: "OJS not configured" }, 200)
+    }
+
+    try {
+      const { fetchArticleDetail } = await import("./article-detail-service")
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[ArticleDetail API] Calling fetchArticleDetail(ojs_id="${journal.ojs_id}", pubId=${publicationId})`)
+      }
+      const detail = await fetchArticleDetail(journal.ojs_id, publicationId)
+      
+      if (!detail) {
+        return c.json({ success: false, error: "Article not found" }, 404)
+      }
+      return c.json({ success: true, data: detail }, 200)
+    } catch (queryError) {
+      console.error("[ArticleDetail API] OJS Query Error:", queryError)
+      return c.json({ success: false, error: "Failed to fetch article detail from OJS" }, 502)
+    }
+  } catch (error) {
+    console.error("Error fetching article detail:", error)
+    return c.json({ success: false, error: "Failed to fetch article detail" }, 500)
   }
 })
 
@@ -423,6 +484,103 @@ app.delete("/:id", requireAdmin, zValidator("param", journalIdParamSchema), asyn
   } catch (error) {
     console.error("Error deleting journal:", error)
     return c.json({ success: false, error: "Failed to delete journal" }, 500)
+  }
+})
+
+/**
+ * Proxy for OJS PDFs to strip restrictive framing headers
+ */
+app.get("/proxy-pdf", async (c) => {
+  const urlBase64 = c.req.query("url")
+
+  if (!urlBase64) {
+    return c.text("Missing URL parameter", 400)
+  }
+
+  const OJS_BASE_URL = process.env.OJS_BASE_URL || process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"
+  const timeoutMs = 15000 // 15s timeout for fetching PDF
+
+  try {
+    const targetUrlStr = Buffer.from(urlBase64, 'base64').toString('utf-8')
+    const targetUrl = new URL(targetUrlStr)
+    
+    // 1. Strict Protocol Enforcement
+    if (targetUrl.protocol !== 'https:') {
+      return c.text("Invalid protocol: Only HTTPS is allowed", 403)
+    }
+
+    // 2. Strict Origin/hostname Validation
+    const allowedHostname = new URL(OJS_BASE_URL).hostname
+    const isAllowedOrigin = targetUrl.hostname === allowedHostname || 
+                            targetUrl.hostname.endsWith('.' + allowedHostname) ||
+                            targetUrl.hostname === 'digitopub.com' ||
+                            targetUrl.hostname.endsWith('.digitopub.com')
+
+    if (!isAllowedOrigin) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`[Proxy] Blocked attempt to fetch from unauthorized domain: ${targetUrl.hostname}`)
+      }
+      return c.text("Unauthorized target domain", 403)
+    }
+
+    // 3. Pathname check: ensure we are only proxying potential PDFs
+    const isPdfPath = targetUrl.pathname.toLowerCase().endsWith('.pdf') || 
+                      targetUrl.pathname.toLowerCase().includes('/article/download/')
+    
+    if (!isPdfPath) {
+       return c.text("Invalid target: Only PDF documents are allowed", 403)
+    }
+
+    // 4. Timeout Management
+    const controller = new AbortController()
+    const id = setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+      const response = await fetch(targetUrl.toString(), {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Digitopub PDF Proxy/1.1 (Security-Hardened)',
+        },
+        signal: controller.signal
+      })
+
+      clearTimeout(id)
+
+      if (!response.ok) {
+        return new Response(`Failed to fetch from upstream: ${response.statusText}`, { status: response.status })
+      }
+
+      // Pipe the response back to the client, but omit framing restrictions
+      const headers = new Headers(response.headers)
+      headers.delete('X-Frame-Options')
+      headers.delete('Content-Security-Policy')
+      
+      const upstreamContentType = response.headers.get('content-type')?.toLowerCase() || ''
+      
+      // Only force PDF headers if the upstream content is actually a PDF
+      if (upstreamContentType.includes('application/pdf')) {
+        headers.set('Content-Type', 'application/pdf')
+        headers.set('Content-Disposition', 'inline')
+      }
+      
+      return new Response(response.body, {
+        status: 200,
+        headers
+      })
+    } catch (fetchError: any) {
+      clearTimeout(id)
+      if (fetchError.name === 'AbortError') {
+        console.error("[Proxy] Timeout fetching PDF from:", targetUrl.toString())
+        return c.text("Request Timeout: Upstream OJS is taking too long to respond", 504)
+      }
+      throw fetchError
+    }
+  } catch (error: any) {
+    if (error instanceof TypeError && error.message.includes('Invalid URL')) {
+       return c.text("Malformed URL parameter", 400)
+    }
+    console.error("PDF Proxy Error:", error)
+    return c.text("Internal Server Error", 500)
   }
 })
 

@@ -10,7 +10,9 @@ export { useGetArchiveIssues } from "@/src/features/journals/api/use-get-archive
 export { useGetIssueDetail } from "@/src/features/journals/api/use-get-issue-detail"
 export type { CurrentIssue, CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/journals/types/current-issue-types"
 export type { ArchiveIssue, IssueDetail } from "@/src/features/journals/types/archive-issue-types"
+export type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
 export { useJournalId } from "./hooks/use-journal-id"
+export { useGetArticleDetail } from "./api/use-get-article-detail"
 
 // Journal Registration Multi-Step Wizard
 export { 
