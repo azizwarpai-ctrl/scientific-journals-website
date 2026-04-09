@@ -141,7 +141,8 @@ export async function fetchArticlesWithAuthors(
   // ── Map articles with their authors and pdfUrl ───────────────────
   return articleRows.map((row) => {
     const galleys = galleysByPub.get(row.publication_id) || []
-    const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf'))
+    const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale) 
+      || galleys.find(g => g.label?.toLowerCase().includes('pdf'))
     
     const ojsBaseUrl = process.env.OJS_BASE_URL || process.env.NEXT_PUBLIC_OJS_BASE_URL || ''
     const cleanBaseUrl = ojsBaseUrl.endsWith('/') ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
