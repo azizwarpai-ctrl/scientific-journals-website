@@ -44,10 +44,11 @@ export default function HomePage() {
         <GSAPWrapper animation="fadeIn" className="relative z-[2]">
           {/* `dark` class isolates this section into forced dark mode */}
           <div className="dark">
-            <section className="relative flex min-h-[90vh] items-center py-20 md:py-32 overflow-hidden bg-slate-950">
+            <section className="relative flex h-[90vh] items-center py-20 md:py-32 overflow-hidden bg-slate-950 isolate">
               {/* 3D Globe — absolute within the hero, clipped by overflow-hidden */}
               <div
                 className="absolute bottom-0 right-0 z-[1] h-full w-full md:w-[70%] pointer-events-none origin-center"
+                style={{ contain: 'paint' }}
                 aria-hidden="true"
               >
                 <SplineScene />
@@ -84,7 +85,7 @@ export default function HomePage() {
         </GSAPWrapper>
 
         {/* Layer 4: Content Sections with High-Contrast Glass Backdrop */}
-        <div className="relative z-[3] bg-background/90 backdrop-blur-md border-t border-border/50 shadow-[0_-20px_40px_-20px_rgba(0,0,0,0.1)]">
+        <div className="relative z-[3] bg-background border-t border-border/50 shadow-[0_-20px_40px_-20px_rgba(0,0,0,0.1)]">
         
         {/* Stats Section */}
         <GSAPWrapper animation="slideUp" delay={0.2}>
