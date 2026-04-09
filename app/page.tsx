@@ -44,8 +44,10 @@ export default function HomePage() {
         <GSAPWrapper animation="fadeIn" className="relative z-[2]">
           {/* `dark` class isolates this section into forced dark mode */}
           <div className="dark">
+            {/* STACKING ISOLATION: 'isolate' and fixed height ('h-[90vh]') prevent GPU layer (WebGL) from leaking out of this section */}
             <section className="relative flex h-[90vh] items-center py-20 md:py-32 overflow-hidden bg-slate-950 isolate">
               {/* 3D Globe — absolute within the hero, clipped by overflow-hidden */}
+              {/* GPU PAINT CONTAINMENT: 'contain: paint' enforces strict bounds on the WebGL canvas to prevent compositing bleed-through */}
               <div
                 className="absolute bottom-0 right-0 z-[1] h-full w-full md:w-[70%] pointer-events-none origin-center"
                 style={{ contain: 'paint' }}
@@ -84,7 +86,8 @@ export default function HomePage() {
           </div>
         </GSAPWrapper>
 
-        {/* Layer 4: Content Sections with High-Contrast Glass Backdrop */}
+        {/* Layer 4: Content Sections */}
+        {/* CRITICAL: Opaque background ('bg-background') is required. Adding opacity (e.g. /90) or 'backdrop-blur' here will cause the 3D globe layer beneath to ghost/bleed through during scroll. */}
         <div className="relative z-[3] bg-background border-t border-border/50 shadow-[0_-20px_40px_-20px_rgba(0,0,0,0.1)]">
         
         {/* Stats Section */}
