@@ -43,7 +43,6 @@ export async function fetchArticleDetail(
       p.publication_id,
       p.submission_id,
       p.date_published,
-      p.pages,
       s.context_id as journal_id,
       i.issue_id,
       i.volume,
@@ -93,6 +92,7 @@ export async function fetchArticleDetail(
   let title = null
   let abstract = null
   let doi = null
+  let pages: string | null = null
   let coverImageRaw = null
   const keywords: string[] = []
 
@@ -104,6 +104,8 @@ export async function fetchArticleDetail(
       abstract = s.setting_value
     } else if (s.setting_name === 'pub-id::doi') {
       doi = s.setting_value
+    } else if (s.setting_name === 'pages' && s.setting_value) {
+      pages = s.setting_value
     } else if (s.setting_name === 'coverImage' && (s.locale === primaryLocale || !coverImageRaw)) {
       coverImageRaw = s.setting_value
     } else if (s.setting_name === 'keywords' && s.locale === primaryLocale && s.setting_value) {
@@ -208,7 +210,7 @@ export async function fetchArticleDetail(
     abstract,
     doi,
     keywords,
-    pages: article.pages,
+    pages,
     datePublished: article.date_published,
     authors,
     sectionTitle: article.section_title,
