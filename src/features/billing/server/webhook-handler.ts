@@ -30,14 +30,14 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
           status: "active",
-          current_period_end: new Date((sub as any).current_period_end * 1000),
+          current_period_end: new Date(((sub as any).current_period_end as number) * 1000),
         },
         update: {
           pricing_plan_id: BigInt(pricingPlanId),
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
           status: "active",
-          current_period_end: new Date((sub as any).current_period_end * 1000),
+          current_period_end: new Date(((sub as any).current_period_end as number) * 1000),
         },
       })
       break

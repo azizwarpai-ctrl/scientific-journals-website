@@ -14,7 +14,7 @@ import type { UseFormReturn } from "react-hook-form"
 import type { EmailTemplateFormValues } from "@/src/features/email-templates/schemas/email-template-schema"
 
 interface Props {
-  form: UseFormReturn<any>
+  form: UseFormReturn<EmailTemplateFormValues>
   previewHtml: string | null
   previewSubject: string | null
 }

@@ -1,8 +1,15 @@
 import { Hono } from "hono"
 import { ojsQuery, isOjsConfigured } from "@/src/features/ojs/server/ojs-client"
 
+interface StatsData {
+  totalJournals: number
+  totalArticles: number
+  totalUsers: number
+  countriesCount: number
+}
+
 // Simple in-memory cache
-let statsCache: any = null
+let statsCache: StatsData | null = null
 let lastFetchTime = 0
 const CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
 
@@ -28,7 +35,8 @@ export const statisticsRouter = new Hono()
 
       const results = await Promise.allSettled(queries);
 
-      const extractCount = (result: PromiseSettledResult<any[]>) => 
+      interface CountRow { count: number }
+      const extractCount = (result: PromiseSettledResult<CountRow[]>) => 
         result.status === "fulfilled" ? (result.value[0]?.count || 0) : 0;
 
       const journalsData = extractCount(results[0]);

@@ -14,7 +14,8 @@ import { Form } from "@/components/ui/form"
 import { toast } from "sonner"
 import type { EmailTemplate } from "@/src/features/email-templates/types/email-template-type"
 import { extractAllVariables } from "@/src/lib/email/renderer"
-import { emailTemplateUpdateSchema, type EmailTemplateUpdate } from "@/src/features/email-templates/schemas/email-template-schema"
+import { emailTemplateUpdateSchema, type EmailTemplateUpdate, type EmailTemplateFormValues } from "@/src/features/email-templates/schemas/email-template-schema"
+import type { UseFormReturn } from "react-hook-form"
 
 interface Props {
   template: EmailTemplate
@@ -22,7 +23,7 @@ interface Props {
 
 export function EditTemplateForm({ template }: Props) {
   const form = useForm<EmailTemplateUpdate>({
-    resolver: zodResolver(emailTemplateUpdateSchema) as any,
+    resolver: zodResolver(emailTemplateUpdateSchema),
     defaultValues: {
 
       name: template.name,
@@ -101,9 +102,9 @@ export function EditTemplateForm({ template }: Props) {
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Main Form */}
           <div className="lg:col-span-2 space-y-6">
-            <TemplateDetailsCard form={form as any} />
+            <TemplateDetailsCard form={form as unknown as UseFormReturn<EmailTemplateFormValues>} />
             <EmailContentCard 
-              form={form as any} 
+              form={form as unknown as UseFormReturn<EmailTemplateFormValues>} 
               previewHtml={previewHtml} 
               previewSubject={previewSubject} 
             />

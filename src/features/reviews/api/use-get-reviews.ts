@@ -9,7 +9,8 @@ export function useGetReviews() {
             const response = await client.reviews.index.$get()
             const data = await response.json()
             if (!response.ok) {
-                throw new Error((data as any).error || "Failed to fetch reviews")
+                const err = data as { error?: string }
+                throw new Error(err.error || "Failed to fetch reviews")
             }
             return data
         },

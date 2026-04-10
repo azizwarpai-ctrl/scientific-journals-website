@@ -9,7 +9,8 @@ export function useGetOjsJournals() {
             const response = await client.ojs.journals.$get()
             const data = await response.json()
             if (!response.ok) {
-                throw new Error((data as any).error || "Failed to fetch OJS journals")
+                const err = data as { error?: string }
+                throw new Error(err.error || "Failed to fetch OJS journals")
             }
             return data
         },

@@ -51,8 +51,9 @@ export const metricsRouter = new Hono()
                         )
                     ])
 
+                    interface CountRow { count: number }
                     // Safely extract results
-                    const getCount = (res: PromiseSettledResult<any[]>): number => {
+                    const getCount = (res: PromiseSettledResult<CountRow[]>): number => {
                         if (res.status === "fulfilled" && res.value && res.value.length > 0) {
                             return res.value[0].count || 0
                         }
