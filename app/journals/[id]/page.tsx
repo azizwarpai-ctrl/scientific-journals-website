@@ -15,6 +15,7 @@ import {
   Send,
   User,
   Building,
+  Mail,
   ArrowRight,
   Database,
   Calendar,
@@ -522,6 +523,25 @@ export default function JournalDetailPage() {
                         <div>
                           <span className="block text-xs text-muted-foreground">Publisher</span>
                           <span className="font-medium">{journal.publisher}</span>
+                        </div>
+                      </div>
+                    )}
+                    {/* @ts-expect-error contact_email is merged dynamically from OJS via API */}
+                    {journal.contact_email && (
+                      <div className="flex items-start gap-3">
+                        <div className="p-1.5 rounded-md bg-muted mt-0.5">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <span className="block text-xs text-muted-foreground">Contact Email</span>
+                          <a 
+                            // @ts-expect-error type override
+                            href={`mailto:${journal.contact_email}`}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {/* @ts-expect-error type override */}
+                            {journal.contact_email}
+                          </a>
                         </div>
                       </div>
                     )}

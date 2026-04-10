@@ -144,7 +144,26 @@ app.get("/:id", zValidator("param", journalSlugParamSchema), async (c) => {
       return c.json({ success: false, error: "Journal not found" }, 404)
     }
 
-    return c.json({ success: true, data: serializeRecord(journal) }, 200)
+    const serializedJournal = serializeRecord(journal) as ReturnType<typeof serializeRecord> & { contact_email?: string }
+
+    if (journal.ojs_id) {
+       try {
+         const { isOjsConfigured, ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
+         if (isOjsConfigured()) {
+            const settings = await ojsQuery<{ setting_name: string, setting_value: string }>(
+              "SELECT setting_name, setting_value FROM journal_settings WHERE journal_id = ? AND setting_name = 'contactEmail' LIMIT 1",
+              [journal.ojs_id]
+            )
+            if (settings.length > 0 && settings[0].setting_value) {
+               serializedJournal.contact_email = settings[0].setting_value
+            }
+         }
+       } catch (err) {
+         console.warn("[Journal API] Failed to fetch contactEmail from OJS:", err)
+       }
+    }
+
+    return c.json({ success: true, data: serializedJournal }, 200)
   } catch (error) {
     console.error("Error fetching journal:", error)
     return c.json({ success: false, error: "Failed to fetch journal" }, 500)
