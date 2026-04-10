@@ -450,6 +450,34 @@ app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamS
     if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
 
     if (!journal) {
+      // 4. Fallback: Lookup journal in OJS directly if it hasn't been synced to Prisma yet
+      try {
+        const { isOjsConfigured, ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
+        if (isOjsConfigured()) {
+          // Try to find the journal by path (slug)
+          let rows = await ojsQuery<{ journal_id: number }>(
+            "SELECT journal_id FROM journals WHERE path = ? LIMIT 1",
+            [id]
+          )
+          
+          if (rows.length === 0 && /^\d+$/.test(id)) {
+            // Try to find the journal by ID
+            rows = await ojsQuery<{ journal_id: number }>(
+              "SELECT journal_id FROM journals WHERE journal_id = ? LIMIT 1",
+              [parseInt(id, 10)]
+            )
+          }
+
+          if (rows.length > 0) {
+            journal = { id: BigInt(-1), ojs_id: rows[0].journal_id.toString() }
+          }
+        }
+      } catch (ojsErr) {
+        console.warn("[ArticleDetail API] OJS fallback lookup failed:", ojsErr)
+      }
+    }
+
+    if (!journal) {
       return c.json({ success: false, error: "Journal not found" }, 404)
     }
 

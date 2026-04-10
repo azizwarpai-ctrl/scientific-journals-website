@@ -512,41 +512,43 @@ export default function JournalDetailPage() {
                 )}
 
                 {/* Contact Card */}
-                <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
-                  <h3 className="text-lg font-bold mb-5 pb-3 border-b border-border/60">Contact</h3>
-                  <div className="space-y-4 text-sm">
-                    {journal.publisher && (
-                      <div className="flex items-start gap-3">
-                        <div className="p-1.5 rounded-md bg-muted mt-0.5">
-                          <Building className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <span className="block text-xs text-muted-foreground">Publisher</span>
-                          <span className="font-medium">{journal.publisher}</span>
-                        </div>
+                {(() => {
+                  const journalWithEmail = journal as typeof journal & { contact_email?: string }
+                  return (
+                    <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
+                      <h3 className="text-lg font-bold mb-5 pb-3 border-b border-border/60">Contact</h3>
+                      <div className="space-y-4 text-sm">
+                        {journalWithEmail.publisher && (
+                          <div className="flex items-start gap-3">
+                            <div className="p-1.5 rounded-md bg-muted mt-0.5">
+                              <Building className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div>
+                              <span className="block text-xs text-muted-foreground">Publisher</span>
+                              <span className="font-medium">{journalWithEmail.publisher}</span>
+                            </div>
+                          </div>
+                        )}
+                        {journalWithEmail.contact_email && (
+                          <div className="flex items-start gap-3">
+                            <div className="p-1.5 rounded-md bg-muted mt-0.5">
+                              <Mail className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div>
+                              <span className="block text-xs text-muted-foreground">Contact Email</span>
+                              <Link
+                                href={`mailto:${journalWithEmail.contact_email}`}
+                                className="font-medium text-primary hover:underline"
+                              >
+                                {journalWithEmail.contact_email}
+                              </Link>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {/* @ts-expect-error contact_email is merged dynamically from OJS via API */}
-                    {journal.contact_email && (
-                      <div className="flex items-start gap-3">
-                        <div className="p-1.5 rounded-md bg-muted mt-0.5">
-                          <Mail className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <span className="block text-xs text-muted-foreground">Contact Email</span>
-                          <a 
-                            // @ts-expect-error type override
-                            href={`mailto:${journal.contact_email}`}
-                            className="font-medium text-primary hover:underline"
-                          >
-                            {/* @ts-expect-error type override */}
-                            {journal.contact_email}
-                          </a>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  )
+                })()}
 
                 {/* ISSN Display */}
                 <div className="rounded-2xl border border-border/60 bg-muted/30 p-6">
