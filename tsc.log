@@ -1,0 +1,2 @@
+app/journals/[id]/components/custom-blocks-carousel.tsx(7,23): error TS2307: Cannot find module 'isomorphic-dompurify' or its corresponding type declarations.
+app/journals/[id]/page.tsx(23,23): error TS2307: Cannot find module 'isomorphic-dompurify' or its corresponding type declarations.

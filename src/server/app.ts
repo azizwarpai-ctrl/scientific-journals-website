@@ -2,10 +2,8 @@ import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
 import { journalRouter } from "@/src/features/journals/server"
-import { faqRouter } from "@/src/features/faq/server"
 import { solutionRouter } from "@/src/features/solutions/server/route"
-import { helpRouter } from "@/src/features/help/server"
-import { helpArticleRouter } from "@/src/features/help-articles/server"
+import { helpRouter, helpCategoriesRouter, helpTopicsRouter } from "@/src/features/help/server"
 import { ojsRouter } from "@/src/features/ojs/server"
 import { authRouter } from "@/src/features/auth/server"
 import { messageRouter } from "@/src/features/messages/server"
@@ -21,10 +19,10 @@ import { triggerStartupSync } from "@/src/features/ojs/server/sync-ojs-journals"
 
 const apiApp = new Hono()
     .route("/journals", journalRouter)
-    .route("/faqs", faqRouter)
     .route("/solutions", solutionRouter)
     .route("/help", helpRouter)
-    .route("/help-articles", helpArticleRouter)
+    .route("/help-categories", helpCategoriesRouter)
+    .route("/help-topics", helpTopicsRouter)
     .route("/auth", authRouter)
     .route("/messages", messageRouter)
     .route("/ojs", ojsRouter)

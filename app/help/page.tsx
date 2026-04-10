@@ -9,70 +9,50 @@ import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { useState, useMemo } from "react"
 
-import { useGetFaqs } from "@/src/features/faq"
-import { useGetHelpContent } from "@/src/features/help"
+import { useGetHelpCategories } from "@/src/features/help/api/use-help-categories"
+import { useGetHelpContent } from "@/src/features/help/api/use-get-help-content"
 import { defaultHelpContent } from "@/src/features/help/schemas/help-schema"
-import { useGetHelpArticles } from "@/src/features/help-articles"
 
 export default function HelpPage() {
-  const { data: faqResponse, isLoading: isFaqLoading } = useGetFaqs(1, 50)
+  const { data: categories, isLoading: isCategoriesLoading } = useGetHelpCategories()
   const { data: helpResponse, isLoading: isHelpLoading } = useGetHelpContent()
-  const { data: articlesResponse, isLoading: isArticlesLoading } = useGetHelpArticles(1, 50)
-  const [faqFilter, setFaqFilter] = useState("")
+  const [searchTerm, setSearchTerm] = useState("")
 
-  const faqs = faqResponse?.data || []
   const content = helpResponse || defaultHelpContent
-  const articles = articlesResponse?.data || []
+  const activeCategories = useMemo(() => Array.isArray(categories) ? categories : [], [categories])
 
-  // Filter FAQs by search term
-  const filteredFaqs = useMemo(() => {
-    if (!faqFilter.trim()) return faqs
-    const q = faqFilter.toLowerCase()
-    return faqs.filter(
-      (faq) =>
-        faq.question.toLowerCase().includes(q) ||
-        faq.answer?.toLowerCase().includes(q)
-    )
-  }, [faqs, faqFilter])
+  // Filter topics across categories based on search term
+  const filteredCategories = useMemo(() => {
+    if (!searchTerm.trim()) return activeCategories
 
-  // Group FAQs by category for better organization
-  const groupedFaqs = useMemo(() => {
-    const groups: Record<string, typeof filteredFaqs> = {}
-    for (const faq of filteredFaqs) {
-      const cat = faq.category || "General"
-      if (!groups[cat]) groups[cat] = []
-      groups[cat].push(faq)
-    }
-    return groups
-  }, [filteredFaqs])
-
-  const hasCategories = Object.keys(groupedFaqs).length > 1
-
-  // Group help articles by category
-  const groupedArticles = useMemo(() => {
-    const groups: Record<string, typeof articles> = {}
-    for (const article of articles) {
-      const cat = article.category || "General"
-      if (!groups[cat]) groups[cat] = []
-      groups[cat].push(article)
-    }
-    return groups
-  }, [articles])
-
-
+    const query = searchTerm.toLowerCase()
+    
+    return activeCategories.map((cat: any) => {
+      const filteredTopics = cat.topics?.filter((topic: any) => 
+        topic.is_active && (
+          topic.title.toLowerCase().includes(query) || 
+          topic.content.toLowerCase().includes(query)
+        )
+      ) || []
+      
+      return { ...cat, topics: filteredTopics }
+    }).filter((cat: any) => cat.topics?.length > 0)
+  }, [activeCategories, searchTerm])
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
 
       <main className="flex-1">
-        {/* Header */}
+        {/* Header Section */}
         <GSAPWrapper animation="fadeIn">
-          <section className="bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-12 md:py-16">
-            <div className="container mx-auto px-4 md:px-6">
-              <div className="mx-auto max-w-3xl text-center">
+          <section className="bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-16 md:py-20 border-b border-border/40">
+            <div className="container mx-auto px-4 md:px-6 relative overflow-hidden">
+              <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] z-0"></div>
+              <div className="mx-auto max-w-3xl text-center relative z-10">
                 {isHelpLoading ? (
                   <div className="space-y-4">
                     <Skeleton className="mx-auto h-12 w-64 md:h-14" />
@@ -80,21 +60,37 @@ export default function HelpPage() {
                   </div>
                 ) : (
                   <>
-                    <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">{content.heroTitle}</h1>
-                    <p className="text-lg text-muted-foreground">{content.heroSubtitle}</p>
+                    <h1 className="mb-4 text-4xl font-extrabold tracking-tight md:text-6xl text-foreground drop-shadow-sm">{content.heroTitle}</h1>
+                    <p className="text-xl text-muted-foreground">{content.heroSubtitle}</p>
                   </>
                 )}
+                
+                {/* Search Bar - Center piece of the help page */}
+                <div className="mt-8 max-w-xl mx-auto relative group">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-full blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+                  <div className="relative flex items-center bg-background rounded-full border shadow-sm">
+                    <Search className="ml-4 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      placeholder="Search for articles, guides, topics..."
+                      className="border-0 bg-transparent h-12 md:h-14 pl-3 rounded-full focus-visible:ring-0 focus-visible:ring-offset-0 text-base shadow-none"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </section>
         </GSAPWrapper>
 
-        {/* Quick Links */}
-        <section className="py-12">
+        <section className="py-16">
           <div className="container mx-auto px-4 md:px-6">
-            <div className="mx-auto max-w-4xl">
+            <div className="mx-auto max-w-5xl">
+              
+              {/* Quick Links */}
               <GSAPWrapper animation="slideUp" delay={0.2}>
-                <div className="mb-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <div className="mb-16 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                   {content.quickLinks?.map((link) => {
                     const isRoute = link.href.startsWith("/")
                     const Wrapper = isRoute ? Link : "a"
@@ -103,20 +99,21 @@ export default function HelpPage() {
                     
                     return (
                       <Wrapper key={link.id || link.title} href={link.href as string}>
-                        <Card className="group cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1 border-border/50 h-full">
-                          <CardContent className="pt-6 text-center">
-                            <div className="mb-3 flex justify-center">
-                              <div className={`flex h-12 w-12 items-center justify-center rounded-full transition-transform group-hover:scale-110 ${
-                                link.color === "primary" ? "bg-primary/10" : "bg-secondary/10"
-                              }`}>
-                                <IconElement className={`h-6 w-6 ${
-                                  link.color === "primary" ? "text-primary" : "text-secondary"
-                                }`} />
+                        <Card className="group cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-2 border-border/40 h-full bg-card hover:bg-card/80 overflow-hidden relative">
+                          <div className={`absolute top-0 left-0 w-full h-1 ${link.color === "primary" ? "bg-primary" : "bg-secondary"}`}></div>
+                          <CardContent className="pt-8 text-center relative z-10">
+                            <div className="mb-4 flex justify-center">
+                              <div className={`flex h-16 w-16 items-center justify-center rounded-2xl transition-transform duration-500 group-hover:rotate-6 ${
+                                link.color === "primary" ? "bg-primary/10 text-primary shadow-primary/20" : "bg-secondary/10 text-secondary shadow-secondary/20"
+                              } shadow-lg`}>
+                                <IconElement className="h-8 w-8" />
                               </div>
                             </div>
-                            <h3 className="font-semibold">{link.title}</h3>
-                            <p className="mt-1 text-xs text-muted-foreground">{link.description}</p>
-                            <ChevronRight className="mx-auto mt-2 h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <h3 className="font-bold text-lg">{link.title}</h3>
+                            <p className="mt-2 text-sm text-muted-foreground">{link.description}</p>
+                            <div className="mt-4 flex justify-center">
+                               <ChevronRight className="h-5 w-5 text-muted-foreground opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300" />
+                            </div>
                           </CardContent>
                         </Card>
                       </Wrapper>
@@ -125,152 +122,93 @@ export default function HelpPage() {
                 </div>
               </GSAPWrapper>
 
-
-              {/* FAQ */}
+              {/* Dynamic Database Content - Categories & Topics */}
               <GSAPWrapper animation="fadeIn" delay={0.3}>
-                <Card className="border-border/50">
-                  <CardHeader>
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <CardTitle>Frequently Asked Questions</CardTitle>
-                      {!isFaqLoading && faqs.length > 3 && (
-                        <div className="relative w-full sm:w-64">
-                          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <Input
-                            id="faq-search"
-                            type="search"
-                            placeholder="Filter FAQs..."
-                            className="pl-9 h-9 text-sm"
-                            value={faqFilter}
-                            onChange={(e) => setFaqFilter(e.target.value)}
-                          />
-                        </div>
-                      )}
+                <div className="space-y-12">
+                  <div className="text-center mb-10">
+                    <h2 className="text-3xl font-bold tracking-tight">Browse Topics</h2>
+                    <p className="text-muted-foreground mt-2">Find answers by categories below</p>
+                  </div>
+
+                  {isCategoriesLoading ? (
+                    <div className="space-y-6">
+                      {[...Array(3)].map((_, i) => (
+                        <Card key={i} className="border-border/40 shadow-sm">
+                          <CardHeader className="bg-muted/30">
+                            <Skeleton className="h-7 w-48" />
+                          </CardHeader>
+                          <CardContent className="p-6">
+                            <div className="space-y-4">
+                              <Skeleton className="h-4 w-full" />
+                              <Skeleton className="h-4 w-3/4" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    {isFaqLoading ? (
-                      <div className="space-y-4 py-4">
-                        {[...Array(5)].map((_, i) => (
-                          <div key={i} className="border-b pb-4">
-                            <Skeleton className="h-6 w-3/4" />
-                          </div>
-                        ))}
+                  ) : activeCategories.length === 0 ? (
+                    <div className="py-20 text-center border rounded-2xl border-dashed bg-muted/10">
+                      <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+                        <BookOpen className="h-8 w-8 text-muted-foreground/50" />
                       </div>
-                    ) : filteredFaqs.length > 0 ? (
-                      hasCategories ? (
-                        // Grouped by category
-                        <div className="space-y-6">
-                          {Object.entries(groupedFaqs).map(([category, items]) => (
-                            <div key={category}>
-                              <h3 className="mb-3 text-sm font-semibold text-primary uppercase tracking-wider">
-                                {category}
-                              </h3>
+                      <h3 className="text-xl font-medium text-foreground">No help content available yet</h3>
+                      <p className="mt-2 text-muted-foreground max-w-sm mx-auto">
+                        Please check back later or contact support if you need immediate assistance.
+                      </p>
+                    </div>
+                  ) : filteredCategories.length === 0 && searchTerm ? (
+                    <div className="py-20 text-center border rounded-2xl border-dashed bg-muted/10">
+                      <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+                        <Search className="h-8 w-8 text-muted-foreground/50" />
+                      </div>
+                      <h3 className="text-xl font-medium text-foreground">No results found for &ldquo;{searchTerm}&rdquo;</h3>
+                      <p className="mt-2 text-muted-foreground max-w-sm mx-auto">
+                        We could not find any articles matching your search query. Try using different keywords.
+                      </p>
+                      <Button variant="outline" className="mt-6" onClick={() => setSearchTerm("")}>
+                        Clear Search
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid gap-8">
+                      {filteredCategories.map((category: any) => {
+                        const activeTopics = category.topics?.filter((t: any) => t.is_active) || []
+                        if (activeTopics.length === 0) return null;
+
+                        return (
+                          <Card key={category.id} id={category.slug} className="border-border/40 shadow-sm overflow-hidden scroll-mt-24 transition-shadow hover:shadow-md">
+                            <CardHeader className="bg-muted/30 border-b pb-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                  <BookOpen className="h-5 w-5" />
+                                </div>
+                                <CardTitle className="text-xl">{category.title}</CardTitle>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="p-0">
                               <Accordion type="single" collapsible className="w-full">
-                                {items.map((faq, idx) => (
-                                  <AccordionItem key={faq.id} value={`${category}-item-${idx}`}>
-                                    <AccordionTrigger className="text-left">{faq.question}</AccordionTrigger>
-                                    <AccordionContent className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                                      {faq.answer}
+                                {activeTopics.map((topic: any, idx: number) => (
+                                  <AccordionItem 
+                                    key={topic.id} 
+                                    value={`topic-${topic.id}`}
+                                    className={`px-6 py-2 border-b-border/40 ${idx === activeTopics.length - 1 ? 'border-b-0' : ''}`}
+                                  >
+                                    <AccordionTrigger className="text-left font-medium hover:text-primary transition-colors py-4">
+                                      {topic.title}
+                                    </AccordionTrigger>
+                                    <AccordionContent className="text-muted-foreground leading-relaxed whitespace-pre-wrap pb-6 pt-2">
+                                      {topic.content}
                                     </AccordionContent>
                                   </AccordionItem>
                                 ))}
                               </Accordion>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        // Flat list
-                        <Accordion type="single" collapsible className="w-full">
-                          {filteredFaqs.map((faq, idx) => (
-                            <AccordionItem key={faq.id} value={`item-${idx}`}>
-                              <AccordionTrigger className="text-left">{faq.question}</AccordionTrigger>
-                              <AccordionContent className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                                {faq.answer}
-                              </AccordionContent>
-                            </AccordionItem>
-                          ))}
-                        </Accordion>
-                      )
-                    ) : faqFilter ? (
-                      <div className="py-8 text-center text-muted-foreground">
-                        <Search className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
-                        <p>No FAQs matching &ldquo;{faqFilter}&rdquo;</p>
-                        <button
-                          className="mt-2 text-sm text-primary hover:underline"
-                          onClick={() => setFaqFilter("")}
-                        >
-                          Clear filter
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="py-8 text-center text-muted-foreground">
-                        No FAQ items found.
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </GSAPWrapper>
-
-              {/* Dynamic Help Articles & Guides */}
-              <GSAPWrapper animation="slideUp" delay={0.4}>
-                {(isArticlesLoading || Object.keys(groupedArticles).length > 0) && (
-                  <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-2">
-                    {isArticlesLoading ? (
-                      [...Array(2)].map((_, i) => (
-                        <Card key={i} className="border-border/50">
-                          <CardHeader>
-                            <div className="flex items-center gap-3">
-                              <Skeleton className="h-10 w-10 rounded-lg" />
-                              <Skeleton className="h-6 w-32" />
-                            </div>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            {[...Array(3)].map((_, j) => (
-                              <div key={j} className="space-y-2">
-                                <Skeleton className="h-4 w-24" />
-                                <Skeleton className="h-12 w-full" />
-                              </div>
-                            ))}
-                          </CardContent>
-                        </Card>
-                      ))
-                    ) : (
-                      Object.entries(groupedArticles).map(([category, items]) => {
-                        const iconName = items[0]?.icon || "BookOpen"
-                        const IconElement = iconName === "Users" ? Users : iconName === "HelpCircle" ? HelpCircle : iconName === "FileText" ? FileText : BookOpen
-                        
-                        // ID generator for Quick Links (e.g., guide-for-authors -> guide-authors ideally, or just standard slug)
-                        // If it's "Guide for Authors", make it "guide-authors" matching old hardcoded anchor
-                        const anchorId = category.toLowerCase().includes("authors") ? "guide-authors" : category.toLowerCase().includes("reviewers") ? "guide-reviewers" : category.toLowerCase().replace(/[^a-z0-9]+/g, "-")
-
-                        return (
-                          <Card key={category} id={anchorId} className="border-border/50 scroll-mt-24">
-                            <CardHeader>
-                              <div className="flex items-center gap-3">
-                                <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                                  iconName === "Users" ? "bg-secondary/10" : "bg-primary/10"
-                                }`}>
-                                  <IconElement className={`h-5 w-5 ${
-                                    iconName === "Users" ? "text-secondary" : "text-primary"
-                                  }`} />
-                                </div>
-                                <CardTitle>{category}</CardTitle>
-                              </div>
-                            </CardHeader>
-                            <CardContent className="space-y-6 text-sm text-muted-foreground">
-                              {items.map((article) => (
-                                <div key={String(article.id)}>
-                                  <h4 className="mb-1 font-semibold text-foreground">{article.title}</h4>
-                                  <p className="leading-relaxed whitespace-pre-wrap">{article.content}</p>
-                                </div>
-                              ))}
                             </CardContent>
                           </Card>
                         )
-                      })
-                    )}
-                  </div>
-                )}
+                      })}
+                    </div>
+                  )}
+                </div>
               </GSAPWrapper>
             </div>
           </div>

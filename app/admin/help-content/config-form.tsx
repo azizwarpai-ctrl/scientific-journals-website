@@ -14,7 +14,7 @@ export function HelpConfigForm({ initialData }: { initialData: HelpContent }) {
   const mutation = useUpdateHelpContent()
 
   const handleUpdate = () => {
-    mutation.mutate({ json: formData })
+    mutation.mutate(formData)
   }
 
   const addQuickLink = () => {
