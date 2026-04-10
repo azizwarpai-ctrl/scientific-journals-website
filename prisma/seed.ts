@@ -38,7 +38,7 @@ async function main() {
         database: url.pathname.substring(1),
         connectionLimit: 5,
       }
-    } catch (e) {
+    } catch {
       console.warn('Failed to parse DATABASE_URL, falling back to individual env vars')
     }
   }

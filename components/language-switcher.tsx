@@ -51,7 +51,6 @@ function setLanguage(lang: LangCode) {
 
 export function LanguageSwitcher() {
     const [currentLang, setCurrentLang] = useState<LangCode>("en")
-    const [scriptLoaded, setScriptLoaded] = useState(false)
 
     useEffect(() => {
         setCurrentLang(getCurrentLanguage())
@@ -59,7 +58,6 @@ export function LanguageSwitcher() {
         // Load the Google Translate script once (hidden — we only use the translation engine)
         const existingScript = document.querySelector('script[src*="translate.google.com"]')
         if (existingScript) {
-            setScriptLoaded(true)
             return
         }
 
@@ -84,13 +82,12 @@ export function LanguageSwitcher() {
                     "google_translate_element"
                 )
             }
-            setScriptLoaded(true)
         }
 
         const script = document.createElement("script")
         script.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"
         script.async = true
-        script.onerror = () => setScriptLoaded(true) // Still allow UI to show even if script fails
+        script.onerror = () => {} // Still allow UI to show even if script fails
         document.body.appendChild(script)
     }, [])
 

@@ -14,8 +14,7 @@ import { Form } from "@/components/ui/form"
 import { toast } from "sonner"
 import type { EmailTemplate } from "@/src/features/email-templates/types/email-template-type"
 import { extractAllVariables } from "@/src/lib/email/renderer"
-import { emailTemplateUpdateSchema, type EmailTemplateUpdate, type EmailTemplateFormValues } from "@/src/features/email-templates/schemas/email-template-schema"
-import type { UseFormReturn } from "react-hook-form"
+import { emailTemplateUpdateSchema, type EmailTemplateUpdate } from "@/src/features/email-templates/schemas/email-template-schema"
 
 interface Props {
   template: EmailTemplate

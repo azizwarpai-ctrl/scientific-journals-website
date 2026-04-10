@@ -6,8 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useGetPricingPlans } from "@/src/features/billing/api/use-get-pricing-plans";
 import { useCreateCheckout } from "@/src/features/billing/api/use-create-checkout";
-import { toast } from "sonner";
-
 import { Serialized } from "@/src/lib/serialize";
 import type { PricingPlan as PrismaPricingPlan } from "@prisma/client";
 

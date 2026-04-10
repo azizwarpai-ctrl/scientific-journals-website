@@ -1,4 +1,4 @@
-import { Search, FileQuestion, ArrowLeft } from "lucide-react"
+import { FileQuestion, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 

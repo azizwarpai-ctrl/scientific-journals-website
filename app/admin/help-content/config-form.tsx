@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Trash2, Plus, GripVertical } from "lucide-react"
+import { Trash2, Plus } from "lucide-react"
 
 export function HelpConfigForm({ initialData }: { initialData: HelpContent }) {
   const [formData, setFormData] = useState<HelpContent>(initialData)
