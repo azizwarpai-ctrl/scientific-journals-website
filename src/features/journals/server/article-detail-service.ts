@@ -223,40 +223,37 @@ export async function fetchArticleDetail(
      console.warn(`[ArticleDetail] Could not fetch metrics for submission ${submissionId}:`, metricsError)
   }
 
-  return {
-    publicationId: article.publication_id,
-    submissionId: article.submission_id,
-    title,
-    abstract,
-    doi,
-    keywords,
-    pages,
-    datePublished: article.date_published,
-    authors,
-    sectionTitle: article.section_title,
-    articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(coverImageRaw)),
-    galleys,
-    pdfUrl: pdfGalley?.downloadUrl || null,
-    
-    issueId: article.issue_id || 0,
-    issueTitle: article.issue_title,
-    volume: article.volume ? (() => {
-      const v = parseInt(article.volume, 10);
-      return isNaN(v) ? null : v;
-    })() : null,
-    issueNumber: article.number,
-    year: article.year ? (() => {
-      const y = parseInt(article.year, 10);
-      return isNaN(y) ? null : y;
-    })() : null,
-    
-    journalTitle: article.journal_title,
-    journalAbbreviation: article.journal_abbreviation,
-    issn: article.issn,
-    eIssn: article.e_issn,
-    journalUrlPath: article.journal_url_path || "",
-    
-    views,
-    downloads
-  }
+    const parsedVolume = article.volume ? parseInt(article.volume, 10) : NaN;
+    const parsedYear = article.year ? parseInt(article.year, 10) : NaN;
+
+    return {
+      publicationId: article.publication_id,
+      submissionId: article.submission_id,
+      title,
+      abstract,
+      doi,
+      keywords,
+      pages,
+      datePublished: article.date_published,
+      authors,
+      sectionTitle: article.section_title,
+      articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(coverImageRaw)),
+      galleys,
+      pdfUrl: pdfGalley?.downloadUrl || null,
+      
+      issueId: article.issue_id || 0,
+      issueTitle: article.issue_title,
+      volume: Number.isNaN(parsedVolume) ? null : parsedVolume,
+      issueNumber: article.number,
+      year: Number.isNaN(parsedYear) ? null : parsedYear,
+      
+      journalTitle: article.journal_title,
+      journalAbbreviation: article.journal_abbreviation,
+      issn: article.issn,
+      eIssn: article.e_issn,
+      journalUrlPath: article.journal_url_path || "",
+      
+      views,
+      downloads
+    }
 }
