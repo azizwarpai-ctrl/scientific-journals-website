@@ -8,15 +8,16 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import type { UseFormReturn } from "react-hook-form"
-import type { EmailTemplateFormValues } from "@/src/features/email-templates/schemas/email-template-schema"
+import type { FieldValues, UseFormReturn, Path } from "react-hook-form"
 
-interface Props {
-  form: UseFormReturn<EmailTemplateFormValues>
+interface Props<T extends FieldValues> {
+  form: UseFormReturn<T>
 }
 
 
-export function TemplateDetailsCard({ form }: Props) {
+export function TemplateDetailsCard<T extends FieldValues>({
+  form
+}: Props<T>) {
   return (
     <Card>
       <CardHeader>
@@ -26,7 +27,7 @@ export function TemplateDetailsCard({ form }: Props) {
       <CardContent className="space-y-4">
         <FormField
           control={form.control}
-          name="name"
+          name={"name" as Path<T>}
           render={({ field }) => (
             <FormItem>
               <FormLabel>Template Name *</FormLabel>
@@ -47,7 +48,7 @@ export function TemplateDetailsCard({ form }: Props) {
 
         <FormField
           control={form.control}
-          name="description"
+          name={"description" as Path<T>}
           render={({ field }) => (
             <FormItem>
               <FormLabel>Description</FormLabel>
@@ -61,7 +62,7 @@ export function TemplateDetailsCard({ form }: Props) {
 
         <FormField
           control={form.control}
-          name="is_active"
+          name={"is_active" as Path<T>}
           render={({ field }) => (
             <FormItem className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
               <div className="space-y-0.5">

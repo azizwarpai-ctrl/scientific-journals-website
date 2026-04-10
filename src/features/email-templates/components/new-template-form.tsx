@@ -11,15 +11,15 @@ import { useCreateEmailTemplate } from "@/src/features/email-templates/api/use-c
 import { Form } from "@/components/ui/form"
 import { extractAllVariables } from "@/src/lib/email/renderer"
 import { useNewTemplateStore } from "@/src/features/email-templates/stores/new-template-store"
-import { emailTemplateCreateSchema, type EmailTemplateCreate, type EmailTemplateFormValues } from "@/src/features/email-templates/schemas/email-template-schema"
-import type { UseFormReturn } from "react-hook-form"
+import { emailTemplateCreateSchema, type EmailTemplateCreate } from "@/src/features/email-templates/schemas/email-template-schema"
 
 export function NewTemplateForm() {
   const { formData, setFormData, reset } = useNewTemplateStore()
 
   const form = useForm<EmailTemplateCreate>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(emailTemplateCreateSchema) as any,
-    defaultValues: formData as any,
+    defaultValues: formData,
   })
 
 
@@ -88,9 +88,9 @@ export function NewTemplateForm() {
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Main Form */}
           <div className="lg:col-span-2 space-y-6">
-            <TemplateDetailsCard form={form as unknown as UseFormReturn<EmailTemplateFormValues>} />
+            <TemplateDetailsCard form={form} />
             <EmailContentCard 
-              form={form as unknown as UseFormReturn<EmailTemplateFormValues>} 
+              form={form} 
               previewHtml={previewHtml} 
               previewSubject={previewSubject} 
             />

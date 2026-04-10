@@ -102,9 +102,9 @@ export function EditTemplateForm({ template }: Props) {
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Main Form */}
           <div className="lg:col-span-2 space-y-6">
-            <TemplateDetailsCard form={form as unknown as UseFormReturn<EmailTemplateFormValues>} />
+            <TemplateDetailsCard form={form} />
             <EmailContentCard 
-              form={form as unknown as UseFormReturn<EmailTemplateFormValues>} 
+              form={form} 
               previewHtml={previewHtml} 
               previewSubject={previewSubject} 
             />

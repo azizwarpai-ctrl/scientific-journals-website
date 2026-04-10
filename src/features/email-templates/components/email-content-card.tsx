@@ -10,17 +10,20 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import type { UseFormReturn } from "react-hook-form"
-import type { EmailTemplateFormValues } from "@/src/features/email-templates/schemas/email-template-schema"
+import type { FieldValues, UseFormReturn, Path } from "react-hook-form"
 
-interface Props {
-  form: UseFormReturn<EmailTemplateFormValues>
+interface Props<T extends FieldValues> {
+  form: UseFormReturn<T>
   previewHtml: string | null
   previewSubject: string | null
 }
 
 
-export function EmailContentCard({ form, previewHtml, previewSubject }: Props) {
+export function EmailContentCard<T extends FieldValues>({
+  form,
+  previewHtml,
+  previewSubject
+}: Props<T>) {
   return (
     <Card>
       <CardHeader>
@@ -32,7 +35,7 @@ export function EmailContentCard({ form, previewHtml, previewSubject }: Props) {
       <CardContent className="space-y-4">
         <FormField
           control={form.control}
-          name="subject"
+          name={"subject" as Path<T>}
           render={({ field }) => (
             <FormItem>
               <FormLabel>Subject *</FormLabel>
@@ -54,13 +57,13 @@ export function EmailContentCard({ form, previewHtml, previewSubject }: Props) {
           <TabsContent value="html" className="mt-2">
             <FormField
               control={form.control}
-              name="html_content"
+              name={"html_content" as Path<T>}
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <Textarea 
-                      {...field} 
-                      className="min-h-[300px] font-mono text-sm" 
+                    <Textarea
+                      {...field}
+                      className="min-h-[300px] font-mono text-sm"
                       placeholder="<h1>Hello {{userName}}</h1><p>Welcome to our platform...</p>"
                     />
                   </FormControl>
@@ -73,14 +76,14 @@ export function EmailContentCard({ form, previewHtml, previewSubject }: Props) {
           <TabsContent value="text" className="mt-2">
             <FormField
               control={form.control}
-              name="text_content"
+              name={"text_content" as Path<T>}
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <Textarea 
-                      {...field} 
+                    <Textarea
+                      {...field}
                       value={field.value || ""}
-                      className="min-h-[300px] font-mono text-sm" 
+                      className="min-h-[300px] font-mono text-sm"
                       placeholder="Hello {{userName}}, Welcome to our platform..."
                     />
                   </FormControl>
