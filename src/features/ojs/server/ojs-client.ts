@@ -45,6 +45,7 @@ function getPool(): Pool {
                 }
                 cb(new Error(`Unknown auth plugin: ${pluginName}`));
             }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any)
     }
     return pool
@@ -164,11 +165,15 @@ export async function provisionUser(payload: OjsUserProvisionData): Promise<{ su
                 if (response.status === 409) {
                     return { success: true };
                 }
+                
+                // Log full details for server diagnostics
+                console.error(`[OJS Bridge] HTTP ${response.status} failure:`, errText);
+                
                 // 401/403 shouldn't be retried
                 if (response.status === 401 || response.status === 403) {
-                    return { success: false, error: `Auth Error: ${errText}` };
+                    return { success: false, error: "Auth error" };
                 }
-                throw new Error(`HTTP ${response.status}: ${errText}`);
+                throw new Error("Request failed");
             }
             return { success: true };
         } catch (error) {
@@ -198,11 +203,19 @@ export async function ojsHealthCheck(): Promise<{ ok: boolean; configured: boole
     const configured = isOjsConfigured()
     if (!configured) return { ok: false, configured: false, error: "Settings missing (OJS_DATABASE_*)" }
 
+    let conn: PoolConnection | undefined
     try {
-        await ojsQuery("SELECT 1")
+        // Use a single short-lived connection with a small timeout, bypassing ojsQuery's retry logic
+        conn = await getPool().getConnection()
+        await Promise.race([
+            conn.query("SELECT 1"),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Query timeout")), 2000))
+        ])
         return { ok: true, configured: true, error: null }
     } catch (err) {
         return { ok: false, configured: true, error: (err as Error).message }
+    } finally {
+        if (conn) conn.release()
     }
 }
 
