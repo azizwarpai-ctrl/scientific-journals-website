@@ -61,12 +61,7 @@ export default function HelpPage() {
     return groups
   }, [articles])
 
-  const quickLinks = [
-    { icon: BookOpen, title: "Guide for Authors", description: "Submission guidelines & requirements", href: "#guide-authors", color: "primary" as const },
-    { icon: Users, title: "Guide for Reviewers", description: "Review process & expectations", href: "#guide-reviewers", color: "secondary" as const },
-    { icon: FileText, title: "Submission Help", description: "Get help with your manuscript", href: "/help/submission-service", color: "primary" as const },
-    { icon: HelpCircle, title: "Technical Support", description: "Report technical issues", href: "/help/technical-support", color: "secondary" as const },
-  ]
+
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -100,18 +95,21 @@ export default function HelpPage() {
             <div className="mx-auto max-w-4xl">
               <GSAPWrapper animation="slideUp" delay={0.2}>
                 <div className="mb-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                  {quickLinks.map((link) => {
+                  {content.quickLinks?.map((link) => {
                     const isRoute = link.href.startsWith("/")
                     const Wrapper = isRoute ? Link : "a"
+                    const iconName = link.icon || "BookOpen"
+                    const IconElement = iconName === "Users" ? Users : iconName === "HelpCircle" ? HelpCircle : iconName === "FileText" ? FileText : BookOpen
+                    
                     return (
-                      <Wrapper key={link.title} href={link.href as string}>
+                      <Wrapper key={link.id || link.title} href={link.href as string}>
                         <Card className="group cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1 border-border/50 h-full">
                           <CardContent className="pt-6 text-center">
                             <div className="mb-3 flex justify-center">
                               <div className={`flex h-12 w-12 items-center justify-center rounded-full transition-transform group-hover:scale-110 ${
                                 link.color === "primary" ? "bg-primary/10" : "bg-secondary/10"
                               }`}>
-                                <link.icon className={`h-6 w-6 ${
+                                <IconElement className={`h-6 w-6 ${
                                   link.color === "primary" ? "text-primary" : "text-secondary"
                                 }`} />
                               </div>

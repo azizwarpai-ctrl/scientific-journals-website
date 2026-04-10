@@ -9,6 +9,8 @@ import { BookOpen, Plus, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { DeleteHelpArticleButton } from "./delete-button"
+import { HelpConfigForm } from "./config-form"
+import { defaultHelpContent, type HelpContent } from "@/src/features/help/schemas/help-schema"
 
 export default async function HelpContentPage() {
   const session = await getSession()
@@ -18,12 +20,19 @@ export default async function HelpContentPage() {
   }
 
   let articles: any[] = []
+  let helpConfig: HelpContent = defaultHelpContent
   try {
     articles = await prisma.helpArticle.findMany({
       orderBy: [{ display_order: "asc" }, { created_at: "desc" }],
     })
+    const setting = await prisma.systemSetting.findUnique({
+      where: { setting_key: "help_page_content" }
+    })
+    if (setting) {
+      helpConfig = setting.setting_value as unknown as HelpContent
+    }
   } catch (error) {
-    console.error("Error fetching help articles:", error)
+    console.error("Error fetching admin help data:", error)
   }
 
   const publishedCount = articles?.filter((a) => a.is_published).length || 0
@@ -93,6 +102,7 @@ export default async function HelpContentPage() {
               <TabsTrigger value="all">All ({articles?.length || 0})</TabsTrigger>
               <TabsTrigger value="published">Published ({publishedCount})</TabsTrigger>
               <TabsTrigger value="draft">Drafts ({draftCount})</TabsTrigger>
+              <TabsTrigger value="config">Page Config</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="space-y-4">
@@ -183,6 +193,9 @@ export default async function HelpContentPage() {
               ) : (
                 <div className="py-8 text-center text-muted-foreground">No draft help articles</div>
               )}
+            </TabsContent>
+            <TabsContent value="config">
+              <HelpConfigForm initialData={helpConfig} />
             </TabsContent>
           </Tabs>
         </CardContent>
