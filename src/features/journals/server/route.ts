@@ -284,6 +284,90 @@ app.get("/:id/archive", zValidator("param", journalSlugParamSchema), async (c) =
   }
 })
 
+// ─── GET /journals/:id/editorial-board — OJS Masthead Members ────────
+
+app.get("/:id/editorial-board", zValidator("param", journalSlugParamSchema), async (c) => {
+  try {
+    const { id } = c.req.valid("param")
+
+    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
+    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
+    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+
+    if (!journal) {
+      return c.json({ success: false, error: "Journal not found" }, 404)
+    }
+
+    if (!journal.ojs_id) {
+      return c.json({ success: true, data: { members: [] }, message: "No OJS data" }, 200)
+    }
+
+    const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
+
+    if (!isOjsConfigured()) {
+      return c.json({ success: true, data: { members: [] }, message: "OJS not configured" }, 200)
+    }
+
+    try {
+      const { fetchEditorialBoard } = await import("@/src/features/journals/server/editorial-board-service")
+      const members = await fetchEditorialBoard(journal.ojs_id)
+      return c.json({ success: true, data: { members } }, 200)
+    } catch (queryError) {
+      console.error("[EditorialBoard API] OJS Query Error:", queryError)
+      return c.json({ success: false, error: "Failed to fetch editorial board from OJS" }, 502)
+    }
+  } catch (error) {
+    console.error("Error fetching editorial board:", error)
+    return c.json({ success: false, error: "Failed to fetch editorial board" }, 500)
+  }
+})
+
+// ─── GET /journals/:id/custom-blocks — OJS Custom Block Manager ───────
+
+app.get("/:id/custom-blocks", zValidator("param", journalSlugParamSchema), async (c) => {
+  try {
+    const { id } = c.req.valid("param")
+
+    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
+    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
+    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+
+    if (!journal) {
+      return c.json({ success: false, error: "Journal not found" }, 404)
+    }
+
+    if (!journal.ojs_id) {
+      return c.json({ success: true, data: { blocks: [] }, message: "No OJS data" }, 200)
+    }
+
+    const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
+
+    if (!isOjsConfigured()) {
+      return c.json({ success: true, data: { blocks: [] }, message: "OJS not configured" }, 200)
+    }
+
+    try {
+      // Resolve primary locale for block content localisation
+      const { ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
+      const localeRows = await ojsQuery<{ primary_locale: string }>(
+        "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
+        [journal.ojs_id]
+      )
+      const primaryLocale = localeRows[0]?.primary_locale ?? "en_US"
+
+      const { fetchCustomBlocks } = await import("@/src/features/journals/server/custom-blocks-service")
+      const blocks = await fetchCustomBlocks(journal.ojs_id, primaryLocale)
+      return c.json({ success: true, data: { blocks } }, 200)
+    } catch (queryError) {
+      console.error("[CustomBlocks API] OJS Query Error:", queryError)
+      return c.json({ success: false, error: "Failed to fetch custom blocks from OJS" }, 502)
+    }
+  } catch (error) {
+    console.error("Error fetching custom blocks:", error)
+    return c.json({ success: false, error: "Failed to fetch custom blocks" }, 500)
+  }
+})
+
 const journalIssueParamSchema = z.object({
   id: z.string().min(1),
   issueId: z.string().regex(/^\d+$/, "Issue ID must be numeric")

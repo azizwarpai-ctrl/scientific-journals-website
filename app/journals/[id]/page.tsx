@@ -6,9 +6,7 @@ import Image from "next/image"
 import {
   BookOpen,
   Info,
-  Calendar,
   FileText,
-  Clock,
   Shield,
   CreditCard,
   ExternalLink,
@@ -19,11 +17,10 @@ import {
   Building,
   ArrowRight,
   Database,
-  Eye,
-  Scale,
+  Calendar,
 } from "lucide-react"
 
-import DOMPurify from "dompurify"
+import DOMPurify from "isomorphic-dompurify"
 
 import { useGetJournal, useGetJournalStats, useJournalId } from "@/src/features/journals"
 
@@ -40,6 +37,8 @@ import { JournalDetailSkeleton } from "@/components/skeletons/journal-detail-ske
 import { CurrentIssueSection } from "./components/current-issue-section"
 import { ArchiveSection } from "./components/archive-section"
 import { Newspaper as NewspaperIcon, Archive as ArchiveIcon } from "lucide-react"
+import { EditorialBoardSection } from "./components/editorial-board-section"
+import { CustomBlocksCarousel } from "./components/custom-blocks-carousel"
 
 export default function JournalDetailPage() {
   const id = useJournalId()
@@ -50,7 +49,6 @@ export default function JournalDetailPage() {
 
   const sanitizeContent = (html: string | null | undefined): string => {
     if (!html) return ""
-    if (typeof window === "undefined") return html // SSR: return raw, browser will sanitize
     return DOMPurify.sanitize(html, {
       ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
       ALLOWED_ATTR: [],
@@ -192,7 +190,7 @@ export default function JournalDetailPage() {
                     {journal.issn || journal.e_issn || "ISSN Coming Soon"}
                   </Badge>
                   <Badge variant="outline" className="border-white/20 text-white/80 bg-white/5 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium">
-                    <Eye className="mr-1.5 h-3 w-3" />
+                    <Globe className="mr-1.5 h-3 w-3" />
                     Open Access
                   </Badge>
                 </div>
@@ -273,13 +271,6 @@ export default function JournalDetailPage() {
                       About Journal
                     </TabsTrigger>
                     <TabsTrigger
-                      value="scope"
-                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
-                    >
-                      <Scale className="mr-2 h-4 w-4" />
-                      Aims & Scope
-                    </TabsTrigger>
-                    <TabsTrigger
                       value="author"
                       className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
                     >
@@ -315,7 +306,7 @@ export default function JournalDetailPage() {
                   </TabsContent>
 
                   <TabsContent value="about" className="mt-8 space-y-8">
-                    {/* Description Section */}
+                    {/* Description / Overview Section */}
                     <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
                       <div className="flex items-center gap-3 mb-6">
                         <div className="p-2.5 rounded-lg bg-primary/10">
@@ -327,30 +318,41 @@ export default function JournalDetailPage() {
                         {journal.description || "Journal description is currently being updated. Please check back soon for more information about this publication."}
                       </CollapsibleContent>
 
-                      {/* Quick Stats */}
-                      <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                        <div className="rounded-xl border bg-muted/40 p-5">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="p-2 rounded-lg bg-primary/10">
-                              <Calendar className="h-4 w-4 text-primary" />
+                      {/* Publication Frequency — only if data exists */}
+                      {journal.frequency && (
+                        <div className="mt-8">
+                          <div className="rounded-xl border bg-muted/40 p-5">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="p-2 rounded-lg bg-primary/10">
+                                <Calendar className="h-4 w-4 text-primary" />
+                              </div>
+                              <h4 className="font-semibold text-sm">Publication Frequency</h4>
                             </div>
-                            <h4 className="font-semibold text-sm">Publication Frequency</h4>
+                            <p className="text-muted-foreground text-sm">{journal.frequency}</p>
                           </div>
-                          <p className="text-muted-foreground text-sm">{journal.frequency || "Contact for details"}</p>
                         </div>
-                        <div className="rounded-xl border bg-muted/40 p-5">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="p-2 rounded-lg bg-primary/10">
-                              <Clock className="h-4 w-4 text-primary" />
-                            </div>
-                            <h4 className="font-semibold text-sm">Peer Review Time</h4>
-                          </div>
-                          <p className="text-muted-foreground text-sm">Typically 2-4 months</p>
-                        </div>
-                      </div>
+                      )}
                     </div>
 
-                    {/* Technical Details Grid */}
+                    {/* Aims & Scope — inline, only if data exists in DB */}
+                    {journal.aims_and_scope && (
+                      <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="p-2.5 rounded-lg bg-primary/10">
+                            <BookOpen className="h-5 w-5 text-primary" />
+                          </div>
+                          <h2 className="text-xl font-bold">Aims &amp; Scope</h2>
+                        </div>
+                        <CollapsibleContent maxHeight={300} className="prose prose-slate max-w-none dark:prose-invert">
+                          <div
+                            className="text-base leading-relaxed text-muted-foreground"
+                            dangerouslySetInnerHTML={{ __html: safeAimsAndScope }}
+                          />
+                        </CollapsibleContent>
+                      </div>
+                    )}
+
+                    {/* Technical Details Grid — only real data, no N/A fallbacks */}
                     <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
                       <div className="flex items-center gap-3 mb-6">
                         <div className="p-2.5 rounded-lg bg-primary/10">
@@ -359,14 +361,13 @@ export default function JournalDetailPage() {
                         <h2 className="text-xl font-bold">Journal Details</h2>
                       </div>
                       <div className="grid gap-y-5 text-sm sm:grid-cols-2 sm:gap-x-8">
-                        {[
-                          { label: "ISSN (Print)", value: journal.issn || "N/A", icon: Database },
-                          { label: "ISSN (Online)", value: journal.e_issn || "N/A", icon: Globe },
-                          { label: "Publisher", value: journal.publisher || "N/A", icon: Building },
-                          { label: "Editor-in-Chief", value: journal.editor_in_chief || "N/A", icon: User },
-                          { label: "Open Access", value: "Yes", icon: Eye },
-                          { label: "Peer Review", value: "Double-blind", icon: Shield },
-                        ].map((item, idx) => (
+                        {([
+                          journal.issn ? { label: "ISSN (Print)", value: journal.issn, icon: Database } : null,
+                          journal.e_issn ? { label: "ISSN (Online)", value: journal.e_issn, icon: Globe } : null,
+                          journal.publisher ? { label: "Publisher", value: journal.publisher, icon: Building } : null,
+                          journal.editor_in_chief ? { label: "Editor-in-Chief", value: journal.editor_in_chief, icon: User } : null,
+                          journal.frequency ? { label: "Frequency", value: journal.frequency, icon: Calendar } : null,
+                        ] as const).filter((item): item is NonNullable<typeof item> => item !== null).map((item, idx) => (
                           <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 -mx-3">
                             <div className="p-1.5 rounded-md bg-primary/10 mt-0.5">
                               <item.icon className="h-3.5 w-3.5 text-primary" />
@@ -381,32 +382,16 @@ export default function JournalDetailPage() {
                             </div>
                           </div>
                         ))}
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="scope" className="mt-8 space-y-6">
-                    <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2.5 rounded-lg bg-primary/10">
-                          <Scale className="h-5 w-5 text-primary" />
-                        </div>
-                        <h2 className="text-xl font-bold">Aims & Scope</h2>
-                      </div>
-                      <CollapsibleContent maxHeight={300} className="prose prose-slate max-w-none dark:prose-invert">
-                        {journal.aims_and_scope ? (
-                          <div
-                            className="text-base leading-relaxed text-muted-foreground"
-                            dangerouslySetInnerHTML={{ __html: safeAimsAndScope }}
-                          />
-                        ) : (
-                          <div className="text-center py-8">
-                            <Scale className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
-                            <p className="text-muted-foreground">Aims & Scope information is being prepared for this journal.</p>
-                          </div>
+                        {/* Empty state when no details are available */}
+                        {!journal.issn && !journal.e_issn && !journal.publisher && !journal.editor_in_chief && !journal.frequency && (
+                          <p className="col-span-2 text-sm text-muted-foreground">Journal details are being updated.</p>
                         )}
-                      </CollapsibleContent>
+                      </div>
                     </div>
+
+                    {/* Editorial Board — only renders when OJS has masthead members */}
+                    <EditorialBoardSection journalId={id} />
+
                   </TabsContent>
 
                   <TabsContent value="author" className="mt-8 space-y-6">
@@ -495,17 +480,6 @@ export default function JournalDetailPage() {
                     <Button
                       variant="outline"
                       className="w-full justify-between border-border/60 hover:bg-muted/50"
-                      onClick={() => setActiveTab("scope")}
-                    >
-                      <span className="flex items-center gap-2">
-                        <BookOpen className="h-4 w-4" />
-                        Aims & Scope
-                      </span>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-between border-border/60 hover:bg-muted/50"
                       onClick={() => setActiveTab("current")}
                     >
                       <span className="flex items-center gap-2">
@@ -528,6 +502,9 @@ export default function JournalDetailPage() {
                   </div>
                 </div>
 
+                {/* Custom Blocks Carousel — from OJS Custom Block Manager plugin */}
+                <CustomBlocksCarousel journalId={id} />
+
                 {/* Journal Statistics Card */}
                 {stats !== undefined && (
                   <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
@@ -549,15 +526,17 @@ export default function JournalDetailPage() {
                 <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
                   <h3 className="text-lg font-bold mb-5 pb-3 border-b border-border/60">Contact</h3>
                   <div className="space-y-4 text-sm">
-                    <div className="flex items-start gap-3">
-                      <div className="p-1.5 rounded-md bg-muted mt-0.5">
-                        <Building className="h-4 w-4 text-muted-foreground" />
+                    {journal.publisher && (
+                      <div className="flex items-start gap-3">
+                        <div className="p-1.5 rounded-md bg-muted mt-0.5">
+                          <Building className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <span className="block text-xs text-muted-foreground">Publisher</span>
+                          <span className="font-medium">{journal.publisher}</span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="block text-xs text-muted-foreground">Publisher</span>
-                        <span className="font-medium">{journal.publisher || "N/A"}</span>
-                      </div>
-                    </div>
+                    )}
                     {journal.editor_in_chief && (
                       <div className="flex items-start gap-3">
                         <div className="p-1.5 rounded-md bg-muted mt-0.5">
