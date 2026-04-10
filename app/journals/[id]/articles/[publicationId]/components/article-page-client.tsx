@@ -20,7 +20,7 @@ export function ArticlePageClient({ journalIdStr, publicationIdStr }: ArticlePag
   const pubId = parseInt(publicationIdStr, 10)
   
   if (isNaN(pubId)) {
-    notFound()
+    return notFound()
   }
 
   const { data: responseData, isLoading, error } = useGetArticleDetail(journalIdStr, pubId)
@@ -39,7 +39,7 @@ export function ArticlePageClient({ journalIdStr, publicationIdStr }: ArticlePag
   }
 
   if (!responseData?.data) {
-    notFound() // Propagates to not-found.tsx
+    return notFound() // Propagates to not-found.tsx
   }
 
   const article = responseData.data

@@ -240,9 +240,15 @@ export async function fetchArticleDetail(
     
     issueId: article.issue_id || 0,
     issueTitle: article.issue_title,
-    volume: article.volume ? parseInt(article.volume, 10) : null,
+    volume: article.volume ? (() => {
+      const v = parseInt(article.volume, 10);
+      return isNaN(v) ? null : v;
+    })() : null,
     issueNumber: article.number,
-    year: article.year ? parseInt(article.year, 10) : null,
+    year: article.year ? (() => {
+      const y = parseInt(article.year, 10);
+      return isNaN(y) ? null : y;
+    })() : null,
     
     journalTitle: article.journal_title,
     journalAbbreviation: article.journal_abbreviation,

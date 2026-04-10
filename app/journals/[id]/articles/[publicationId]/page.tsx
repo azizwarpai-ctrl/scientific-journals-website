@@ -5,7 +5,7 @@ import { HydrationBoundary, dehydrate, QueryClient } from "@tanstack/react-query
 
 import { client } from "@/src/lib/rpc"
 import { ArticlePageClient } from "./components/article-page-client"
-import type { ArticleDetail } from "@/src/features/journals/types/article-detail-types"
+import type { ArticleDetail, ArticleDetailAuthor } from "@/src/features/journals/types/article-detail-types"
 
 interface PageProps {
   params: Promise<{
@@ -52,7 +52,7 @@ const getArticleData = cache(async (id: string, publicationId: string) => {
  */
 export async function generateMetadata(
   { params }: PageProps,
-  parent: ResolvingMetadata
+  _parent: ResolvingMetadata
 ): Promise<Metadata> {
   const resolvedParams = await params
   const data = await getArticleData(resolvedParams.id, resolvedParams.publicationId)
@@ -62,7 +62,7 @@ export async function generateMetadata(
   const { article } = data
   const abstractText = article.abstract ? article.abstract.replace(/<[^>]*>?/gm, '').substring(0, 160) : ''
   const authorNames = article.authors
-    .map((a: any) => `${a.givenName || ''} ${a.familyName || ''}`.trim())
+    .map((a: ArticleDetailAuthor) => `${a.givenName || ''} ${a.familyName || ''}`.trim())
     .filter((name: string) => name.length > 0)
 
   return {
