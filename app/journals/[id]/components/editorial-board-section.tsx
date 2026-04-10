@@ -114,10 +114,10 @@ export function EditorialBoardSection({ journalId }: EditorialBoardSectionProps)
     )
   }
 
-  // Group by roleId for visual hierarchy and stability
-  const byRole = data.members.reduce<Record<number, typeof data.members>>(
+  // Group by composite key (roleId + role) for distinct role titles sharing a role ID
+  const byRole = data.members.reduce<Record<string, typeof data.members>>(
     (acc, member) => {
-      const key = member.roleId
+      const key = `${member.roleId}:${member.role}`
       if (!acc[key]) acc[key] = []
       acc[key].push(member)
       return acc
@@ -133,17 +133,18 @@ export function EditorialBoardSection({ journalId }: EditorialBoardSectionProps)
 
   // Count displayed members to determine cutoff
   let displayedCount = 0
-  const visibleEntries: Array<[string, typeof data.members]> = []
+  const visibleEntries: Array<[string, typeof data.members, number]> = []
 
-  for (const [roleId, members] of allEntries) {
+  for (const [groupKey, members] of allEntries) {
     if (!expanded && displayedCount >= INITIAL_VISIBLE) break
+    const groupTotalCount = members.length
     if (!expanded) {
       const remaining = INITIAL_VISIBLE - displayedCount
       const slicedMembers = members.slice(0, remaining)
-      visibleEntries.push([roleId, slicedMembers])
+      visibleEntries.push([groupKey, slicedMembers, groupTotalCount])
       displayedCount += slicedMembers.length
     } else {
-      visibleEntries.push([roleId, members])
+      visibleEntries.push([groupKey, members, groupTotalCount])
       displayedCount += members.length
     }
   }
@@ -167,13 +168,13 @@ export function EditorialBoardSection({ journalId }: EditorialBoardSectionProps)
 
       {/* Board members grouped by role */}
       <div className="space-y-8">
-        {visibleEntries.map(([roleId, members]) => {
+        {visibleEntries.map(([groupKey, members, groupTotalCount]) => {
           const firstMember = members[0]
           const style = firstMember ? getRoleStyle(firstMember.roleId) : getRoleStyle(0)
           const roleDisplayName = firstMember?.role || "Editorial Board Member"
 
           return (
-            <div key={roleId}>
+            <div key={groupKey}>
               {/* Role heading with badge */}
               <div className="flex items-center gap-2 mb-4">
                 <Award className={`h-4 w-4 ${style.text}`} />
@@ -181,7 +182,7 @@ export function EditorialBoardSection({ journalId }: EditorialBoardSectionProps)
                   {roleDisplayName}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  ({members.length})
+                  ({groupTotalCount})
                 </span>
                 <div className="flex-1 h-px bg-border/40 ml-2" />
               </div>

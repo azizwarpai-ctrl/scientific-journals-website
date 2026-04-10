@@ -14,8 +14,21 @@ export const useUpdateHelpContent = () => {
       const response = await client.api.help.$put({ json })
       
       if (!response.ok) {
-        const errorData = await response.json() as { error?: string }
-        throw new Error(errorData.error ? errorData.error : "Failed to update help content")
+        let errorMessage = "Failed to update help content"
+        try {
+          const errorData = await response.json() as { error?: string }
+          if (errorData.error) {
+            errorMessage = errorData.error
+          }
+        } catch (e) {
+          try {
+            const errorText = await response.text()
+            if (errorText) errorMessage = errorText
+          } catch (e2) {
+            // Unlikely, but fallback is already set
+          }
+        }
+        throw new Error(errorMessage)
       }
       
       return (await response.json()) as ResponseType

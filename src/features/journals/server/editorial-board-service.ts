@@ -117,7 +117,7 @@ export async function fetchEditorialBoard(
       INNER JOIN (
         SELECT user_id, MIN(locale) AS min_loc
         FROM user_settings
-        WHERE setting_name = 'givenName' AND TRIM(setting_value) != ''
+        WHERE setting_name = 'givenName' AND TRIM(setting_value) != '' AND TRIM(locale) != ''
         GROUP BY user_id
       ) us2 ON us1.user_id = us2.user_id AND us1.locale = us2.min_loc
       WHERE us1.setting_name = 'givenName'
@@ -134,7 +134,7 @@ export async function fetchEditorialBoard(
       INNER JOIN (
         SELECT user_id, MIN(locale) AS min_loc
         FROM user_settings
-        WHERE setting_name = 'familyName' AND TRIM(setting_value) != ''
+        WHERE setting_name = 'familyName' AND TRIM(setting_value) != '' AND TRIM(locale) != ''
         GROUP BY user_id
       ) us2 ON us1.user_id = us2.user_id AND us1.locale = us2.min_loc
       WHERE us1.setting_name = 'familyName'
@@ -151,7 +151,7 @@ export async function fetchEditorialBoard(
       INNER JOIN (
         SELECT user_id, MIN(locale) AS min_loc
         FROM user_settings
-        WHERE setting_name = 'affiliation' AND TRIM(setting_value) != ''
+        WHERE setting_name = 'affiliation' AND TRIM(setting_value) != '' AND TRIM(locale) != ''
         GROUP BY user_id
       ) us2 ON us1.user_id = us2.user_id AND us1.locale = us2.min_loc
       WHERE us1.setting_name = 'affiliation'
@@ -169,7 +169,7 @@ export async function fetchEditorialBoard(
         SELECT gs2.user_group_id, MIN(gs2.locale) AS min_loc
         FROM user_group_settings gs2
         INNER JOIN user_groups g2 ON g2.user_group_id = gs2.user_group_id
-        WHERE gs2.setting_name = 'name' AND TRIM(gs2.setting_value) != '' AND g2.context_id = ?
+        WHERE gs2.setting_name = 'name' AND TRIM(gs2.setting_value) != '' AND TRIM(gs2.locale) != '' AND g2.context_id = ?
         GROUP BY gs2.user_group_id
       ) gq ON gs1.user_group_id = gq.user_group_id AND gs1.locale = gq.min_loc
       WHERE gs1.setting_name = 'name'
