@@ -318,30 +318,30 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
       )
     }
 
-    // 6. Search FAQs
+    // 6. Search Help Topics (replaces old FAQ search)
     if (requestAll || type === "faq") {
       promises.push(
         safePromise(
-          prisma.fAQ
+          prisma.helpTopic
             .findMany({
               where: {
-                is_published: true,
+                is_active: true,
                 AND: words.map((w) => ({
-                  OR: [{ question: { contains: w } }, { answer: { contains: w } }],
+                  OR: [{ title: { contains: w } }, { content: { contains: w } }],
                 })),
               },
-              select: { id: true, question: true, answer: true, category: true },
+              select: { id: true, title: true, content: true, category: { select: { title: true } } },
               take: limit,
             })
-            .then((faqs) =>
-              faqs.map((f) => ({
-                id: `faq-${f.id.toString()}`,
+            .then((topics: any[]) =>
+              topics.map((t: any) => ({
+                id: `faq-${t.id.toString()}`,
                 type: "faq" as const,
-                title: f.question,
-                description: f.category ? `Category: ${f.category}` : "Help Article",
-                content: f.answer || "",
+                title: t.title,
+                description: t.category?.title ? `Category: ${t.category.title}` : "Help Article",
+                content: t.content || "",
                 url: "/help",
-                field: f.category,
+                field: t.category?.title || null,
               }))
             )
         )

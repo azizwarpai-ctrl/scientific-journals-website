@@ -7,12 +7,22 @@ import {
     AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Loader2 } from "lucide-react"
-import { useGetFaqs } from "@/src/features/faq"
+import { useGetHelpCategories } from "@/src/features/help/api/use-help-categories"
 import Link from "next/link"
+import { useMemo } from "react"
 
 export function SubmitManagerFaq() {
-    const { data: faqResponse, isLoading } = useGetFaqs(1, 10)
-    const faqs = faqResponse?.data || []
+    const { data: categories, isLoading } = useGetHelpCategories()
+    
+    // Flatten all active topics from all categories into a FAQ-style list
+    const faqs = useMemo(() => {
+        if (!Array.isArray(categories)) return []
+        return categories.flatMap((cat: any) => 
+            (cat.topics || [])
+                .filter((t: any) => t.is_active)
+                .map((t: any) => ({ id: t.id, question: t.title, answer: t.content }))
+        ).slice(0, 10)
+    }, [categories])
 
     return (
         <section className="bg-muted/30 py-20 lg:py-32" id="faq">
@@ -35,7 +45,7 @@ export function SubmitManagerFaq() {
                         </div>
                     ) : (
                         <Accordion type="single" collapsible className="w-full">
-                            {faqs.map((faq, index) => (
+                            {faqs.map((faq: any, index: number) => (
                                 <AccordionItem value={`item-${index}`} key={faq.id}>
                                     <AccordionTrigger className="text-left text-lg font-medium">
                                         {faq.question}
@@ -61,3 +71,4 @@ export function SubmitManagerFaq() {
         </section>
     )
 }
+

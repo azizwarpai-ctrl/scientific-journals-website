@@ -47,11 +47,7 @@ const sidebarItems = [
     href: "/admin/messages",
     icon: Mail,
   },
-  {
-    title: "FAQ & Solutions",
-    href: "/admin/faq",
-    icon: HelpCircle,
-  },
+
   {
     title: "Help Content",
     href: "/admin/help-content",
