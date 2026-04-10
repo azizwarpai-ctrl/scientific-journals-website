@@ -27,13 +27,18 @@ const getArticleData = cache(async (id: string, publicationId: string) => {
   if (!/^[1-9]\d*$/.test(publicationId)) return { error: "INVALID_ID" }
   const publicationIdNum = parseInt(publicationId, 10)
 
-  const journalLookup = await resolveJournalOjsId(id)
-  if (!journalLookup) return { error: "JOURNAL_NOT_FOUND" }
+  try {
+    const journalLookup = await resolveJournalOjsId(id)
+    if (!journalLookup) return { error: "JOURNAL_NOT_FOUND" }
 
-  const article = await fetchArticleDetail(journalLookup.ojsId, publicationIdNum)
-  if (!article) return { error: "ARTICLE_NOT_FOUND" }
+    const article = await fetchArticleDetail(journalLookup.ojsId, publicationIdNum)
+    if (!article) return { error: "ARTICLE_NOT_FOUND" }
 
-  return { article, journalLookup }
+    return { article, journalLookup }
+  } catch (err) {
+    console.error(`[ArticleDetailPage] SSR data fetch failed for journal=${id}, pub=${publicationId}:`, err)
+    return { error: "FETCH_FAILED" }
+  }
 })
 
 /**
