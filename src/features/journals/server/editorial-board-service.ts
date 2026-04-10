@@ -161,8 +161,7 @@ export async function fetchEditorialBoard(
     console.log(`[EditorialBoard] journal_id=${journalId}: strict masthead returned 0 — trying relaxed fallback`)
     const relaxedWhere = `WHERE (
         uug.masthead = 1
-        OR (uug.masthead IS NULL AND ug.masthead = 1)
-        OR (uug.masthead IS NULL AND ug.masthead IS NULL)
+        OR (uug.masthead IS NULL AND (ug.masthead = 1 OR ug.masthead IS NULL))
       ) AND ug.role_id NOT IN (65536, 4096, 1048576)`
 
     fallbackUsed = true

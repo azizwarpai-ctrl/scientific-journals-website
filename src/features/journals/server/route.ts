@@ -449,6 +449,8 @@ app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamS
     if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
     if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
 
+    let resolvedOjsId: string | null = journal?.ojs_id || null;
+
     if (!journal) {
       // 4. Fallback: Lookup journal in OJS directly if it hasn't been synced to Prisma yet
       try {
@@ -469,7 +471,7 @@ app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamS
           }
 
           if (rows.length > 0) {
-            journal = { id: BigInt(-1), ojs_id: rows[0].journal_id.toString() }
+            resolvedOjsId = rows[0].journal_id.toString();
           }
         }
       } catch (ojsErr) {
@@ -477,11 +479,11 @@ app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamS
       }
     }
 
-    if (!journal) {
+    if (!journal && !resolvedOjsId) {
       return c.json({ success: false, error: "Journal not found" }, 404)
     }
 
-    if (!journal.ojs_id) {
+    if (!resolvedOjsId) {
       return c.json({ success: true, data: null, message: "No OJS data" }, 200)
     }
 
@@ -494,9 +496,9 @@ app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamS
     try {
       const { fetchArticleDetail } = await import("./article-detail-service")
       if (process.env.NODE_ENV !== 'production') {
-        console.log(`[ArticleDetail API] Calling fetchArticleDetail(ojs_id="${journal.ojs_id}", pubId=${publicationId})`)
+        console.log(`[ArticleDetail API] Calling fetchArticleDetail(ojs_id="${resolvedOjsId}", pubId=${publicationId})`)
       }
-      const detail = await fetchArticleDetail(journal.ojs_id, publicationId)
+      const detail = await fetchArticleDetail(resolvedOjsId, publicationId)
       
       if (!detail) {
         return c.json({ success: false, error: "Article not found" }, 404)
