@@ -99,9 +99,8 @@ app.get("/", async (c) => {
           journals = newJournals
           total = newTotal
         } catch (syncError) {
-          const errorMsg = syncError instanceof Error ? syncError.message : String(syncError)
           console.error("Inline sync fallback failed:", syncError)
-          return c.json({ success: false, error: "OJS DB Connection or Sync failed: " + errorMsg }, 500)
+          return c.json({ success: false, error: "OJS DB Connection or Sync failed" }, 500)
         }
       }
     }
