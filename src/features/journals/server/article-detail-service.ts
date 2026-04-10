@@ -27,6 +27,26 @@ interface GalleyRow {
 
 const OJS_STATUS_PUBLISHED = 3
 
+interface ArticleDbRow {
+  publication_id: number
+  submission_id: number
+  date_published: string | null
+  journal_id: number
+  issue_id: number | null
+  volume: string | null
+  number: string | null
+  year: string | null
+  journal_url_path: string | null
+  issue_title: string | null
+  journal_title: string | null
+  journal_abbreviation: string | null
+  issn: string | null
+  e_issn: string | null
+  section_id: number | null
+  section_title: string | null
+  primary_locale: string | null
+}
+
 export async function fetchArticleDetail(
   ojsJournalId: string,
   publicationId: number
@@ -38,7 +58,7 @@ export async function fetchArticleDetail(
   const journalId = parseInt(ojsJournalId, 10)
 
   // 1. Fetch Main Article Data (JOINing publications, submissions, issues, journals, sections)
-  const articleRows = await ojsQuery<any>(
+  const articleRows = await ojsQuery<ArticleDbRow>(
     `SELECT
       p.publication_id,
       p.submission_id,
@@ -218,17 +238,17 @@ export async function fetchArticleDetail(
     galleys,
     pdfUrl: pdfGalley?.downloadUrl || null,
     
-    issueId: article.issue_id,
+    issueId: article.issue_id || 0,
     issueTitle: article.issue_title,
-    volume: article.volume,
+    volume: article.volume ? parseInt(article.volume, 10) : null,
     issueNumber: article.number,
-    year: article.year,
+    year: article.year ? parseInt(article.year, 10) : null,
     
     journalTitle: article.journal_title,
     journalAbbreviation: article.journal_abbreviation,
     issn: article.issn,
     eIssn: article.e_issn,
-    journalUrlPath: article.journal_url_path,
+    journalUrlPath: article.journal_url_path || "",
     
     views,
     downloads
