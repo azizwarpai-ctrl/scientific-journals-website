@@ -108,7 +108,7 @@ const TOTAL_STEPS = 7
 // Store
 // ═══════════════════════════════════════════════════════════════
 
-function isNumberArray(arr: any): arr is number[] {
+function isNumberArray(arr: unknown): arr is number[] {
   return Array.isArray(arr) && arr.every((item) => typeof item === "number")
 }
 

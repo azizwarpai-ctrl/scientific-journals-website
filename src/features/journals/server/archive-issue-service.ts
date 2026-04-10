@@ -271,3 +271,22 @@ function mapIssueRow(
     issueCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(row.cover_image_raw)),
   }
 }
+
+/**
+ * Resolves an issue_id from volume and issue number for a specific journal.
+ * Used for deep-linking from article breadcrumbs.
+ */
+export async function fetchIssueIdByVolumeNumber(
+  ojsJournalId: string,
+  volume: number,
+  number: string
+): Promise<number | null> {
+  if (!/^\d+$/.test(ojsJournalId)) return null
+
+  const rows = await ojsQuery<{ issue_id: number }>(
+    "SELECT issue_id FROM issues WHERE journal_id = ? AND volume = ? AND number = ? AND published = 1 LIMIT 1",
+    [parseInt(ojsJournalId, 10), volume, number]
+  )
+
+  return rows[0]?.issue_id || null
+}

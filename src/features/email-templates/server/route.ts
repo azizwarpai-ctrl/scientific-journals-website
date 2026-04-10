@@ -228,7 +228,6 @@ app.patch(
       
       if (data.html_content !== undefined || data.subject !== undefined || data.text_content !== undefined) {
         // Use provided values or existing ones for variable extraction
-        const nameForExtraction = data.name ?? existing.name
         const subjectForExtraction = data.subject ?? existing.subject
         const htmlForExtraction = data.html_content ?? existing.html_content
         const textForExtraction = data.text_content ?? (existing.text_content || "")

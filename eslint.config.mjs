@@ -21,6 +21,7 @@ export default [
             'server.js',
             '**/*.cjs',
             'vitest.config.ts',
+            'verify-sanitization.js',
         ],
     },
     // Base configuration for JS/TS files

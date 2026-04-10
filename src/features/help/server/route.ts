@@ -43,10 +43,10 @@ app.put(
       
       const setting = await prisma.systemSetting.upsert({
         where: { setting_key: SETTING_KEY },
-        update: { setting_value: body as any },
+        update: { setting_value: body as unknown as import("@prisma/client").Prisma.InputJsonValue },
         create: {
           setting_key: SETTING_KEY,
-          setting_value: body as any,
+          setting_value: body as unknown as import("@prisma/client").Prisma.InputJsonValue,
           description: "Dynamic content for the Help page, including Author and Reviewer guides."
         }
       })

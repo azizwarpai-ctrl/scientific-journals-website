@@ -171,13 +171,13 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
               take: limit,
             })
             .then((articles) => {
-              const uJournals = new Map()
+              const uJournals = new Map<string, { id: bigint; title: string; description: string | null; aims_and_scope: string | null; field: string }>()
               articles.forEach((a) => {
                 if (a.journal && !uJournals.has(a.journal.id.toString())) {
                   uJournals.set(a.journal.id.toString(), a.journal)
                 }
               })
-              return Array.from(uJournals.values()).map((j: any) => ({
+              return Array.from(uJournals.values()).map((j) => ({
                 id: `journal-${j.id.toString()}`,
                 type: "journal" as const,
                 title: j.title,

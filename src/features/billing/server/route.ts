@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { requireAdmin } from "@/src/lib/auth-middleware"
 import { prisma } from "@/src/lib/db/config"
+import { Prisma } from "@prisma/client"
 import {
   checkoutSchema,
   pricingPlanCreateSchema,
@@ -230,7 +231,7 @@ app.post("/plans", requireAdmin, zValidator("json", pricingPlanCreateSchema), as
         name: data.name,
         description: data.description || null,
         price: data.price,
-        features: (data.features || {}) as any,
+        features: (data.features || {}) as Prisma.InputJsonValue,
         stripe_price_id: data.stripePriceId || null,
         is_active: data.isActive,
         is_popular: data.isPopular,
@@ -255,16 +256,17 @@ app.patch("/plans/:id", requireAdmin, zValidator("param", pricingPlanIdParamSche
         ...(data.name !== undefined && { name: data.name }),
         ...(data.description !== undefined && { description: data.description }),
         ...(data.price !== undefined && { price: data.price }),
-        ...(data.features !== undefined && { features: data.features as any }),
+        ...(data.features !== undefined && { features: data.features as Prisma.InputJsonValue }),
         ...(data.stripePriceId !== undefined && { stripe_price_id: data.stripePriceId }),
         ...(data.isActive !== undefined && { is_active: data.isActive }),
         ...(data.isPopular !== undefined && { is_popular: data.isPopular }),
       },
     })
     return c.json({ success: true, data: serializeRecord(plan) })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as { code?: string }
     console.error("[billing] plan update error:", error)
-    if (error.code === "P2025") {
+    if (err.code === "P2025") {
       return c.json({ success: false, error: "Pricing plan not found" }, 404)
     }
     return c.json({ success: false, error: "Failed to update pricing plan" }, 500)
@@ -280,9 +282,10 @@ app.delete("/plans/:id", requireAdmin, zValidator("param", pricingPlanIdParamSch
       data: { is_active: false },
     })
     return c.json({ success: true })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as { code?: string }
     console.error("[billing] plan delete error:", error)
-    if (error.code === "P2025") {
+    if (err.code === "P2025") {
       return c.json({ success: false, error: "Pricing plan not found" }, 404)
     }
     return c.json({ success: false, error: "Failed to delete pricing plan" }, 500)
