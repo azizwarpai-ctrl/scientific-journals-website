@@ -1,7 +1,7 @@
 import { ArrowLeft, BookOpen, Clock, Calendar } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import DOMPurify from "isomorphic-dompurify"
+import sanitizeHtml from "sanitize-html"
 
 import { resolveJournalOjsId } from "@/src/features/journals/server/resolve-journal"
 import { fetchIssueIdByVolumeNumber, fetchIssueWithArticles } from "@/src/features/journals/server/archive-issue-service"
@@ -40,9 +40,9 @@ export default async function IssueDetailPage({ params }: PageProps) {
   if (!issue) notFound()
 
   // Sanitize description for server-side injection
-  const safeDescription = issue.description ? DOMPurify.sanitize(issue.description, {
-    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
-    ALLOWED_ATTR: [],
+  const safeDescription = issue.description ? sanitizeHtml(issue.description, {
+    allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
+    allowedAttributes: {},
   }) : ""
 
   const isValidCoverUrl = (urlStr: string | null | undefined): boolean => {
