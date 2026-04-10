@@ -6,13 +6,14 @@ export const useGetHelpContent = () => {
     return useQuery({
         queryKey: ["help-content"],
         queryFn: async () => {
-            const response = await client.help.index.$get()
+            const response = await client.help.$get()
             if (!response.ok) {
                 throw new Error("Failed to fetch help content")
             }
-            const { data } = await response.json()
-            return data as HelpContent
+            const json = await response.json()
+            return json.data as HelpContent
         },
         staleTime: 5 * 60 * 1000,
     })
 }
+
