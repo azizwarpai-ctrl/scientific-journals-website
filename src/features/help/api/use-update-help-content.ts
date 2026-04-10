@@ -20,11 +20,11 @@ export const useUpdateHelpContent = () => {
           if (errorData.error) {
             errorMessage = errorData.error
           }
-        } catch (e) {
+        } catch {
           try {
             const errorText = await response.text()
             if (errorText) errorMessage = errorText
-          } catch (e2) {
+          } catch {
             // Unlikely, but fallback is already set
           }
         }

@@ -1,19 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import Image from "next/image"
 import {
   ArrowLeft,
   Calendar,
-  ExternalLink,
   Newspaper,
 } from "lucide-react"
 import DOMPurify from "dompurify"
 
-import { useGetIssueDetail, type CurrentIssue, type CurrentIssueArticle } from "@/src/features/journals"
+import { useGetIssueDetail, type CurrentIssueArticle } from "@/src/features/journals"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { CurrentIssueSkeleton } from "@/components/skeletons/current-issue-skeleton"
 import { CurrentIssueError } from "@/components/errors/current-issue-error"
 import { ArticleItem } from "./article-item"

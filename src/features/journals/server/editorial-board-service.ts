@@ -156,7 +156,6 @@ export async function fetchEditorialBoard(
 
   // ── Step 1b: Relaxed fallback when strict masthead returns 0 rows ──
   let effectiveRows = rows
-  let fallbackUsed = false
   if (rows.length === 0) {
     console.log(`[EditorialBoard] journal_id=${journalId}: strict masthead returned 0 — trying relaxed fallback`)
     const relaxedWhere = `WHERE (
@@ -164,7 +163,6 @@ export async function fetchEditorialBoard(
         OR (uug.masthead IS NULL AND (ug.masthead = 1 OR ug.masthead IS NULL))
       ) AND ug.role_id NOT IN (65536, 4096, 1048576)`
 
-    fallbackUsed = true
     effectiveRows = await ojsQuery<EditorialBoardRow>(
       buildEditorialBoardQuery(relaxedWhere),
       parameters

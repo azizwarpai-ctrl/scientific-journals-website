@@ -12,7 +12,6 @@ import {
 
 import { useGetArchiveIssues, type ArchiveIssue } from "@/src/features/journals"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { ArchiveSkeleton } from "@/components/skeletons/archive-skeleton"
 import { ArchiveError } from "@/components/errors/archive-error"
 import { ArchiveEmpty } from "@/components/states/archive-empty"

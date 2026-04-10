@@ -1,5 +1,6 @@
 import { ArrowLeft, BookOpen, Clock, Calendar } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { notFound } from "next/navigation"
 import sanitizeHtml from "sanitize-html"
 
@@ -74,10 +75,12 @@ export default async function IssueDetailPage({ params }: PageProps) {
         <div className="flex flex-col md:flex-row gap-8 items-start">
           {isValidCoverUrl(issue.issueCoverUrl) && (
             <div className="relative w-full md:w-64 aspect-[3/4] rounded-2xl overflow-hidden border border-border/40 shadow-xl flex-shrink-0">
-               <img 
+               <Image 
                  src={issue.issueCoverUrl!} 
                  alt={issue.title || "Issue Cover"}
-                 className="object-cover w-full h-full"
+                 fill
+                 sizes="(max-width: 768px) 100vw, 256px"
+                 className="object-cover"
                />
             </div>
           )}

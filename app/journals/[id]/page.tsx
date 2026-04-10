@@ -13,7 +13,6 @@ import {
   ChevronRight,
   Globe,
   Send,
-  User,
   Building,
   Mail,
   ArrowRight,
