@@ -27,6 +27,7 @@ export const ADMIN_ROUTES = [
   "/admin/authors",
   "/admin/messages",
   "/admin/faq",
+  "/admin/help-content",
   "/admin/settings",
   "/admin/email-templates",
   "/admin/pricing",

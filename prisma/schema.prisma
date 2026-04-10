@@ -202,6 +202,22 @@ model FAQ {
   @@map("faq_solutions")
 }
 
+model HelpArticle {
+  id            BigInt   @id @default(autoincrement())
+  title         String   @db.VarChar(255)
+  content       String   @db.Text
+  category      String?  @db.VarChar(100)
+  icon          String?  @db.VarChar(100)
+  display_order Int      @default(0)
+  is_published  Boolean  @default(false)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @default(now()) @updatedAt
+
+  @@index([category])
+  @@index([is_published])
+  @@map("help_articles")
+}
+
 model Solution {
   id            BigInt   @id @default(autoincrement())
   title         String   @db.VarChar(255)

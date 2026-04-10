@@ -1,0 +1,1 @@
+export { helpArticleRouter } from "./route"

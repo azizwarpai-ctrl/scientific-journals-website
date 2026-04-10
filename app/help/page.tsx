@@ -14,14 +14,17 @@ import { useState, useMemo } from "react"
 import { useGetFaqs } from "@/src/features/faq"
 import { useGetHelpContent } from "@/src/features/help"
 import { defaultHelpContent } from "@/src/features/help/schemas/help-schema"
+import { useGetHelpArticles } from "@/src/features/help-articles"
 
 export default function HelpPage() {
   const { data: faqResponse, isLoading: isFaqLoading } = useGetFaqs(1, 50)
   const { data: helpResponse, isLoading: isHelpLoading } = useGetHelpContent()
+  const { data: articlesResponse, isLoading: isArticlesLoading } = useGetHelpArticles(1, 50)
   const [faqFilter, setFaqFilter] = useState("")
 
   const faqs = faqResponse?.data || []
   const content = helpResponse || defaultHelpContent
+  const articles = articlesResponse?.data || []
 
   // Filter FAQs by search term
   const filteredFaqs = useMemo(() => {
@@ -46,6 +49,17 @@ export default function HelpPage() {
   }, [filteredFaqs])
 
   const hasCategories = Object.keys(groupedFaqs).length > 1
+
+  // Group help articles by category
+  const groupedArticles = useMemo(() => {
+    const groups: Record<string, typeof articles> = {}
+    for (const article of articles) {
+      const cat = article.category || "General"
+      if (!groups[cat]) groups[cat] = []
+      groups[cat].push(article)
+    }
+    return groups
+  }, [articles])
 
   const quickLinks = [
     { icon: BookOpen, title: "Guide for Authors", description: "Submission guidelines & requirements", href: "#guide-authors", color: "primary" as const },
@@ -112,6 +126,61 @@ export default function HelpPage() {
                   })}
                 </div>
               </GSAPWrapper>
+
+              {/* Help Articles */}
+              {(isArticlesLoading || articles.length > 0) && (
+                <GSAPWrapper animation="fadeIn" delay={0.25}>
+                  <div className="mb-8">
+                    <h2 className="mb-6 text-2xl font-bold tracking-tight">Help Articles</h2>
+                    {isArticlesLoading ? (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {[...Array(4)].map((_, i) => (
+                          <Card key={i} className="border-border/50">
+                            <CardHeader>
+                              <Skeleton className="h-5 w-3/4" />
+                            </CardHeader>
+                            <CardContent>
+                              <Skeleton className="h-4 w-full mb-2" />
+                              <Skeleton className="h-4 w-2/3" />
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-8">
+                        {Object.entries(groupedArticles).map(([category, items]) => (
+                          <div key={category}>
+                            {Object.keys(groupedArticles).length > 1 && (
+                              <h3 className="mb-4 text-sm font-semibold text-primary uppercase tracking-wider">
+                                {category}
+                              </h3>
+                            )}
+                            <div className="grid gap-4 md:grid-cols-2">
+                              {items.map((article) => (
+                                <Card
+                                  key={article.id}
+                                  className="group border-border/50 transition-all hover:shadow-md hover:-translate-y-0.5"
+                                >
+                                  <CardHeader className="pb-3">
+                                    <CardTitle className="text-base font-semibold leading-snug">
+                                      {article.title}
+                                    </CardTitle>
+                                  </CardHeader>
+                                  <CardContent>
+                                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                                      {article.content}
+                                    </p>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </GSAPWrapper>
+              )}
 
               {/* FAQ */}
               <GSAPWrapper animation="fadeIn" delay={0.3}>

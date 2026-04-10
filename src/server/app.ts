@@ -5,6 +5,7 @@ import { journalRouter } from "@/src/features/journals/server"
 import { faqRouter } from "@/src/features/faq/server"
 import { solutionRouter } from "@/src/features/solutions/server/route"
 import { helpRouter } from "@/src/features/help/server"
+import { helpArticleRouter } from "@/src/features/help-articles/server"
 import { ojsRouter } from "@/src/features/ojs/server"
 import { authRouter } from "@/src/features/auth/server"
 import { messageRouter } from "@/src/features/messages/server"
@@ -23,6 +24,7 @@ const apiApp = new Hono()
     .route("/faqs", faqRouter)
     .route("/solutions", solutionRouter)
     .route("/help", helpRouter)
+    .route("/help-articles", helpArticleRouter)
     .route("/auth", authRouter)
     .route("/messages", messageRouter)
     .route("/ojs", ojsRouter)
