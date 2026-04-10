@@ -1,5 +1,5 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
-import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
+import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
 import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 
@@ -27,6 +27,26 @@ interface GalleyRow {
 
 const OJS_STATUS_PUBLISHED = 3
 
+interface ArticleDbRow {
+  publication_id: number
+  submission_id: number
+  date_published: string | null
+  journal_id: number
+  issue_id: number | null
+  volume: string | null
+  number: string | null
+  year: string | null
+  journal_url_path: string | null
+  issue_title: string | null
+  journal_title: string | null
+  journal_abbreviation: string | null
+  issn: string | null
+  e_issn: string | null
+  section_id: number | null
+  section_title: string | null
+  primary_locale: string | null
+}
+
 export async function fetchArticleDetail(
   ojsJournalId: string,
   publicationId: number
@@ -38,12 +58,11 @@ export async function fetchArticleDetail(
   const journalId = parseInt(ojsJournalId, 10)
 
   // 1. Fetch Main Article Data (JOINing publications, submissions, issues, journals, sections)
-  const articleRows = await ojsQuery<any>(
+  const articleRows = await ojsQuery<ArticleDbRow>(
     `SELECT
       p.publication_id,
       p.submission_id,
       p.date_published,
-      p.pages,
       s.context_id as journal_id,
       i.issue_id,
       i.volume,
@@ -93,6 +112,7 @@ export async function fetchArticleDetail(
   let title = null
   let abstract = null
   let doi = null
+  let pages: string | null = null
   let coverImageRaw = null
   const keywords: string[] = []
 
@@ -104,6 +124,8 @@ export async function fetchArticleDetail(
       abstract = s.setting_value
     } else if (s.setting_name === 'pub-id::doi') {
       doi = s.setting_value
+    } else if (s.setting_name === 'pages' && s.setting_value && (s.locale === primaryLocale || !pages)) {
+      pages = s.setting_value
     } else if (s.setting_name === 'coverImage' && (s.locale === primaryLocale || !coverImageRaw)) {
       coverImageRaw = s.setting_value
     } else if (s.setting_name === 'keywords' && s.locale === primaryLocale && s.setting_value) {
@@ -174,7 +196,9 @@ export async function fetchArticleDetail(
       galleyId: row.galley_id,
       label: row.label,
       locale: row.locale,
-      downloadUrl: cleanBaseUrl ? `${cleanBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}` : null
+      downloadUrl: (cleanBaseUrl && article.journal_url_path) 
+        ? `${cleanBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}` 
+        : null
     }
   })
 
@@ -201,34 +225,37 @@ export async function fetchArticleDetail(
      console.warn(`[ArticleDetail] Could not fetch metrics for submission ${submissionId}:`, metricsError)
   }
 
-  return {
-    publicationId: article.publication_id,
-    submissionId: article.submission_id,
-    title,
-    abstract,
-    doi,
-    keywords,
-    pages: article.pages,
-    datePublished: article.date_published,
-    authors,
-    sectionTitle: article.section_title,
-    articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(coverImageRaw)),
-    galleys,
-    pdfUrl: pdfGalley?.downloadUrl || null,
-    
-    issueId: article.issue_id,
-    issueTitle: article.issue_title,
-    volume: article.volume,
-    issueNumber: article.number,
-    year: article.year,
-    
-    journalTitle: article.journal_title,
-    journalAbbreviation: article.journal_abbreviation,
-    issn: article.issn,
-    eIssn: article.e_issn,
-    journalUrlPath: article.journal_url_path,
-    
-    views,
-    downloads
-  }
+    const parsedVolume = article.volume ? parseInt(article.volume, 10) : NaN;
+    const parsedYear = article.year ? parseInt(article.year, 10) : NaN;
+
+    return {
+      publicationId: article.publication_id,
+      submissionId: article.submission_id,
+      title,
+      abstract,
+      doi,
+      keywords,
+      pages,
+      datePublished: article.date_published,
+      authors,
+      sectionTitle: article.section_title,
+      articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(coverImageRaw)),
+      galleys,
+      pdfUrl: pdfGalley?.downloadUrl || null,
+      
+      issueId: article.issue_id || 0,
+      issueTitle: article.issue_title,
+      volume: Number.isNaN(parsedVolume) ? null : parsedVolume,
+      issueNumber: article.number,
+      year: Number.isNaN(parsedYear) ? null : parsedYear,
+      
+      journalTitle: article.journal_title,
+      journalAbbreviation: article.journal_abbreviation,
+      issn: article.issn,
+      eIssn: article.e_issn,
+      journalUrlPath: article.journal_url_path || "",
+      
+      views,
+      downloads
+    }
 }

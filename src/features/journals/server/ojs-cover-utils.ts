@@ -16,12 +16,14 @@
 import path from "node:path"
 import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 
-function findUploadName(obj: any): string | null {
+function findUploadName(obj: unknown): string | null {
   if (obj === null || typeof obj !== "object") return null
-  if (typeof obj.uploadName === "string" && obj.uploadName) return obj.uploadName
+  
+  const record = obj as Record<string, unknown>
+  if (typeof record.uploadName === "string" && record.uploadName) return record.uploadName
 
-  for (const key of Object.keys(obj)) {
-    const found = findUploadName(obj[key])
+  for (const key of Object.keys(record)) {
+    const found = findUploadName(record[key])
     if (found) return found
   }
   return null

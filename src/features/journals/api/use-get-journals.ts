@@ -10,8 +10,8 @@ export const useGetJournals = () => {
             const response = await client.journals.index.$get()
 
             if (!response.ok) {
-                const error = await response.json()
-                throw new Error((error as any).error || "Failed to fetch journals")
+                const error = await response.json() as { error: string }
+                throw new Error(error.error || "Failed to fetch journals")
             }
 
             const { data } = await response.json()

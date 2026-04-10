@@ -54,8 +54,9 @@ app.get("/debug-covers", requireAdmin, async (c) => {
       success: true, 
       data: { issueSettings, isCovers, pubSettings, pubCovers } 
     })
-  } catch (err: any) {
-    return c.json({ success: false, error: err.message }, 500)
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err)
+    return c.json({ success: false, error: errorMsg }, 500)
   }
 })
 
@@ -97,9 +98,9 @@ app.get("/", async (c) => {
           ])
           journals = newJournals
           total = newTotal
-        } catch (syncError: any) {
+        } catch (syncError) {
           console.error("Inline sync fallback failed:", syncError)
-          return c.json({ success: false, error: "OJS DB Connection or Sync failed: " + (syncError.message || String(syncError)) }, 500)
+          return c.json({ success: false, error: "OJS DB Connection or Sync failed" }, 500)
         }
       }
     }
@@ -384,10 +385,10 @@ app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamS
 
 
 
-app.post("/", requireAdmin, zValidator("json", journalCreateSchema), async (c) => {
-  try {
-    const session = (c as any).get("session")
-    if (!session) {
+  app.post("/", requireAdmin, zValidator("json", journalCreateSchema), async (c) => {
+    try {
+      const session = c.get("session" as never) as { id: string } | undefined
+      if (!session) {
       return c.json({ success: false, error: "Unauthorized" }, 401)
     }
     const data = c.req.valid("json")
@@ -438,10 +439,10 @@ app.patch("/:id", requireAdmin, zValidator("param", journalIdParamSchema), zVali
       return c.json({ success: false, error: "Journal not found" }, 404)
     }
 
-    const updateData: Partial<typeof data> = {}
+    const updateData: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(data)) {
       if (value !== undefined) {
-        (updateData as any)[key] = value
+        updateData[key] = value
       }
     }
 
@@ -567,16 +568,16 @@ app.get("/proxy-pdf", async (c) => {
         status: 200,
         headers
       })
-    } catch (fetchError: any) {
+    } catch (fetchError) {
       clearTimeout(id)
-      if (fetchError.name === 'AbortError') {
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         console.error("[Proxy] Timeout fetching PDF from:", targetUrl.toString())
         return c.text("Request Timeout: Upstream OJS is taking too long to respond", 504)
       }
       throw fetchError
     }
-  } catch (error: any) {
-    if (error instanceof TypeError && error.message.includes('Invalid URL')) {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'TypeError' && error.message.includes('Invalid URL')) {
        return c.text("Malformed URL parameter", 400)
     }
     console.error("PDF Proxy Error:", error)

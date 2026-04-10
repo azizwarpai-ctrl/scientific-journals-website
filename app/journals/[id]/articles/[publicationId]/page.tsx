@@ -1,16 +1,11 @@
-import { ArrowLeft, AlertCircle } from "lucide-react"
-import Link from "next/link"
 import type { Metadata, ResolvingMetadata } from "next"
 import { notFound } from "next/navigation"
 import { cache } from "react"
+import { HydrationBoundary, dehydrate, QueryClient } from "@tanstack/react-query"
 
-import { fetchArticleDetail } from "@/src/features/journals/server/article-detail-service"
-import { resolveJournalOjsId } from "@/src/features/journals/server/resolve-journal"
-
-import { ArticleHeader } from "./components/article-header"
-import { ArticleAbstract } from "./components/article-abstract"
-import { ArticleClientShell } from "./components/article-client-shell"
-import { ArticleJsonLd } from "./components/article-jsonld"
+import { client } from "@/src/lib/rpc"
+import { ArticlePageClient } from "./components/article-page-client"
+import type { ArticleDetail, ArticleDetailAuthor } from "@/src/features/journals/types/article-detail-types"
 
 interface PageProps {
   params: Promise<{
@@ -21,19 +16,33 @@ interface PageProps {
 
 /**
  * Shared data fetcher memoized per request.
- * Deduplicates database queries between metadata generation and page rendering.
+ * Migrated to utilize the strictly typed Hono API boundary, eliminating 
+ * direct module usage and isolating CMS data via true API separation.
  */
 const getArticleData = cache(async (id: string, publicationId: string) => {
   if (!/^[1-9]\d*$/.test(publicationId)) return { error: "INVALID_ID" }
-  const publicationIdNum = parseInt(publicationId, 10)
 
-  const journalLookup = await resolveJournalOjsId(id)
-  if (!journalLookup) return { error: "JOURNAL_NOT_FOUND" }
+  try {
+    const response = await client.journals[":id"]["articles"][":publicationId"].$get({
+      param: { id, publicationId },
+    })
 
-  const article = await fetchArticleDetail(journalLookup.ojsId, publicationIdNum)
-  if (!article) return { error: "ARTICLE_NOT_FOUND" }
+    if (!response.ok) {
+      if (response.status === 404) return { error: "ARTICLE_NOT_FOUND" }
+      console.error(`[ArticleDetailPage] API error for journal=${id}, pub=${publicationId}: ${response.statusText}`)
+      return { error: "SERVER_ERROR" }
+    }
 
-  return { article, journalLookup }
+    const payload = await response.json()
+    if (!payload.success || !payload.data) {
+       return { error: "ARTICLE_NOT_FOUND" }
+    }
+
+    return { article: payload.data as ArticleDetail }
+  } catch (err) {
+    console.error(`[ArticleDetailPage] RPC call failed for journal=${id}, pub=${publicationId}:`, err)
+    return { error: "SERVER_ERROR" }
+  }
 })
 
 /**
@@ -43,7 +52,7 @@ const getArticleData = cache(async (id: string, publicationId: string) => {
  */
 export async function generateMetadata(
   { params }: PageProps,
-  parent: ResolvingMetadata
+  _parent: ResolvingMetadata
 ): Promise<Metadata> {
   const resolvedParams = await params
   const data = await getArticleData(resolvedParams.id, resolvedParams.publicationId)
@@ -53,14 +62,14 @@ export async function generateMetadata(
   const { article } = data
   const abstractText = article.abstract ? article.abstract.replace(/<[^>]*>?/gm, '').substring(0, 160) : ''
   const authorNames = article.authors
-    .map(a => `${a.givenName || ''} ${a.familyName || ''}`.trim())
-    .filter(name => name.length > 0)
+    .map((a: ArticleDetailAuthor) => `${a.givenName || ''} ${a.familyName || ''}`.trim())
+    .filter((name: string) => name.length > 0)
 
   return {
     title: `${article.title || 'Untitled Article'} | ${article.journalAbbreviation || article.journalTitle || 'Journal'}`,
     description: abstractText,
-    keywords: article.keywords.join(', '),
-    authors: authorNames.map(name => ({ name })),
+    keywords: article.keywords?.join(', ') || '',
+    authors: authorNames.map((name: string) => ({ name })),
     openGraph: {
       title: article.title || 'Untitled Article',
       description: abstractText,
@@ -74,50 +83,49 @@ export async function generateMetadata(
 }
 
 /**
- * Fully Server-Side Rendered (SSR) Article Detail Page
- * No 'use client' directives means this page delivers its complete HTML payload
- * upfront — ensuring critical 100% indexing capability for scholarly content.
+ * Server-Side Rendered (SSR) Article Detail Page with React Query Hydration
+ * Prefetches CMS data using internal APIs, populates state into the specialized hook, 
+ * and relies on integrated Nextjs boundaries for robust fault tolerance.
  */
 export default async function ArticleDetailPage({ params }: PageProps) {
   const resolvedParams = await params
-  const data = await getArticleData(resolvedParams.id, resolvedParams.publicationId)
+  const publicationIdNum = parseInt(resolvedParams.publicationId, 10)
 
-  if ("error" in data) {
+  if (isNaN(publicationIdNum)) {
     notFound()
   }
 
-  const { article } = data
+  const queryClient = new QueryClient()
+
+  // SSR Prefetch the query key required by our specialized hook exactly
+  await queryClient.prefetchQuery({
+    queryKey: ["journal-article-detail", resolvedParams.id, publicationIdNum],
+    queryFn: async () => {
+      const data = await getArticleData(resolvedParams.id, resolvedParams.publicationId)
+      
+      // We throw errors in fetcher specifically so react-query catches them or error boundaries engage
+      if (data.error === "SERVER_ERROR") throw new Error("Internal Server Error fetching article data via API")
+      if (data.error === "ARTICLE_NOT_FOUND" || data.error === "INVALID_ID") return { data: null } // will resolve as empty, hooked correctly
+
+      return { data: data.article, message: undefined }
+    }
+  })
+
+  // We explicitly throw structural boundary errors here prior to payload construction
+  // This triggers error.tsx natively if cache resulted in a system failure
+  const dehydratedState = dehydrate(queryClient)
+  const cachedResult = dehydratedState.queries.find(q => q.queryKey[0] === "journal-article-detail")
+  
+  if (cachedResult?.state?.error) {
+    throw new Error("Unable to fetch structural resources safely for the article.")
+  }
 
   return (
-    <>
-      <ArticleJsonLd article={article} />
-      
-      <div className="container max-w-[1200px] py-10 lg:py-16 mx-auto px-4 sm:px-6">
-        {/* Back button */}
-        <Link 
-          href={`/journals/${resolvedParams.id}`}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors group mb-8"
-        >
-          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-          Back to Journal
-        </Link>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16">
-          {/* Main Content Area */}
-          <div className="lg:col-span-8 space-y-12">
-            <ArticleHeader article={article} />
-            
-            <div className="h-px bg-border/60 w-full" />
-            
-            <ArticleAbstract abstract={article.abstract} />
-          </div>
-
-          {/* Sidebar & PDF Interactive Elements (Hydrated Client Boundary) */}
-          <ArticleClientShell article={article} />
-        </div>
-      </div>
-    </>
+    <HydrationBoundary state={dehydratedState}>
+       <ArticlePageClient 
+          journalIdStr={resolvedParams.id} 
+          publicationIdStr={resolvedParams.publicationId} 
+       />
+    </HydrationBoundary>
   )
 }
-
-

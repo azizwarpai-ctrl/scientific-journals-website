@@ -21,6 +21,8 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
       }
 
       const sub = await getSubscription(session.subscription as string)
+      // Use structural typing to avoid potential naming collision with Prisma's Subscription model
+      const currentPeriodEnd = new Date(((sub as unknown) as { current_period_end: number }).current_period_end * 1000)
 
       await prisma.subscription.upsert({
         where: { admin_user_id: BigInt(adminUserId) },
@@ -30,14 +32,14 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
           status: "active",
-          current_period_end: new Date((sub as any).current_period_end * 1000),
+          current_period_end: currentPeriodEnd,
         },
         update: {
           pricing_plan_id: BigInt(pricingPlanId),
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
           status: "active",
-          current_period_end: new Date((sub as any).current_period_end * 1000),
+          current_period_end: currentPeriodEnd,
         },
       })
       break

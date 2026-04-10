@@ -30,7 +30,7 @@ export async function initializeDatabase() {
     // 1. Initialize Prisma Client early so we can run raw SQL migrations
     console.log('[DB Init] Initializing Prisma Client for migrations...')
     const dbUrl = process.env.DATABASE_URL
-    let config: any = {
+    let config: Record<string, unknown> = {
       host: process.env.DATABASE_HOST || 'localhost',
       port: parseInt(process.env.DATABASE_PORT || '3306'),
       user: process.env.DATABASE_USER || 'root',
@@ -50,7 +50,7 @@ export async function initializeDatabase() {
           database: url.pathname.substring(1),
           connectionLimit: 5,
         }
-      } catch (e) {
+      } catch {
         console.warn('[DB Init] Failed to parse DATABASE_URL, falling back to individual env vars')
       }
     }
@@ -67,9 +67,10 @@ export async function initializeDatabase() {
       try {
         await prisma.$executeRawUnsafe('ALTER TABLE `journals` ADD COLUMN `ojs_path` VARCHAR(100) NULL;')
         console.log('[DB Init] Applied schema patch: Added ojs_path to journals')
-      } catch (e: any) {
-        if (!e.message.includes('Duplicate column name')) {
-          console.error('[DB Init] Failed to add ojs_path column:', e.message)
+      } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e)
+        if (!errorMsg.includes('Duplicate column name')) {
+          console.error('[DB Init] Failed to add ojs_path column:', errorMsg)
         }
       }
 
@@ -89,8 +90,9 @@ export async function initializeDatabase() {
           ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
         `)
         console.log('[DB Init] Applied schema patch: Synchronized ojs_sso_tokens table')
-      } catch (e: any) {
-        console.error('[DB Init] Failed to create ojs_sso_tokens table:', e.message)
+      } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e)
+        console.error('[DB Init] Failed to create ojs_sso_tokens table:', errorMsg)
       }
 
       try {
@@ -112,8 +114,9 @@ export async function initializeDatabase() {
           ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
         `)
         console.log('[DB Init] Applied schema patch: Synchronized verification_codes table')
-      } catch (e: any) {
-        console.error('[DB Init] Failed to create verification_codes table:', e.message)
+      } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e)
+        console.error('[DB Init] Failed to create verification_codes table:', errorMsg)
       }
 
       // --- Patch: Add OJS extended profile columns to admin_users ---
@@ -129,9 +132,10 @@ export async function initializeDatabase() {
       for (const col of profileColumns) {
         try {
           await prisma.$executeRawUnsafe(`ALTER TABLE \`admin_users\` ADD COLUMN \`${col.name}\` ${col.type};`)
-        } catch (e: any) {
-          if (!e.message.includes('Duplicate column name')) {
-            console.error(`[DB Init] Failed to add ${col.name} column:`, e.message)
+        } catch (e) {
+          const errorMsg = e instanceof Error ? e.message : String(e)
+          if (!errorMsg.includes('Duplicate column name')) {
+            console.error(`[DB Init] Failed to add ${col.name} column:`, errorMsg)
           }
         }
       }

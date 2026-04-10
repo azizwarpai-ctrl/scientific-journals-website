@@ -115,8 +115,9 @@ app.patch("/:id", requireAdmin, zValidator("param", faqIdParamSchema), zValidato
       { success: true, data: serializeRecord(faq), message: "FAQ updated successfully" },
       200
     )
-  } catch (error: any) {
-    if (error.code === 'P2025') {
+  } catch (error: unknown) {
+    const err = error as { code?: string }
+    if (err.code === 'P2025') {
        return c.json({ success: false, error: "FAQ not found" }, 404)
     }
     console.error("Error updating FAQ:", error)
@@ -135,8 +136,9 @@ app.delete("/:id", requireAdmin, zValidator("param", faqIdParamSchema), async (c
     })
 
     return c.json({ success: true, data: { id: canonicalId }, message: "FAQ deleted successfully" }, 200)
-  } catch (error: any) {
-    if (error.code === 'P2025') {
+  } catch (error: unknown) {
+    const err = error as { code?: string }
+    if (err.code === 'P2025') {
        return c.json({ success: false, error: "FAQ not found" }, 404)
     }
     console.error("Error deleting FAQ:", error)

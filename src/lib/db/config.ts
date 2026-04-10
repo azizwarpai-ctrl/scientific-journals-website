@@ -29,6 +29,6 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Helper function for backwards compatibility
-export async function query(text: string, params?: any[]) {
+export async function query(_text: string, _params?: unknown[]) {
   throw new Error('Direct SQL queries deprecated - use Prisma client instead')
 }

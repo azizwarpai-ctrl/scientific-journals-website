@@ -70,9 +70,9 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                             author_guidelines: journal.author_guidelines ?? null,
                         },
                     })
-                } catch (error: any) {
+                } catch (error) {
                     // Ignore P2002 Unique constraint failures which happen if another sync raced us
-                    if (error?.code !== "P2002") throw error
+                    if ((error as { code?: string })?.code !== "P2002") throw error
                     return null
                 }
             })

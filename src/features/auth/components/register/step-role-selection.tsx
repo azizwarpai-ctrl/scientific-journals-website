@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -15,7 +14,6 @@ import {
 import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
 import {
   roleSelectionSchema,
-  VALID_ROLES,
   type RoleSelectionValues,
 } from "@/src/features/auth/schemas/registration-schemas"
 import { cn } from "@/src/lib/utils"
@@ -62,7 +60,6 @@ export function StepRoleSelection() {
     defaultValues: roleSelection,
   })
 
-  const selectedRole = form.watch("primaryRole")
 
   const onSubmit = (values: RoleSelectionValues) => {
     setRoleSelection(values)

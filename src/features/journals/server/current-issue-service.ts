@@ -25,7 +25,7 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
 import { fetchArticlesWithAuthors } from "./ojs-article-utils"
-import type { CurrentIssue, CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/journals/types/current-issue-types"
+import type { CurrentIssue, CurrentIssueArticle } from "@/src/features/journals/types/current-issue-types"
 
 // ─── Raw Row Types (from OJS MySQL) ─────────────────────────────────
 
@@ -44,30 +44,6 @@ interface IssueRow {
   title: string | null
   description: string | null
   cover_image_raw: string | null
-}
-
-interface ArticleRow {
-  publication_id: number
-  submission_id: number
-  title: string | null
-  abstract: string | null
-  date_published: string | null
-  pub_seq: number
-  section_id: number | null
-  section_seq: number | null
-  section_title: string | null
-  cover_image_raw: string | null
-}
-
-
-
-
-interface AuthorRow {
-  author_id: number
-  publication_id: number
-  seq: number
-  given_name: string | null
-  family_name: string | null
 }
 
 // ─── Main Service Function ──────────────────────────────────────────

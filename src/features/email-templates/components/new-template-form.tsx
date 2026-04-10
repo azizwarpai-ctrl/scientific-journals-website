@@ -12,13 +12,12 @@ import { Form } from "@/components/ui/form"
 import { extractAllVariables } from "@/src/lib/email/renderer"
 import { useNewTemplateStore } from "@/src/features/email-templates/stores/new-template-store"
 import { emailTemplateCreateSchema, type EmailTemplateCreate } from "@/src/features/email-templates/schemas/email-template-schema"
-import { useRouter } from "next/navigation"
 
 export function NewTemplateForm() {
   const { formData, setFormData, reset } = useNewTemplateStore()
-  const router = useRouter()
 
   const form = useForm<EmailTemplateCreate>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(emailTemplateCreateSchema) as any,
     defaultValues: formData,
   })
@@ -26,10 +25,10 @@ export function NewTemplateForm() {
 
   // Sync form values to Zustand store for local draft saving whenever they change
   useEffect(() => {
-    const subscription = form.watch((value: any) => {
+    const subscription = form.watch((value) => {
       setFormData(value as Partial<EmailTemplateCreate>)
     })
-    return () => (subscription as any).unsubscribe ? (subscription as any).unsubscribe() : undefined
+    return () => subscription.unsubscribe()
   }, [form, setFormData])
 
   const [previewHtml, setPreviewHtml] = useState<string | null>(null)

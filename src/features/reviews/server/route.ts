@@ -1,6 +1,4 @@
 import { Hono } from "hono"
-import { zValidator } from "@hono/zod-validator"
-import { z } from "zod"
 import { prisma } from "@/src/lib/db/config"
 import { reviewsResponseSchema } from "../schemas/review-schema"
 

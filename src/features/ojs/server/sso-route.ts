@@ -30,18 +30,24 @@ ssoRouter.get("/validate", async (c) => {
         }
         
         const decodedStr = Buffer.from(payloadBase64, "base64").toString("utf8")
-        let decoded: any
+        let decoded: Record<string, unknown>
         try {
             decoded = JSON.parse(decodedStr)
-        } catch (e) {
+        } catch {
             console.error("invalid SSO payload: malformed JSON", decodedStr)
             return c.json({ valid: false, error: "Malformed payload" }, 400)
         }
         
         const { email, timestamp } = decoded
         
+        // Ensure timestamp is a valid finite number before expiration math
+        const ts = Number(timestamp)
+        if (isNaN(ts) || !Number.isFinite(ts)) {
+            return c.json({ valid: false, error: "Invalid timestamp" }, 400)
+        }
+        
         // 5 minute expiration window
-        if (Date.now() - timestamp > 5 * 60 * 1000) {
+        if (Date.now() - ts > 5 * 60 * 1000) {
             return c.json({ valid: false, error: "Token expired" }, 410)
         }
         

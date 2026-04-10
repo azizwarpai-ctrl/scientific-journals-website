@@ -1,8 +1,6 @@
 import mysql from "mysql2/promise"
 import type { OjsUserProvisionData } from "@/src/features/ojs/types"
 import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise"
-import * as net from "node:net"
-import * as dns from "node:dns/promises"
 
 let pool: Pool | null = null
 
@@ -39,7 +37,7 @@ function getPool(): Pool {
             },
             flags: ['+LOCAL_FILES'],
             allowPublicKeyRetrieval: true,
-            authSwitchHandler: function ({ pluginName, pluginData }: any, cb: any) {
+            authSwitchHandler: function ({ pluginName, pluginData: _pluginData }: { pluginName: string; pluginData: Buffer }, cb: (err?: Error | null) => void) {
                 // If the server asks for mysql_native_password, but we KNOW it's caching_sha2_password
                 if (pluginName === 'mysql_native_password' || pluginName === 'caching_sha2_password') {
                     // Let the internal mysql2 handler process it automatically based on its capabilities
@@ -47,6 +45,7 @@ function getPool(): Pool {
                 }
                 cb(new Error(`Unknown auth plugin: ${pluginName}`));
             }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any)
     }
     return pool
@@ -57,7 +56,7 @@ function getPool(): Pool {
  *
  * Uses exponential backoff: 1s → 2s → 4s (3 attempts max).
  */
-export async function ojsQuery<T = RowDataPacket>(sql: string, params?: any[]): Promise<T[]> {
+export async function ojsQuery<T = RowDataPacket>(sql: string, params?: unknown[]): Promise<T[]> {
     const maxRetries = 3
     let lastError: Error | null = null
 
@@ -68,7 +67,7 @@ export async function ojsQuery<T = RowDataPacket>(sql: string, params?: any[]): 
             const [rows] = await conn.query<RowDataPacket[]>(sql, params)
             return rows as T[]
         } catch (error) {
-            const err = error as any
+            const err = error as Error & { code?: string }
             lastError = err
 
             const nonRetryable = [
@@ -77,7 +76,7 @@ export async function ojsQuery<T = RowDataPacket>(sql: string, params?: any[]): 
                 "ER_BAD_DB_ERROR",
                 "ER_HOST_IS_BLOCKED",
             ]
-            if (nonRetryable.includes(err.code)) {
+            if (err.code && nonRetryable.includes(err.code)) {
                 console.error(`[OJS] Non-retryable error (attempt ${attempt}/${maxRetries}):`, err.message)
                 throw err
             }
@@ -96,80 +95,6 @@ export async function ojsQuery<T = RowDataPacket>(sql: string, params?: any[]): 
     }
 
     throw lastError || new Error("OJS query failed after all retries")
-}
-
-// ─── DNS Check ───────────────────────────────────────────────────────
-
-async function checkDns(host: string): Promise<{ ok: boolean; addresses: string[]; error: string | null }> {
-    try {
-        const addresses = await dns.resolve4(host)
-        return { ok: true, addresses, error: null }
-    } catch (error) {
-        const err = error as any
-        return { ok: false, addresses: [], error: err.code === "ENOTFOUND" ? `Cannot resolve hostname "${host}"` : err.message }
-    }
-}
-
-// ─── TCP Port Check ──────────────────────────────────────────────────
-
-async function checkPort(host: string, port: number, timeoutMs = 10000): Promise<{ ok: boolean; latencyMs: number; error: string | null }> {
-    return new Promise((resolve) => {
-        const socket = new net.Socket()
-        const startTime = Date.now()
-
-        socket.setTimeout(timeoutMs)
-
-        socket.connect(port, host, () => {
-            const elapsed = Date.now() - startTime
-            socket.destroy()
-            resolve({ ok: true, latencyMs: elapsed, error: null })
-        })
-
-        socket.on("timeout", () => {
-            socket.destroy()
-            resolve({ ok: false, latencyMs: Date.now() - startTime, error: `Connection timed out after ${timeoutMs}ms. Port may be blocked by firewall.` })
-        })
-
-        socket.on("error", (err: any) => {
-            socket.destroy()
-            if (err.code === "ECONNREFUSED") {
-                resolve({ ok: false, latencyMs: Date.now() - startTime, error: `Port ${port} is closed (connection refused). MySQL may not be running.` })
-            } else {
-                resolve({ ok: false, latencyMs: Date.now() - startTime, error: `TCP error: ${err.message} (${err.code})` })
-            }
-        })
-    })
-}
-
-
-
-/**
- * Simple health check (lightweight version of ojsDiagnostic).
- */
-export async function ojsHealthCheck(): Promise<{
-    ok: boolean
-    configured: boolean
-    latencyMs: number | null
-    error: string | null
-}> {
-    if (!isOjsConfigured()) {
-        return { ok: false, configured: false, latencyMs: null, error: null }
-    }
-
-    const start = Date.now()
-    let conn: PoolConnection | undefined
-    try {
-        conn = await getPool().getConnection()
-        await conn.query("SELECT 1")
-        return { ok: true, configured: true, latencyMs: Date.now() - start, error: null }
-    } catch (error) {
-        const err = error as any
-        return { ok: false, configured: true, latencyMs: Date.now() - start, error: err.message }
-    } finally {
-        if (conn) {
-            try { conn.release() } catch { /* ignore */ }
-        }
-    }
 }
 
 /**
@@ -207,7 +132,7 @@ export async function provisionUser(payload: OjsUserProvisionData): Promise<{ su
     let baseUrl: URL;
     try {
         baseUrl = new URL(baseUrlStr);
-    } catch (e) {
+    } catch {
         return { success: false, error: `Invalid OJS_BASE_URL: ${baseUrlStr}` };
     }
 
@@ -240,18 +165,22 @@ export async function provisionUser(payload: OjsUserProvisionData): Promise<{ su
                 if (response.status === 409) {
                     return { success: true };
                 }
+                
+                // Log full details for server diagnostics
+                console.error(`[OJS Bridge] HTTP ${response.status} failure:`, errText);
+                
                 // 401/403 shouldn't be retried
                 if (response.status === 401 || response.status === 403) {
-                     return { success: false, error: `Auth Error: ${errText}` };
+                    return { success: false, error: "Auth error" };
                 }
-                throw new Error(`HTTP ${response.status}: ${errText}`);
+                throw new Error("Request failed");
             }
             return { success: true };
         } catch (error) {
-            const err = error as any
+            const err = error as Error & { name?: string }
             clearTimeout(timeoutId);
             lastError = err;
-            
+
             if (err.name === 'AbortError') {
                 console.warn(`[OJS Bridge] Provisioning timed out (attempt ${attempt}/${maxRetries})`);
             } else {
@@ -265,6 +194,29 @@ export async function provisionUser(payload: OjsUserProvisionData): Promise<{ su
         }
     }
     return { success: false, error: lastError?.message || "OJS provisioning failed after all retries" };
+}
+
+/**
+ * Diagnostic health check to verify OJS database connectivity and configuration.
+ */
+export async function ojsHealthCheck(): Promise<{ ok: boolean; configured: boolean; error: string | null }> {
+    const configured = isOjsConfigured()
+    if (!configured) return { ok: false, configured: false, error: "Settings missing (OJS_DATABASE_*)" }
+
+    let conn: PoolConnection | undefined
+    try {
+        // Use a single short-lived connection with a small timeout, bypassing ojsQuery's retry logic
+        conn = await getPool().getConnection()
+        await Promise.race([
+            conn.query("SELECT 1"),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Query timeout")), 2000))
+        ])
+        return { ok: true, configured: true, error: null }
+    } catch (err) {
+        return { ok: false, configured: true, error: (err as Error).message }
+    } finally {
+        if (conn) conn.release()
+    }
 }
 
 export { isOjsConfigured }

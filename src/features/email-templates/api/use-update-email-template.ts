@@ -5,11 +5,13 @@ import { client } from "@/src/lib/rpc"
 import { parseRpcResponse } from "@/src/lib/rpc-utils"
 import { toast } from "sonner"
 
+import { type EmailTemplateUpdate } from "@/src/features/email-templates/schemas/email-template-schema"
+
 export function useUpdateEmailTemplate() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ param, json }: { param: { id: string }, json: any }) => {
+    mutationFn: async ({ param, json }: { param: { id: string }, json: EmailTemplateUpdate }) => {
       const res = await client["email-templates"][":id"].$patch({ param, json })
       return parseRpcResponse(res, "Failed to update template")
     },
