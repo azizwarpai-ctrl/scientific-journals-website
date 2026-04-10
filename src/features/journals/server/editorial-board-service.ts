@@ -110,12 +110,17 @@ export async function fetchEditorialBoard(
       ON us_given_loc.user_id = u.user_id
       AND us_given_loc.setting_name = 'givenName'
       AND us_given_loc.locale = ?
-    -- Given name: any available locale fallback (pick one with MIN)
+    -- Given name: any available locale fallback
     LEFT JOIN (
-      SELECT user_id, MIN(setting_value) AS setting_value
-      FROM user_settings
-      WHERE setting_name = 'givenName' AND TRIM(setting_value) != ''
-      GROUP BY user_id
+      SELECT us1.user_id, us1.setting_value
+      FROM user_settings us1
+      INNER JOIN (
+        SELECT user_id, MIN(locale) AS min_loc
+        FROM user_settings
+        WHERE setting_name = 'givenName' AND TRIM(setting_value) != ''
+        GROUP BY user_id
+      ) us2 ON us1.user_id = us2.user_id AND us1.locale = us2.min_loc
+      WHERE us1.setting_name = 'givenName'
     ) us_given_any ON us_given_any.user_id = u.user_id
     -- Family name: primary locale
     LEFT JOIN user_settings us_family_loc
@@ -124,10 +129,15 @@ export async function fetchEditorialBoard(
       AND us_family_loc.locale = ?
     -- Family name: any available locale fallback
     LEFT JOIN (
-      SELECT user_id, MIN(setting_value) AS setting_value
-      FROM user_settings
-      WHERE setting_name = 'familyName' AND TRIM(setting_value) != ''
-      GROUP BY user_id
+      SELECT us1.user_id, us1.setting_value
+      FROM user_settings us1
+      INNER JOIN (
+        SELECT user_id, MIN(locale) AS min_loc
+        FROM user_settings
+        WHERE setting_name = 'familyName' AND TRIM(setting_value) != ''
+        GROUP BY user_id
+      ) us2 ON us1.user_id = us2.user_id AND us1.locale = us2.min_loc
+      WHERE us1.setting_name = 'familyName'
     ) us_family_any ON us_family_any.user_id = u.user_id
     -- Affiliation: primary locale
     LEFT JOIN user_settings us_affil_loc
@@ -136,29 +146,40 @@ export async function fetchEditorialBoard(
       AND us_affil_loc.locale = ?
     -- Affiliation: any available locale fallback
     LEFT JOIN (
-      SELECT user_id, MIN(setting_value) AS setting_value
-      FROM user_settings
-      WHERE setting_name = 'affiliation' AND TRIM(setting_value) != ''
-      GROUP BY user_id
+      SELECT us1.user_id, us1.setting_value
+      FROM user_settings us1
+      INNER JOIN (
+        SELECT user_id, MIN(locale) AS min_loc
+        FROM user_settings
+        WHERE setting_name = 'affiliation' AND TRIM(setting_value) != ''
+        GROUP BY user_id
+      ) us2 ON us1.user_id = us2.user_id AND us1.locale = us2.min_loc
+      WHERE us1.setting_name = 'affiliation'
     ) us_affil_any ON us_affil_any.user_id = u.user_id
     -- Role name: primary locale
     LEFT JOIN user_group_settings ugs_name_loc
       ON ugs_name_loc.user_group_id = ug.user_group_id
       AND ugs_name_loc.setting_name = 'name'
       AND ugs_name_loc.locale = ?
-    -- Role name: any available locale fallback
+    -- Role name: any available locale fallback (scoped by journal via user_groups)
     LEFT JOIN (
-      SELECT user_group_id, MIN(setting_value) AS setting_value
-      FROM user_group_settings
-      WHERE setting_name = 'name' AND TRIM(setting_value) != ''
-      GROUP BY user_group_id
+      SELECT gs1.user_group_id, gs1.setting_value
+      FROM user_group_settings gs1
+      INNER JOIN (
+        SELECT gs2.user_group_id, MIN(gs2.locale) AS min_loc
+        FROM user_group_settings gs2
+        INNER JOIN user_groups g2 ON g2.user_group_id = gs2.user_group_id
+        WHERE gs2.setting_name = 'name' AND TRIM(gs2.setting_value) != '' AND g2.context_id = ?
+        GROUP BY gs2.user_group_id
+      ) gq ON gs1.user_group_id = gq.user_group_id AND gs1.locale = gq.min_loc
+      WHERE gs1.setting_name = 'name'
     ) ugs_name_any ON ugs_name_any.user_group_id = ug.user_group_id
     WHERE (
       uug.masthead = 1
       OR (uug.masthead IS NULL AND ug.masthead = 1)
     )
     ORDER BY ug.role_id ASC, family_name ASC, given_name ASC`,
-    [journalId, primaryLocale, primaryLocale, primaryLocale, primaryLocale]
+    [journalId, primaryLocale, primaryLocale, primaryLocale, primaryLocale, journalId]
   )
 
   // ── Step 2: Map and deduplicate by user_id ──

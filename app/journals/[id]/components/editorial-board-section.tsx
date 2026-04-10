@@ -114,10 +114,10 @@ export function EditorialBoardSection({ journalId }: EditorialBoardSectionProps)
     )
   }
 
-  // Group by role for visual hierarchy
-  const byRole = data.members.reduce<Record<string, typeof data.members>>(
+  // Group by roleId for visual hierarchy and stability
+  const byRole = data.members.reduce<Record<number, typeof data.members>>(
     (acc, member) => {
-      const key = member.role
+      const key = member.roleId
       if (!acc[key]) acc[key] = []
       acc[key].push(member)
       return acc
@@ -135,15 +135,15 @@ export function EditorialBoardSection({ journalId }: EditorialBoardSectionProps)
   let displayedCount = 0
   const visibleEntries: Array<[string, typeof data.members]> = []
 
-  for (const [role, members] of allEntries) {
+  for (const [roleId, members] of allEntries) {
     if (!expanded && displayedCount >= INITIAL_VISIBLE) break
     if (!expanded) {
       const remaining = INITIAL_VISIBLE - displayedCount
       const slicedMembers = members.slice(0, remaining)
-      visibleEntries.push([role, slicedMembers])
+      visibleEntries.push([roleId, slicedMembers])
       displayedCount += slicedMembers.length
     } else {
-      visibleEntries.push([role, members])
+      visibleEntries.push([roleId, members])
       displayedCount += members.length
     }
   }
@@ -167,17 +167,18 @@ export function EditorialBoardSection({ journalId }: EditorialBoardSectionProps)
 
       {/* Board members grouped by role */}
       <div className="space-y-8">
-        {visibleEntries.map(([role, members]) => {
+        {visibleEntries.map(([roleId, members]) => {
           const firstMember = members[0]
           const style = firstMember ? getRoleStyle(firstMember.roleId) : getRoleStyle(0)
+          const roleDisplayName = firstMember?.role || "Editorial Board Member"
 
           return (
-            <div key={role}>
+            <div key={roleId}>
               {/* Role heading with badge */}
               <div className="flex items-center gap-2 mb-4">
                 <Award className={`h-4 w-4 ${style.text}`} />
                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase ${style.badge}`}>
-                  {role}
+                  {roleDisplayName}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   ({members.length})
@@ -220,6 +221,7 @@ export function EditorialBoardSection({ journalId }: EditorialBoardSectionProps)
         <div className="mt-6 text-center">
           <button
             onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
           >
             {expanded ? (

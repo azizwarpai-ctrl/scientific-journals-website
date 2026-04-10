@@ -10,7 +10,7 @@ export const useUpdateHelpContent = () => {
   const queryClient = useQueryClient()
 
   return useMutation<ResponseType, Error, RequestType>({
-    mutationFn: async ({ json }) => {
+    mutationFn: async ({ json }: RequestType): Promise<ResponseType> => {
       const response = await client.api.help.$put({ json })
       
       if (!response.ok) {
