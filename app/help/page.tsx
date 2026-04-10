@@ -127,60 +127,6 @@ export default function HelpPage() {
                 </div>
               </GSAPWrapper>
 
-              {/* Help Articles */}
-              {(isArticlesLoading || articles.length > 0) && (
-                <GSAPWrapper animation="fadeIn" delay={0.25}>
-                  <div className="mb-8">
-                    <h2 className="mb-6 text-2xl font-bold tracking-tight">Help Articles</h2>
-                    {isArticlesLoading ? (
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {[...Array(4)].map((_, i) => (
-                          <Card key={i} className="border-border/50">
-                            <CardHeader>
-                              <Skeleton className="h-5 w-3/4" />
-                            </CardHeader>
-                            <CardContent>
-                              <Skeleton className="h-4 w-full mb-2" />
-                              <Skeleton className="h-4 w-2/3" />
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="space-y-8">
-                        {Object.entries(groupedArticles).map(([category, items]) => (
-                          <div key={category}>
-                            {Object.keys(groupedArticles).length > 1 && (
-                              <h3 className="mb-4 text-sm font-semibold text-primary uppercase tracking-wider">
-                                {category}
-                              </h3>
-                            )}
-                            <div className="grid gap-4 md:grid-cols-2">
-                              {items.map((article) => (
-                                <Card
-                                  key={article.id}
-                                  className="group border-border/50 transition-all hover:shadow-md hover:-translate-y-0.5"
-                                >
-                                  <CardHeader className="pb-3">
-                                    <CardTitle className="text-base font-semibold leading-snug">
-                                      {article.title}
-                                    </CardTitle>
-                                  </CardHeader>
-                                  <CardContent>
-                                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                                      {article.content}
-                                    </p>
-                                  </CardContent>
-                                </Card>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </GSAPWrapper>
-              )}
 
               {/* FAQ */}
               <GSAPWrapper animation="fadeIn" delay={0.3}>
@@ -267,79 +213,66 @@ export default function HelpPage() {
                 </Card>
               </GSAPWrapper>
 
-              {/* User Guides */}
+              {/* Dynamic Help Articles & Guides */}
               <GSAPWrapper animation="slideUp" delay={0.4}>
-                <div className="mt-8 grid gap-6 md:grid-cols-2">
-                  {/* Authors Guide */}
-                  <Card id="guide-authors" className="border-border/50 scroll-mt-24">
-                    <CardHeader>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                          <BookOpen className="h-5 w-5 text-primary" />
-                        </div>
-                        <CardTitle>
-                          {isHelpLoading ? (
-                            <Skeleton className="h-6 w-32" />
-                          ) : (
-                            content.authorGuide.title
-                          )}
-                        </CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4 text-sm text-muted-foreground">
-                      {isHelpLoading ? (
-                        [...Array(3)].map((_, i) => (
-                          <div key={i} className="space-y-2">
-                            <Skeleton className="h-4 w-24" />
-                            <Skeleton className="h-12 w-full" />
-                          </div>
-                        ))
-                      ) : (
-                        content.authorGuide.content.map((item: { heading: string; text: string }, i: number) => (
-                          <div key={i}>
-                            <h4 className="mb-1 font-semibold text-foreground">{item.heading}</h4>
-                            <p className="leading-relaxed">{item.text}</p>
-                          </div>
-                        ))
-                      )}
-                    </CardContent>
-                  </Card>
+                {(isArticlesLoading || Object.keys(groupedArticles).length > 0) && (
+                  <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-2">
+                    {isArticlesLoading ? (
+                      [...Array(2)].map((_, i) => (
+                        <Card key={i} className="border-border/50">
+                          <CardHeader>
+                            <div className="flex items-center gap-3">
+                              <Skeleton className="h-10 w-10 rounded-lg" />
+                              <Skeleton className="h-6 w-32" />
+                            </div>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            {[...Array(3)].map((_, j) => (
+                              <div key={j} className="space-y-2">
+                                <Skeleton className="h-4 w-24" />
+                                <Skeleton className="h-12 w-full" />
+                              </div>
+                            ))}
+                          </CardContent>
+                        </Card>
+                      ))
+                    ) : (
+                      Object.entries(groupedArticles).map(([category, items]) => {
+                        const iconName = items[0]?.icon || "BookOpen"
+                        const IconElement = iconName === "Users" ? Users : iconName === "HelpCircle" ? HelpCircle : iconName === "FileText" ? FileText : BookOpen
+                        
+                        // ID generator for Quick Links (e.g., guide-for-authors -> guide-authors ideally, or just standard slug)
+                        // If it's "Guide for Authors", make it "guide-authors" matching old hardcoded anchor
+                        const anchorId = category.toLowerCase().includes("authors") ? "guide-authors" : category.toLowerCase().includes("reviewers") ? "guide-reviewers" : category.toLowerCase().replace(/[^a-z0-9]+/g, "-")
 
-                  {/* Reviewers Guide */}
-                  <Card id="guide-reviewers" className="border-border/50 scroll-mt-24">
-                    <CardHeader>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10">
-                          <Users className="h-5 w-5 text-secondary" />
-                        </div>
-                        <CardTitle>
-                          {isHelpLoading ? (
-                            <Skeleton className="h-6 w-32" />
-                          ) : (
-                            content.reviewerGuide.title
-                          )}
-                        </CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4 text-sm text-muted-foreground">
-                      {isHelpLoading ? (
-                        [...Array(3)].map((_, i) => (
-                          <div key={i} className="space-y-2">
-                            <Skeleton className="h-4 w-24" />
-                            <Skeleton className="h-12 w-full" />
-                          </div>
-                        ))
-                      ) : (
-                        content.reviewerGuide.content.map((item: { heading: string; text: string }, i: number) => (
-                          <div key={i}>
-                            <h4 className="mb-1 font-semibold text-foreground">{item.heading}</h4>
-                            <p className="leading-relaxed">{item.text}</p>
-                          </div>
-                        ))
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
+                        return (
+                          <Card key={category} id={anchorId} className="border-border/50 scroll-mt-24">
+                            <CardHeader>
+                              <div className="flex items-center gap-3">
+                                <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                                  iconName === "Users" ? "bg-secondary/10" : "bg-primary/10"
+                                }`}>
+                                  <IconElement className={`h-5 w-5 ${
+                                    iconName === "Users" ? "text-secondary" : "text-primary"
+                                  }`} />
+                                </div>
+                                <CardTitle>{category}</CardTitle>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="space-y-6 text-sm text-muted-foreground">
+                              {items.map((article) => (
+                                <div key={String(article.id)}>
+                                  <h4 className="mb-1 font-semibold text-foreground">{article.title}</h4>
+                                  <p className="leading-relaxed whitespace-pre-wrap">{article.content}</p>
+                                </div>
+                              ))}
+                            </CardContent>
+                          </Card>
+                        )
+                      })
+                    )}
+                  </div>
+                )}
               </GSAPWrapper>
             </div>
           </div>
