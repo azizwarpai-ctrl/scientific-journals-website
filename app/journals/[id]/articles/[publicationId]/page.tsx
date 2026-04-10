@@ -37,7 +37,7 @@ const getArticleData = cache(async (id: string, publicationId: string) => {
     return { article, journalLookup }
   } catch (err) {
     console.error(`[ArticleDetailPage] SSR data fetch failed for journal=${id}, pub=${publicationId}:`, err)
-    return { error: "FETCH_FAILED" }
+    return { error: "SERVER_ERROR" }
   }
 })
 
@@ -88,6 +88,9 @@ export default async function ArticleDetailPage({ params }: PageProps) {
   const data = await getArticleData(resolvedParams.id, resolvedParams.publicationId)
 
   if ("error" in data) {
+    if (data.error === "SERVER_ERROR") {
+      throw new Error("Internal Server Error fetching article data")
+    }
     notFound()
   }
 

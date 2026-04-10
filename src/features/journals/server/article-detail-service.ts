@@ -104,7 +104,7 @@ export async function fetchArticleDetail(
       abstract = s.setting_value
     } else if (s.setting_name === 'pub-id::doi') {
       doi = s.setting_value
-    } else if (s.setting_name === 'pages' && s.setting_value) {
+    } else if (s.setting_name === 'pages' && s.setting_value && (s.locale === primaryLocale || !pages)) {
       pages = s.setting_value
     } else if (s.setting_name === 'coverImage' && (s.locale === primaryLocale || !coverImageRaw)) {
       coverImageRaw = s.setting_value
