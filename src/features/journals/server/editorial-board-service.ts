@@ -182,11 +182,86 @@ export async function fetchEditorialBoard(
     [journalId, primaryLocale, primaryLocale, primaryLocale, primaryLocale, journalId]
   )
 
+  // ── Step 1b: Relaxed fallback when strict masthead returns 0 rows ──
+  // Many OJS installs leave masthead flags at defaults (ug.masthead=0, uug.masthead=NULL).
+  // Fallback: include all users in editorial groups who have NOT explicitly opted out,
+  // filtering only by editorial role_ids (excluding Author=65536, Reviewer=4096, Reader=1048576).
+  let effectiveRows = rows
+  if (rows.length === 0) {
+    console.log(`[EditorialBoard] journal_id=${journalId}: strict masthead returned 0 — trying relaxed fallback`)
+    effectiveRows = await ojsQuery<EditorialBoardRow>(
+      `SELECT
+        u.user_id,
+        ug.role_id,
+        COALESCE(
+          NULLIF(TRIM(us_given_loc.setting_value), ''),
+          NULLIF(TRIM(us_given_any.setting_value), '')
+        ) AS given_name,
+        COALESCE(
+          NULLIF(TRIM(us_family_loc.setting_value), ''),
+          NULLIF(TRIM(us_family_any.setting_value), '')
+        ) AS family_name,
+        COALESCE(
+          NULLIF(TRIM(us_affil_loc.setting_value), ''),
+          NULLIF(TRIM(us_affil_any.setting_value), '')
+        ) AS affiliation,
+        COALESCE(
+          NULLIF(TRIM(ugs_name_loc.setting_value), ''),
+          NULLIF(TRIM(ugs_name_any.setting_value), '')
+        ) AS role_name
+      FROM user_user_groups uug
+      INNER JOIN user_groups ug
+        ON ug.user_group_id = uug.user_group_id
+        AND ug.context_id = ?
+      INNER JOIN users u
+        ON u.user_id = uug.user_id
+        AND u.disabled = 0
+      LEFT JOIN user_settings us_given_loc
+        ON us_given_loc.user_id = u.user_id AND us_given_loc.setting_name = 'givenName' AND us_given_loc.locale = ?
+      LEFT JOIN (
+        SELECT us1.user_id, us1.setting_value FROM user_settings us1
+        INNER JOIN (SELECT user_id, MIN(locale) AS min_loc FROM user_settings WHERE setting_name = 'givenName' AND TRIM(setting_value) != '' AND TRIM(locale) != '' GROUP BY user_id) us2 ON us1.user_id = us2.user_id AND us1.locale = us2.min_loc
+        WHERE us1.setting_name = 'givenName'
+      ) us_given_any ON us_given_any.user_id = u.user_id
+      LEFT JOIN user_settings us_family_loc
+        ON us_family_loc.user_id = u.user_id AND us_family_loc.setting_name = 'familyName' AND us_family_loc.locale = ?
+      LEFT JOIN (
+        SELECT us1.user_id, us1.setting_value FROM user_settings us1
+        INNER JOIN (SELECT user_id, MIN(locale) AS min_loc FROM user_settings WHERE setting_name = 'familyName' AND TRIM(setting_value) != '' AND TRIM(locale) != '' GROUP BY user_id) us2 ON us1.user_id = us2.user_id AND us1.locale = us2.min_loc
+        WHERE us1.setting_name = 'familyName'
+      ) us_family_any ON us_family_any.user_id = u.user_id
+      LEFT JOIN user_settings us_affil_loc
+        ON us_affil_loc.user_id = u.user_id AND us_affil_loc.setting_name = 'affiliation' AND us_affil_loc.locale = ?
+      LEFT JOIN (
+        SELECT us1.user_id, us1.setting_value FROM user_settings us1
+        INNER JOIN (SELECT user_id, MIN(locale) AS min_loc FROM user_settings WHERE setting_name = 'affiliation' AND TRIM(setting_value) != '' AND TRIM(locale) != '' GROUP BY user_id) us2 ON us1.user_id = us2.user_id AND us1.locale = us2.min_loc
+        WHERE us1.setting_name = 'affiliation'
+      ) us_affil_any ON us_affil_any.user_id = u.user_id
+      LEFT JOIN user_group_settings ugs_name_loc
+        ON ugs_name_loc.user_group_id = ug.user_group_id AND ugs_name_loc.setting_name = 'name' AND ugs_name_loc.locale = ?
+      LEFT JOIN (
+        SELECT gs1.user_group_id, gs1.setting_value FROM user_group_settings gs1
+        INNER JOIN (
+          SELECT gs2.user_group_id, MIN(gs2.locale) AS min_loc FROM user_group_settings gs2
+          INNER JOIN user_groups g2 ON g2.user_group_id = gs2.user_group_id
+          WHERE gs2.setting_name = 'name' AND TRIM(gs2.setting_value) != '' AND TRIM(gs2.locale) != '' AND g2.context_id = ?
+          GROUP BY gs2.user_group_id
+        ) gq ON gs1.user_group_id = gq.user_group_id AND gs1.locale = gq.min_loc
+        WHERE gs1.setting_name = 'name'
+      ) ugs_name_any ON ugs_name_any.user_group_id = ug.user_group_id
+      WHERE ug.role_id NOT IN (65536, 4096, 1048576)
+        AND (uug.masthead IS NULL OR uug.masthead != 0)
+      ORDER BY ug.role_id ASC, family_name ASC, given_name ASC`,
+      [journalId, primaryLocale, primaryLocale, primaryLocale, primaryLocale, journalId]
+    )
+    console.log(`[EditorialBoard] journal_id=${journalId}: relaxed fallback returned ${effectiveRows.length} row(s)`)
+  }
+
   // ── Step 2: Map and deduplicate by user_id ──
   const seenUsers = new Set<number>()
   const members: EditorialBoardMember[] = []
 
-  for (const row of rows) {
+  for (const row of effectiveRows) {
     // Skip excluded role types
     if (EXCLUDED_ROLE_IDS.has(row.role_id)) continue
     // Deduplicate (a user may appear in multiple groups, keep lowest role_id = first)
