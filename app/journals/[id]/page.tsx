@@ -213,17 +213,6 @@ export default function JournalDetailPage() {
                       </div>
                     </div>
                   )}
-                  {journal.editor_in_chief && (
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-md bg-white/5">
-                        <User className="h-4 w-4 text-primary/80" />
-                      </div>
-                      <div>
-                        <span className="text-xs text-slate-500 block">Editor-in-Chief</span>
-                        <span className="font-medium text-slate-200">{journal.editor_in_chief}</span>
-                      </div>
-                    </div>
-                  )}
                   {journal.frequency && (
                     <div className="flex items-center gap-2">
                       <div className="p-1.5 rounded-md bg-white/5">
@@ -365,7 +354,6 @@ export default function JournalDetailPage() {
                           journal.issn ? { label: "ISSN (Print)", value: journal.issn, icon: Database } : null,
                           journal.e_issn ? { label: "ISSN (Online)", value: journal.e_issn, icon: Globe } : null,
                           journal.publisher ? { label: "Publisher", value: journal.publisher, icon: Building } : null,
-                          journal.editor_in_chief ? { label: "Editor-in-Chief", value: journal.editor_in_chief, icon: User } : null,
                           journal.frequency ? { label: "Frequency", value: journal.frequency, icon: Calendar } : null,
                         ] as const).filter((item): item is NonNullable<typeof item> => item !== null).map((item, idx) => (
                           <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 -mx-3">
@@ -383,14 +371,14 @@ export default function JournalDetailPage() {
                           </div>
                         ))}
                         {/* Empty state when no details are available */}
-                        {!journal.issn && !journal.e_issn && !journal.publisher && !journal.editor_in_chief && !journal.frequency && (
+                        {!journal.issn && !journal.e_issn && !journal.publisher && !journal.frequency && (
                           <p className="col-span-2 text-sm text-muted-foreground">Journal details are being updated.</p>
                         )}
                       </div>
                     </div>
 
-                    {/* Editorial Board — only renders when OJS has masthead members */}
-                    <EditorialBoardSection journalId={id} />
+                    {/* Editorial Board — incorporates local Editor in Chief fallback if needed */}
+                    <EditorialBoardSection journalId={id} editorInChief={journal.editor_in_chief} />
 
                   </TabsContent>
 
@@ -534,17 +522,6 @@ export default function JournalDetailPage() {
                         <div>
                           <span className="block text-xs text-muted-foreground">Publisher</span>
                           <span className="font-medium">{journal.publisher}</span>
-                        </div>
-                      </div>
-                    )}
-                    {journal.editor_in_chief && (
-                      <div className="flex items-start gap-3">
-                        <div className="p-1.5 rounded-md bg-muted mt-0.5">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <span className="block text-xs text-muted-foreground">Editor-in-Chief</span>
-                          <span className="font-medium">{journal.editor_in_chief}</span>
                         </div>
                       </div>
                     )}

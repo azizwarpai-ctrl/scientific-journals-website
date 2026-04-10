@@ -7,6 +7,8 @@ import { useGetEditorialBoard } from "@/src/features/journals/api/use-get-editor
 interface EditorialBoardSectionProps {
   /** The journal's slug / ojs_path / ojs_id — whatever identifier is used in API routes */
   journalId: string
+  /** Fallback Editor in Chief from local database if OJS data is missing or out of sync */
+  editorInChief?: string | null
 }
 
 // ── Role styling map — color-coded by editorial seniority ──
@@ -61,7 +63,7 @@ function MemberAvatar({ name, userId }: { name: string; userId: number }) {
 /** How many members to show initially before "Show All" */
 const INITIAL_VISIBLE = 8
 
-export function EditorialBoardSection({ journalId }: EditorialBoardSectionProps) {
+export function EditorialBoardSection({ journalId, editorInChief }: EditorialBoardSectionProps) {
   const { data, isLoading, isError } = useGetEditorialBoard(journalId)
   const [expanded, setExpanded] = useState(false)
 
@@ -94,8 +96,46 @@ export function EditorialBoardSection({ journalId }: EditorialBoardSectionProps)
   // Error — render nothing (graceful degradation)
   if (isError) return null
 
-  // Empty — show informative state
+  // Empty — show informative state or fallback to local editor in chief
   if (!data || data.members.length === 0) {
+    if (editorInChief) {
+      return (
+        <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2.5 rounded-lg bg-primary/10">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold">Editorial Board</h2>
+          </div>
+          <div className="space-y-8">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Award className={`h-4 w-4 ${ROLE_STYLES["256"].text}`} />
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase ${ROLE_STYLES["256"].badge}`}>
+                  Editor-in-Chief
+                </span>
+                <span className="text-xs text-muted-foreground">(1)</span>
+                <div className="flex-1 h-px bg-border/40 ml-2" />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className={`flex items-start gap-3 rounded-xl border ${ROLE_STYLES["256"].border} ${ROLE_STYLES["256"].bg} p-4`}>
+                  <MemberAvatar name={editorInChief} userId={9999} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm leading-tight truncate">{editorInChief}</p>
+                    <p className={`mt-0.5 text-xs font-medium ${ROLE_STYLES["256"].text}`}>Editor-in-Chief</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="text-center py-6 mt-4 opacity-70">
+              <Users className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+              <p className="text-xs text-muted-foreground">Full editorial board is being synced.</p>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
         <div className="flex items-center gap-3 mb-6">
@@ -114,8 +154,21 @@ export function EditorialBoardSection({ journalId }: EditorialBoardSectionProps)
     )
   }
 
+  // Inject local editor_in_chief if missing from OJS
+  const hasOjsEditorInChief = data.members.some(m => m.roleId === 256 || m.role.toLowerCase().includes('chief'))
+  const membersWithFallback = [...data.members]
+  if (editorInChief && !hasOjsEditorInChief) {
+    membersWithFallback.unshift({
+      userId: 9999,
+      name: editorInChief,
+      roleId: 256,
+      role: 'Editor-in-Chief',
+      affiliation: ''
+    })
+  }
+
   // Group by composite key (roleId + role) for distinct role titles sharing a role ID
-  const byRole = data.members.reduce<Record<string, typeof data.members>>(
+  const byRole = membersWithFallback.reduce<Record<string, typeof data.members>>(
     (acc, member) => {
       const key = `${member.roleId}:${member.role}`
       if (!acc[key]) acc[key] = []
@@ -125,7 +178,7 @@ export function EditorialBoardSection({ journalId }: EditorialBoardSectionProps)
     {}
   )
 
-  const totalMembers = data.members.length
+  const totalMembers = membersWithFallback.length
   const needsExpansion = totalMembers > INITIAL_VISIBLE
 
   // Flatten in group order, and slice for collapsible
@@ -133,7 +186,7 @@ export function EditorialBoardSection({ journalId }: EditorialBoardSectionProps)
 
   // Count displayed members to determine cutoff
   let displayedCount = 0
-  const visibleEntries: Array<[string, typeof data.members, number]> = []
+  const visibleEntries: Array<[string, typeof membersWithFallback, number]> = []
 
   for (const [groupKey, members] of allEntries) {
     if (!expanded && displayedCount >= INITIAL_VISIBLE) break

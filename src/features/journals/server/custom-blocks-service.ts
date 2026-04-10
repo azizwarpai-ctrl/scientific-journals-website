@@ -91,18 +91,32 @@ export async function fetchCustomBlocks(
     return []
   }
 
-  // Parse the JSON array of block names
-  let blockNames: string[]
+  // Parse the JSON/PHP array of block names
+  let blockNames: string[] = []
+  const rawValue = managerRows[0].setting_value
   try {
-    const parsed = JSON.parse(managerRows[0].setting_value)
-    if (!Array.isArray(parsed)) {
-      console.warn("[CustomBlocks] Unexpected blocks format — expected JSON array")
+    const parsed = JSON.parse(rawValue)
+    if (Array.isArray(parsed)) {
+      blockNames = parsed.filter((n): n is string => typeof n === "string" && n.trim().length > 0)
+    } else if (typeof parsed === 'object') {
+       const vals = Object.values(parsed)
+       blockNames = vals.filter((n): n is string => typeof n === "string" && n.trim().length > 0)
+    }
+  } catch {
+    // Fallback: Handle OJS's classic PHP serialization format for 'object' arrays
+    // e.g., a:2:{i:0;s:9:"testblock";i:1;s:9:"infoblock";}
+    if (rawValue.includes('a:')) {
+      // Safely extract all string values which correspond to block machine-names
+      const matches = Array.from(rawValue.matchAll(/s:\d+:"([^"]+)"/g))
+      if (matches && matches.length > 0) {
+        blockNames = matches.map(m => m[1]).filter(n => n.trim().length > 0 && /^[a-zA-Z0-9_-]+$/.test(n))
+      }
+    }
+    
+    if (blockNames.length === 0) {
+      console.warn("[CustomBlocks] Failed to parse expected array format from setting:", rawValue)
       return []
     }
-    blockNames = parsed.filter((n): n is string => typeof n === "string" && n.trim().length > 0)
-  } catch {
-    console.warn("[CustomBlocks] Failed to parse block names JSON")
-    return []
   }
 
   if (blockNames.length === 0) return []
