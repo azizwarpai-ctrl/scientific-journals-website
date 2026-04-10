@@ -47,21 +47,21 @@ export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJou
             ON js_cover_def.journal_id = j.journal_id
             AND js_cover_def.setting_name = 'homepageImage'
             AND js_cover_def.locale = ''
-            AND js_cover_loc.setting_value IS NULL
+            AND NULLIF(TRIM(js_cover_loc.setting_value), '') IS NULL
         -- Thumbnail: prefer localized, fallback to default
         LEFT JOIN journal_settings js_thumb_loc
             ON js_thumb_loc.journal_id = j.journal_id
             AND js_thumb_loc.setting_name = 'journalThumbnail'
             AND js_thumb_loc.locale = j.primary_locale
-            AND js_cover_loc.setting_value IS NULL
-            AND js_cover_def.setting_value IS NULL
+            AND NULLIF(TRIM(js_cover_loc.setting_value), '') IS NULL
+            AND NULLIF(TRIM(js_cover_def.setting_value), '') IS NULL
         LEFT JOIN journal_settings js_thumb_def
             ON js_thumb_def.journal_id = j.journal_id
             AND js_thumb_def.setting_name = 'journalThumbnail'
             AND js_thumb_def.locale = ''
-            AND js_cover_loc.setting_value IS NULL
-            AND js_cover_def.setting_value IS NULL
-            AND js_thumb_loc.setting_value IS NULL
+            AND NULLIF(TRIM(js_cover_loc.setting_value), '') IS NULL
+            AND NULLIF(TRIM(js_cover_def.setting_value), '') IS NULL
+            AND NULLIF(TRIM(js_thumb_loc.setting_value), '') IS NULL
         LEFT JOIN journal_settings js_issn
             ON js_issn.journal_id = j.journal_id
             AND js_issn.setting_name = 'printIssn'
@@ -78,7 +78,7 @@ export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJou
             ON js_pub_loc.journal_id = j.journal_id
             AND js_pub_loc.setting_name = 'publisherInstitution'
             AND js_pub_loc.locale = j.primary_locale
-            AND js_pub.setting_value IS NULL
+            AND NULLIF(TRIM(js_pub.setting_value), '') IS NULL
         LEFT JOIN journal_settings js_abbrev
             ON js_abbrev.journal_id = j.journal_id
             AND js_abbrev.setting_name = 'abbreviation'

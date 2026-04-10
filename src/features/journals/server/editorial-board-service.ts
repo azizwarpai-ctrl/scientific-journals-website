@@ -69,12 +69,12 @@ export async function fetchEditorialBoard(
     `SELECT
       u.user_id,
       ug.role_id,
-      COALESCE(us_given_loc.setting_value, us_given_def.setting_value)  AS given_name,
-      COALESCE(us_family_loc.setting_value, us_family_def.setting_value) AS family_name,
-      COALESCE(us_affil_loc.setting_value, us_affil_def.setting_value)  AS affiliation,
+      COALESCE(NULLIF(TRIM(us_given_loc.setting_value), ''), NULLIF(TRIM(us_given_def.setting_value), ''))  AS given_name,
+      COALESCE(NULLIF(TRIM(us_family_loc.setting_value), ''), NULLIF(TRIM(us_family_def.setting_value), '')) AS family_name,
+      COALESCE(NULLIF(TRIM(us_affil_loc.setting_value), ''), NULLIF(TRIM(us_affil_def.setting_value), ''))  AS affiliation,
       COALESCE(
-        ugs_name_loc.setting_value,
-        ugs_name_def.setting_value
+        NULLIF(TRIM(ugs_name_loc.setting_value), ''),
+        NULLIF(TRIM(ugs_name_def.setting_value), '')
       )                       AS role_name
     FROM user_user_groups uug
     INNER JOIN user_groups ug
@@ -119,7 +119,6 @@ export async function fetchEditorialBoard(
       ON ugs_name_def.user_group_id = ug.user_group_id
       AND ugs_name_def.setting_name = 'name'
       AND ugs_name_def.locale = ''
-      AND ugs_name_loc.setting_value IS NULL
     WHERE uug.masthead = 1
     ORDER BY ug.role_id ASC, family_name ASC, given_name ASC`,
     [journalId, primaryLocale, primaryLocale, primaryLocale, primaryLocale]

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { ChevronLeft, ChevronRight, Layers } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useGetCustomBlocks } from "@/src/features/journals/api/use-get-custom-blocks"
-import DOMPurify from "dompurify"
+import DOMPurify from "isomorphic-dompurify"
 
 interface CustomBlocksCarouselProps {
   /** The journal's slug / ojs_path / ojs_id */
@@ -50,20 +50,17 @@ export function CustomBlocksCarousel({ journalId }: CustomBlocksCarouselProps) {
   if (!block) return null
 
   // Sanitize at render time (belt-and-suspenders — service already sanitized)
-  const safeContent =
-    typeof window !== "undefined"
-      ? DOMPurify.sanitize(block.content, {
-          ALLOWED_TAGS: [
-            "p", "br", "strong", "em", "b", "i", "u",
-            "ul", "ol", "li",
-            "h2", "h3", "h4", "h5",
-            "a", "span", "div",
-            "table", "thead", "tbody", "tr", "th", "td",
-            "img", "blockquote", "hr",
-          ],
-          ALLOWED_ATTR: ["href", "title", "target", "rel", "src", "alt", "width", "height", "class", "colspan", "rowspan"],
-        })
-      : block.content
+  const safeContent = DOMPurify.sanitize(block.content, {
+    ALLOWED_TAGS: [
+      "p", "br", "strong", "em", "b", "i", "u",
+      "ul", "ol", "li",
+      "h2", "h3", "h4", "h5",
+      "a", "span", "div",
+      "table", "thead", "tbody", "tr", "th", "td",
+      "img", "blockquote", "hr",
+    ],
+    ALLOWED_ATTR: ["href", "title", "target", "rel", "src", "alt", "width", "height", "class", "colspan", "rowspan"],
+  })
 
   const prev = () => setCurrent((c) => (c - 1 + total) % total)
   const next = () => setCurrent((c) => (c + 1) % total)
