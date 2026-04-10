@@ -4,15 +4,19 @@
  * Fetches sidebar blocks managed by the OJS Custom Block Manager plugin
  * directly from the OJS MySQL database.
  *
- * OJS Schema (plugin_settings table):
+ * OJS 3.4+ Schema (plugin_settings table):
+ *   Columns: plugin_setting_id, plugin_name, context_id, setting_name, setting_value, setting_type
+ *   ⚠ NO `locale` column — content is unlocalized at the plugin_settings level.
+ *
+ *   Manager plugin entry:
  *   plugin_name = 'customblockmanagerplugin'
  *   setting_name = 'blocks'
  *   setting_value = JSON array of block machine-names, e.g. ["myblock","infoblock"]
  *
- *   Per block:
+ *   Per-block content entry:
  *   plugin_name = '{blockName}customblockplugin'
  *   setting_name = 'blockContent'
- *   setting_value = localized HTML (locale = primaryLocale or '')
+ *   setting_value = HTML string
  *
  *   context_id = journal_id (FK → journals.journal_id)
  *
@@ -57,12 +61,12 @@ interface PluginBlockRow {
  * content (empty or missing) are silently skipped.
  *
  * @param ojsJournalId - The OJS journal_id (numeric string)
- * @param primaryLocale - The journal's primary locale (e.g. "en_US")
+ * @param _primaryLocale - Unused in OJS 3.4+ (plugin_settings has no locale column); kept for API compat
  * @returns Array of CustomBlock with name and sanitized HTML content
  */
 export async function fetchCustomBlocks(
   ojsJournalId: string,
-  primaryLocale: string
+  _primaryLocale: string
 ): Promise<CustomBlock[]> {
   if (!/^\d+$/.test(ojsJournalId)) {
     console.error("[CustomBlocks] Invalid OJS journal ID:", ojsJournalId)
@@ -106,30 +110,24 @@ export async function fetchCustomBlocks(
   console.log(`[CustomBlocks] journal_id=${journalId}: found ${blockNames.length} block(s): ${blockNames.join(", ")}`)
 
   // ── Phase 2: Fetch content for each block ──
-  // Query in a single IN clause by constructing plugin names array.
-  // Plugin name convention: '{blockName}customblockplugin' (all lowercase).
+  // OJS 3.4+ plugin_settings has NO locale column.
+  // Query by: plugin_name + setting_name + context_id (unique per block).
   const pluginNames = blockNames.map((n) => `${n.toLowerCase()}customblockplugin`)
 
-  // Fetch localized content first, then empty-locale fallback
-  const contentRows = await ojsQuery<{ plugin_name: string; setting_value: string | null; locale: string }>(
-    `SELECT plugin_name, setting_value, locale
+  const contentRows = await ojsQuery<{ plugin_name: string; setting_value: string | null }>(
+    `SELECT plugin_name, setting_value
      FROM plugin_settings
      WHERE plugin_name IN (?)
        AND setting_name = 'blockContent'
-       AND context_id = ?
-       AND locale IN (?, '')
-     ORDER BY plugin_name, locale DESC`,
-    [pluginNames, journalId, primaryLocale]
+       AND context_id = ?`,
+    [pluginNames, journalId]
   )
 
-  // Build map: pluginName → best content (prefer primaryLocale over '')
+  // Build map: pluginName → content
   const contentMap = new Map<string, string>()
   for (const row of contentRows) {
     if (!row.setting_value) continue
-    // Only set if not already set (first = highest priority due to ORDER BY locale DESC)
-    if (!contentMap.has(row.plugin_name)) {
-      contentMap.set(row.plugin_name, row.setting_value)
-    }
+    contentMap.set(row.plugin_name, row.setting_value)
   }
 
   // ── Phase 3: Map to domain objects, sanitize HTML ──

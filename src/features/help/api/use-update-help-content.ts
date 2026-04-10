@@ -2,31 +2,43 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { client } from "@/src/lib/rpc"
 import { toast } from "sonner"
 import type { HelpContent } from "../schemas/help-schema"
-import { InferRequestType, InferResponseType } from "hono"
 
-type ResponseType = InferResponseType<typeof client.api.help.$put>
-type RequestType = InferRequestType<typeof client.api.help.$put>
+type ResponseType = { success: boolean; data?: HelpContent; message?: string; error?: string }
+type RequestType = { json: HelpContent }
 
 export const useUpdateHelpContent = () => {
   const queryClient = useQueryClient()
 
   return useMutation<ResponseType, Error, RequestType>({
-    mutationFn: async ({ json }) => {
+    mutationFn: async ({ json }: RequestType): Promise<ResponseType> => {
       const response = await client.api.help.$put({ json })
       
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error("error" in errorData ? errorData.error : "Failed to update help content")
+        let errorMessage = "Failed to update help content"
+        try {
+          const errorData = await response.json() as { error?: string }
+          if (errorData.error) {
+            errorMessage = errorData.error
+          }
+        } catch (e) {
+          try {
+            const errorText = await response.text()
+            if (errorText) errorMessage = errorText
+          } catch (e2) {
+            // Unlikely, but fallback is already set
+          }
+        }
+        throw new Error(errorMessage)
       }
       
-      return await response.json()
+      return (await response.json()) as ResponseType
     },
     onSuccess: (data) => {
       if (data.success) {
-        toast.success(data.message)
+        toast.success(data.message || "Help content updated successfully")
         queryClient.invalidateQueries({ queryKey: ["helpContent"] })
       } else {
-        toast.error("Failed to update help content")
+        toast.error(data.error || "Failed to update help content")
       }
     },
     onError: (error) => {
