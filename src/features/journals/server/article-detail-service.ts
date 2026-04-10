@@ -1,5 +1,5 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
-import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
+import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
 import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 
@@ -196,7 +196,9 @@ export async function fetchArticleDetail(
       galleyId: row.galley_id,
       label: row.label,
       locale: row.locale,
-      downloadUrl: cleanBaseUrl ? `${cleanBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}` : null
+      downloadUrl: (cleanBaseUrl && article.journal_url_path) 
+        ? `${cleanBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}` 
+        : null
     }
   })
 

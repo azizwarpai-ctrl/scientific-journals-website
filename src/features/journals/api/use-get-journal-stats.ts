@@ -17,7 +17,7 @@ export const useGetJournalStats = (id: string) => {
             if (!response.ok) {
                 let errorMsg = "Failed to fetch journal stats"
                 try {
-                    const errorJson = await response.json() as any
+                    const errorJson = await response.json() as { error?: string }
                     if (errorJson?.error) errorMsg = errorJson.error
                 } catch {
                     // Ignore parsing error

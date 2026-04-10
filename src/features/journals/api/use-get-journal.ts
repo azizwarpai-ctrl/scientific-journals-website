@@ -12,8 +12,8 @@ export const useGetJournal = (id: string) => {
             })
 
             if (!response.ok) {
-                const error = await response.json()
-                throw new Error((error as any).error || "Failed to fetch journal")
+                const error = await response.json() as { error: string }
+                throw new Error(error.error || "Failed to fetch journal")
             }
 
             const { data } = await response.json()
