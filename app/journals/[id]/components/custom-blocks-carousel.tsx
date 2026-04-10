@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ChevronLeft, ChevronRight, Layers } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useGetCustomBlocks } from "@/src/features/journals/api/use-get-custom-blocks"
@@ -14,6 +14,13 @@ interface CustomBlocksCarouselProps {
 export function CustomBlocksCarousel({ journalId }: CustomBlocksCarouselProps) {
   const [current, setCurrent] = useState(0)
   const { data, isLoading } = useGetCustomBlocks(journalId)
+
+  useEffect(() => {
+    setCurrent(prev => {
+      if (!data?.blocks) return 0;
+      return Math.min(prev, Math.max(0, data.blocks.length - 1));
+    });
+  }, [journalId, data?.blocks]);
 
   // Loading state — single placeholder
   if (isLoading) {
@@ -37,7 +44,10 @@ export function CustomBlocksCarousel({ journalId }: CustomBlocksCarouselProps) {
 
   const blocks = data.blocks
   const total = blocks.length
-  const block = blocks[current]
+  const validCurrent = Math.min(current, Math.max(0, total - 1))
+  const block = blocks[validCurrent]
+  
+  if (!block) return null
 
   // Sanitize at render time (belt-and-suspenders — service already sanitized)
   const safeContent =

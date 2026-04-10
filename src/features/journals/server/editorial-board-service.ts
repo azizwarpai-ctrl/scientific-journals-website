@@ -69,9 +69,9 @@ export async function fetchEditorialBoard(
     `SELECT
       u.user_id,
       ug.role_id,
-      us_given.setting_value  AS given_name,
-      us_family.setting_value AS family_name,
-      us_affil.setting_value  AS affiliation,
+      COALESCE(us_given_loc.setting_value, us_given_def.setting_value)  AS given_name,
+      COALESCE(us_family_loc.setting_value, us_family_def.setting_value) AS family_name,
+      COALESCE(us_affil_loc.setting_value, us_affil_def.setting_value)  AS affiliation,
       COALESCE(
         ugs_name_loc.setting_value,
         ugs_name_def.setting_value
@@ -84,20 +84,32 @@ export async function fetchEditorialBoard(
       ON u.user_id = uug.user_id
       AND u.disabled = 0
     -- Given name
-    LEFT JOIN user_settings us_given
-      ON us_given.user_id = u.user_id
-      AND us_given.setting_name = 'givenName'
-      AND us_given.locale = ?
+    LEFT JOIN user_settings us_given_loc
+      ON us_given_loc.user_id = u.user_id
+      AND us_given_loc.setting_name = 'givenName'
+      AND us_given_loc.locale = ?
+    LEFT JOIN user_settings us_given_def
+      ON us_given_def.user_id = u.user_id
+      AND us_given_def.setting_name = 'givenName'
+      AND us_given_def.locale = ''
     -- Family name
-    LEFT JOIN user_settings us_family
-      ON us_family.user_id = u.user_id
-      AND us_family.setting_name = 'familyName'
-      AND us_family.locale = ?
-    -- Affiliation (non-localized first, then localized)
-    LEFT JOIN user_settings us_affil
-      ON us_affil.user_id = u.user_id
-      AND us_affil.setting_name = 'affiliation'
-      AND us_affil.locale = ?
+    LEFT JOIN user_settings us_family_loc
+      ON us_family_loc.user_id = u.user_id
+      AND us_family_loc.setting_name = 'familyName'
+      AND us_family_loc.locale = ?
+    LEFT JOIN user_settings us_family_def
+      ON us_family_def.user_id = u.user_id
+      AND us_family_def.setting_name = 'familyName'
+      AND us_family_def.locale = ''
+    -- Affiliation
+    LEFT JOIN user_settings us_affil_loc
+      ON us_affil_loc.user_id = u.user_id
+      AND us_affil_loc.setting_name = 'affiliation'
+      AND us_affil_loc.locale = ?
+    LEFT JOIN user_settings us_affil_def
+      ON us_affil_def.user_id = u.user_id
+      AND us_affil_def.setting_name = 'affiliation'
+      AND us_affil_def.locale = ''
     -- Role name: prefer primary locale, fallback to empty locale (default)
     LEFT JOIN user_group_settings ugs_name_loc
       ON ugs_name_loc.user_group_id = ug.user_group_id
@@ -109,7 +121,7 @@ export async function fetchEditorialBoard(
       AND ugs_name_def.locale = ''
       AND ugs_name_loc.setting_value IS NULL
     WHERE uug.masthead = 1
-    ORDER BY ug.role_id ASC, us_family.setting_value ASC, us_given.setting_value ASC`,
+    ORDER BY ug.role_id ASC, family_name ASC, given_name ASC`,
     [journalId, primaryLocale, primaryLocale, primaryLocale, primaryLocale]
   )
 

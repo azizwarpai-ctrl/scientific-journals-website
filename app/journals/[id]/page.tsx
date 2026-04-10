@@ -20,7 +20,7 @@ import {
   Calendar,
 } from "lucide-react"
 
-import DOMPurify from "dompurify"
+import DOMPurify from "isomorphic-dompurify"
 
 import { useGetJournal, useGetJournalStats, useJournalId } from "@/src/features/journals"
 
@@ -49,7 +49,6 @@ export default function JournalDetailPage() {
 
   const sanitizeContent = (html: string | null | undefined): string => {
     if (!html) return ""
-    if (typeof window === "undefined") return html // SSR: return raw, browser will sanitize
     return DOMPurify.sanitize(html, {
       ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
       ALLOWED_ATTR: [],

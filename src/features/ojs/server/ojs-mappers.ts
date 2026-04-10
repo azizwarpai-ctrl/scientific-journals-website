@@ -35,7 +35,7 @@ export function mapOjsJournalRow(row: OjsJournalRow, baseUrl: string): OjsJourna
     const imageFileRaw = parseOjsCoverFilename(row.thumbnail)
     // Sanitize filename to prevent path traversal (consistent with buildCoverUrl)
     const imageFile = imageFileRaw
-        ? encodeURIComponent(path.basename(imageFileRaw))
+        ? encodeURIComponent(path.basename(imageFileRaw.replace(/\\/g, '/')))
         : null
 
     return ojsJournalSchema.parse({

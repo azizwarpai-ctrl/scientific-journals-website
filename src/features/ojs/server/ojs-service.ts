@@ -16,14 +16,14 @@ export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJou
             js_name.setting_value AS name,
             js_desc.setting_value AS description,
             COALESCE(
-                js_cover_loc.setting_value,
-                js_cover_def.setting_value,
-                js_thumb_loc.setting_value,
-                js_thumb_def.setting_value
+                NULLIF(js_cover_loc.setting_value, ''),
+                NULLIF(js_cover_def.setting_value, ''),
+                NULLIF(js_thumb_loc.setting_value, ''),
+                NULLIF(js_thumb_def.setting_value, '')
             ) AS thumbnail,
             js_issn.setting_value AS issn,
             js_eissn.setting_value AS e_issn,
-            COALESCE(js_pub.setting_value, js_pub_loc.setting_value) AS publisher,
+            COALESCE(NULLIF(js_pub.setting_value, ''), NULLIF(js_pub_loc.setting_value, '')) AS publisher,
             js_abbrev.setting_value AS abbreviation,
             js_contact.setting_value AS contact_name,
             js_country.setting_value AS country,

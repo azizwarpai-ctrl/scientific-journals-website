@@ -309,7 +309,7 @@ app.get("/:id/editorial-board", zValidator("param", journalSlugParamSchema), asy
     }
 
     try {
-      const { fetchEditorialBoard } = await import("./editorial-board-service")
+      const { fetchEditorialBoard } = await import("@/src/features/journals/server/editorial-board-service")
       const members = await fetchEditorialBoard(journal.ojs_id)
       return c.json({ success: true, data: { members } }, 200)
     } catch (queryError) {
@@ -355,7 +355,7 @@ app.get("/:id/custom-blocks", zValidator("param", journalSlugParamSchema), async
       )
       const primaryLocale = localeRows[0]?.primary_locale ?? "en_US"
 
-      const { fetchCustomBlocks } = await import("./custom-blocks-service")
+      const { fetchCustomBlocks } = await import("@/src/features/journals/server/custom-blocks-service")
       const blocks = await fetchCustomBlocks(journal.ojs_id, primaryLocale)
       return c.json({ success: true, data: { blocks } }, 200)
     } catch (queryError) {
