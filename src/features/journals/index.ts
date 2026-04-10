@@ -13,7 +13,8 @@ export type { ArchiveIssue, IssueDetail } from "@/src/features/journals/types/ar
 export type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
 export { useJournalId } from "./hooks/use-journal-id"
 export { useGetArticleDetail } from "./api/use-get-article-detail"
-
+export { useGetEditorialBoard } from "./api/use-get-editorial-board"
+export { useGetCustomBlocks } from "./api/use-get-custom-blocks"
 // Journal Registration Multi-Step Wizard
 export { 
   journalRegistrationPayloadSchema,
