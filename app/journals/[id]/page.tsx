@@ -20,7 +20,7 @@ import {
   Calendar,
 } from "lucide-react"
 
-import DOMPurify from "isomorphic-dompurify"
+import DOMPurify from "dompurify"
 
 import { useGetJournal, useGetJournalStats, useJournalId } from "@/src/features/journals"
 
