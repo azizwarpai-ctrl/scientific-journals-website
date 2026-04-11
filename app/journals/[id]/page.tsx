@@ -38,7 +38,7 @@ import { CurrentIssueSection } from "./components/current-issue-section"
 import { ArchiveSection } from "./components/archive-section"
 import { Newspaper as NewspaperIcon, Archive as ArchiveIcon } from "lucide-react"
 import { EditorialBoardSection } from "./components/editorial-board-section"
-import { CustomBlocksCarousel } from "./components/custom-blocks-carousel"
+import { JournalInfoCarousel } from "./components/journal-info-carousel"
 
 export default function JournalDetailPage() {
   const id = useJournalId()
@@ -496,8 +496,8 @@ export default function JournalDetailPage() {
                   </div>
                 </div>
 
-                {/* Custom Blocks Carousel — from OJS Custom Block Manager plugin */}
-                <CustomBlocksCarousel journalId={id} />
+                {/* Journal highlights and Custom Blocks from OJS */}
+                <JournalInfoCarousel journalId={id} />
 
                 {/* Journal Statistics Card */}
                 {stats !== undefined && (

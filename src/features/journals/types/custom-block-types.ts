@@ -13,6 +13,13 @@ export interface CustomBlock {
   content: string
 }
 
+export interface JournalInfoCard {
+  title: string
+  description: string
+  link?: string
+  image?: string
+}
+
 export interface CustomBlocksResponse {
   blocks: CustomBlock[]
 }
