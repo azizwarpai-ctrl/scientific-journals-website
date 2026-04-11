@@ -28,10 +28,10 @@ export const aboutRouter = new Hono()
         }))
       }))
 
-      return c.json({ data: serializedSections })
+      return c.json({ success: true, data: serializedSections })
     } catch (error) {
       console.error("[ABOUT_GET_ERROR]", error)
-      return c.json({ error: "Failed to fetch about content" }, 500)
+      return c.json({ success: false, error: "Failed to fetch about content" }, 500)
     }
   })
   .get("/admin", requireAdmin, async (c) => {
@@ -55,10 +55,10 @@ export const aboutRouter = new Hono()
         }))
       }))
 
-      return c.json({ data: serializedSections })
+      return c.json({ success: true, data: serializedSections })
     } catch (error) {
       console.error("[ABOUT_ADMIN_GET_ERROR]", error)
-      return c.json({ error: "Failed to fetch about content" }, 500)
+      return c.json({ success: false, error: "Failed to fetch about content" }, 500)
     }
   })
   .post(
@@ -68,7 +68,7 @@ export const aboutRouter = new Hono()
     async (c) => {
       try {
         const body = c.req.valid("json")
-        
+
         const section = await prisma.aboutSection.create({
           data: {
             block_type: body.block_type,
@@ -90,10 +90,10 @@ export const aboutRouter = new Hono()
           include: { items: true }
         })
 
-        return c.json({ data: { ...section, id: section.id.toString(), items: section.items.map(i => ({...i, id: i.id.toString(), section_id: i.section_id.toString()})) } })
+        return c.json({ success: true, data: { ...section, id: section.id.toString(), items: section.items.map(i => ({ ...i, id: i.id.toString(), section_id: i.section_id.toString() })) } })
       } catch (error) {
         console.error("[ABOUT_CREATE_ERROR]", error)
-        return c.json({ error: "Failed to create about section" }, 500)
+        return c.json({ success: false, error: "Failed to create about section" }, 500)
       }
     }
   )
@@ -103,9 +103,13 @@ export const aboutRouter = new Hono()
     zValidator("json", aboutSectionSchema),
     async (c) => {
       try {
-        const id = BigInt(c.req.param("id"))
+        const idString = c.req.param("id")
+        if (!idString || !/^\d+$/.test(idString)) {
+          return c.json({ success: false, error: "Invalid or missing ID" }, 400)
+        }
+        const id = BigInt(idString)
         const body = c.req.valid("json")
-        
+
         // We will process updating items by deleting existing, and creating new ones.
         await prisma.aboutItem.deleteMany({
           where: { section_id: id }
@@ -133,10 +137,10 @@ export const aboutRouter = new Hono()
           include: { items: true }
         })
 
-        return c.json({ data: { ...section, id: section.id.toString(), items: section.items.map(i => ({...i, id: i.id.toString(), section_id: i.section_id.toString()})) } })
+        return c.json({ success: true, data: { ...section, id: section.id.toString(), items: section.items.map(i => ({ ...i, id: i.id.toString(), section_id: i.section_id.toString() })) } })
       } catch (error) {
         console.error("[ABOUT_UPDATE_ERROR]", error)
-        return c.json({ error: "Failed to update about section" }, 500)
+        return c.json({ success: false, error: "Failed to update about section" }, 500)
       }
     }
   )
@@ -145,8 +149,12 @@ export const aboutRouter = new Hono()
     requireAdmin,
     async (c) => {
       try {
-        const id = BigInt(c.req.param("id"))
-        
+        const idString = c.req.param("id")
+        if (!idString || !/^\d+$/.test(idString)) {
+          return c.json({ success: false, error: "Invalid or missing ID" }, 400)
+        }
+        const id = BigInt(idString)
+
         await prisma.aboutSection.delete({
           where: { id }
         })
@@ -154,7 +162,7 @@ export const aboutRouter = new Hono()
         return c.json({ success: true })
       } catch (error) {
         console.error("[ABOUT_DELETE_ERROR]", error)
-        return c.json({ error: "Failed to delete about section" }, 500)
+        return c.json({ success: false, error: "Failed to delete about section" }, 500)
       }
     }
   )
@@ -165,9 +173,9 @@ export const aboutRouter = new Hono()
     async (c) => {
       try {
         const { sections } = c.req.valid("json")
-        
+
         await prisma.$transaction(
-          sections.map(s => 
+          sections.map(s =>
             prisma.aboutSection.update({
               where: { id: BigInt(s.id) },
               data: { display_order: s.display_order }
@@ -178,7 +186,7 @@ export const aboutRouter = new Hono()
         return c.json({ success: true })
       } catch (error) {
         console.error("[ABOUT_REORDER_ERROR]", error)
-        return c.json({ error: "Failed to reorder about sections" }, 500)
+        return c.json({ success: false, error: "Failed to reorder about sections" }, 500)
       }
     }
   )
