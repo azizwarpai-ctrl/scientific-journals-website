@@ -10,7 +10,7 @@ const app = new Hono()
 // Get topic by id (public)
 app.get("/:id", async (c) => {
   try {
-    const id = BigInt(c.req.param("id"))
+    const id = BigInt(c.req.param("id") as string)
     const topic = await prisma.helpTopic.findUnique({
       where: { id },
       include: {
@@ -77,7 +77,7 @@ app.put(
   zValidator("json", helpTopicSchema),
   async (c) => {
     try {
-      const id = BigInt(c.req.param("id"))
+      const id = BigInt(c.req.param("id") as string)
       const body = c.req.valid("json")
       
       const topic = await prisma.helpTopic.update({
@@ -109,7 +109,7 @@ app.put(
 // Delete topic (admin)
 app.delete("/:id", requireAdmin, async (c) => {
   try {
-    const id = BigInt(c.req.param("id"))
+    const id = BigInt(c.req.param("id") as string)
     
     await prisma.helpTopic.delete({
       where: { id }
@@ -132,7 +132,7 @@ app.put(
   zValidator("json", z.object({ topicIds: z.array(z.string()) })),
   async (c) => {
     try {
-      const categoryId = BigInt(c.req.param("categoryId"))
+      const categoryId = BigInt(c.req.param("categoryId") as string)
       const { topicIds } = c.req.valid("json")
 
       // Using transaction to update all orders

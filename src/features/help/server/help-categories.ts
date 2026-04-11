@@ -39,7 +39,7 @@ app.get("/", async (c) => {
 // Get single category (public)
 app.get("/:id", async (c) => {
   try {
-    const id = BigInt(c.req.param("id"))
+    const id = BigInt(c.req.param("id") as string)
     const category = await prisma.helpCategory.findUnique({
       where: { id },
       include: {
@@ -108,7 +108,7 @@ app.put(
   zValidator("json", helpCategorySchema),
   async (c) => {
     try {
-      const id = BigInt(c.req.param("id"))
+      const id = BigInt(c.req.param("id") as string)
       const body = c.req.valid("json")
       
       const category = await prisma.helpCategory.update({
@@ -140,7 +140,7 @@ app.put(
 // Delete category (admin)
 app.delete("/:id", requireAdmin, async (c) => {
   try {
-    const id = BigInt(c.req.param("id"))
+    const id = BigInt(c.req.param("id") as string)
     
     await prisma.helpCategory.delete({
       where: { id }
