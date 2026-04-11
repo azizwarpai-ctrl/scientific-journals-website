@@ -262,7 +262,7 @@ export default function AdminAboutPage() {
                           <SelectItem value="none">Standard Dynamic Section (No Link)</SelectItem>
                           <SelectItem value="who_we_are">Who We Are</SelectItem>
                           <SelectItem value="vision">Our Vision</SelectItem>
-                          <SelectItem value="goals">Our Goals</SelectItem>
+                          <SelectItem value="goals">Our Mission</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

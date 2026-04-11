@@ -5,7 +5,7 @@ import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
 import { 
   Target, Eye, Award, Globe, BookOpen, Users, FileText, BarChart3, 
-  Shield, Cpu, Zap, Activity 
+  Shield, Cpu, Zap, Activity, LayoutTemplate, Sparkles, Building2, Workflow
 } from "lucide-react"
 import { cn } from "@/src/lib/utils"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
@@ -40,18 +40,16 @@ function StatCard({
   suffix?: string
 }) {
   return (
-    <Card className="group hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 border-border/50">
-      <CardContent className="pt-6">
-        <div className="flex items-start justify-between">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-            <Icon className="h-6 w-6 text-primary" />
+    <Card className="group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/40 overflow-hidden bg-background">
+      <CardContent className="p-6">
+        <div className="flex flex-col items-center text-center">
+          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary group-hover:scale-110 group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
+            <Icon className="h-7 w-7" />
           </div>
-        </div>
-        <div className="mt-4">
-          <div className="text-3xl font-bold tracking-tight text-foreground">
+          <div className="text-4xl font-extrabold tracking-tight text-foreground mb-2">
             {typeof value === 'number' ? <FormattedCounter value={value} suffix={suffix} /> : value}
           </div>
-          <div className="text-sm text-muted-foreground mt-1">{label}</div>
+          <div className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{label}</div>
         </div>
       </CardContent>
     </Card>
@@ -59,7 +57,7 @@ function StatCard({
 }
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  Globe, Award, Target, Eye, Users, Shield, Cpu, Zap, Activity
+  Globe, Award, Target, Eye, Users, Shield, Cpu, Zap, Activity, Sparkles, Building2, Workflow, LayoutTemplate
 }
 
 const DynamicIcon = ({ name, className }: { name: string | null | undefined, className?: string }) => {
@@ -73,23 +71,23 @@ export default function AboutPage() {
 
   if (isAboutLoading) {
     return (
-      <div className="flex min-h-screen flex-col">
+      <div className="flex min-h-screen flex-col bg-background">
         <Navbar />
         <main className="flex-1">
-          <section className="relative py-16 md:py-24 overflow-hidden">
+          <section className="relative py-20 md:py-32 overflow-hidden border-b border-border/30">
             <div className="container mx-auto px-4 md:px-6">
               <div className="mx-auto max-w-3xl text-center space-y-4 flex flex-col items-center">
-                <Skeleton className="h-12 w-2/3" />
-                <Skeleton className="h-6 w-full" />
-                <Skeleton className="h-6 w-4/5" />
+                <Skeleton className="h-16 w-3/4 rounded-xl" />
+                <Skeleton className="h-6 w-full rounded-md" />
+                <Skeleton className="h-6 w-4/5 rounded-md" />
               </div>
             </div>
           </section>
-          <section className="py-16">
+          <section className="py-20">
             <div className="container mx-auto px-4 md:px-6">
               <div className="grid gap-8 md:grid-cols-2">
-                <Skeleton className="h-48 w-full rounded-xl" />
-                <Skeleton className="h-48 w-full rounded-xl" />
+                <Skeleton className="h-64 w-full rounded-2xl" />
+                <Skeleton className="h-64 w-full rounded-2xl" />
               </div>
             </div>
           </section>
@@ -110,27 +108,21 @@ export default function AboutPage() {
   // Determine what content is available
   const hasAboutContent = !isAboutError && sections && sections.length > 0
   const hasStats = (stats.totalJournals + stats.totalArticles + stats.totalUsers + stats.countriesCount) > 0
-  // Check if any dynamic section already uses STATS block type (admin-managed stats title/subtitle)
   const adminStatsBlock = hasAboutContent ? sections!.find(s => s.block_type === "STATS") : null
 
-  // Case: No about data AND no statistics → empty state
-  // Case: No about data AND no statistics - this old empty state is removed
-  // because we always render the structural sections now.
-
   // Render functions for each block type
-  const renderHero = (section: AboutSection, index: number) => (
-    <GSAPWrapper key={section.id?.toString() || index} animation="fadeIn">
-      <section className="relative bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-16 md:py-24 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
+  const renderHero = (section: any, index: number) => (
+    <GSAPWrapper key={section.id?.toString() || `hero-${index}`} animation="fadeIn">
+      <section className="relative bg-gradient-to-b from-muted/50 to-background pt-24 pb-16 md:pt-32 md:pb-24 border-b border-border/40">
         <div className="container mx-auto px-4 md:px-6 relative">
-          <div className="mx-auto max-w-3xl text-center">
+          <div className="mx-auto max-w-4xl text-center">
             {section.title && (
-              <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl text-balance">
+              <h1 className="mb-6 text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground text-balance">
                 {section.title}
               </h1>
             )}
             {section.subtitle && (
-              <p className="text-lg text-muted-foreground leading-relaxed whitespace-pre-wrap">
+              <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed text-balance mx-auto max-w-3xl">
                 {section.subtitle}
               </p>
             )}
@@ -142,11 +134,15 @@ export default function AboutPage() {
 
   const renderText = (section: AboutSection, index: number) => (
     <GSAPWrapper key={section.id?.toString() || index} animation="slideUp">
-      <section className={cn("py-16", index % 2 !== 0 ? "bg-muted/30" : "")}>
+      <section className={cn("py-20", index % 2 !== 0 ? "bg-muted/10" : "")}>
         <div className="container mx-auto px-4 md:px-6">
-          <div className="mx-auto max-w-4xl">
-            {section.title && <h2 className="mb-6 text-3xl font-bold">{section.title}</h2>}
-            <div className="space-y-4 text-muted-foreground leading-relaxed whitespace-pre-wrap">
+          <div className="mx-auto max-w-4xl bg-background rounded-2xl p-8 md:p-12 shadow-sm border border-border/40">
+            {section.title && (
+              <h2 className="mb-8 text-3xl md:text-4xl font-bold tracking-tight border-b border-border/50 pb-4">
+                {section.title}
+              </h2>
+            )}
+            <div className="prose prose-lg dark:prose-invert max-w-none text-muted-foreground leading-loose whitespace-pre-wrap">
               {section.content}
             </div>
           </div>
@@ -159,13 +155,13 @@ export default function AboutPage() {
     const cols = section.items?.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2"
     return (
       <GSAPWrapper key={section.id?.toString() || index} animation="slideUp">
-        <section className={cn("py-16", index % 2 !== 0 ? "bg-muted/30" : "")}>
+        <section className={cn("py-20", index % 2 !== 0 ? "bg-muted/10" : "")}>
           <div className="container mx-auto px-4 md:px-6">
             {section.title && (
-              <div className="mb-12 text-center">
-                <h2 className="mb-4 text-3xl font-bold md:text-4xl">{section.title}</h2>
+              <div className="mb-16 text-center">
+                <h2 className="mb-4 text-3xl md:text-4xl font-bold tracking-tight">{section.title}</h2>
                 {section.subtitle && (
-                  <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
+                  <p className="mx-auto max-w-2xl text-lg text-muted-foreground leading-relaxed">
                     {section.subtitle}
                   </p>
                 )}
@@ -173,15 +169,16 @@ export default function AboutPage() {
             )}
             <div className={`grid gap-8 ${cols}`}>
               {section.items?.map((item, i) => (
-                <Card key={item.id?.toString() || i} className="group hover:shadow-xl transition-all duration-500 border-border/50">
-                  <CardContent className="pt-6">
+                <Card key={item.id?.toString() || i} className="group hover:shadow-xl transition-all duration-300 border-border/40 overflow-hidden bg-background">
+                  <div className={cn("h-1.5 w-full", item.color_theme === 'secondary' ? 'bg-secondary' : 'bg-primary')} />
+                  <CardContent className="p-8">
                     <div className={cn(
-                      "mb-4 flex h-12 w-12 items-center justify-center rounded-lg group-hover:scale-110 transition-transform duration-300",
-                      item.color_theme === 'secondary' ? 'bg-secondary/10' : 'bg-primary/10'
+                      "mb-6 flex h-14 w-14 items-center justify-center rounded-xl transition-colors duration-300",
+                      item.color_theme === 'secondary' ? 'bg-secondary/10 group-hover:bg-secondary/20' : 'bg-primary/10 group-hover:bg-primary/20'
                     )}>
-                      <DynamicIcon name={item.icon} className={cn("h-6 w-6", item.color_theme === 'secondary' ? 'text-secondary' : 'text-primary')} />
+                      <DynamicIcon name={item.icon} className={cn("h-7 w-7", item.color_theme === 'secondary' ? 'text-secondary' : 'text-primary')} />
                     </div>
-                    {item.title && <h2 className="mb-3 text-2xl font-bold">{item.title}</h2>}
+                    {item.title && <h3 className="mb-4 text-2xl font-bold tracking-tight">{item.title}</h3>}
                     {item.description && <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{item.description}</p>}
                   </CardContent>
                 </Card>
@@ -195,13 +192,13 @@ export default function AboutPage() {
 
   const renderGrid = (section: AboutSection, index: number) => (
     <GSAPWrapper key={section.id?.toString() || index} animation="slideUp">
-      <section className={cn("py-16", index % 2 !== 0 ? "bg-muted/30" : "")}>
+      <section className={cn("py-20", index % 2 !== 0 ? "bg-muted/10" : "")}>
         <div className="container mx-auto px-4 md:px-6">
           {(section.title || section.subtitle) && (
-            <div className="mb-12 text-center">
-              {section.title && <h2 className="mb-4 text-3xl font-bold md:text-4xl">{section.title}</h2>}
+            <div className="mb-16 text-center">
+              {section.title && <h2 className="mb-4 text-3xl md:text-4xl font-bold tracking-tight">{section.title}</h2>}
               {section.subtitle && (
-                <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
+                <p className="mx-auto max-w-2xl text-lg text-muted-foreground leading-relaxed">
                   {section.subtitle}
                 </p>
               )}
@@ -210,9 +207,9 @@ export default function AboutPage() {
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {section.items?.map((item, i) => (
-              <Card key={item.id?.toString() || i} className="group hover:shadow-lg transition-all duration-300 border-border/50 hover:-translate-y-1">
-                <CardContent className="pt-6 text-center">
-                  <div className="mb-4 flex justify-center">
+              <Card key={item.id?.toString() || i} className="group hover:shadow-md transition-all duration-300 border-border/40 bg-background hover:-translate-y-1">
+                <CardContent className="p-6 text-center">
+                  <div className="mb-5 flex justify-center">
                     <div className={cn(
                       "flex h-16 w-16 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110",
                       item.color_theme === "secondary" ? "bg-secondary/10" : "bg-primary/10"
@@ -223,7 +220,7 @@ export default function AboutPage() {
                       )} />
                     </div>
                   </div>
-                  {item.title && <h3 className="mb-2 font-semibold text-lg">{item.title}</h3>}
+                  {item.title && <h3 className="mb-3 font-bold text-lg tracking-tight">{item.title}</h3>}
                   {item.description && <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>}
                 </CardContent>
               </Card>
@@ -234,29 +231,27 @@ export default function AboutPage() {
     </GSAPWrapper>
   )
 
-  // Standalone OJS statistics section — always appended at the bottom when data is available.
-  // If admin created a STATS block, its title/subtitle are used; otherwise defaults are shown.
   const renderStatsSection = () => (
     <GSAPWrapper key="ojs-statistics" animation="fadeIn">
-      <section className="py-20 bg-gradient-to-b from-background via-muted/30 to-background">
+      <section className="py-24 bg-muted/30 border-t border-border/40">
         <div className="container mx-auto px-4 md:px-6">
-          <div className="mb-12 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+          <div className="mb-16 text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-semibold mb-6 uppercase tracking-wider">
               <BarChart3 className="h-4 w-4" />
               Platform Analytics
             </div>
-            <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-              {adminStatsBlock?.title || "Our Impact in Numbers"}
+            <h2 className="mb-4 text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground text-balance">
+              {adminStatsBlock?.title || "Our Global Impact"}
             </h2>
-            <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
-              {adminStatsBlock?.subtitle || "Real-time statistics from our publishing platform"}
+            <p className="mx-auto max-w-2xl text-lg text-muted-foreground leading-relaxed text-balance">
+              {adminStatsBlock?.subtitle || "Driving open-access discovery and collaboration across the scientific community."}
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto">
             <StatCard icon={BookOpen} value={stats.totalJournals || 0} label="Active Journals" />
             <StatCard icon={FileText} value={stats.totalArticles || 0} label="Published Articles" />
-            <StatCard icon={Users} value={stats.totalUsers || 0} label="Active Researchers" />
+            <StatCard icon={Users} value={stats.totalUsers || 0} label="Researchers" />
             <StatCard icon={Globe} value={stats.countriesCount || 0} label="Countries Reached" />
           </div>
         </div>
@@ -264,18 +259,31 @@ export default function AboutPage() {
     </GSAPWrapper>
   )
 
-  const renderPlaceholder = (title: string, index: number, keyStr: string) => (
-    <GSAPWrapper key={`placeholder-${keyStr}-${index}`} animation="slideUp">
-      <section className={cn("py-16", index % 2 !== 0 ? "bg-muted/30" : "")}>
-        <div className="container mx-auto px-4 md:px-6 text-center">
-          <h2 className="mb-4 text-3xl font-bold">{title}</h2>
-          <div className="mx-auto max-w-2xl p-8 rounded-xl border border-dashed text-muted-foreground bg-muted/10">
-            No content available yet.
+  const renderPlaceholder = (title: string, index: number, keyStr: string) => {
+    // Map icons based on section
+    const PlaceholderIcon = keyStr === "who_we_are" ? Building2 : keyStr === "vision" ? Eye : Target;
+
+    return (
+      <GSAPWrapper key={`placeholder-${keyStr}-${index}`} animation="slideUp">
+        <section className={cn("py-20", index % 2 !== 0 ? "bg-muted/10" : "")}>
+          <div className="container mx-auto px-4 md:px-6">
+            <div className="mx-auto max-w-4xl text-center">
+              <h2 className="mb-8 text-3xl md:text-4xl font-bold tracking-tight">{title}</h2>
+              <div className="mx-auto p-12 rounded-2xl border-2 border-dashed border-border/50 flex flex-col items-center justify-center bg-muted/30">
+                <div className="h-16 w-16 rounded-full bg-background border border-border shadow-sm flex items-center justify-center mb-5">
+                  <PlaceholderIcon className="h-8 w-8 text-muted-foreground opacity-60" />
+                </div>
+                <h3 className="text-xl font-semibold text-foreground mb-2">Section Under Construction</h3>
+                <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">
+                  Content for this area has not been published yet. Please check back soon.
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
-    </GSAPWrapper>
-  )
+        </section>
+      </GSAPWrapper>
+    )
+  }
 
   // Structuring logic
   const activeSections = sections || []
@@ -286,16 +294,24 @@ export default function AboutPage() {
   const customHero = activeSections.filter(s => s.block_type === "HERO" && !s.section_key)
   const customOthers = activeSections.filter(s => s.block_type !== "HERO" && s.block_type !== "STATS" && !s.section_key)
 
+  // Default fallback hero if admin hasn't created one
+  const heroBlocks = customHero.length > 0 ? customHero : [{
+    block_type: "HERO",
+    title: "About DigitalPub",
+    subtitle: "Empowering the scientific community through open, transparent, and high-impact publishing.",
+    isFallback: true
+  }]
+
   const orderedContent = [
-    ...customHero,
+    ...heroBlocks,
     whoWeAre || { placeholder: true, title: "Who We Are", key: "who_we_are" },
     vision || { placeholder: true, title: "Our Vision", key: "vision" },
-    goals || { placeholder: true, title: "Our Goals", key: "goals" },
+    goals || { placeholder: true, title: "Our Mission", key: "goals" },
     ...customOthers
   ]
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-background selection:bg-primary/20">
       <Navbar />
       <main className="flex-1">
         {/* Render explicitly ordered sections including placeholders */}
@@ -319,4 +335,3 @@ export default function AboutPage() {
     </div>
   )
 }
-
