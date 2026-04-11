@@ -6,7 +6,7 @@ export const useGetAboutSections = (isAdmin = false) => {
     return useQuery({
         queryKey: ["about-sections", isAdmin],
         queryFn: async () => {
-            const endpoint = isAdmin ? client.about.admin.$get : client.about.index.$get;
+            const endpoint = isAdmin ? client.about.admin.$get : client.about.$get;
             const response = await endpoint()
             if (!response.ok) {
                 throw new Error("Failed to fetch about sections")
