@@ -166,10 +166,28 @@ export async function fetchCustomBlocks(
     if (trimmedRaw.startsWith("{") && trimmedRaw.endsWith("}")) {
       try {
         const parsedLocales = JSON.parse(trimmedRaw)
-        if (typeof parsedLocales === 'object' && parsedLocales !== null) { // It's an object of locales
-           // Fallback priority: exact locale -> en_US -> en -> any first fallback
-           contentToSanitize = parsedLocales[_primaryLocale] || parsedLocales['en_US'] || parsedLocales['en'] || Object.values(parsedLocales)[0] || '';
-           if (typeof contentToSanitize !== 'string') continue;
+        if (typeof parsedLocales === 'object' && parsedLocales !== null) {
+          // Robust locale resolution
+          const p = _primaryLocale;
+          const variants = [
+            p,                           // en_US
+            p.replace("_", "-"),         // en-US
+            p.replace("-", "_"),         // en_US (redundant but safe)
+            p.split(/[_-]/)[0],          // en
+            'en_US',
+            'en'
+          ];
+          
+          let foundContent: string | null = null;
+          for (const v of variants) {
+            if (typeof parsedLocales[v] === 'string' && parsedLocales[v].trim().length > 0) {
+              foundContent = parsedLocales[v];
+              break;
+            }
+          }
+
+          contentToSanitize = foundContent || Object.values(parsedLocales).find(v => typeof v === 'string') as string || '';
+          if (typeof contentToSanitize !== 'string') continue;
         }
       } catch (e) {
         // Not JSON, just standard flat HTML string fallback
