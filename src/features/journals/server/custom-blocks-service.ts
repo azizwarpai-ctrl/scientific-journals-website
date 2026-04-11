@@ -126,18 +126,17 @@ export async function fetchCustomBlocks(
 
   console.log(`[CustomBlocks] journal_id=${journalId}: found ${blockNames.length} valid block(s): ${blockNames.join(", ")}`)
 
-  // ── Phase 2: Fetch content for each block ──
-  const pluginNames = blockNames.map((n) => `${n.toLowerCase()}customblockplugin`)
+  // ── Phase 2: Fetch ALL block contents for this journal ──
+  // Instead of guessing the OJS name-mangling (hyphens? suffixes?), 
+  // we fetch all 'blockContent' rows and resolve them in memory.
   let contentRows: { plugin_name: string; setting_value: string | null }[] = []
-
   try {
     contentRows = await ojsQuery<{ plugin_name: string; setting_value: string | null }>(
       `SELECT plugin_name, setting_value
        FROM plugin_settings
-       WHERE plugin_name IN (?)
-         AND setting_name = 'blockContent'
+       WHERE setting_name = 'blockContent'
          AND context_id = ?`,
-      [pluginNames, journalId]
+      [journalId]
     )
   } catch (dbError) {
     console.warn(`[CustomBlocks] Failed to fetch block contents for journal_id=${journalId}. Returning empty array.`, dbError)
@@ -154,10 +153,21 @@ export async function fetchCustomBlocks(
   const blocks: CustomBlock[] = []
 
   for (const name of blockNames) {
-    const pluginName = `${name.toLowerCase()}customblockplugin`
-    const rawContentStr = contentMap.get(pluginName)
-
-    if (!rawContentStr) continue
+    const lowerName = name.toLowerCase()
+    
+    // Resolve content using flexible naming patterns
+    // 1. Exact match (as seen in some OJS versions)
+    // 2. Suffixed match (standard OJS: blocknamecustomblockplugin)
+    // 3. Hyphen-stripped suffixed match (common sanitization)
+    const rawContentStr = 
+      contentMap.get(lowerName) || 
+      contentMap.get(`${lowerName}customblockplugin`) || 
+      contentMap.get(`${lowerName.replace(/[-_]/g, '')}customblockplugin`)
+    
+    if (!rawContentStr) {
+      console.log(`[CustomBlocks] No content found for block "${name}" (tried ${lowerName}, ${lowerName}customblockplugin)`)
+      continue
+    }
 
     let contentToSanitize = rawContentStr
     const trimmedRaw = rawContentStr.trim()
