@@ -51,6 +51,7 @@ export const aboutRouter = new Hono()
         const section = await prisma.aboutSection.create({
           data: {
             block_type: body.block_type,
+            section_key: body.section_key,
             title: body.title,
             subtitle: body.subtitle,
             content: body.content,
@@ -98,6 +99,7 @@ export const aboutRouter = new Hono()
           where: { id },
           data: {
             block_type: body.block_type,
+            section_key: body.section_key,
             title: body.title,
             subtitle: body.subtitle,
             content: body.content,

@@ -53,6 +53,7 @@ export default function AdminAboutPage() {
     resolver: zodResolver(aboutSectionSchema) as any,
     defaultValues: {
       block_type: "HERO",
+      section_key: null,
       title: "",
       subtitle: "",
       content: "",
@@ -73,6 +74,7 @@ export default function AdminAboutPage() {
   const handleOpenNew = () => {
     form.reset({
       block_type: "HERO",
+      section_key: null,
       title: "",
       subtitle: "",
       content: "",
@@ -240,6 +242,34 @@ export default function AdminAboutPage() {
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={form.control as any}
+                  name="section_key"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Structural Link (Optional)</FormLabel>
+                      <Select 
+                        onValueChange={(val) => field.onChange(val === "none" ? null : val)} 
+                        defaultValue={field.value || "none"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Map to a strict page section" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">Standard Dynamic Section (No Link)</SelectItem>
+                          <SelectItem value="who_we_are">Who We Are</SelectItem>
+                          <SelectItem value="vision">Our Vision</SelectItem>
+                          <SelectItem value="goals">Our Goals</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
 
                 <FormField
                   control={form.control as any}

@@ -114,18 +114,8 @@ export default function AboutPage() {
   const adminStatsBlock = hasAboutContent ? sections!.find(s => s.block_type === "STATS") : null
 
   // Case: No about data AND no statistics → empty state
-  if (!hasAboutContent && !hasStats) {
-    return (
-      <div className="flex min-h-screen flex-col">
-        <Navbar />
-        <main className="flex-1 flex flex-col items-center justify-center p-4">
-          <h1 className="text-3xl font-bold mb-4">About Us</h1>
-          <p className="text-muted-foreground">No content available yet.</p>
-        </main>
-        <Footer />
-      </div>
-    )
-  }
+  // Case: No about data AND no statistics - this old empty state is removed
+  // because we always render the structural sections now.
 
   // Render functions for each block type
   const renderHero = (section: AboutSection, index: number) => (
@@ -274,19 +264,50 @@ export default function AboutPage() {
     </GSAPWrapper>
   )
 
+  const renderPlaceholder = (title: string, index: number, keyStr: string) => (
+    <GSAPWrapper key={`placeholder-${keyStr}-${index}`} animation="slideUp">
+      <section className={cn("py-16", index % 2 !== 0 ? "bg-muted/30" : "")}>
+        <div className="container mx-auto px-4 md:px-6 text-center">
+          <h2 className="mb-4 text-3xl font-bold">{title}</h2>
+          <div className="mx-auto max-w-2xl p-8 rounded-xl border border-dashed text-muted-foreground bg-muted/10">
+            No content available yet.
+          </div>
+        </div>
+      </section>
+    </GSAPWrapper>
+  )
+
+  // Structuring logic
+  const activeSections = sections || []
+  const whoWeAre = activeSections.find(s => s.section_key === "who_we_are")
+  const vision = activeSections.find(s => s.section_key === "vision")
+  const goals = activeSections.find(s => s.section_key === "goals")
+  
+  const customHero = activeSections.filter(s => s.block_type === "HERO" && !s.section_key)
+  const customOthers = activeSections.filter(s => s.block_type !== "HERO" && s.block_type !== "STATS" && !s.section_key)
+
+  const orderedContent = [
+    ...customHero,
+    whoWeAre || { placeholder: true, title: "Who We Are", key: "who_we_are" },
+    vision || { placeholder: true, title: "Our Vision", key: "vision" },
+    goals || { placeholder: true, title: "Our Goals", key: "goals" },
+    ...customOthers
+  ]
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <main className="flex-1">
-        {/* Render dynamic about sections */}
-        {hasAboutContent && sections!.map((section, index) => {
+        {/* Render explicitly ordered sections including placeholders */}
+        {orderedContent.map((section: any, index: number) => {
+          if (section.placeholder) {
+            return renderPlaceholder(section.title, index, section.key)
+          }
           switch (section.block_type) {
             case "HERO": return renderHero(section, index)
             case "TEXT": return renderText(section, index)
             case "CARDS": return renderCards(section, index)
             case "GRID": return renderGrid(section, index)
-            // STATS block type is handled below as standalone — skip to avoid duplication
-            case "STATS": return null
             default: return null
           }
         })}
@@ -298,3 +319,4 @@ export default function AboutPage() {
     </div>
   )
 }
+

@@ -12,6 +12,7 @@ export const aboutItemSchema = z.object({
 export const aboutSectionSchema = z.object({
   id: z.string().or(z.number()).optional(),
   block_type: z.enum(["HERO", "TEXT", "CARDS", "GRID", "STATS"]),
+  section_key: z.enum(["who_we_are", "vision", "goals"]).optional().nullable(),
   title: z.string().trim().optional().nullable(),
   subtitle: z.string().trim().optional().nullable(),
   content: z.string().trim().optional().nullable(),
