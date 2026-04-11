@@ -36,10 +36,24 @@ export function JournalInfoCarousel({ journalId }: JournalInfoCarouselProps) {
 
   useEffect(() => {
     if (!emblaApi) return
-    onSelect()
-    setScrollSnaps(emblaApi.scrollSnapList())
+
+    const onReInit = () => {
+      onSelect()
+      setScrollSnaps(emblaApi.scrollSnapList())
+    }
+
+    // Initial state
+    onReInit()
+
+    // Subscribe
     emblaApi.on("select", onSelect)
-    emblaApi.on("reInit", onSelect)
+    emblaApi.on("reInit", onReInit)
+
+    // Cleanup
+    return () => {
+      emblaApi.off("select", onSelect)
+      emblaApi.off("reInit", onReInit)
+    }
   }, [emblaApi, onSelect])
 
   const scrollPrev = useCallback(() => emblaApi && emblaApi.scrollPrev(), [emblaApi])
@@ -89,6 +103,7 @@ export function JournalInfoCarousel({ journalId }: JournalInfoCarouselProps) {
               size="icon"
               className="h-9 w-9 rounded-full border-border/60 hover:bg-muted/50 hidden md:flex"
               onClick={scrollPrev}
+              aria-label="Previous item"
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
@@ -97,6 +112,7 @@ export function JournalInfoCarousel({ journalId }: JournalInfoCarouselProps) {
               size="icon"
               className="h-9 w-9 rounded-full border-border/60 hover:bg-muted/50 hidden md:flex"
               onClick={scrollNext}
+              aria-label="Next item"
             >
               <ChevronRight className="h-5 w-5" />
             </Button>

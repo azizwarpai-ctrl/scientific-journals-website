@@ -1,4 +1,4 @@
-import type { JournalInfoCard } from "../types/custom-block-types"
+import type { JournalInfoCard } from "@/src/features/journals/types/custom-block-types"
 
 /**
  * Utility to parse raw OJS Custom Block HTML into structured data.
