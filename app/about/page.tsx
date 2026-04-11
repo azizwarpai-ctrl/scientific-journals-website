@@ -11,7 +11,7 @@ import { cn } from "@/src/lib/utils"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { Skeleton } from "@/components/ui/skeleton"
 
-import { useGetAboutSections, type AboutSection, type AboutItem } from "@/src/features/about"
+import { useGetAboutSections, type AboutSection } from "@/src/features/about"
 import { useGetPlatformStatistics } from "@/src/features/statistics"
 
 // Formatted Counter Component
@@ -69,9 +69,9 @@ const DynamicIcon = ({ name, className }: { name: string | null | undefined, cla
 
 export default function AboutPage() {
   const { data: sections, isLoading: isAboutLoading, isError: isAboutError } = useGetAboutSections()
-  const { data: statsData, isLoading: isStatsLoading, isError: isStatsError } = useGetPlatformStatistics()
+  const { data: statsData } = useGetPlatformStatistics()
 
-  if (isAboutLoading || isStatsLoading) {
+  if (isAboutLoading) {
     return (
       <div className="flex min-h-screen flex-col">
         <Navbar />
@@ -99,23 +99,26 @@ export default function AboutPage() {
     )
   }
 
-  if (isAboutError || isStatsError) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center text-center p-4">
-        <div className="mb-4 rounded-full bg-destructive/10 p-3 text-destructive">
-          <Target className="h-6 w-6" />
-        </div>
-        <h2 className="text-xl font-bold mb-2">Unavailable</h2>
-        <p className="text-muted-foreground">We were unable to load the page content. Please try again later.</p>
-      </div>
-    )
-  }
-
+  // Statistics are optional — never block the page if they fail
   const stats = statsData || {
     totalJournals: 0,
     totalArticles: 0,
     totalUsers: 0,
     countriesCount: 0
+  }
+
+  // If the about API failed OR returned empty, show the empty state — NOT an error page
+  if (isAboutError || !sections || sections.length === 0) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Navbar />
+        <main className="flex-1 flex flex-col items-center justify-center p-4">
+          <h1 className="text-3xl font-bold mb-4">About Us</h1>
+          <p className="text-muted-foreground">No content available yet.</p>
+        </main>
+        <Footer />
+      </div>
+    )
   }
 
   // Render functions for each block type
@@ -264,18 +267,6 @@ export default function AboutPage() {
     </GSAPWrapper>
   )
 
-  if (!sections || sections.length === 0) {
-    return (
-      <div className="flex min-h-screen flex-col">
-        <Navbar />
-        <main className="flex-1 flex flex-col items-center justify-center p-4">
-          <h1 className="text-3xl font-bold mb-4">About Us</h1>
-          <p className="text-muted-foreground">No content available yet.</p>
-        </main>
-        <Footer />
-      </div>
-    )
-  }
 
   return (
     <div className="flex min-h-screen flex-col">

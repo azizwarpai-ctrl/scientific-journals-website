@@ -2,7 +2,6 @@ import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { prisma } from "@/src/lib/db/config"
 import { requireAdmin } from "@/src/lib/auth-middleware"
-import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
 import { serializeRecord, serializeMany } from "@/src/lib/serialize"
 import { aboutSectionSchema, reorderAboutSectionsSchema } from "../schema"
 export const aboutRouter = new Hono()
