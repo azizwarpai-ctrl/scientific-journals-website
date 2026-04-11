@@ -9,6 +9,8 @@ import { journalCreateSchema, journalUpdateSchema, journalIdParamSchema, journal
 
 const app = new Hono()
 
+let runningFullSyncPromise: Promise<void> | null = null;
+
 const LIST_JOURNAL_SELECT = {
   id: true,
   title: true,
@@ -42,17 +44,17 @@ const DETAIL_JOURNAL_SELECT = {
 app.get("/debug-covers", requireAdmin, async (c) => {
   try {
     const { ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
-    
+
     const [issueSettings, isCovers, pubSettings, pubCovers] = await Promise.all([
       ojsQuery("SELECT DISTINCT setting_name FROM issue_settings WHERE setting_name LIKE '%cover%'"),
       ojsQuery("SELECT * FROM issue_settings WHERE setting_name = 'coverImage' LIMIT 5"),
       ojsQuery("SELECT DISTINCT setting_name FROM publication_settings WHERE setting_name LIKE '%cover%'"),
       ojsQuery("SELECT * FROM publication_settings WHERE setting_name = 'coverImage' LIMIT 5")
     ])
-    
-    return c.json({ 
-      success: true, 
-      data: { issueSettings, isCovers, pubSettings, pubCovers } 
+
+    return c.json({
+      success: true,
+      data: { issueSettings, isCovers, pubSettings, pubCovers }
     })
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err)
@@ -85,7 +87,7 @@ app.get("/", async (c) => {
         try {
           const ojsData = await fetchFromDatabase(true)
           await syncOjsJournals(ojsData)
-          
+
           // Re-query after sync
           const [newJournals, newTotal] = await Promise.all([
             prisma.journal.findMany({
@@ -142,53 +144,61 @@ app.get("/:id", zValidator("param", journalSlugParamSchema), async (c) => {
 
     // 4. Safe OJS Fallback: Generate a complete mock journal and trigger background sync.
     if (!journal) {
-      const { resolveJournalOjsId } = await import("./resolve-journal");
+      const { resolveJournalOjsId } = await import("@/src/features/journals/server/resolve-journal");
       const resolved = await resolveJournalOjsId(id);
 
-      if (resolved?.ojsId) {
+      if (resolved.found && resolved.ojsId) {
         console.log(`[Journal Detail API] Journal not found locally for "${id}", but exists remotely (id=${resolved.ojsId}). Triggering background sync...`);
         
-        // Trigger generic background sync without awaiting
-        ;(async () => {
-          try {
-            const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client");
-            if (isOjsConfigured()) {
-              const { fetchFromDatabase } = await import("@/src/features/ojs/server/ojs-service");
-              const { syncOjsJournals } = await import("@/src/features/ojs/server/sync-ojs-journals");
-              console.time(`[Journal Detail API] Background Sync "${id}"`);
-              const ojsData = await fetchFromDatabase(true);
-              await syncOjsJournals(ojsData);
-              console.timeEnd(`[Journal Detail API] Background Sync "${id}"`);
+        // Single-flight background sync
+        if (!runningFullSyncPromise) {
+          runningFullSyncPromise = (async () => {
+            try {
+              const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client");
+              if (isOjsConfigured()) {
+                const { fetchFromDatabase } = await import("@/src/features/ojs/server/ojs-service");
+                const { syncOjsJournals } = await import("@/src/features/ojs/server/sync-ojs-journals");
+                console.time(`[Journal Detail API] Background Sync "${id}"`);
+                const ojsData = await fetchFromDatabase(true);
+                await syncOjsJournals(ojsData);
+                console.timeEnd(`[Journal Detail API] Background Sync "${id}"`);
+              }
+            } catch (syncError) {
+              console.error(`[Journal Detail API] Background sync fallback failed for "${id}":`, syncError);
+            } finally {
+              runningFullSyncPromise = null;
             }
-          } catch (syncError) {
-            console.error(`[Journal Detail API] Background sync fallback failed for "${id}":`, syncError);
-          }
-        })();
+          })();
+        }
 
-        // Resolve paths cleanly
-        const safeOjsPath = !/^\d+$/.test(id) ? id : `journal-${resolved.ojsId}`;
-        const uppercaseTitle = safeOjsPath.replace(/[-_]/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+        const uppercaseTitle = id.replace(/[-_]/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
 
         // Construct exact structural match to DETAIL_JOURNAL_SELECT
         const mockJournal = {
           id: BigInt(-1), // Temporary frontend ID
-          ojs_id: resolved.ojsId,
-          ojs_path: safeOjsPath,
           title: uppercaseTitle,
-          description: null,
-          aims_and_scope: null,
-          about: null,
-          cover_image: null,
-          status: "active",
+          abbreviation: null,
           issn: null,
           e_issn: null,
+          description: null,
+          field: null,
           publisher: null,
-          frequency: null,
           editor_in_chief: null,
-          contact_email: undefined,
-          primary_locale: "en_US",
+          frequency: null,
+          submission_fee: 0,
+          publication_fee: 0,
+          cover_image_url: null,
+          website_url: null,
+          status: "active",
           created_at: new Date(),
           updated_at: new Date(),
+          created_by: BigInt(-1),
+          ojs_id: resolved.ojsId,
+          ojs_path: resolved.ojsPath ?? null,
+          aims_and_scope: null,
+          author_guidelines: null,
+          contact_email: undefined,
+          primary_locale: "en_US",
           theme_config: null,
           partial: true // Downstream detection flag for missing data
         };
@@ -201,27 +211,28 @@ app.get("/:id", zValidator("param", journalSlugParamSchema), async (c) => {
         }, 200)
       }
 
-      console.warn(`[Journal Detail API] Complete failure finding journal for "${id}". Returns 404.`);
+      const notFoundPrefix = resolved.found ? "Local entry exists but OJS reference missing" : "Complete failure finding journal";
+      console.warn(`[Journal Detail API] ${notFoundPrefix} for "${id}". Returns 404.`);
       return c.json({ success: false, error: "Journal not found" }, 404)
     }
 
     const serializedJournal = serializeRecord(journal) as ReturnType<typeof serializeRecord> & { contact_email?: string }
 
     if (journal.ojs_id) {
-       try {
-         const { isOjsConfigured, ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
-         if (isOjsConfigured()) {
-            const settings = await ojsQuery<{ setting_name: string, setting_value: string }>(
-              "SELECT setting_name, setting_value FROM journal_settings WHERE journal_id = ? AND setting_name = 'contactEmail' LIMIT 1",
-              [journal.ojs_id]
-            )
-            if (settings.length > 0 && settings[0].setting_value) {
-               serializedJournal.contact_email = settings[0].setting_value
-            }
-         }
-       } catch (err) {
-         console.warn("[Journal API] Failed to fetch contactEmail from OJS:", err)
-       }
+      try {
+        const { isOjsConfigured, ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
+        if (isOjsConfigured()) {
+          const settings = await ojsQuery<{ setting_name: string, setting_value: string }>(
+            "SELECT setting_name, setting_value FROM journal_settings WHERE journal_id = ? AND setting_name = 'contactEmail' LIMIT 1",
+            [journal.ojs_id]
+          )
+          if (settings.length > 0 && settings[0].setting_value) {
+            serializedJournal.contact_email = settings[0].setting_value
+          }
+        }
+      } catch (err) {
+        console.warn("[Journal API] Failed to fetch contactEmail from OJS:", err)
+      }
     }
 
     return c.json({ success: true, data: serializedJournal }, 200)
@@ -250,9 +261,9 @@ app.get("/:id/stats", zValidator("param", journalSlugParamSchema), async (c) => 
     }
 
     const { isOjsConfigured, ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
-    
+
     if (!isOjsConfigured()) {
-       return c.json({ success: true, data: { articles: 0, issues: 0 }, message: "No OJS data" }, 200)
+      return c.json({ success: true, data: { articles: 0, issues: 0 }, message: "No OJS data" }, 200)
     }
 
     try {
@@ -506,15 +517,19 @@ app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamS
     const { id, publicationId: rawPubId } = c.req.valid("param")
     const publicationId = parseInt(rawPubId, 10)
 
-    const { resolveJournalOjsId } = await import("./resolve-journal");
+    const { resolveJournalOjsId } = await import("@/src/features/journals/server/resolve-journal");
     const resolved = await resolveJournalOjsId(id);
 
-    if (!resolved?.ojsId) {
+    if (!resolved.found) {
       console.warn(`[ArticleDetail API] Resolution failed for journal "${id}". Returns 404.`);
       return c.json({ success: false, error: "Journal not found" }, 404)
     }
 
     const resolvedOjsId = resolved.ojsId;
+
+    if (!resolvedOjsId) {
+      return c.json({ success: true, data: null, message: "No OJS data" }, 200)
+    }
 
     const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
 
@@ -528,7 +543,7 @@ app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamS
         console.log(`[ArticleDetail API] Calling fetchArticleDetail(ojs_id="${resolvedOjsId}", pubId=${publicationId})`)
       }
       const detail = await fetchArticleDetail(resolvedOjsId, publicationId)
-      
+
       if (!detail) {
         return c.json({ success: false, error: "Article not found" }, 404)
       }
@@ -547,10 +562,10 @@ app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamS
 
 
 
-  app.post("/", requireAdmin, zValidator("json", journalCreateSchema), async (c) => {
-    try {
-      const session = c.get("session" as never) as { id: string } | undefined
-      if (!session) {
+app.post("/", requireAdmin, zValidator("json", journalCreateSchema), async (c) => {
+  try {
+    const session = c.get("session" as never) as { id: string } | undefined
+    if (!session) {
       return c.json({ success: false, error: "Unauthorized" }, 401)
     }
     const data = c.req.valid("json")
@@ -666,7 +681,7 @@ app.get("/proxy-pdf", async (c) => {
   try {
     const targetUrlStr = Buffer.from(urlBase64, 'base64').toString('utf-8')
     const targetUrl = new URL(targetUrlStr)
-    
+
     // 1. Strict Protocol Enforcement
     if (targetUrl.protocol !== 'https:') {
       return c.text("Invalid protocol: Only HTTPS is allowed", 403)
@@ -674,10 +689,10 @@ app.get("/proxy-pdf", async (c) => {
 
     // 2. Strict Origin/hostname Validation
     const allowedHostname = new URL(OJS_BASE_URL).hostname
-    const isAllowedOrigin = targetUrl.hostname === allowedHostname || 
-                            targetUrl.hostname.endsWith('.' + allowedHostname) ||
-                            targetUrl.hostname === 'digitopub.com' ||
-                            targetUrl.hostname.endsWith('.digitopub.com')
+    const isAllowedOrigin = targetUrl.hostname === allowedHostname ||
+      targetUrl.hostname.endsWith('.' + allowedHostname) ||
+      targetUrl.hostname === 'digitopub.com' ||
+      targetUrl.hostname.endsWith('.digitopub.com')
 
     if (!isAllowedOrigin) {
       if (process.env.NODE_ENV !== 'production') {
@@ -687,11 +702,11 @@ app.get("/proxy-pdf", async (c) => {
     }
 
     // 3. Pathname check: ensure we are only proxying potential PDFs
-    const isPdfPath = targetUrl.pathname.toLowerCase().endsWith('.pdf') || 
-                      targetUrl.pathname.toLowerCase().includes('/article/download/')
-    
+    const isPdfPath = targetUrl.pathname.toLowerCase().endsWith('.pdf') ||
+      targetUrl.pathname.toLowerCase().includes('/article/download/')
+
     if (!isPdfPath) {
-       return c.text("Invalid target: Only PDF documents are allowed", 403)
+      return c.text("Invalid target: Only PDF documents are allowed", 403)
     }
 
     // 4. Timeout Management
@@ -717,15 +732,15 @@ app.get("/proxy-pdf", async (c) => {
       const headers = new Headers(response.headers)
       headers.delete('X-Frame-Options')
       headers.delete('Content-Security-Policy')
-      
+
       const upstreamContentType = response.headers.get('content-type')?.toLowerCase() || ''
-      
+
       // Only force PDF headers if the upstream content is actually a PDF
       if (upstreamContentType.includes('application/pdf')) {
         headers.set('Content-Type', 'application/pdf')
         headers.set('Content-Disposition', 'inline')
       }
-      
+
       return new Response(response.body, {
         status: 200,
         headers
@@ -740,7 +755,7 @@ app.get("/proxy-pdf", async (c) => {
     }
   } catch (error) {
     if (error instanceof Error && error.name === 'TypeError' && error.message.includes('Invalid URL')) {
-       return c.text("Malformed URL parameter", 400)
+      return c.text("Malformed URL parameter", 400)
     }
     console.error("PDF Proxy Error:", error)
     return c.text("Internal Server Error", 500)

@@ -1,73 +1,73 @@
 import { prisma } from "@/src/lib/db/config"
 
 /**
- * Resolves a journal identifier (ojs_path slug, ojs_id, or numeric id) to its
- * ojs_id needed for OJS database queries.
- *
- * This safe fallback resolution chain ensures that an empty Prisma DB DOES NOT break
- * the flow as long as the journal exists in OJS.
+ * Attempts to resolve an OJS journal ID dynamically from either Prisma OR OJS natively.
+ * This is critical when Prisma is offline, out of sync, or empty but we still need 
+ * to fetch OJS article data for valid journals.
+ * 
+ * @param id The requested journal path (e.g., 'ojbr') or numeric ID
+ * @returns { found: true; ojsId: string | null; prismaId: bigint | null; ojsPath: string | null } | { found: false }
  */
 export async function resolveJournalOjsId(
   id: string
-): Promise<{ ojsId: string; prismaId: bigint | null } | null> {
+): Promise<{ found: true; ojsId: string | null; prismaId: bigint | null; ojsPath: string | null } | { found: false }> {
   console.log(`[resolveJournalOjsId] Attempting to resolve journal id: "${id}"`);
 
-  // 1. Try ojs_path (slug-based URL — primary)
+  // 1. Try Prisma first for standard configurations
   let journal = await prisma.journal.findUnique({
     where: { ojs_path: id },
-    select: { ojs_id: true, id: true },
+    select: { id: true, ojs_id: true, ojs_path: true }
   })
-
-  // 2. Try ojs_id (legacy OJS-sourced navigation)
+  
   if (!journal) {
     journal = await prisma.journal.findUnique({
       where: { ojs_id: id },
-      select: { ojs_id: true, id: true },
+      select: { id: true, ojs_id: true, ojs_path: true }
     })
   }
 
-  // 3. Try numeric id
   if (!journal && /^\d+$/.test(id)) {
     journal = await prisma.journal.findUnique({
       where: { id: BigInt(id) },
-      select: { ojs_id: true, id: true },
+      select: { id: true, ojs_id: true, ojs_path: true }
     })
   }
 
-  if (journal?.ojs_id) {
+  // Found in Prisma
+  if (journal) {
     console.log(`[resolveJournalOjsId] Found in Prisma DB. ojsId=${journal.ojs_id}, prismaId=${journal.id}`);
-    return { ojsId: journal.ojs_id, prismaId: journal.id }
+    return { found: true, ojsId: journal.ojs_id, prismaId: journal.id, ojsPath: journal.ojs_path }
   }
 
-  // 4. Safe Fallback Strategy: Target OJS Database directly
-  console.log(`[resolveJournalOjsId] Not found in Prisma DB. Falling back to OJS query for "${id}"`);
+  console.log(`[resolveJournalOjsId] Not found in Prisma. Attempting OJS DB fallback for path="${id}"...`)
+
+  // 2. Prisma empty/missing. Fallback directly to OJS schema lookup
   try {
-    const { isOjsConfigured, ojsQuery } = await import("@/src/features/ojs/server/ojs-client");
+    const { isOjsConfigured, ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
     if (isOjsConfigured()) {
-      let rows = await ojsQuery<{ journal_id: number }>(
-        "SELECT journal_id FROM journals WHERE path = ? LIMIT 1",
+      let ojsMatch = await ojsQuery<{ journal_id: number, path: string }>(
+        `SELECT journal_id, path FROM journals WHERE path = ? LIMIT 1`,
         [id]
       )
 
-      if (rows.length === 0 && /^\d+$/.test(id)) {
-        rows = await ojsQuery<{ journal_id: number }>(
-          "SELECT journal_id FROM journals WHERE journal_id = ? LIMIT 1",
+      if (ojsMatch.length === 0 && /^\d+$/.test(id)) {
+        ojsMatch = await ojsQuery<{ journal_id: number, path: string }>(
+          `SELECT journal_id, path FROM journals WHERE journal_id = ? LIMIT 1`,
           [parseInt(id, 10)]
         )
       }
 
-      if (rows.length > 0) {
-        const resolvedOjsId = rows[0].journal_id.toString();
-        console.log(`[resolveJournalOjsId] OJS fallback successful! resolvedOjsId=${resolvedOjsId}`);
-        return { ojsId: resolvedOjsId, prismaId: null };
+      if (ojsMatch.length > 0) {
+        const fallbackId = ojsMatch[0].journal_id.toString()
+        const fallbackPath = ojsMatch[0].path || null
+        console.log(`[resolveJournalOjsId] Fallback to OJS DB resolved. ojsId=${fallbackId}`);
+        return { found: true, ojsId: fallbackId, prismaId: null, ojsPath: fallbackPath }
       }
-    } else {
-      console.warn(`[resolveJournalOjsId] OJS is not configured. Cannot perform fallback.`);
     }
-  } catch (error) {
-    console.error(`[resolveJournalOjsId] OJS fallback lookup failed:`, error);
+  } catch (err) {
+    console.error(`[resolveJournalOjsId] Fallback to OJS DB failed:`, err);
   }
 
-  console.log(`[resolveJournalOjsId] Resolution completely failed for "${id}"`);
-  return null
+  console.log(`[resolveJournalOjsId] Total resolution failure for: ${id}`)
+  return { found: false }
 }

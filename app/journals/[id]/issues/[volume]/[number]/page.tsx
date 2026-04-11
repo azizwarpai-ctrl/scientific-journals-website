@@ -27,7 +27,7 @@ export default async function IssueDetailPage({ params }: PageProps) {
   }
 
   const journalLookup = await resolveJournalOjsId(id)
-  if (!journalLookup) notFound()
+  if (!journalLookup.found || !journalLookup.ojsId) notFound()
 
   const issueId = await fetchIssueIdByVolumeNumber(
     journalLookup.ojsId, 

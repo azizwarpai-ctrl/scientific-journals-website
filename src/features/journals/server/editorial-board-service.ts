@@ -132,8 +132,12 @@ export async function fetchEditorialBoard(
 ): Promise<EditorialBoardMember[]> {
   const now = Date.now()
   const cached = boardCache.get(ojsJournalId)
-  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
-    return cached.data
+  if (cached) {
+    if (now - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data
+    } else {
+      boardCache.delete(ojsJournalId)
+    }
   }
 
   if (!/^\d+$/.test(ojsJournalId)) {
@@ -217,8 +221,8 @@ export async function fetchEditorialBoard(
     const getRank = (roleId?: number, roleName: string = "") => {
       const lowerName = roleName.toLowerCase();
       if (roleId === 16 || lowerName.includes("chief") || lowerName.includes("principal")) return 1;
-      if (roleId === 17 || lowerName.includes("editor")) return 2;
-      if (roleId === 19 || lowerName.includes("section")) return 3;
+      if (roleId === 19 || lowerName.includes("section")) return 2;
+      if (roleId === 17 || lowerName.includes("editor")) return 3;
       return 4;
     };
     
