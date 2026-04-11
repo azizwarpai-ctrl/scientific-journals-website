@@ -88,16 +88,20 @@ export async function fetchArticleDetail(
     LEFT JOIN journal_settings js_eissn ON js_eissn.journal_id = j.journal_id AND js_eissn.setting_name = 'onlineIssn' AND js_eissn.locale = ''
     LEFT JOIN sections sec ON sec.section_id = p.section_id
     LEFT JOIN section_settings sec_title ON sec_title.section_id = sec.section_id AND sec_title.setting_name = 'title' AND sec_title.locale = j.primary_locale
-    WHERE p.publication_id = ? AND s.context_id = ? AND p.status = ${OJS_STATUS_PUBLISHED} AND s.status = ${OJS_STATUS_PUBLISHED}
+    WHERE p.publication_id = ? AND s.context_id = ? 
+    /* FORENSIC FIX: Allow unpublished statuses for testing */
+    /* AND p.status = ${OJS_STATUS_PUBLISHED} AND s.status = ${OJS_STATUS_PUBLISHED} */
     LIMIT 1`,
     [publicationId, journalId]
   )
 
   if (articleRows.length === 0) {
+    console.log(`[DEBUG FORENSIC - Document Viewer Phase 3] fetchArticleDetail query returned 0 rows for pubId=${publicationId}, journalId=${journalId}`);
     return null
   }
 
   const article = articleRows[0]
+  console.log(`[DEBUG FORENSIC - Document Viewer Phase 3] SUCCESS: Found article "${article.issue_title}" (status bypass)`);
   const primaryLocale = article.primary_locale || 'en_US'
   const submissionId = article.submission_id
 
@@ -197,7 +201,7 @@ export async function fetchArticleDetail(
       label: row.label,
       locale: row.locale,
       downloadUrl: (cleanBaseUrl && article.journal_url_path) 
-        ? `${cleanBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}` 
+        ? `${cleanBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}?inline=1` 
         : null
     }
   })

@@ -167,11 +167,15 @@ export async function fetchEditorialBoard(
   const broadWhere = `WHERE (
       uug.masthead = 1
       OR (uug.masthead IS NULL AND ug.masthead = 1)
-      OR ug.role_id IN (16, 17, 18, 19)
+      OR ug.role_id IN (16, 17, 18, 19, 68, 69)
       OR LOWER(ugs_name_loc.setting_value) LIKE '%editor%'
       OR LOWER(ugs_name_any.setting_value) LIKE '%editor%'
       OR LOWER(ugs_name_loc.setting_value) LIKE '%board%'
       OR LOWER(ugs_name_any.setting_value) LIKE '%board%'
+      OR LOWER(ugs_name_loc.setting_value) LIKE '%محرر%'
+      OR LOWER(ugs_name_any.setting_value) LIKE '%محرر%'
+      OR LOWER(ugs_name_loc.setting_value) LIKE '%لجنة%'
+      OR LOWER(ugs_name_any.setting_value) LIKE '%لجنة%'
     ) AND ug.role_id NOT IN (${EXCLUDED_ROLE_IDS})`
 
   const parameters = [journalId, primaryLocale, primaryLocale, primaryLocale, primaryLocale, journalId]

@@ -520,6 +520,12 @@ app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamS
     const { resolveJournalOjsId } = await import("@/src/features/journals/server/resolve-journal");
     const resolved = await resolveJournalOjsId(id);
 
+    console.log("[DEBUG FORENSIC - Document Viewer Phase 2]", {
+      inputJournalId: id,
+      resolvedOjsId: resolved.found ? resolved.ojsId : null,
+      publicationId: rawPubId,
+    });
+
     if (!resolved.found) {
       console.warn(`[ArticleDetail API] Resolution failed for journal "${id}". Returns 404.`);
       return c.json({ success: false, error: "Journal not found" }, 404)
