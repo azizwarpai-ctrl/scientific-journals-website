@@ -109,6 +109,13 @@ function buildEditorialBoardQuery(whereClause: string) {
 }
 
 /**
+ * In-memory cache for editorial boards to prevent expensive LIKE queries on every request.
+ * Cache invalidates after 15 minutes (or on process restart).
+ */
+const boardCache = new Map<string, { data: EditorialBoardMember[]; timestamp: number }>()
+const CACHE_TTL_MS = 15 * 60 * 1000
+
+/**
  * Fetch editorial board members for the given OJS journal.
  *
  * Rebuilt Logic:
@@ -123,6 +130,12 @@ function buildEditorialBoardQuery(whereClause: string) {
 export async function fetchEditorialBoard(
   ojsJournalId: string
 ): Promise<EditorialBoardMember[]> {
+  const now = Date.now()
+  const cached = boardCache.get(ojsJournalId)
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data
+  }
+
   if (!/^\d+$/.test(ojsJournalId)) {
     console.error(`[EditorialBoard] Invalid journal ID format: ${ojsJournalId}`)
     return []
@@ -204,7 +217,7 @@ export async function fetchEditorialBoard(
     const getRank = (roleId?: number, roleName: string = "") => {
       const lowerName = roleName.toLowerCase();
       if (roleId === 16 || lowerName.includes("chief") || lowerName.includes("principal")) return 1;
-      if (roleId === 17 || lowerName === "editor") return 2;
+      if (roleId === 17 || lowerName.includes("editor")) return 2;
       if (roleId === 19 || lowerName.includes("section")) return 3;
       return 4;
     };
@@ -218,5 +231,6 @@ export async function fetchEditorialBoard(
   });
 
   console.log(`[EditorialBoard] journal_id=${journalId}: returning ${members.length} unique board members`)
+  boardCache.set(ojsJournalId, { data: members, timestamp: Date.now() });
   return members
 }

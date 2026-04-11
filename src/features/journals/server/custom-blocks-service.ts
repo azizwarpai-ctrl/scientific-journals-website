@@ -93,10 +93,11 @@ export async function fetchCustomBlocks(
 
   // Function to extract clean block names based on OJS requirements
   const extractCleanBlocks = (arr: any[]): string[] => {
-    return arr
+    const raw = arr
       .filter((n): n is string => typeof n === "string")
       .map(n => n.trim())
-      .filter(n => n.length > 0 && /^[a-zA-Z0-9_-]+$/.test(n))
+      .filter(n => n.length > 0 && /^[a-zA-Z0-9_-]+$/.test(n));
+    return Array.from(new Set(raw));
   }
 
   try {
@@ -159,11 +160,12 @@ export async function fetchCustomBlocks(
     if (!rawContentStr) continue
 
     let contentToSanitize = rawContentStr
+    const trimmedRaw = rawContentStr.trim()
 
     // Handle OJS 3.4+ Localized JSON storage `{"en_US": "<p>html</p>"}`
-    if (rawContentStr.startsWith("{") && rawContentStr.endsWith("}")) {
+    if (trimmedRaw.startsWith("{") && trimmedRaw.endsWith("}")) {
       try {
-        const parsedLocales = JSON.parse(rawContentStr)
+        const parsedLocales = JSON.parse(trimmedRaw)
         if (typeof parsedLocales === 'object' && parsedLocales !== null) { // It's an object of locales
            // Fallback priority: exact locale -> en_US -> en -> any first fallback
            contentToSanitize = parsedLocales[_primaryLocale] || parsedLocales['en_US'] || parsedLocales['en'] || Object.values(parsedLocales)[0] || '';

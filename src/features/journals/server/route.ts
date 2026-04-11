@@ -140,43 +140,65 @@ app.get("/:id", zValidator("param", journalSlugParamSchema), async (c) => {
       })
     }
 
-    // 4. Safe OJS Fallback Sync: If not found, see if we need to sync it.
+    // 4. Safe OJS Fallback: Generate a complete mock journal and trigger background sync.
     if (!journal) {
-      console.log(`[Journal Detail API] Journal not found locally for "${id}". Attempting inline sync...`);
-      const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
-      if (isOjsConfigured()) {
-        const { fetchFromDatabase } = await import("@/src/features/ojs/server/ojs-service")
-        const { syncOjsJournals } = await import("@/src/features/ojs/server/sync-ojs-journals")
-        try {
-          const ojsData = await fetchFromDatabase(true)
-          await syncOjsJournals(ojsData)
-
-          // Re-query
-          journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: DETAIL_JOURNAL_SELECT })
-          if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: DETAIL_JOURNAL_SELECT })
-          if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: DETAIL_JOURNAL_SELECT })
-        } catch (syncError) {
-          console.error("[Journal Detail API] Inline sync fallback failed:", syncError)
-        }
-      }
-    }
-
-    if (!journal) {
-      // Create a minimalist mock journal if resolution succeeded but sync failed
       const { resolveJournalOjsId } = await import("./resolve-journal");
       const resolved = await resolveJournalOjsId(id);
+
       if (resolved?.ojsId) {
-         console.warn(`[Journal Detail API] Sync failed but journal exists in OJS (id=${resolved.ojsId}). Returning minimal mock journal.`);
-         return c.json({
-           success: true,
-           data: {
-             ojs_id: resolved.ojsId,
-             ojs_path: id,
-             title: id,
-             status: "active",
-             // other minimal required fields
-           }
-         }, 200)
+        console.log(`[Journal Detail API] Journal not found locally for "${id}", but exists remotely (id=${resolved.ojsId}). Triggering background sync...`);
+        
+        // Trigger generic background sync without awaiting
+        ;(async () => {
+          try {
+            const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client");
+            if (isOjsConfigured()) {
+              const { fetchFromDatabase } = await import("@/src/features/ojs/server/ojs-service");
+              const { syncOjsJournals } = await import("@/src/features/ojs/server/sync-ojs-journals");
+              console.time(`[Journal Detail API] Background Sync "${id}"`);
+              const ojsData = await fetchFromDatabase(true);
+              await syncOjsJournals(ojsData);
+              console.timeEnd(`[Journal Detail API] Background Sync "${id}"`);
+            }
+          } catch (syncError) {
+            console.error(`[Journal Detail API] Background sync fallback failed for "${id}":`, syncError);
+          }
+        })();
+
+        // Resolve paths cleanly
+        const safeOjsPath = !/^\d+$/.test(id) ? id : `journal-${resolved.ojsId}`;
+        const uppercaseTitle = safeOjsPath.replace(/[-_]/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+
+        // Construct exact structural match to DETAIL_JOURNAL_SELECT
+        const mockJournal = {
+          id: BigInt(-1), // Temporary frontend ID
+          ojs_id: resolved.ojsId,
+          ojs_path: safeOjsPath,
+          title: uppercaseTitle,
+          description: null,
+          aims_and_scope: null,
+          about: null,
+          cover_image: null,
+          status: "active",
+          issn: null,
+          e_issn: null,
+          publisher: null,
+          frequency: null,
+          editor_in_chief: null,
+          contact_email: undefined,
+          primary_locale: "en_US",
+          created_at: new Date(),
+          updated_at: new Date(),
+          theme_config: null,
+          partial: true // Downstream detection flag for missing data
+        };
+
+        const serializedMock = serializeRecord(mockJournal as any) as ReturnType<typeof serializeRecord> & { contact_email?: string };
+        
+        return c.json({
+          success: true,
+          data: serializedMock,
+        }, 200)
       }
 
       console.warn(`[Journal Detail API] Complete failure finding journal for "${id}". Returns 404.`);
