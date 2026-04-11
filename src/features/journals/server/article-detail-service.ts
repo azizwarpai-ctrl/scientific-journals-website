@@ -212,6 +212,7 @@ export async function fetchArticleDetail(
   // 5. Fetch Metrics
   let views = 0
   let downloads = 0
+  let citations = 0
   try {
      const metricsRows = await ojsQuery<{views: string | number, downloads: string | number}>(
        `SELECT
@@ -227,6 +228,19 @@ export async function fetchArticleDetail(
      }
   } catch (metricsError) {
      console.warn(`[ArticleDetail] Could not fetch metrics for submission ${submissionId}:`, metricsError)
+  }
+
+  // 6. Fetch Citations
+  try {
+    const citationRows = await ojsQuery<{count: number}>(
+      `SELECT COUNT(*) as count FROM citations WHERE publication_id = ?`,
+      [publicationId]
+    )
+    if (citationRows.length > 0) {
+      citations = Number(citationRows[0].count || 0)
+    }
+  } catch (citationError) {
+    console.warn(`[ArticleDetail] Could not fetch citations for publication ${publicationId} (perhaps table does not exist):`, citationError)
   }
 
     const parsedVolume = article.volume ? parseInt(article.volume, 10) : NaN;
@@ -260,6 +274,7 @@ export async function fetchArticleDetail(
       journalUrlPath: article.journal_url_path || "",
       
       views,
-      downloads
+      downloads,
+      citations
     }
 }
