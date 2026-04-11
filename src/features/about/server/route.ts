@@ -2,58 +2,183 @@ import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { prisma } from "@/src/lib/db/config"
 import { requireAdmin } from "@/src/lib/auth-middleware"
-import { aboutContentSchema, defaultAboutContent, type AboutContent } from "../schema"
-
-const SETTING_KEY = "about_page_content"
+import { aboutSectionSchema, reorderAboutSectionsSchema } from "../schema"
 
 export const aboutRouter = new Hono()
   .get("/", async (c) => {
     try {
-      const setting = await prisma.systemSetting.findUnique({
-        where: { setting_key: SETTING_KEY }
+      const sections = await prisma.aboutSection.findMany({
+        where: { is_active: true },
+        include: {
+          items: {
+            orderBy: { display_order: "asc" }
+          }
+        },
+        orderBy: { display_order: "asc" }
       })
 
-      if (!setting) {
-        return c.json({ data: defaultAboutContent })
-      }
+      // Convert BigInt IDs to string for JSON serialization
+      const serializedSections = sections.map(section => ({
+        ...section,
+        id: section.id.toString(),
+        items: section.items.map(item => ({
+          ...item,
+          id: item.id.toString(),
+          section_id: item.section_id.toString()
+        }))
+      }))
 
-      // Validate the persisted value
-      const parsed = aboutContentSchema.safeParse(setting.setting_value)
-      if (!parsed.success) {
-        console.error("[ABOUT_GET_VALIDATION_ERROR]", parsed.error)
-        // Fallback to default if corrupted
-        return c.json({ data: defaultAboutContent })
-      }
-
-      return c.json({ data: parsed.data })
+      return c.json({ data: serializedSections })
     } catch (error) {
       console.error("[ABOUT_GET_ERROR]", error)
       return c.json({ error: "Failed to fetch about content" }, 500)
     }
   })
-  .put(
+  .get("/admin", requireAdmin, async (c) => {
+    try {
+      const sections = await prisma.aboutSection.findMany({
+        include: {
+          items: {
+            orderBy: { display_order: "asc" }
+          }
+        },
+        orderBy: { display_order: "asc" }
+      })
+
+      const serializedSections = sections.map(section => ({
+        ...section,
+        id: section.id.toString(),
+        items: section.items.map(item => ({
+          ...item,
+          id: item.id.toString(),
+          section_id: item.section_id.toString()
+        }))
+      }))
+
+      return c.json({ data: serializedSections })
+    } catch (error) {
+      console.error("[ABOUT_ADMIN_GET_ERROR]", error)
+      return c.json({ error: "Failed to fetch about content" }, 500)
+    }
+  })
+  .post(
     "/",
     requireAdmin,
-    zValidator("json", aboutContentSchema),
+    zValidator("json", aboutSectionSchema),
     async (c) => {
       try {
         const body = c.req.valid("json")
         
-        const setting = await prisma.systemSetting.upsert({
-          where: { setting_key: SETTING_KEY },
-          update: { setting_value: body as any },
-          create: {
-            setting_key: SETTING_KEY,
-            setting_value: body as any,
-            description: "Dynamic content for the About page"
-          }
+        const section = await prisma.aboutSection.create({
+          data: {
+            block_type: body.block_type,
+            title: body.title,
+            subtitle: body.subtitle,
+            content: body.content,
+            display_order: body.display_order,
+            is_active: body.is_active,
+            items: {
+              create: body.items?.map(i => ({
+                title: i.title,
+                description: i.description,
+                icon: i.icon,
+                color_theme: i.color_theme,
+                display_order: i.display_order,
+              })) || []
+            }
+          },
+          include: { items: true }
         })
 
-        const data = setting.setting_value as unknown as AboutContent
-        return c.json({ data })
+        return c.json({ data: { ...section, id: section.id.toString(), items: section.items.map(i => ({...i, id: i.id.toString(), section_id: i.section_id.toString()})) } })
+      } catch (error) {
+        console.error("[ABOUT_CREATE_ERROR]", error)
+        return c.json({ error: "Failed to create about section" }, 500)
+      }
+    }
+  )
+  .put(
+    "/:id",
+    requireAdmin,
+    zValidator("json", aboutSectionSchema),
+    async (c) => {
+      try {
+        const id = BigInt(c.req.param("id"))
+        const body = c.req.valid("json")
+        
+        // We will process updating items by deleting existing, and creating new ones.
+        await prisma.aboutItem.deleteMany({
+          where: { section_id: id }
+        })
+
+        const section = await prisma.aboutSection.update({
+          where: { id },
+          data: {
+            block_type: body.block_type,
+            title: body.title,
+            subtitle: body.subtitle,
+            content: body.content,
+            display_order: body.display_order,
+            is_active: body.is_active,
+            items: {
+              create: body.items?.map(i => ({
+                title: i.title,
+                description: i.description,
+                icon: i.icon,
+                color_theme: i.color_theme,
+                display_order: i.display_order,
+              })) || []
+            }
+          },
+          include: { items: true }
+        })
+
+        return c.json({ data: { ...section, id: section.id.toString(), items: section.items.map(i => ({...i, id: i.id.toString(), section_id: i.section_id.toString()})) } })
       } catch (error) {
         console.error("[ABOUT_UPDATE_ERROR]", error)
-        return c.json({ error: "Failed to update about content" }, 500)
+        return c.json({ error: "Failed to update about section" }, 500)
+      }
+    }
+  )
+  .delete(
+    "/:id",
+    requireAdmin,
+    async (c) => {
+      try {
+        const id = BigInt(c.req.param("id"))
+        
+        await prisma.aboutSection.delete({
+          where: { id }
+        })
+
+        return c.json({ success: true })
+      } catch (error) {
+        console.error("[ABOUT_DELETE_ERROR]", error)
+        return c.json({ error: "Failed to delete about section" }, 500)
+      }
+    }
+  )
+  .post(
+    "/reorder",
+    requireAdmin,
+    zValidator("json", reorderAboutSectionsSchema),
+    async (c) => {
+      try {
+        const { sections } = c.req.valid("json")
+        
+        await prisma.$transaction(
+          sections.map(s => 
+            prisma.aboutSection.update({
+              where: { id: BigInt(s.id) },
+              data: { display_order: s.display_order }
+            })
+          )
+        )
+
+        return c.json({ success: true })
+      } catch (error) {
+        console.error("[ABOUT_REORDER_ERROR]", error)
+        return c.json({ error: "Failed to reorder about sections" }, 500)
       }
     }
   )

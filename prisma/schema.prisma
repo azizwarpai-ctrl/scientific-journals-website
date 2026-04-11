@@ -362,3 +362,35 @@ model Invoice {
   @@index([subscription_id])
   @@map("invoices")
 }
+
+model AboutSection {
+  id            BigInt      @id @default(autoincrement())
+  block_type    String      @db.VarChar(50)
+  title         String?     @db.VarChar(255)
+  subtitle      String?     @db.Text
+  content       String?     @db.LongText
+  display_order Int         @default(0)
+  is_active     Boolean     @default(true)
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @default(now()) @updatedAt
+
+  items         AboutItem[]
+
+  @@index([is_active, display_order])
+  @@map("about_sections")
+}
+
+model AboutItem {
+  id            BigInt       @id @default(autoincrement())
+  section_id    BigInt
+  title         String?      @db.VarChar(255)
+  description   String?      @db.Text
+  icon          String?      @db.VarChar(50)
+  color_theme   String?      @db.VarChar(50)
+  display_order Int          @default(0)
+  
+  section       AboutSection @relation(fields: [section_id], references: [id], onDelete: Cascade)
+
+  @@index([section_id])
+  @@map("about_items")
+}

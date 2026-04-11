@@ -76,7 +76,7 @@
     "gsap": "3.14.2",
     "hono": "^4.12.2",
     "input-otp": "^1.4.2",
-    "isomorphic-dompurify": "^3.7.1",
+    "isomorphic-dompurify": "^3.8.0",
     "jose": "^5.9.6",
     "lucide-react": "^0.577.0",
     "mariadb": "^3.5.2",
