@@ -51,19 +51,18 @@ function setLanguage(lang: LangCode) {
 
 export function LanguageSwitcher() {
     const [currentLang, setCurrentLang] = useState<LangCode>("en")
+    const [isTranslatorAvailable, setTranslatorAvailable] = useState(true)
 
     useEffect(() => {
         setCurrentLang(getCurrentLanguage())
 
-        // Load the Google Translate script once (hidden — we only use the translation engine)
+        // Load the Google Translate script once
         const existingScript = document.querySelector('script[src*="translate.google.com"]')
         if (existingScript) {
             return
         }
 
-        // Define the callback before loading
         window.googleTranslateElementInit = () => {
-            // Create a hidden container for the translate widget
             let container = document.getElementById("google_translate_element")
             if (!container) {
                 container = document.createElement("div")
@@ -87,14 +86,23 @@ export function LanguageSwitcher() {
         const script = document.createElement("script")
         script.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"
         script.async = true
-        script.onerror = () => {} // Still allow UI to show even if script fails
+        script.onerror = () => {
+            console.error("Google Translate script failed to load")
+            setTranslatorAvailable(false)
+        }
         document.body.appendChild(script)
     }, [])
 
     const handleSelect = useCallback((code: LangCode) => {
         if (code === currentLang) return
+        
+        if (!isTranslatorAvailable && code !== "en") {
+            console.warn("Translation service is unavailable")
+            return
+        }
+        
         setLanguage(code)
-    }, [currentLang])
+    }, [currentLang, isTranslatorAvailable])
 
     const currentLanguage = LANGUAGES.find((l) => l.code === currentLang) || LANGUAGES[0]
 

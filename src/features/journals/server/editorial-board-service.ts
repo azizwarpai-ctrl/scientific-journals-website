@@ -8,7 +8,9 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 
-// We exclude roles in SQL directly (Author=65536, Reviewer=4096, Reader=1048576)
+// Roles to exclude from the editorial board (Author=65536, Reviewer=4096, Reader=1048576)
+const EXCLUDED_ROLE_IDS = "65536, 4096, 1048576"
+
 interface EditorialBoardRow {
   user_id: number
   role_id: number
@@ -145,7 +147,7 @@ export async function fetchEditorialBoard(
   const strictWhere = `WHERE (
       uug.masthead = 1
       OR (uug.masthead IS NULL AND ug.masthead = 1)
-    ) AND ug.role_id NOT IN (65536, 4096, 1048576)`
+    ) AND ug.role_id NOT IN (${EXCLUDED_ROLE_IDS})`
   
   const parameters = [journalId, primaryLocale, primaryLocale, primaryLocale, primaryLocale, journalId]
 
@@ -160,8 +162,8 @@ export async function fetchEditorialBoard(
     console.log(`[EditorialBoard] journal_id=${journalId}: strict masthead returned 0 — trying relaxed fallback`)
     const relaxedWhere = `WHERE (
         uug.masthead = 1
-        OR (uug.masthead IS NULL AND (ug.masthead = 1 OR ug.masthead IS NULL))
-      ) AND ug.role_id NOT IN (65536, 4096, 1048576)`
+        OR (uug.masthead IS NULL AND ug.masthead = 1)
+      ) AND ug.role_id NOT IN (${EXCLUDED_ROLE_IDS})`
 
     effectiveRows = await ojsQuery<EditorialBoardRow>(
       buildEditorialBoardQuery(relaxedWhere),

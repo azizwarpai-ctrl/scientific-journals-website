@@ -11,7 +11,7 @@ export const useUpdateHelpContent = () => {
 
   return useMutation<ResponseType, Error, RequestType>({
     mutationFn: async ({ json }: RequestType): Promise<ResponseType> => {
-      const response = await client.api.help.$put({ json })
+      const response = await client.help.$put({ json })
       
       if (!response.ok) {
         let errorMessage = "Failed to update help content"
@@ -36,7 +36,7 @@ export const useUpdateHelpContent = () => {
     onSuccess: (data: any) => {
       if (data.success) {
         toast.success(data.message || "Help content updated successfully")
-        queryClient.invalidateQueries({ queryKey: ["helpContent"] })
+        queryClient.invalidateQueries({ queryKey: ["help-content"] })
       } else {
         toast.error(data.error || "Failed to update help content")
       }
