@@ -2,8 +2,9 @@ import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { prisma } from "@/src/lib/db/config"
 import { requireAdmin } from "@/src/lib/auth-middleware"
+import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
+import { serializeRecord, serializeMany } from "@/src/lib/serialize"
 import { aboutSectionSchema, reorderAboutSectionsSchema } from "../schema"
-
 export const aboutRouter = new Hono()
   .get("/", async (c) => {
     try {
@@ -17,18 +18,7 @@ export const aboutRouter = new Hono()
         orderBy: { display_order: "asc" }
       })
 
-      // Convert BigInt IDs to string for JSON serialization
-      const serializedSections = sections.map(section => ({
-        ...section,
-        id: section.id.toString(),
-        items: section.items.map(item => ({
-          ...item,
-          id: item.id.toString(),
-          section_id: item.section_id.toString()
-        }))
-      }))
-
-      return c.json({ success: true, data: serializedSections })
+      return c.json({ success: true, data: serializeMany(sections) })
     } catch (error) {
       console.error("[ABOUT_GET_ERROR]", error)
       return c.json({ success: false, error: "Failed to fetch about content" }, 500)
@@ -45,17 +35,7 @@ export const aboutRouter = new Hono()
         orderBy: { display_order: "asc" }
       })
 
-      const serializedSections = sections.map(section => ({
-        ...section,
-        id: section.id.toString(),
-        items: section.items.map(item => ({
-          ...item,
-          id: item.id.toString(),
-          section_id: item.section_id.toString()
-        }))
-      }))
-
-      return c.json({ success: true, data: serializedSections })
+      return c.json({ success: true, data: serializeMany(sections) })
     } catch (error) {
       console.error("[ABOUT_ADMIN_GET_ERROR]", error)
       return c.json({ success: false, error: "Failed to fetch about content" }, 500)
@@ -90,7 +70,7 @@ export const aboutRouter = new Hono()
           include: { items: true }
         })
 
-        return c.json({ success: true, data: { ...section, id: section.id.toString(), items: section.items.map(i => ({ ...i, id: i.id.toString(), section_id: i.section_id.toString() })) } })
+        return c.json({ success: true, data: serializeRecord(section) }, 201)
       } catch (error) {
         console.error("[ABOUT_CREATE_ERROR]", error)
         return c.json({ success: false, error: "Failed to create about section" }, 500)
@@ -137,7 +117,7 @@ export const aboutRouter = new Hono()
           include: { items: true }
         })
 
-        return c.json({ success: true, data: { ...section, id: section.id.toString(), items: section.items.map(i => ({ ...i, id: i.id.toString(), section_id: i.section_id.toString() })) } })
+        return c.json({ success: true, data: serializeRecord(section) }, 200)
       } catch (error) {
         console.error("[ABOUT_UPDATE_ERROR]", error)
         return c.json({ success: false, error: "Failed to update about section" }, 500)

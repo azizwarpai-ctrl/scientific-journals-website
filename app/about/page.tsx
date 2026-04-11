@@ -270,7 +270,7 @@ export default function AboutPage() {
         <Navbar />
         <main className="flex-1 flex flex-col items-center justify-center p-4">
           <h1 className="text-3xl font-bold mb-4">About Us</h1>
-          <p className="text-muted-foreground">Content is currently being updated.</p>
+          <p className="text-muted-foreground">No content available yet.</p>
         </main>
         <Footer />
       </div>
