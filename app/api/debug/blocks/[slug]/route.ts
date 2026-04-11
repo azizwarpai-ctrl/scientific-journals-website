@@ -68,7 +68,7 @@ export async function GET(
       const val = typeof row.setting_value === "string" ? row.setting_value.trim() : String(row.setting_value);
       let parsed = null;
       let isJson = false;
-      let localeKeys = [];
+      let localeKeys: string[] = [];
 
       if (val.startsWith("{") || val.startsWith("[")) {
         try {
