@@ -107,8 +107,14 @@ export default function AboutPage() {
     countriesCount: 0
   }
 
-  // If the about API failed OR returned empty, show the empty state — NOT an error page
-  if (isAboutError || !sections || sections.length === 0) {
+  // Determine what content is available
+  const hasAboutContent = !isAboutError && sections && sections.length > 0
+  const hasStats = (stats.totalJournals + stats.totalArticles + stats.totalUsers + stats.countriesCount) > 0
+  // Check if any dynamic section already uses STATS block type (admin-managed stats title/subtitle)
+  const adminStatsBlock = hasAboutContent ? sections!.find(s => s.block_type === "STATS") : null
+
+  // Case: No about data AND no statistics → empty state
+  if (!hasAboutContent && !hasStats) {
     return (
       <div className="flex min-h-screen flex-col">
         <Navbar />
@@ -160,8 +166,7 @@ export default function AboutPage() {
   )
 
   const renderCards = (section: AboutSection, index: number) => {
-    // Determine grid columns dynamically based on items count
-    const cols = section.items?.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2";
+    const cols = section.items?.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2"
     return (
       <GSAPWrapper key={section.id?.toString() || index} animation="slideUp">
         <section className={cn("py-16", index % 2 !== 0 ? "bg-muted/30" : "")}>
@@ -239,8 +244,10 @@ export default function AboutPage() {
     </GSAPWrapper>
   )
 
-  const renderStats = (section: AboutSection, index: number) => (
-    <GSAPWrapper key={section.id?.toString() || index} animation="fadeIn">
+  // Standalone OJS statistics section — always appended at the bottom when data is available.
+  // If admin created a STATS block, its title/subtitle are used; otherwise defaults are shown.
+  const renderStatsSection = () => (
+    <GSAPWrapper key="ojs-statistics" animation="fadeIn">
       <section className="py-20 bg-gradient-to-b from-background via-muted/30 to-background">
         <div className="container mx-auto px-4 md:px-6">
           <div className="mb-12 text-center">
@@ -248,12 +255,12 @@ export default function AboutPage() {
               <BarChart3 className="h-4 w-4" />
               Platform Analytics
             </div>
-            {section.title && <h2 className="mb-4 text-3xl font-bold md:text-4xl">{section.title}</h2>}
-            {section.subtitle && (
-              <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
-                {section.subtitle}
-              </p>
-            )}
+            <h2 className="mb-4 text-3xl font-bold md:text-4xl">
+              {adminStatsBlock?.title || "Our Impact in Numbers"}
+            </h2>
+            <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
+              {adminStatsBlock?.subtitle || "Real-time statistics from our publishing platform"}
+            </p>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -267,21 +274,25 @@ export default function AboutPage() {
     </GSAPWrapper>
   )
 
-
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <main className="flex-1">
-        {sections.map((section, index) => {
+        {/* Render dynamic about sections */}
+        {hasAboutContent && sections!.map((section, index) => {
           switch (section.block_type) {
             case "HERO": return renderHero(section, index)
             case "TEXT": return renderText(section, index)
             case "CARDS": return renderCards(section, index)
             case "GRID": return renderGrid(section, index)
-            case "STATS": return renderStats(section, index)
+            // STATS block type is handled below as standalone — skip to avoid duplication
+            case "STATS": return null
             default: return null
           }
         })}
+
+        {/* OJS Statistics — always rendered at the bottom when data is available */}
+        {hasStats && renderStatsSection()}
       </main>
       <Footer />
     </div>
