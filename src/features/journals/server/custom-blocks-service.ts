@@ -54,16 +54,6 @@ interface PluginBlockRow {
   setting_value: string | null
 }
 
-/**
- * Fetch custom sidebar blocks for the given OJS journal.
- *
- * Returns sanitized HTML content for each block. Blocks without
- * content (empty or missing) are silently skipped.
- *
- * @param ojsJournalId - The OJS journal_id (numeric string)
- * @param _primaryLocale - Unused in OJS 3.4+ (plugin_settings has no locale column); kept for API compat
- * @returns Array of CustomBlock with name and sanitized HTML content
- */
 export async function fetchCustomBlocks(
   ojsJournalId: string,
   _primaryLocale: string
@@ -74,74 +64,89 @@ export async function fetchCustomBlocks(
   }
 
   const journalId = parseInt(ojsJournalId, 10)
+  let managerRows: PluginBlockRow[] = []
 
   // ── Phase 1: Get list of block names ──
-  const managerRows = await ojsQuery<PluginBlockRow>(
-    `SELECT setting_value
-     FROM plugin_settings
-     WHERE plugin_name = 'customblockmanagerplugin'
-       AND setting_name = 'blocks'
-       AND context_id = ?
-     LIMIT 1`,
-    [journalId]
-  )
+  try {
+    // Note: Do NOT use `locale` here, as OJS 3.4+ removed it from plugin_settings
+    managerRows = await ojsQuery<PluginBlockRow>(
+      `SELECT setting_value
+       FROM plugin_settings
+       WHERE plugin_name = 'customblockmanagerplugin'
+         AND setting_name = 'blocks'
+         AND context_id = ?
+       LIMIT 1`,
+      [journalId]
+    )
+  } catch (dbError) {
+    console.warn(`[CustomBlocks] Failed to query customblockmanagerplugin for journal_id=${journalId} (likely missing plugin_settings table or unsupported schema). Returning empty array.`, dbError)
+    return []
+  }
 
-  if (managerRows.length === 0 || !managerRows[0].setting_value) {
+  if (!managerRows || managerRows.length === 0 || !managerRows[0].setting_value) {
     console.log(`[CustomBlocks] No custom blocks configured for journal_id=${journalId}`)
     return []
   }
 
-  // Parse the JSON/PHP array of block names
-  let blockNames: string[] = []
   const rawValue = managerRows[0].setting_value
+  let blockNames: string[] = []
+
+  // Function to extract clean block names based on OJS requirements
+  const extractCleanBlocks = (arr: any[]): string[] => {
+    return arr
+      .filter((n): n is string => typeof n === "string")
+      .map(n => n.trim())
+      .filter(n => n.length > 0 && /^[a-zA-Z0-9_-]+$/.test(n))
+  }
+
   try {
+    // Try Standard JSON
     const parsed = JSON.parse(rawValue)
     if (Array.isArray(parsed)) {
-      blockNames = parsed.filter((n): n is string => typeof n === "string" && n.trim().length > 0)
-    } else if (typeof parsed === 'object') {
-       const vals = Object.values(parsed)
-       blockNames = vals.filter((n): n is string => typeof n === "string" && n.trim().length > 0)
+      blockNames = extractCleanBlocks(parsed)
+    } else if (typeof parsed === 'object' && parsed !== null) {
+      blockNames = extractCleanBlocks(Object.values(parsed))
     }
   } catch {
-    // Fallback: Handle OJS's classic PHP serialization format for 'object' arrays
-    // e.g., a:2:{i:0;s:9:"testblock";i:1;s:9:"infoblock";}
+    // Fallback: Handle OJS's classic PHP serialization format for arrays/objects
     if (rawValue.includes('a:')) {
-      // Safely extract all string values which correspond to block machine-names
-      const matches = Array.from(rawValue.matchAll(/s:\d+:"([^"]+)"/g))
+      // Regex correctly grabs PHP serialized strings matching OJS block names
+      const matches = Array.from(rawValue.matchAll(/s:\d+:"([a-zA-Z0-9_-]+)"/g))
       if (matches && matches.length > 0) {
-        blockNames = matches.map(m => m[1]).filter(n => n.trim().length > 0 && /^[a-zA-Z0-9_-]+$/.test(n))
+        blockNames = extractCleanBlocks(matches.map(m => m[1]))
       }
-    }
-    
-    if (blockNames.length === 0) {
-      console.warn("[CustomBlocks] Failed to parse expected array format from setting:", rawValue)
-      return []
     }
   }
 
-  if (blockNames.length === 0) return []
+  if (blockNames.length === 0) {
+    console.warn(`[CustomBlocks] Failed to extract any valid blocks from setting value for journal_id=${journalId}:`, rawValue)
+    return []
+  }
 
-  console.log(`[CustomBlocks] journal_id=${journalId}: found ${blockNames.length} block(s): ${blockNames.join(", ")}`)
+  console.log(`[CustomBlocks] journal_id=${journalId}: found ${blockNames.length} valid block(s): ${blockNames.join(", ")}`)
 
   // ── Phase 2: Fetch content for each block ──
-  // OJS 3.4+ plugin_settings has NO locale column.
-  // Query by: plugin_name + setting_name + context_id (unique per block).
   const pluginNames = blockNames.map((n) => `${n.toLowerCase()}customblockplugin`)
+  let contentRows: { plugin_name: string; setting_value: string | null }[] = []
 
-  const contentRows = await ojsQuery<{ plugin_name: string; setting_value: string | null }>(
-    `SELECT plugin_name, setting_value
-     FROM plugin_settings
-     WHERE plugin_name IN (?)
-       AND setting_name = 'blockContent'
-       AND context_id = ?`,
-    [pluginNames, journalId]
-  )
+  try {
+    contentRows = await ojsQuery<{ plugin_name: string; setting_value: string | null }>(
+      `SELECT plugin_name, setting_value
+       FROM plugin_settings
+       WHERE plugin_name IN (?)
+         AND setting_name = 'blockContent'
+         AND context_id = ?`,
+      [pluginNames, journalId]
+    )
+  } catch (dbError) {
+    console.warn(`[CustomBlocks] Failed to fetch block contents for journal_id=${journalId}. Returning empty array.`, dbError)
+    return []
+  }
 
-  // Build map: pluginName → content
   const contentMap = new Map<string, string>()
   for (const row of contentRows) {
     if (!row.setting_value) continue
-    contentMap.set(row.plugin_name, row.setting_value)
+    contentMap.set(row.plugin_name.toLowerCase(), row.setting_value)
   }
 
   // ── Phase 3: Map to domain objects, sanitize HTML ──
@@ -149,11 +154,27 @@ export async function fetchCustomBlocks(
 
   for (const name of blockNames) {
     const pluginName = `${name.toLowerCase()}customblockplugin`
-    const rawContent = contentMap.get(pluginName)
+    const rawContentStr = contentMap.get(pluginName)
 
-    if (!rawContent) continue
+    if (!rawContentStr) continue
 
-    const cleanContent = sanitizeHtml(rawContent, {
+    let contentToSanitize = rawContentStr
+
+    // Handle OJS 3.4+ Localized JSON storage `{"en_US": "<p>html</p>"}`
+    if (rawContentStr.startsWith("{") && rawContentStr.endsWith("}")) {
+      try {
+        const parsedLocales = JSON.parse(rawContentStr)
+        if (typeof parsedLocales === 'object' && parsedLocales !== null) { // It's an object of locales
+           // Fallback priority: exact locale -> en_US -> en -> any first fallback
+           contentToSanitize = parsedLocales[_primaryLocale] || parsedLocales['en_US'] || parsedLocales['en'] || Object.values(parsedLocales)[0] || '';
+           if (typeof contentToSanitize !== 'string') continue;
+        }
+      } catch (e) {
+        // Not JSON, just standard flat HTML string fallback
+      }
+    }
+
+    const cleanContent = sanitizeHtml(contentToSanitize, {
       allowedTags: ALLOWED_TAGS,
       allowedAttributes: ALLOWED_ATTRS,
       // Force external links to open safely
@@ -170,10 +191,9 @@ export async function fetchCustomBlocks(
     }).trim()
 
     if (!cleanContent) continue
-
     blocks.push({ name, content: cleanContent })
   }
 
-  console.log(`[CustomBlocks] journal_id=${journalId}: returning ${blocks.length} block(s) with content`)
+  console.log(`[CustomBlocks] journal_id=${journalId}: returning ${blocks.length} parsed block(s)`)
   return blocks
 }

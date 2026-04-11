@@ -111,14 +111,14 @@ function buildEditorialBoardQuery(whereClause: string) {
 /**
  * Fetch editorial board members for the given OJS journal.
  *
- * Members are visible if:
- * - user_user_groups.masthead = 1 (explicit per-user opt-in), OR
- * - user_user_groups.masthead IS NULL AND user_groups.masthead = 1 (group-level default)
- *
- * Results are ordered by role_id ASC (editors first), then by family name.
+ * Rebuilt Logic:
+ * - DO NOT rely exclusively on masthead=1 (which is often misconfigured).
+ * - Match on Editor roles (16 = Manager, 17 = Editor, 18 = Guest, 19 = Section)
+ * - Match on group names containing 'Editor' or 'Board'.
+ * - Exclude standard non-board roles like Author (65536), Reviewer (4096), Reader (1048576).
  *
  * @param ojsJournalId - The OJS journal_id (numeric string)
- * @returns Array of EditorialBoardMember, empty if no masthead members found
+ * @returns Array of EditorialBoardMember, empty if no members found or DB failure
  */
 export async function fetchEditorialBoard(
   ojsJournalId: string
@@ -131,45 +131,45 @@ export async function fetchEditorialBoard(
   const journalId = parseInt(ojsJournalId, 10)
 
   // ── Step 0: Get journal primary locale ──
-  const localeRows = await ojsQuery<{ primary_locale: string }>(
-    "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
-    [journalId]
-  )
-
-  if (localeRows.length === 0) {
-    console.error(`[EditorialBoard] Journal not found: journal_id=${journalId}`)
-    return []
+  let primaryLocale = "en_US";
+  try {
+    const localeRows = await ojsQuery<{ primary_locale: string }>(
+      "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
+      [journalId]
+    )
+    if (localeRows.length > 0 && localeRows[0].primary_locale) {
+      primaryLocale = localeRows[0].primary_locale;
+    }
+  } catch (err) {
+    console.warn(`[EditorialBoard] Failed to fetch primary_locale, defaulting to en_US. Error:`, err);
   }
 
-  const primaryLocale = localeRows[0].primary_locale
-
-  // ── Step 1a: Try strict masthead check ──
-  const strictWhere = `WHERE (
+  // ── Step 1: Execute Broad Role Query ──
+  // Include masthead=1 OR Editor Roles (16, 17, 18, 19) OR name matches
+  // Exclude Authors, Reviewers, Readers.
+  const broadWhere = `WHERE (
       uug.masthead = 1
       OR (uug.masthead IS NULL AND ug.masthead = 1)
+      OR ug.role_id IN (16, 17, 18, 19)
+      OR LOWER(ugs_name_loc.setting_value) LIKE '%editor%'
+      OR LOWER(ugs_name_any.setting_value) LIKE '%editor%'
+      OR LOWER(ugs_name_loc.setting_value) LIKE '%board%'
+      OR LOWER(ugs_name_any.setting_value) LIKE '%board%'
     ) AND ug.role_id NOT IN (${EXCLUDED_ROLE_IDS})`
-  
+
   const parameters = [journalId, primaryLocale, primaryLocale, primaryLocale, primaryLocale, journalId]
 
-  const rows = await ojsQuery<EditorialBoardRow>(
-    buildEditorialBoardQuery(strictWhere),
-    parameters
-  )
-
-  // ── Step 1b: Relaxed fallback when strict masthead returns 0 rows ──
-  let effectiveRows = rows
-  if (rows.length === 0) {
-    console.log(`[EditorialBoard] journal_id=${journalId}: strict masthead returned 0 — trying relaxed fallback`)
-    const relaxedWhere = `WHERE (
-        uug.masthead = 1
-        OR (uug.masthead IS NULL AND ug.masthead = 1)
-      ) AND ug.role_id NOT IN (${EXCLUDED_ROLE_IDS})`
-
+  let effectiveRows: EditorialBoardRow[] = []
+  try {
     effectiveRows = await ojsQuery<EditorialBoardRow>(
-      buildEditorialBoardQuery(relaxedWhere),
+      buildEditorialBoardQuery(broadWhere),
       parameters
     )
-    console.log(`[EditorialBoard] journal_id=${journalId}: relaxed fallback returned ${effectiveRows.length} row(s)`)
+    console.log(`[EditorialBoard] journal_id=${journalId}: Query retrieved ${effectiveRows.length} broad board rows.`)
+  } catch (dbError) {
+    console.error(`[EditorialBoard] journal_id=${journalId}: OJS query completely failed:`, dbError)
+    // Fallback: Rather than 502, we return an empty array cleanly.
+    return []
   }
 
   // ── Step 2: Map and deduplicate by user_id ──
@@ -177,7 +177,8 @@ export async function fetchEditorialBoard(
   const members: EditorialBoardMember[] = []
 
   for (const row of effectiveRows) {
-    // Deduplicate (a user may appear in multiple groups, keep lowest role_id = first)
+    // Deduplicate (a user may appear in multiple groups, keep lowest role_id = highest rank)
+    // Managers/Editors (16,17) take precedence over Section Editors (19)
     if (seenUsers.has(row.user_id)) continue
     seenUsers.add(row.user_id)
 
@@ -185,7 +186,7 @@ export async function fetchEditorialBoard(
     const familyName = row.family_name?.trim() ?? ""
     const fullName = [givenName, familyName].filter(Boolean).join(" ")
 
-    if (!fullName) continue // Skip users with no displayable name
+    if (!fullName) continue
 
     members.push({
       userId: row.user_id,
@@ -196,8 +197,26 @@ export async function fetchEditorialBoard(
     })
   }
 
-  console.log(
-    `[EditorialBoard] journal_id=${journalId}: found ${members.length} members`
-  )
+  // ── Step 3: Enforce Order (Editor-in-Chief -> Editors -> Board Members) ──
+  // This helps visually structure the grouped roles in UI
+  members.sort((a, b) => {
+    // Rank logic based on OJS roles: Manager(16), Editor(17), Guest(18), Section(19), Board(others)
+    const getRank = (roleId?: number, roleName: string = "") => {
+      const lowerName = roleName.toLowerCase();
+      if (roleId === 16 || lowerName.includes("chief") || lowerName.includes("principal")) return 1;
+      if (roleId === 17 || lowerName === "editor") return 2;
+      if (roleId === 19 || lowerName.includes("section")) return 3;
+      return 4;
+    };
+    
+    const rankA = getRank(a.roleId, a.role);
+    const rankB = getRank(b.roleId, b.role);
+    
+    // Primary sort by rank, secondary by alphabet
+    if (rankA !== rankB) return rankA - rankB;
+    return a.name.localeCompare(b.name);
+  });
+
+  console.log(`[EditorialBoard] journal_id=${journalId}: returning ${members.length} unique board members`)
   return members
 }

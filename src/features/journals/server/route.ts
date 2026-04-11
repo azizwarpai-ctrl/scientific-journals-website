@@ -140,7 +140,46 @@ app.get("/:id", zValidator("param", journalSlugParamSchema), async (c) => {
       })
     }
 
+    // 4. Safe OJS Fallback Sync: If not found, see if we need to sync it.
     if (!journal) {
+      console.log(`[Journal Detail API] Journal not found locally for "${id}". Attempting inline sync...`);
+      const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
+      if (isOjsConfigured()) {
+        const { fetchFromDatabase } = await import("@/src/features/ojs/server/ojs-service")
+        const { syncOjsJournals } = await import("@/src/features/ojs/server/sync-ojs-journals")
+        try {
+          const ojsData = await fetchFromDatabase(true)
+          await syncOjsJournals(ojsData)
+
+          // Re-query
+          journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: DETAIL_JOURNAL_SELECT })
+          if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: DETAIL_JOURNAL_SELECT })
+          if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: DETAIL_JOURNAL_SELECT })
+        } catch (syncError) {
+          console.error("[Journal Detail API] Inline sync fallback failed:", syncError)
+        }
+      }
+    }
+
+    if (!journal) {
+      // Create a minimalist mock journal if resolution succeeded but sync failed
+      const { resolveJournalOjsId } = await import("./resolve-journal");
+      const resolved = await resolveJournalOjsId(id);
+      if (resolved?.ojsId) {
+         console.warn(`[Journal Detail API] Sync failed but journal exists in OJS (id=${resolved.ojsId}). Returning minimal mock journal.`);
+         return c.json({
+           success: true,
+           data: {
+             ojs_id: resolved.ojsId,
+             ojs_path: id,
+             title: id,
+             status: "active",
+             // other minimal required fields
+           }
+         }, 200)
+      }
+
+      console.warn(`[Journal Detail API] Complete failure finding journal for "${id}". Returns 404.`);
       return c.json({ success: false, error: "Journal not found" }, 404)
     }
 
@@ -445,47 +484,15 @@ app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamS
     const { id, publicationId: rawPubId } = c.req.valid("param")
     const publicationId = parseInt(rawPubId, 10)
 
-    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
-    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
-    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+    const { resolveJournalOjsId } = await import("./resolve-journal");
+    const resolved = await resolveJournalOjsId(id);
 
-    let resolvedOjsId: string | null = journal?.ojs_id || null;
-
-    if (!journal) {
-      // 4. Fallback: Lookup journal in OJS directly if it hasn't been synced to Prisma yet
-      try {
-        const { isOjsConfigured, ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
-        if (isOjsConfigured()) {
-          // Try to find the journal by path (slug)
-          let rows = await ojsQuery<{ journal_id: number }>(
-            "SELECT journal_id FROM journals WHERE path = ? LIMIT 1",
-            [id]
-          )
-          
-          if (rows.length === 0 && /^\d+$/.test(id)) {
-            // Try to find the journal by ID
-            rows = await ojsQuery<{ journal_id: number }>(
-              "SELECT journal_id FROM journals WHERE journal_id = ? LIMIT 1",
-              [parseInt(id, 10)]
-            )
-          }
-
-          if (rows.length > 0) {
-            resolvedOjsId = rows[0].journal_id.toString();
-          }
-        }
-      } catch (ojsErr) {
-        console.warn("[ArticleDetail API] OJS fallback lookup failed:", ojsErr)
-      }
-    }
-
-    if (!journal && !resolvedOjsId) {
+    if (!resolved?.ojsId) {
+      console.warn(`[ArticleDetail API] Resolution failed for journal "${id}". Returns 404.`);
       return c.json({ success: false, error: "Journal not found" }, 404)
     }
 
-    if (!resolvedOjsId) {
-      return c.json({ success: true, data: null, message: "No OJS data" }, 200)
-    }
+    const resolvedOjsId = resolved.ojsId;
 
     const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
 
