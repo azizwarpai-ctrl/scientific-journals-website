@@ -103,7 +103,9 @@ export const aboutRouter = new Hono()
     zValidator("json", aboutSectionSchema),
     async (c) => {
       try {
-        const id = BigInt(c.req.param("id"))
+        const idString = c.req.param("id")
+        if (!idString) return c.json({ error: "Missing ID" }, 400)
+        const id = BigInt(idString)
         const body = c.req.valid("json")
         
         // We will process updating items by deleting existing, and creating new ones.
@@ -145,7 +147,9 @@ export const aboutRouter = new Hono()
     requireAdmin,
     async (c) => {
       try {
-        const id = BigInt(c.req.param("id"))
+        const idString = c.req.param("id")
+        if (!idString) return c.json({ error: "Missing ID" }, 400)
+        const id = BigInt(idString)
         
         await prisma.aboutSection.delete({
           where: { id }
