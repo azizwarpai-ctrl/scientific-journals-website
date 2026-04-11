@@ -16,7 +16,6 @@ import { authRouter } from '@/src/features/auth/server/route'
 import { ojsRouter } from '@/src/features/ojs/server/route'
 import { journalRouter } from '@/src/features/journals/server/route'
 import { solutionRouter } from '@/src/features/solutions/server/route'
-import { faqRouter } from '@/src/features/faq/server/route'
 import { messageRouter } from '@/src/features/messages/server'
 import { prisma } from '@/src/lib/db/config'
 import { Hono } from 'hono'
@@ -65,14 +64,6 @@ vi.mock('@/src/lib/db/config', () => ({
             findUnique: vi.fn(),
             upsert: vi.fn(),
         },
-        fAQ: {
-            findMany: vi.fn(),
-            findUnique: vi.fn(),
-            create: vi.fn(),
-            update: vi.fn(),
-            delete: vi.fn(),
-            count: vi.fn(),
-        }
     },
 }))
 
@@ -109,7 +100,6 @@ function createApp() {
     app.route('/journals', journalRouter)
     app.route('/messages', messageRouter)
     app.route('/solutions', solutionRouter)
-    app.route('/faqs', faqRouter)
     return app
 }
 

@@ -3,7 +3,7 @@
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
-import { Target, Eye, Award, Globe, BookOpen, Users, FileText, BarChart3, Loader2 } from "lucide-react"
+import { Target, Eye, Award, Globe, BookOpen, Users, FileText, BarChart3 } from "lucide-react"
 import { cn } from "@/src/lib/utils"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { Skeleton } from "@/components/ui/skeleton"

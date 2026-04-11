@@ -144,7 +144,26 @@ app.get("/:id", zValidator("param", journalSlugParamSchema), async (c) => {
       return c.json({ success: false, error: "Journal not found" }, 404)
     }
 
-    return c.json({ success: true, data: serializeRecord(journal) }, 200)
+    const serializedJournal = serializeRecord(journal) as ReturnType<typeof serializeRecord> & { contact_email?: string }
+
+    if (journal.ojs_id) {
+       try {
+         const { isOjsConfigured, ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
+         if (isOjsConfigured()) {
+            const settings = await ojsQuery<{ setting_name: string, setting_value: string }>(
+              "SELECT setting_name, setting_value FROM journal_settings WHERE journal_id = ? AND setting_name = 'contactEmail' LIMIT 1",
+              [journal.ojs_id]
+            )
+            if (settings.length > 0 && settings[0].setting_value) {
+               serializedJournal.contact_email = settings[0].setting_value
+            }
+         }
+       } catch (err) {
+         console.warn("[Journal API] Failed to fetch contactEmail from OJS:", err)
+       }
+    }
+
+    return c.json({ success: true, data: serializedJournal }, 200)
   } catch (error) {
     console.error("Error fetching journal:", error)
     return c.json({ success: false, error: "Failed to fetch journal" }, 500)
@@ -430,11 +449,41 @@ app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamS
     if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
     if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
 
+    let resolvedOjsId: string | null = journal?.ojs_id || null;
+
     if (!journal) {
+      // 4. Fallback: Lookup journal in OJS directly if it hasn't been synced to Prisma yet
+      try {
+        const { isOjsConfigured, ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
+        if (isOjsConfigured()) {
+          // Try to find the journal by path (slug)
+          let rows = await ojsQuery<{ journal_id: number }>(
+            "SELECT journal_id FROM journals WHERE path = ? LIMIT 1",
+            [id]
+          )
+          
+          if (rows.length === 0 && /^\d+$/.test(id)) {
+            // Try to find the journal by ID
+            rows = await ojsQuery<{ journal_id: number }>(
+              "SELECT journal_id FROM journals WHERE journal_id = ? LIMIT 1",
+              [parseInt(id, 10)]
+            )
+          }
+
+          if (rows.length > 0) {
+            resolvedOjsId = rows[0].journal_id.toString();
+          }
+        }
+      } catch (ojsErr) {
+        console.warn("[ArticleDetail API] OJS fallback lookup failed:", ojsErr)
+      }
+    }
+
+    if (!journal && !resolvedOjsId) {
       return c.json({ success: false, error: "Journal not found" }, 404)
     }
 
-    if (!journal.ojs_id) {
+    if (!resolvedOjsId) {
       return c.json({ success: true, data: null, message: "No OJS data" }, 200)
     }
 
@@ -447,9 +496,9 @@ app.get("/:id/articles/:publicationId", zValidator("param", journalArticleParamS
     try {
       const { fetchArticleDetail } = await import("./article-detail-service")
       if (process.env.NODE_ENV !== 'production') {
-        console.log(`[ArticleDetail API] Calling fetchArticleDetail(ojs_id="${journal.ojs_id}", pubId=${publicationId})`)
+        console.log(`[ArticleDetail API] Calling fetchArticleDetail(ojs_id="${resolvedOjsId}", pubId=${publicationId})`)
       }
-      const detail = await fetchArticleDetail(journal.ojs_id, publicationId)
+      const detail = await fetchArticleDetail(resolvedOjsId, publicationId)
       
       if (!detail) {
         return c.json({ success: false, error: "Article not found" }, 404)

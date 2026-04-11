@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import Image from "next/image"
 import { 
   Calendar,
@@ -9,9 +8,8 @@ import {
 } from "lucide-react"
 import DOMPurify from "dompurify"
 
-import { useGetCurrentIssue, CurrentIssue, CurrentIssueArticle } from "@/src/features/journals"
+import { useGetCurrentIssue, CurrentIssueArticle } from "@/src/features/journals"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { CurrentIssueSkeleton } from "@/components/skeletons/current-issue-skeleton"
 import { CurrentIssueError } from "@/components/errors/current-issue-error"
 import { CurrentIssueNotFound } from "@/components/states/current-issue-not-found"

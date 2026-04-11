@@ -1,22 +1,27 @@
 "use client"
+
 import { useState } from "react"
+import { Plus, Trash2, GripVertical, Edit } from "lucide-react"
+
+import { HelpConfigForm } from "./config-form"
+import { defaultHelpContent } from "@/src/features/help/schemas/help-schema"
+
 import { useGetHelpCategories, useCreateHelpCategory, useUpdateHelpCategory, useDeleteHelpCategory } from "@/src/features/help/api/use-help-categories"
 import { useGetHelpContent } from "@/src/features/help/api/use-get-help-content"
 import { useCreateHelpTopic, useUpdateHelpTopic, useDeleteHelpTopic } from "@/src/features/help/api/use-help-topics"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { HelpConfigForm } from "./config-form"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Edit, Plus, Trash2, GripVertical } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { defaultHelpContent } from "@/src/features/help/schemas/help-schema"
+
 
 export default function HelpContentPage() {
   const { data: categories, isLoading: isLoadingCategs } = useGetHelpCategories()
@@ -33,7 +38,7 @@ export default function HelpContentPage() {
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
   const [topicDialogOpen, setTopicDialogOpen] = useState(false)
   const [activeCategory, setActiveCategory] = useState<any>(null)
-  
+
   const [catForm, setCatForm] = useState({ id: "", title: "", slug: "" })
   const [topicForm, setTopicForm] = useState({ id: "", categoryId: "", title: "", content: "", order: 0, isActive: true })
 
@@ -83,7 +88,7 @@ export default function HelpContentPage() {
       order: topicForm.order,
       isActive: topicForm.isActive
     }
-    
+
     if (topicForm.id) {
       await updateTopic.mutateAsync(
         { id: topicForm.id, values: payload },
@@ -254,10 +259,10 @@ export default function HelpContentPage() {
             </div>
             <div className="space-y-2">
               <Label>Content (Markdown supported)</Label>
-              <Textarea 
+              <Textarea
                 className="h-48"
-                value={topicForm.content} 
-                onChange={(e) => setTopicForm(f => ({ ...f, content: e.target.value }))} 
+                value={topicForm.content}
+                onChange={(e) => setTopicForm(f => ({ ...f, content: e.target.value }))}
               />
             </div>
             <Button onClick={handleSaveTopic} className="w-full" disabled={createTopic.isPending || updateTopic.isPending}>
