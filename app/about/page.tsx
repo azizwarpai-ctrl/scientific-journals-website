@@ -3,12 +3,15 @@
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
-import { Target, Eye, Award, Globe, BookOpen, Users, FileText, BarChart3 } from "lucide-react"
+import { 
+  Target, Eye, Award, Globe, BookOpen, Users, FileText, BarChart3, 
+  Shield, Cpu, Zap, Activity 
+} from "lucide-react"
 import { cn } from "@/src/lib/utils"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { Skeleton } from "@/components/ui/skeleton"
 
-import { useGetAboutContent } from "@/src/features/about"
+import { useGetAboutSections, type AboutSection, type AboutItem } from "@/src/features/about"
 import { useGetPlatformStatistics } from "@/src/features/statistics"
 
 // Formatted Counter Component
@@ -55,8 +58,17 @@ function StatCard({
   )
 }
 
+const ICON_MAP: Record<string, React.ElementType> = {
+  Globe, Award, Target, Eye, Users, Shield, Cpu, Zap, Activity
+}
+
+const DynamicIcon = ({ name, className }: { name: string | null | undefined, className?: string }) => {
+  const Icon = name && ICON_MAP[name] ? ICON_MAP[name] : Globe
+  return <Icon className={className} />
+}
+
 export default function AboutPage() {
-  const { data: aboutData, isLoading: isAboutLoading, isError: isAboutError } = useGetAboutContent()
+  const { data: sections, isLoading: isAboutLoading, isError: isAboutError } = useGetAboutSections()
   const { data: statsData, isLoading: isStatsLoading, isError: isStatsError } = useGetPlatformStatistics()
 
   if (isAboutLoading || isStatsLoading) {
@@ -99,17 +111,6 @@ export default function AboutPage() {
     )
   }
 
-  // Use values from CMS or fallback to sensible defaults
-  const content = aboutData || {
-    heroTitle: "About Us",
-    heroSubtitle: "",
-    missionText: "",
-    visionText: "",
-    whoWeAreText: "",
-    brandPhilosophyText: ""
-  }
-
-  // Use values from OJS DB or fallback to 0
   const stats = statsData || {
     totalJournals: 0,
     totalArticles: 0,
@@ -117,182 +118,180 @@ export default function AboutPage() {
     countriesCount: 0
   }
 
-  const ICON_MAP: Record<string, React.ElementType> = {
-    Globe,
-    Award,
-    Target,
-    Eye,
+  // Render functions for each block type
+  const renderHero = (section: AboutSection, index: number) => (
+    <GSAPWrapper key={section.id?.toString() || index} animation="fadeIn">
+      <section className="relative bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-16 md:py-24 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
+        <div className="container mx-auto px-4 md:px-6 relative">
+          <div className="mx-auto max-w-3xl text-center">
+            {section.title && (
+              <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl text-balance">
+                {section.title}
+              </h1>
+            )}
+            {section.subtitle && (
+              <p className="text-lg text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                {section.subtitle}
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+    </GSAPWrapper>
+  )
+
+  const renderText = (section: AboutSection, index: number) => (
+    <GSAPWrapper key={section.id?.toString() || index} animation="slideUp">
+      <section className={cn("py-16", index % 2 !== 0 ? "bg-muted/30" : "")}>
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="mx-auto max-w-4xl">
+            {section.title && <h2 className="mb-6 text-3xl font-bold">{section.title}</h2>}
+            <div className="space-y-4 text-muted-foreground leading-relaxed whitespace-pre-wrap">
+              {section.content}
+            </div>
+          </div>
+        </div>
+      </section>
+    </GSAPWrapper>
+  )
+
+  const renderCards = (section: AboutSection, index: number) => {
+    // Determine grid columns dynamically based on items count
+    const cols = section.items?.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2";
+    return (
+      <GSAPWrapper key={section.id?.toString() || index} animation="slideUp">
+        <section className={cn("py-16", index % 2 !== 0 ? "bg-muted/30" : "")}>
+          <div className="container mx-auto px-4 md:px-6">
+            {section.title && (
+              <div className="mb-12 text-center">
+                <h2 className="mb-4 text-3xl font-bold md:text-4xl">{section.title}</h2>
+                {section.subtitle && (
+                  <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
+                    {section.subtitle}
+                  </p>
+                )}
+              </div>
+            )}
+            <div className={`grid gap-8 ${cols}`}>
+              {section.items?.map((item, i) => (
+                <Card key={item.id?.toString() || i} className="group hover:shadow-xl transition-all duration-500 border-border/50">
+                  <CardContent className="pt-6">
+                    <div className={cn(
+                      "mb-4 flex h-12 w-12 items-center justify-center rounded-lg group-hover:scale-110 transition-transform duration-300",
+                      item.color_theme === 'secondary' ? 'bg-secondary/10' : 'bg-primary/10'
+                    )}>
+                      <DynamicIcon name={item.icon} className={cn("h-6 w-6", item.color_theme === 'secondary' ? 'text-secondary' : 'text-primary')} />
+                    </div>
+                    {item.title && <h2 className="mb-3 text-2xl font-bold">{item.title}</h2>}
+                    {item.description && <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{item.description}</p>}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+      </GSAPWrapper>
+    )
+  }
+
+  const renderGrid = (section: AboutSection, index: number) => (
+    <GSAPWrapper key={section.id?.toString() || index} animation="slideUp">
+      <section className={cn("py-16", index % 2 !== 0 ? "bg-muted/30" : "")}>
+        <div className="container mx-auto px-4 md:px-6">
+          {(section.title || section.subtitle) && (
+            <div className="mb-12 text-center">
+              {section.title && <h2 className="mb-4 text-3xl font-bold md:text-4xl">{section.title}</h2>}
+              {section.subtitle && (
+                <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
+                  {section.subtitle}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {section.items?.map((item, i) => (
+              <Card key={item.id?.toString() || i} className="group hover:shadow-lg transition-all duration-300 border-border/50 hover:-translate-y-1">
+                <CardContent className="pt-6 text-center">
+                  <div className="mb-4 flex justify-center">
+                    <div className={cn(
+                      "flex h-16 w-16 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110",
+                      item.color_theme === "secondary" ? "bg-secondary/10" : "bg-primary/10"
+                    )}>
+                      <DynamicIcon name={item.icon} className={cn(
+                        "h-8 w-8",
+                        item.color_theme === "secondary" ? "text-secondary" : "text-primary"
+                      )} />
+                    </div>
+                  </div>
+                  {item.title && <h3 className="mb-2 font-semibold text-lg">{item.title}</h3>}
+                  {item.description && <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+    </GSAPWrapper>
+  )
+
+  const renderStats = (section: AboutSection, index: number) => (
+    <GSAPWrapper key={section.id?.toString() || index} animation="fadeIn">
+      <section className="py-20 bg-gradient-to-b from-background via-muted/30 to-background">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="mb-12 text-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+              <BarChart3 className="h-4 w-4" />
+              Platform Analytics
+            </div>
+            {section.title && <h2 className="mb-4 text-3xl font-bold md:text-4xl">{section.title}</h2>}
+            {section.subtitle && (
+              <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
+                {section.subtitle}
+              </p>
+            )}
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <StatCard icon={BookOpen} value={stats.totalJournals || 0} label="Active Journals" />
+            <StatCard icon={FileText} value={stats.totalArticles || 0} label="Published Articles" />
+            <StatCard icon={Users} value={stats.totalUsers || 0} label="Active Researchers" />
+            <StatCard icon={Globe} value={stats.countriesCount || 0} label="Countries Reached" />
+          </div>
+        </div>
+      </section>
+    </GSAPWrapper>
+  )
+
+  if (!sections || sections.length === 0) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Navbar />
+        <main className="flex-1 flex flex-col items-center justify-center p-4">
+          <h1 className="text-3xl font-bold mb-4">About Us</h1>
+          <p className="text-muted-foreground">Content is currently being updated.</p>
+        </main>
+        <Footer />
+      </div>
+    )
   }
 
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
-
       <main className="flex-1">
-        {/* Hero */}
-        <GSAPWrapper animation="fadeIn">
-          <section className="relative bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-16 md:py-24 overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
-            <div className="container mx-auto px-4 md:px-6 relative">
-              <div className="mx-auto max-w-3xl text-center">
-                <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl text-balance">
-                  {content.heroTitle}
-                </h1>
-                <p className="text-lg text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {content.heroSubtitle}
-                </p>
-              </div>
-            </div>
-          </section>
-        </GSAPWrapper>
-
-        {/* Mission & Vision */}
-        <GSAPWrapper animation="slideUp" delay={0.2}>
-          <section className="py-16">
-            <div className="container mx-auto px-4 md:px-6">
-              <div className="grid gap-8 md:grid-cols-2">
-                <Card className="group hover:shadow-xl transition-all duration-500 border-border/50">
-                  <CardContent className="pt-6">
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 group-hover:scale-110 transition-transform duration-300">
-                      <Target className="h-6 w-6 text-primary" />
-                    </div>
-                    <h2 className="mb-3 text-2xl font-bold">Our Mission</h2>
-                    <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                      {content.missionText}
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card className="group hover:shadow-xl transition-all duration-500 border-border/50">
-                  <CardContent className="pt-6">
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-secondary/10 group-hover:scale-110 transition-transform duration-300">
-                      <Eye className="h-6 w-6 text-secondary" />
-                    </div>
-                    <h2 className="mb-3 text-2xl font-bold">Our Vision</h2>
-                    <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                      {content.visionText}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </section>
-        </GSAPWrapper>
-
-        {/* Who We Are */}
-        <GSAPWrapper animation="slideUp" delay={0.3}>
-          <section className="bg-muted/30 py-16">
-            <div className="container mx-auto px-4 md:px-6">
-              <div className="mx-auto max-w-4xl">
-                <h2 className="mb-6 text-3xl font-bold">Who We Are</h2>
-                <div className="space-y-4 text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {content.whoWeAreText}
-                </div>
-              </div>
-            </div>
-          </section>
-        </GSAPWrapper>
-
-        {/* Core Values */}
-        {content.coreValues && content.coreValues.length > 0 && (
-          <GSAPWrapper animation="slideUp" delay={0.4}>
-            <section className="py-16">
-              <div className="container mx-auto px-4 md:px-6">
-                <div className="mb-12 text-center">
-                  <h2 className="mb-4 text-3xl font-bold md:text-4xl">Our Core Values</h2>
-                  <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
-                    Guided by principles that ensure the highest standards in scholarly publishing
-                  </p>
-                </div>
-
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                  {content.coreValues.map((value) => {
-                    const ValueIcon = ICON_MAP[value.icon] || Globe
-                    return (
-                      <Card key={value.title} className="group hover:shadow-lg transition-all duration-300 border-border/50 hover:-translate-y-1">
-                        <CardContent className="pt-6 text-center">
-                          <div className="mb-4 flex justify-center">
-                            <div className={cn(
-                              "flex h-16 w-16 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110",
-                              value.color === "primary" ? "bg-primary/10" : "bg-secondary/10"
-                            )}>
-                              <ValueIcon className={cn(
-                                "h-8 w-8",
-                                value.color === "primary" ? "text-primary" : "text-secondary"
-                              )} />
-                            </div>
-                          </div>
-                          <h3 className="mb-2 font-semibold text-lg">{value.title}</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            {value.desc}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
-              </div>
-            </section>
-          </GSAPWrapper>
-        )}
-
-        {/* Enhanced Statistics Visualization */}
-        <GSAPWrapper animation="fadeIn" delay={0.2}>
-          <section className="py-20 bg-gradient-to-b from-background via-muted/30 to-background">
-            <div className="container mx-auto px-4 md:px-6">
-              <div className="mb-12 text-center">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
-                  <BarChart3 className="h-4 w-4" />
-                  Platform Analytics
-                </div>
-                <h2 className="mb-4 text-3xl font-bold md:text-4xl">Impact & Growth</h2>
-                <p className="mx-auto max-w-2xl text-muted-foreground leading-relaxed">
-                  Measurable outcomes reflecting our commitment to advancing scholarly communication worldwide
-                </p>
-              </div>
-
-              {/* Key Metrics Grid */}
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                <StatCard 
-                  icon={BookOpen} 
-                  value={stats.totalJournals || 0}
-                  label="Active Journals" 
-                />
-                <StatCard 
-                  icon={FileText} 
-                  value={stats.totalArticles || 0}
-                  label="Published Articles" 
-                />
-                <StatCard 
-                  icon={Users} 
-                  value={stats.totalUsers || 0}
-                  label="Active Researchers" 
-                />
-                <StatCard 
-                  icon={Globe} 
-                  value={stats.countriesCount || 0}
-                  label="Countries Reached" 
-                />
-              </div>
-            </div>
-          </section>
-        </GSAPWrapper>
-
-        {/* Visual Branding */}
-        <GSAPWrapper animation="slideUp" delay={0.3}>
-          <section className="bg-muted/30 py-16">
-            <div className="container mx-auto px-4 md:px-6">
-              <div className="mx-auto max-w-4xl">
-                <h2 className="mb-6 text-3xl font-bold">Our Brand Philosophy</h2>
-                <div className="space-y-4 text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {content.brandPhilosophyText}
-                </div>
-              </div>
-            </div>
-          </section>
-        </GSAPWrapper>
+        {sections.map((section, index) => {
+          switch (section.block_type) {
+            case "HERO": return renderHero(section, index)
+            case "TEXT": return renderText(section, index)
+            case "CARDS": return renderCards(section, index)
+            case "GRID": return renderGrid(section, index)
+            case "STATS": return renderStats(section, index)
+            default: return null
+          }
+        })}
       </main>
-
       <Footer />
     </div>
   )
