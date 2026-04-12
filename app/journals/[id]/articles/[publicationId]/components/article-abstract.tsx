@@ -1,6 +1,6 @@
 "use client"
 
-import DOMPurify from "isomorphic-dompurify"
+import sanitizeHtml from "sanitize-html"
 
 interface ArticleAbstractProps {
   abstract: string | null
@@ -9,9 +9,9 @@ interface ArticleAbstractProps {
 export function ArticleAbstract({ abstract }: ArticleAbstractProps) {
   if (!abstract) return null
 
-  const sanitized = DOMPurify.sanitize(abstract, {
-    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'b', 'i', 'sup', 'sub'],
-    ALLOWED_ATTR: [],
+  const sanitized = sanitizeHtml(abstract, {
+    allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'b', 'i', 'sup', 'sub'],
+    allowedAttributes: {},
   })
 
   return (
