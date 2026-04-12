@@ -8,7 +8,7 @@ export function Footer() {
   return (
     <footer className="border-t bg-muted/30">
       <div className="container mx-auto px-4 py-12 md:px-6">
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Image src="/images/logodigitopub.png" alt="DigitoPub" width={120} height={40} className="h-10 w-auto" />
@@ -16,11 +16,6 @@ export function Footer() {
             <p className="text-sm text-muted-foreground leading-relaxed">
               Advancing open, ethical, and impactful scholarly communication through digital innovation.
             </p>
-            <div className="pt-2 text-sm text-muted-foreground">
-              <a href="mailto:info@digitalpub.com" className="hover:text-primary transition-colors">
-                info@digitalpub.com
-              </a>
-            </div>
           </div>
 
           {/* Quick Links */}
@@ -73,6 +68,18 @@ export function Footer() {
                 <Link href="/help" className="text-muted-foreground hover:text-primary">
                   FAQ
                 </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Contact Us */}
+          <div>
+            <h3 className="mb-4 text-sm font-semibold">Contact Us</h3>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <a href="mailto:info@digitalpub.com" className="text-muted-foreground hover:text-primary transition-colors">
+                  info@digitalpub.com
+                </a>
               </li>
             </ul>
           </div>
