@@ -13,9 +13,9 @@ export function SplineScene() {
   return (
     // Outer container hides Spline watermark via overflow-hidden + inner scaling.
     // No light-mode color tricks needed: hero section is always dark.
-    <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden" aria-hidden="true" role="presentation">
-      {/* Inner container uses CSS transform to scale and push the watermark off-screen without distorting aspects */}
-      <div className="absolute inset-0 w-full h-full scale-[1.10] origin-center pointer-events-none">
+    <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden [&_a]:!hidden" aria-hidden="true" role="presentation">
+      {/* Inner container scales slightly to prevent edge aliasing, while CSS hides the watermark */}
+      <div className="absolute inset-0 w-full h-full scale-[1.05] origin-center pointer-events-none">
         <Spline scene="https://prod.spline.design/UEU7hUtqsbqKkshk/scene.splinecode" />
       </div>
     </div>
