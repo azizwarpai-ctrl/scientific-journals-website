@@ -31,7 +31,7 @@ export async function resolveJournalOjsId(
     })
   }
 
-  const select = journal ? { id: journal.id, ojs_id: journal.ojs_id, ojs_path: journal.ojs_path } : null
+
   
   // Found in Prisma
   if (journal) {
@@ -71,4 +71,3 @@ export async function resolveJournalOjsId(
   console.log(`[resolveJournalOjsId] Total resolution failure for: ${id}`)
   return { found: false }
 }
-

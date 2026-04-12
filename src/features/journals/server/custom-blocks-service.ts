@@ -92,7 +92,7 @@ export async function fetchCustomBlocks(
   let blockNames: string[] = []
 
   // Function to extract clean block names based on OJS requirements
-  const extractCleanBlocks = (arr: any[]): string[] => {
+  const extractCleanBlocks = (arr: string[]): string[] => {
     const raw = arr
       .filter((n): n is string => typeof n === "string")
       .map(n => n.trim())
@@ -199,7 +199,7 @@ export async function fetchCustomBlocks(
           contentToSanitize = foundContent || Object.values(parsedLocales).find(v => typeof v === 'string') as string || '';
           if (typeof contentToSanitize !== 'string') continue;
         }
-      } catch (e) {
+      } catch {
         // Not JSON, just standard flat HTML string fallback
       }
     }
