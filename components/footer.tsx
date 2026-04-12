@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
+import { Logo } from "@/components/logo"
 import { Mail, Phone, MapPin } from "lucide-react"
 
 export function Footer() {
@@ -11,7 +11,7 @@ export function Footer() {
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <Image src="/images/logodigitopub.png" alt="DigitoPub" width={120} height={40} className="h-10 w-auto" />
+              <Logo width={120} height={40} className="h-10 w-auto" />
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Advancing open, ethical, and impactful scholarly communication through digital innovation.
