@@ -11,6 +11,12 @@ export interface CustomBlock {
   name: string
   /** Sanitized HTML content of the block */
   content: string
+  
+  // Structured data parsed from HTML
+  title: string
+  description: string
+  link?: string
+  image?: string
 }
 
 export interface JournalInfoCard {

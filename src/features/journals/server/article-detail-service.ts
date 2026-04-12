@@ -1,3 +1,4 @@
+import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
@@ -125,23 +126,32 @@ export async function fetchArticleDetail(
     if (s.setting_name === 'title' && (s.locale === primaryLocale || !title)) {
       title = s.setting_value
     } else if (s.setting_name === 'abstract' && (s.locale === primaryLocale || !abstract)) {
-      abstract = s.setting_value
+      abstract = s.setting_value ? sanitizeHtml(s.setting_value, {
+        allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'b', 'i', 'sup', 'sub'],
+        allowedAttributes: {},
+      }) : null
     } else if (s.setting_name === 'pub-id::doi') {
       doi = s.setting_value
     } else if (s.setting_name === 'pages' && s.setting_value && (s.locale === primaryLocale || !pages)) {
       pages = s.setting_value
     } else if (s.setting_name === 'coverImage' && (s.locale === primaryLocale || !coverImageRaw)) {
       coverImageRaw = s.setting_value
-    } else if (s.setting_name === 'keywords' && s.locale === primaryLocale && s.setting_value) {
+    } else if (s.setting_name === 'keywords' && s.setting_value) {
+      // Handle JSON or plain string from publication_settings with locale sensitivity
       if (s.setting_value.startsWith('[') || s.setting_value.startsWith('{')) {
         try {
           const parsed = JSON.parse(s.setting_value)
           if (Array.isArray(parsed)) {
             keywords.push(...parsed.filter(Boolean))
-          } else if (typeof parsed === 'object') {
-            const vals = Object.values(parsed)
-            if (Array.isArray(vals[0])) {
-              keywords.push(...vals[0].filter(Boolean))
+          } else if (typeof parsed === 'object' && parsed !== null) {
+            // Prefer current locale, then common fallbacks
+            const localeKey = primaryLocale || 'en_US'
+            const localeKeywords = parsed[localeKey] || parsed[localeKey.split('_')[0]] || parsed['en_US'] || parsed['en'] || Object.values(parsed)[0]
+            
+            if (Array.isArray(localeKeywords)) {
+              keywords.push(...localeKeywords.filter(Boolean))
+            } else if (typeof localeKeywords === 'string' && localeKeywords) {
+              keywords.push(localeKeywords)
             }
           }
         } catch {
@@ -152,6 +162,61 @@ export async function fetchArticleDetail(
       }
     }
   }
+
+  // 2.5 Fetch Keywords from controlled_vocabs (OJS 3.x Primary Source)
+  if (keywords.length === 0) {
+    try {
+      // PROOF: Fetching keywords from OJS controlled vocabulary system
+      // We try both Publication (1048585) and Submission (1048577) association types
+      const keywordRows = await ojsQuery<{ keyword: string }>(
+        `SELECT cves.setting_value AS keyword
+         FROM controlled_vocabs cv
+         JOIN controlled_vocab_entries cve ON cve.controlled_vocab_id = cv.controlled_vocab_id
+         JOIN controlled_vocab_entry_settings cves ON cves.controlled_vocab_entry_id = cve.controlled_vocab_entry_id
+         WHERE cv.symbolic = 'submissionKeyword'
+           AND (
+             (cv.assoc_type = 1048585 AND cv.assoc_id = ?) OR 
+             (cv.assoc_type = 1048577 AND cv.assoc_id = ?)
+           )
+           AND cves.setting_name IN ('interest', 'name', 'title') 
+           AND (cves.locale = ? OR cves.locale = '')
+         ORDER BY cve.seq ASC`,
+         [publicationId, submissionId, primaryLocale]
+      )
+      
+      if (keywordRows.length > 0) {
+        const uniqueKws = Array.from(new Set(keywordRows.map(r => r.keyword).filter(Boolean)))
+        keywords.push(...uniqueKws)
+      } else {
+        // Broad fallback: ignore locale if nothing found
+        const keywordFallbackRows = await ojsQuery<{ keyword: string }>(
+          `SELECT cves.setting_value AS keyword
+           FROM controlled_vocabs cv
+           JOIN controlled_vocab_entries cve ON cve.controlled_vocab_id = cv.controlled_vocab_id
+           JOIN controlled_vocab_entry_settings cves ON cves.controlled_vocab_entry_id = cve.controlled_vocab_entry_id
+           WHERE cv.symbolic = 'submissionKeyword'
+             AND (
+               (cv.assoc_type = 1048585 AND cv.assoc_id = ?) OR 
+               (cv.assoc_type = 1048577 AND cv.assoc_id = ?)
+             )
+             AND cves.setting_name IN ('interest', 'name', 'title')
+           ORDER BY cve.seq ASC`,
+           [publicationId, submissionId]
+        )
+        if (keywordFallbackRows.length > 0) {
+          const uniqueKws = Array.from(new Set(keywordFallbackRows.map(r => r.keyword).filter(Boolean)))
+          keywords.push(...uniqueKws)
+        }
+      }
+    } catch (error) {
+      console.warn(`[ArticleDetail] Could not fetch keywords from controlled_vocabs for publication ${publicationId}:`, error)
+    }
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[ArticleDetail] Extracted DOI: ${doi || 'None'}, Keywords Count: ${keywords.length}`);
+  }
+
 
   // 3. Fetch Authors with extensive metadata
   const authorRows = await ojsQuery<AuthorRow>(
