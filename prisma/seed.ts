@@ -8,6 +8,11 @@ import bcrypt from 'bcryptjs' // or 'bcrypt' based on project dependencies
  * Fully follows Spec-Kit constraints.
  */
 async function main() {
+  if (process.env.RUN_SEED !== 'true') {
+    console.log('⏭️  Skipping database seed (RUN_SEED is not set to "true")')
+    return
+  }
+
   const dbUrl = process.env.DATABASE_URL
   let config: any = {
     host: process.env.DATABASE_HOST || 'localhost',
@@ -111,20 +116,30 @@ async function main() {
         title: 'Who We Are',
         content: 'DigitoPub is the official publishing house and platform of Digitodontics International Academy...',
         display_order: 10,
+        items: []
       },
       {
-        section_key: 'vision',
-        block_type: 'TEXT',
-        title: 'Our Vision',
-        content: 'To create a vibrant ecosystem where science and technology evolve in harmony, fostering a trusted environment where scholarly work can thrive. We envision a future where every researcher has access to world-class publishing tools and global reach.',
+        section_key: 'mission_vision',
+        block_type: 'CARDS',
+        title: 'Our Mission & Vision',
+        content: null,
         display_order: 20,
-      },
-      {
-        section_key: 'mission',
-        block_type: 'TEXT',
-        title: 'Our Mission',
-        content: 'To empower journals, editors, and researchers worldwide with comprehensive digital publishing solutions that uphold the highest standards of transparency, quality, and ethical scholarly communication. We bridge the gap between research creation, dissemination, and long-term preservation.',
-        display_order: 30,
+        items: [
+          {
+            title: 'Our Mission',
+            description: 'To empower journals, editors, and researchers worldwide with comprehensive digital publishing solutions that uphold the highest standards of transparency, quality, and ethical scholarly communication. We bridge the gap between research creation, dissemination, and long-term preservation.',
+            icon: 'Target',
+            color_theme: 'primary',
+            display_order: 0,
+          },
+          {
+            title: 'Our Vision',
+            description: 'To create a vibrant ecosystem where science and technology evolve in harmony, fostering a trusted environment where scholarly work can thrive. We envision a future where every researcher has access to world-class publishing tools and global reach.',
+            icon: 'Eye',
+            color_theme: 'secondary',
+            display_order: 1,
+          }
+        ]
       }
     ]
 
@@ -138,7 +153,14 @@ async function main() {
           title: section.title,
           content: section.content,
           display_order: section.display_order,
-          is_active: true
+          is_active: true,
+          ...(section.items && section.items.length > 0
+            ? {
+                items: {
+                  create: section.items,
+                },
+              }
+            : {}),
         }
       })
     }
