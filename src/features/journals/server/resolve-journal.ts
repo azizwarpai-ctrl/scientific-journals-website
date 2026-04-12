@@ -14,16 +14,24 @@ export async function resolveJournalOjsId(
   console.log(`[resolveJournalOjsId] Attempting to resolve journal id: "${id}"`);
 
   // 1. Try Prisma first for standard configurations
-  let journal = await prisma.journal.findFirst({
-    where: {
-      OR: [
-        { ojs_path: id },
-        { ojs_id: id },
-        { id: /^\d+$/.test(id) ? BigInt(id) : undefined }
-      ].filter(condition => condition !== undefined) as any
-    },
-    select: { id: true, ojs_id: true, ojs_path: true }
+  // 1. Try Prisma first for standard configurations - Deterministic sequential lookups
+  let journal = await prisma.journal.findUnique({
+    where: { ojs_path: id }
   })
+  
+  if (!journal) {
+    journal = await prisma.journal.findFirst({
+      where: { ojs_id: id }
+    })
+  }
+
+  if (!journal && /^\d+$/.test(id)) {
+    journal = await prisma.journal.findUnique({
+      where: { id: BigInt(id) }
+    })
+  }
+
+  const select = journal ? { id: journal.id, ojs_id: journal.ojs_id, ojs_path: journal.ojs_path } : null
   
   // Found in Prisma
   if (journal) {

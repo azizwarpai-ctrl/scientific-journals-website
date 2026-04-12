@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FileText, Loader2, Download, Maximize } from "lucide-react"
 import {
   Dialog,
@@ -18,6 +18,14 @@ interface ModalPdfViewerProps {
 
 export function ModalPdfViewer({ pdfUrl, articleTitle = "Document" }: ModalPdfViewerProps) {
   const [isLoading, setIsLoading] = useState(true)
+  const [open, setOpen] = useState(false)
+
+  // Reset loading state whenever the PDF URL changes or modal is re-opened
+  useEffect(() => {
+    if (open) {
+      setIsLoading(true)
+    }
+  }, [pdfUrl, open])
 
   if (!pdfUrl) {
     return (
@@ -29,7 +37,7 @@ export function ModalPdfViewer({ pdfUrl, articleTitle = "Document" }: ModalPdfVi
   }
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="w-full font-bold h-12 shadow-sm relative overflow-hidden group">
           <div className="absolute inset-0 bg-primary/10 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300" />
@@ -70,7 +78,7 @@ export function ModalPdfViewer({ pdfUrl, articleTitle = "Document" }: ModalPdfVi
             <iframe
               src={pdfUrl}
               className={`w-full h-full border-none transition-opacity duration-700 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
-              title="PDF Viewer"
+              title={`${articleTitle} PDF`}
               onLoad={() => setIsLoading(false)}
             />
           </div>

@@ -132,17 +132,22 @@ export async function fetchArticleDetail(
       pages = s.setting_value
     } else if (s.setting_name === 'coverImage' && (s.locale === primaryLocale || !coverImageRaw)) {
       coverImageRaw = s.setting_value
-    } else if (s.setting_name === 'keywords' && s.setting_value && keywords.length === 0) {
-      // Handle JSON or plain string from publication_settings
+    } else if (s.setting_name === 'keywords' && s.setting_value) {
+      // Handle JSON or plain string from publication_settings with locale sensitivity
       if (s.setting_value.startsWith('[') || s.setting_value.startsWith('{')) {
         try {
           const parsed = JSON.parse(s.setting_value)
           if (Array.isArray(parsed)) {
             keywords.push(...parsed.filter(Boolean))
-          } else if (typeof parsed === 'object') {
-            const vals = Object.values(parsed)
-            if (Array.isArray(vals[0])) {
-              keywords.push(...vals[0].filter(Boolean))
+          } else if (typeof parsed === 'object' && parsed !== null) {
+            // Prefer current locale, then common fallbacks
+            const localeKey = primaryLocale || 'en_US'
+            const localeKeywords = parsed[localeKey] || parsed[localeKey.split('_')[0]] || parsed['en_US'] || parsed['en'] || Object.values(parsed)[0]
+            
+            if (Array.isArray(localeKeywords)) {
+              keywords.push(...localeKeywords.filter(Boolean))
+            } else if (typeof localeKeywords === 'string' && localeKeywords) {
+              keywords.push(localeKeywords)
             }
           }
         } catch {
@@ -165,8 +170,10 @@ export async function fetchArticleDetail(
          JOIN controlled_vocab_entries cve ON cve.controlled_vocab_id = cv.controlled_vocab_id
          JOIN controlled_vocab_entry_settings cves ON cves.controlled_vocab_entry_id = cve.controlled_vocab_entry_id
          WHERE cv.symbolic = 'submissionKeyword'
-           AND cv.assoc_type IN (1048585, 1048577)
-           AND cv.assoc_id IN (?, ?)
+           AND (
+             (cv.assoc_type = 1048585 AND cv.assoc_id = ?) OR 
+             (cv.assoc_type = 1048577 AND cv.assoc_id = ?)
+           )
            AND cves.setting_name IN ('interest', 'name', 'title') 
            AND (cves.locale = ? OR cves.locale = '')
          ORDER BY cve.seq ASC`,
@@ -184,7 +191,11 @@ export async function fetchArticleDetail(
            JOIN controlled_vocab_entries cve ON cve.controlled_vocab_id = cv.controlled_vocab_id
            JOIN controlled_vocab_entry_settings cves ON cves.controlled_vocab_entry_id = cve.controlled_vocab_entry_id
            WHERE cv.symbolic = 'submissionKeyword'
-             AND cv.assoc_id IN (?, ?)
+             AND (
+               (cv.assoc_type = 1048585 AND cv.assoc_id = ?) OR 
+               (cv.assoc_type = 1048577 AND cv.assoc_id = ?)
+             )
+             AND cves.setting_name IN ('interest', 'name', 'title')
            ORDER BY cve.seq ASC`,
            [publicationId, submissionId]
         )

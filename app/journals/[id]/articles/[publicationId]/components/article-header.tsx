@@ -124,12 +124,14 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
           </h3>
           <div className="flex flex-wrap gap-2.5">
             {article.keywords.map((kw, i) => (
-              <span 
+              <Badge 
                 key={i} 
+                variant="secondary"
+                data-slot="badge"
                 className="px-3.5 py-1.5 rounded-lg bg-muted/30 text-muted-foreground text-[11px] font-bold border border-border/40 hover:bg-primary/5 hover:text-primary hover:border-primary/20 transition-all cursor-default shadow-sm"
               >
                 {kw}
-              </span>
+              </Badge>
             ))}
           </div>
         </div>

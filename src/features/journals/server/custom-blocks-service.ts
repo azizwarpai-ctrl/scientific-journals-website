@@ -221,52 +221,76 @@ export async function fetchCustomBlocks(
 
     if (!cleanContent) continue
     
-    // Improved Extraction Strategy:
-    // 1. Title: Look for headings, then strong tags, or fallback to block name
-    const headingMatch = cleanContent.match(/<h[2-6][^>]*>(.*?)<\/h[2-6]>/i)
-    const strongMatch = cleanContent.match(/<strong>(.*?)<\/strong>/i)
-    const title = (headingMatch ? headingMatch[1] : (strongMatch ? strongMatch[1] : name))
-      .replace(/<[^>]+>/g, '')
-      .trim() || name.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-
-    // 2. Image: First img tag source
-    const imgMatch = cleanContent.match(/<img[^>]+src=["']([^"']+)["']/i)
-    const image = imgMatch ? imgMatch[1] : undefined
-
-    // 3. Link: First a tag href
-    const linkMatch = cleanContent.match(/<a[^>]+href=["']([^"']+)["']/i)
-    const link = linkMatch ? linkMatch[1] : undefined
-
-    // 4. Description: Remove title/image/link elements and get remaining text
-    let descriptionRaw = cleanContent
-      .replace(/<h[2-6][^>]*>.*?<\/h[2-6]>/gi, '')
-      .replace(/<img[^>]*>/gi, '')
-      .replace(/<a[^>]*>.*?<\/a>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-
-    // If description is too short, try to use p tags as before but more broadly
-    if (descriptionRaw.length < 10) {
-      const allText = cleanContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-      descriptionRaw = allText.length > title.length ? allText : "View details to learn more."
-    }
-
-    const description = descriptionRaw.length > 300 
-      ? descriptionRaw.substring(0, 297) + "..."
-      : descriptionRaw
+    // Extract metadata using helper
+    const cardFields = extractCardFields(cleanContent, name)
 
     blocks.push({ 
       name, 
       content: cleanContent,
-      title,
-      description: description || 'No description available.',
-      link,
-      image
+      ...cardFields
     })
   }
 
-
   console.log(`[CustomBlocks] journal_id=${journalId}: returning ${blocks.length} parsed block(s)`)
   return blocks
+}
+
+/**
+ * Simple HTML entity decoder for common characters.
+ * Prevents &amp;, &quot;, etc. from appearing in titles/descriptions.
+ */
+function decodeHtml(html: string): string {
+  return html
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+}
+
+/**
+ * Extracts structured fields from sanitized HTML for the Journal Carousel.
+ * Pure helper function for testability.
+ */
+export function extractCardFields(html: string, name: string) {
+  // 1. Title: Look for headings, then strong tags, or fallback to block name
+  const headingMatch = html.match(/<h[2-6][^>]*>(.*?)<\/h[2-6]>/i)
+  const strongMatch = html.match(/<strong>(.*?)<\/strong>/i)
+  
+  const rawTitle = (headingMatch ? headingMatch[1] : (strongMatch ? strongMatch[1] : name))
+    .replace(/<[^>]+>/g, '')
+    .trim()
+  
+  const title = decodeHtml(rawTitle) || name.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+
+  // 2. Image: First img tag source
+  const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i)
+  const image = imgMatch ? imgMatch[1] : undefined
+
+  // 3. Link: First a tag href
+  const linkMatch = html.match(/<a[^>]+href=["']([^"']+)["']/i)
+  const link = linkMatch ? linkMatch[1] : undefined
+
+  // 4. Description: Remove title/image/link elements and get remaining text
+  let descriptionRaw = html
+    .replace(/<h[2-6][^>]*>.*?<\/h[2-6]>/gi, '')
+    .replace(/<img[^>]*>/gi, '')
+    .replace(/<a[^>]*>.*?<\/a>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  // If description is too short, try to use p tags as before but more broadly
+  if (descriptionRaw.length < 10) {
+    const allText = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    descriptionRaw = allText.length > title.length ? allText : "View details to learn more."
+  }
+
+  const decodedDesc = decodeHtml(descriptionRaw)
+  const description = decodedDesc.length > 300 
+    ? decodedDesc.substring(0, 297) + "..."
+    : decodedDesc
+
+  return { title, image, link, description: description || 'No description available.' }
 }

@@ -21,6 +21,13 @@ export function JournalInfoCarousel({ journalId }: JournalInfoCarouselProps) {
 
   const cards = data?.blocks || []
 
+  // Ensure currentIndex is always within bounds when cards list changes
+  useEffect(() => {
+    if (cards.length > 0 && currentIndex >= cards.length) {
+      setCurrentIndex(Math.max(0, cards.length - 1))
+    }
+  }, [cards.length, currentIndex])
+
   const nextSlide = useCallback(() => {
     if (cards.length <= 1) return
     setDirection(1)
@@ -33,6 +40,16 @@ export function JournalInfoCarousel({ journalId }: JournalInfoCarouselProps) {
     setCurrentIndex(prev => (prev - 1 + cards.length) % cards.length)
   }, [cards.length])
 
+  // Helper to (re)start the autoplay timer
+  const startTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    if (cards.length <= 1 || isHovered) return
+
+    timerRef.current = setInterval(() => {
+      nextSlide()
+    }, 5000)
+  }, [cards.length, isHovered, nextSlide])
+
   // Reset timer on manual navigation or hover
   const resetTimer = useCallback(() => {
     if (timerRef.current) {
@@ -41,19 +58,11 @@ export function JournalInfoCarousel({ journalId }: JournalInfoCarouselProps) {
     }
   }, [])
 
-  // Auto-play logic: more robust with ref
+  // Auto-play logic: re-arms via startTimer helper
   useEffect(() => {
-    if (cards.length <= 1 || isHovered) {
-      resetTimer()
-      return
-    }
-
-    timerRef.current = setInterval(() => {
-      nextSlide()
-    }, 5000)
-
+    startTimer()
     return () => resetTimer()
-  }, [cards.length, isHovered, nextSlide, resetTimer])
+  }, [startTimer, resetTimer])
 
   const goToSlide = useCallback((index: number) => {
     if (index === currentIndex) return
@@ -119,14 +128,14 @@ export function JournalInfoCarousel({ journalId }: JournalInfoCarouselProps) {
           {cards.length > 1 && (
             <div className="flex items-center gap-1.5">
               <button
-                onClick={() => { resetTimer(); prevSlide(); }}
+                onClick={() => { prevSlide(); startTimer(); }}
                 className="p-1.5 rounded-full border border-border/60 hover:bg-primary/10 hover:border-primary/30 transition-all duration-300"
                 aria-label="Previous highlight"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
               </button>
               <button
-                onClick={() => { resetTimer(); nextSlide(); }}
+                onClick={() => { nextSlide(); startTimer(); }}
                 className="p-1.5 rounded-full border border-border/60 hover:bg-primary/10 hover:border-primary/30 transition-all duration-300"
                 aria-label="Next highlight"
               >
@@ -200,7 +209,7 @@ export function JournalInfoCarousel({ journalId }: JournalInfoCarouselProps) {
           {cards.map((_, idx) => (
             <button
               key={idx}
-              onClick={() => { resetTimer(); goToSlide(idx); }}
+              onClick={() => { goToSlide(idx); startTimer(); }}
               aria-label={`Go to highlight ${idx + 1}`}
               className={`h-1.5 rounded-full transition-all duration-300 ${
                 currentIndex === idx
