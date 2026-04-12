@@ -17,8 +17,8 @@ export function Footer() {
               Advancing open, ethical, and impactful scholarly communication through digital innovation.
             </p>
             <div className="pt-2 text-sm text-muted-foreground">
-              <a href="mailto:contact@digitopub.com" className="hover:text-primary transition-colors">
-                contact@digitopub.com
+              <a href="mailto:info@digitalpub.com" className="hover:text-primary transition-colors">
+                info@digitalpub.com
               </a>
             </div>
           </div>
