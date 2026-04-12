@@ -1,3 +1,4 @@
+import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
@@ -125,7 +126,10 @@ export async function fetchArticleDetail(
     if (s.setting_name === 'title' && (s.locale === primaryLocale || !title)) {
       title = s.setting_value
     } else if (s.setting_name === 'abstract' && (s.locale === primaryLocale || !abstract)) {
-      abstract = s.setting_value
+      abstract = s.setting_value ? sanitizeHtml(s.setting_value, {
+        allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'b', 'i', 'sup', 'sub'],
+        allowedAttributes: {},
+      }) : null
     } else if (s.setting_name === 'pub-id::doi') {
       doi = s.setting_value
     } else if (s.setting_name === 'pages' && s.setting_value && (s.locale === primaryLocale || !pages)) {
