@@ -22,6 +22,9 @@ export default [
             '**/*.cjs',
             'vitest.config.ts',
             'verify-sanitization.js',
+            'check-db.js',
+            'check-rpc.js',
+            'check-users.js',
         ],
     },
     // Base configuration for JS/TS files

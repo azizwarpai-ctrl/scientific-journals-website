@@ -1,7 +1,5 @@
 "use client"
 
-import DOMPurify from "dompurify"
-
 interface ArticleAbstractProps {
   abstract: string | null
 }
@@ -9,17 +7,12 @@ interface ArticleAbstractProps {
 export function ArticleAbstract({ abstract }: ArticleAbstractProps) {
   if (!abstract) return null
 
-  const sanitized = typeof window === 'undefined' ? abstract : DOMPurify.sanitize(abstract, {
-    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'b', 'i', 'sup', 'sub'],
-    ALLOWED_ATTR: [],
-  })
-
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-bold text-foreground">Abstract</h3>
+      <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Abstract</h3>
       <div 
-        className="prose prose-base text-muted-foreground/90 max-w-none dark:prose-invert leading-relaxed"
-        dangerouslySetInnerHTML={{ __html: sanitized }}
+        className="text-[13px] leading-relaxed text-muted-foreground/90 max-w-none prose prose-sm dark:prose-invert prose-p:leading-relaxed prose-li:my-1"
+        dangerouslySetInnerHTML={{ __html: abstract }}
       />
     </div>
   )
