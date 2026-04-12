@@ -16,6 +16,11 @@ export function Footer() {
             <p className="text-sm text-muted-foreground leading-relaxed">
               Advancing open, ethical, and impactful scholarly communication through digital innovation.
             </p>
+            <div className="pt-2 text-sm text-muted-foreground">
+              <a href="mailto:contact@digitopub.com" className="hover:text-primary transition-colors">
+                contact@digitopub.com
+              </a>
+            </div>
           </div>
 
           {/* Quick Links */}
