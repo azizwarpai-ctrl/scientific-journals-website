@@ -43,7 +43,7 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
           </Badge>
         )}
 
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground leading-[1.15]">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground leading-tight">
           {article.title || "Untitled Article"}
         </h1>
 
@@ -80,17 +80,17 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
 
       <div className="pt-6 border-t border-border/40">
         <div className="flex flex-col gap-4">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-            <User className="h-4 w-4" /> Authors
+          <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2 mb-1">
+            <User className="h-3.5 w-3.5" /> Authors
           </h3>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-x-12 gap-y-6 sm:grid-cols-2">
             {article.authors.map((author, index) => (
-              <div key={index} className="flex flex-col gap-1">
-                <span className="font-bold text-foreground">
+              <div key={index} className="flex flex-col gap-1.5 group">
+                <span className="font-bold text-foreground text-base tracking-tight group-hover:text-primary transition-colors">
                   {author.givenName} {author.familyName}
                 </span>
                 {author.affiliation && (
-                  <span className="text-sm text-muted-foreground leading-snug">
+                  <span className="text-xs text-muted-foreground/80 leading-relaxed font-medium">
                     {author.affiliation}
                   </span>
                 )}
@@ -104,10 +104,10 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
                       href={`https://orcid.org/${identifier}`} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline flex items-center gap-1 mt-1 font-medium"
+                      className="text-[10px] text-primary hover:underline flex items-center gap-1 mt-1 font-bold uppercase tracking-wider"
                     >
-                      ORCID
-                      <ExternalLink className="h-3 w-3" />
+                      ORCID 
+                      <ExternalLink className="h-2.5 w-2.5" />
                     </a>
                   );
                 })()}
@@ -118,12 +118,18 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
       </div>
 
       {article.keywords && article.keywords.length > 0 && (
-        <div className="pt-6">
-          <div className="flex flex-wrap gap-2">
+        <div className="pt-8 border-t border-border/40">
+          <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-4">
+            Keywords
+          </h3>
+          <div className="flex flex-wrap gap-2.5">
             {article.keywords.map((kw, i) => (
-              <Badge key={i} variant="secondary" className="font-medium bg-muted text-muted-foreground hover:bg-muted/80">
+              <span 
+                key={i} 
+                className="px-3.5 py-1.5 rounded-lg bg-muted/30 text-muted-foreground text-[11px] font-bold border border-border/40 hover:bg-primary/5 hover:text-primary hover:border-primary/20 transition-all cursor-default shadow-sm"
+              >
                 {kw}
-              </Badge>
+              </span>
             ))}
           </div>
         </div>
@@ -131,3 +137,4 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
     </div>
   )
 }
+

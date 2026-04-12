@@ -16,11 +16,12 @@ export function ArticleAbstract({ abstract }: ArticleAbstractProps) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-bold text-foreground">Abstract</h3>
+      <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Abstract</h3>
       <div 
-        className="prose prose-base text-muted-foreground/90 max-w-none dark:prose-invert leading-relaxed"
+        className="text-[13px] leading-relaxed text-muted-foreground/90 max-w-none"
         dangerouslySetInnerHTML={{ __html: sanitized }}
       />
     </div>
+
   )
 }

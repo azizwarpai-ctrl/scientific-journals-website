@@ -207,7 +207,6 @@ export async function fetchCustomBlocks(
     const cleanContent = sanitizeHtml(contentToSanitize, {
       allowedTags: ALLOWED_TAGS,
       allowedAttributes: ALLOWED_ATTRS,
-      // Force external links to open safely
       transformTags: {
         a: (tagName: string, attribs: { [attr: string]: string }) => ({
           tagName,
@@ -221,8 +220,52 @@ export async function fetchCustomBlocks(
     }).trim()
 
     if (!cleanContent) continue
-    blocks.push({ name, content: cleanContent })
+    
+    // Improved Extraction Strategy:
+    // 1. Title: Look for headings, then strong tags, or fallback to block name
+    const headingMatch = cleanContent.match(/<h[2-6][^>]*>(.*?)<\/h[2-6]>/i)
+    const strongMatch = cleanContent.match(/<strong>(.*?)<\/strong>/i)
+    const title = (headingMatch ? headingMatch[1] : (strongMatch ? strongMatch[1] : name))
+      .replace(/<[^>]+>/g, '')
+      .trim() || name.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+
+    // 2. Image: First img tag source
+    const imgMatch = cleanContent.match(/<img[^>]+src=["']([^"']+)["']/i)
+    const image = imgMatch ? imgMatch[1] : undefined
+
+    // 3. Link: First a tag href
+    const linkMatch = cleanContent.match(/<a[^>]+href=["']([^"']+)["']/i)
+    const link = linkMatch ? linkMatch[1] : undefined
+
+    // 4. Description: Remove title/image/link elements and get remaining text
+    let descriptionRaw = cleanContent
+      .replace(/<h[2-6][^>]*>.*?<\/h[2-6]>/gi, '')
+      .replace(/<img[^>]*>/gi, '')
+      .replace(/<a[^>]*>.*?<\/a>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    // If description is too short, try to use p tags as before but more broadly
+    if (descriptionRaw.length < 10) {
+      const allText = cleanContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      descriptionRaw = allText.length > title.length ? allText : "View details to learn more."
+    }
+
+    const description = descriptionRaw.length > 300 
+      ? descriptionRaw.substring(0, 297) + "..."
+      : descriptionRaw
+
+    blocks.push({ 
+      name, 
+      content: cleanContent,
+      title,
+      description: description || 'No description available.',
+      link,
+      image
+    })
   }
+
 
   console.log(`[CustomBlocks] journal_id=${journalId}: returning ${blocks.length} parsed block(s)`)
   return blocks

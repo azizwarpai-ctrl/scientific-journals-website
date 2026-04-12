@@ -14,25 +14,17 @@ export async function resolveJournalOjsId(
   console.log(`[resolveJournalOjsId] Attempting to resolve journal id: "${id}"`);
 
   // 1. Try Prisma first for standard configurations
-  let journal = await prisma.journal.findUnique({
-    where: { ojs_path: id },
+  let journal = await prisma.journal.findFirst({
+    where: {
+      OR: [
+        { ojs_path: id },
+        { ojs_id: id },
+        { id: /^\d+$/.test(id) ? BigInt(id) : undefined }
+      ].filter(condition => condition !== undefined) as any
+    },
     select: { id: true, ojs_id: true, ojs_path: true }
   })
   
-  if (!journal) {
-    journal = await prisma.journal.findUnique({
-      where: { ojs_id: id },
-      select: { id: true, ojs_id: true, ojs_path: true }
-    })
-  }
-
-  if (!journal && /^\d+$/.test(id)) {
-    journal = await prisma.journal.findUnique({
-      where: { id: BigInt(id) },
-      select: { id: true, ojs_id: true, ojs_path: true }
-    })
-  }
-
   // Found in Prisma
   if (journal) {
     console.log(`[resolveJournalOjsId] Found in Prisma DB. ojsId=${journal.ojs_id}, prismaId=${journal.id}`);
@@ -60,14 +52,15 @@ export async function resolveJournalOjsId(
       if (ojsMatch.length > 0) {
         const fallbackId = ojsMatch[0].journal_id.toString()
         const fallbackPath = ojsMatch[0].path || null
-        console.log(`[resolveJournalOjsId] Fallback to OJS DB resolved. ojsId=${fallbackId}`);
+        console.log(`[resolveJournalOjsId] SUCCESS (OJS DB): ojsId=${fallbackId}, path=${fallbackPath}`);
         return { found: true, ojsId: fallbackId, prismaId: null, ojsPath: fallbackPath }
       }
     }
   } catch (err) {
-    console.error(`[resolveJournalOjsId] Fallback to OJS DB failed:`, err);
+    console.error(`[resolveJournalOjsId] Fallback to OJS DB failed for "${id}":`, err);
   }
 
   console.log(`[resolveJournalOjsId] Total resolution failure for: ${id}`)
   return { found: false }
 }
+

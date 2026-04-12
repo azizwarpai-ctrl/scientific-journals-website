@@ -132,7 +132,8 @@ export async function fetchArticleDetail(
       pages = s.setting_value
     } else if (s.setting_name === 'coverImage' && (s.locale === primaryLocale || !coverImageRaw)) {
       coverImageRaw = s.setting_value
-    } else if (s.setting_name === 'keywords' && s.locale === primaryLocale && s.setting_value) {
+    } else if (s.setting_name === 'keywords' && s.setting_value && keywords.length === 0) {
+      // Handle JSON or plain string from publication_settings
       if (s.setting_value.startsWith('[') || s.setting_value.startsWith('{')) {
         try {
           const parsed = JSON.parse(s.setting_value)
@@ -152,6 +153,55 @@ export async function fetchArticleDetail(
       }
     }
   }
+
+  // 2.5 Fetch Keywords from controlled_vocabs (OJS 3.x Primary Source)
+  if (keywords.length === 0) {
+    try {
+      // PROOF: Fetching keywords from OJS controlled vocabulary system
+      // We try both Publication (1048585) and Submission (1048577) association types
+      const keywordRows = await ojsQuery<{ keyword: string }>(
+        `SELECT cves.setting_value AS keyword
+         FROM controlled_vocabs cv
+         JOIN controlled_vocab_entries cve ON cve.controlled_vocab_id = cv.controlled_vocab_id
+         JOIN controlled_vocab_entry_settings cves ON cves.controlled_vocab_entry_id = cve.controlled_vocab_entry_id
+         WHERE cv.symbolic = 'submissionKeyword'
+           AND cv.assoc_type IN (1048585, 1048577)
+           AND cv.assoc_id IN (?, ?)
+           AND cves.setting_name IN ('interest', 'name', 'title') 
+           AND (cves.locale = ? OR cves.locale = '')
+         ORDER BY cve.seq ASC`,
+         [publicationId, submissionId, primaryLocale]
+      )
+      
+      if (keywordRows.length > 0) {
+        const uniqueKws = Array.from(new Set(keywordRows.map(r => r.keyword).filter(Boolean)))
+        keywords.push(...uniqueKws)
+      } else {
+        // Broad fallback: ignore locale if nothing found
+        const keywordFallbackRows = await ojsQuery<{ keyword: string }>(
+          `SELECT cves.setting_value AS keyword
+           FROM controlled_vocabs cv
+           JOIN controlled_vocab_entries cve ON cve.controlled_vocab_id = cv.controlled_vocab_id
+           JOIN controlled_vocab_entry_settings cves ON cves.controlled_vocab_entry_id = cve.controlled_vocab_entry_id
+           WHERE cv.symbolic = 'submissionKeyword'
+             AND cv.assoc_id IN (?, ?)
+           ORDER BY cve.seq ASC`,
+           [publicationId, submissionId]
+        )
+        if (keywordFallbackRows.length > 0) {
+          const uniqueKws = Array.from(new Set(keywordFallbackRows.map(r => r.keyword).filter(Boolean)))
+          keywords.push(...uniqueKws)
+        }
+      }
+    } catch (error) {
+      console.warn(`[ArticleDetail] Could not fetch keywords from controlled_vocabs for publication ${publicationId}:`, error)
+    }
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[ArticleDetail] Extracted DOI: ${doi || 'None'}, Keywords Count: ${keywords.length}`);
+  }
+
 
   // 3. Fetch Authors with extensive metadata
   const authorRows = await ojsQuery<AuthorRow>(
