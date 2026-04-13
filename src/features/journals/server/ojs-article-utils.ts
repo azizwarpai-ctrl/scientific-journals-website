@@ -13,6 +13,7 @@ export interface ArticleRow {
   section_seq: number | null
   section_title: string | null
   cover_image_raw: string | null
+  doi: string | null
 }
 
 export interface AuthorRow {
@@ -28,6 +29,8 @@ export interface GalleyRow {
   publication_id: number
   label: string | null
   locale: string | null
+  remote_url: string | null
+  submission_file_id: number | null
 }
 
 export async function fetchArticlesWithAuthors(
@@ -48,7 +51,8 @@ export async function fetchArticlesWithAuthors(
       sec.section_id,
       sec.seq AS section_seq,
       sec_title.setting_value AS section_title,
-      ps_cover.setting_value AS cover_image_raw
+      ps_cover.setting_value AS cover_image_raw,
+      ps_doi.setting_value AS doi
     FROM publications p
     INNER JOIN submissions s
       ON s.submission_id = p.submission_id
@@ -70,6 +74,9 @@ export async function fetchArticlesWithAuthors(
       ON sec_title.section_id = sec.section_id
       AND sec_title.setting_name = 'title'
       AND sec_title.locale = ?
+    LEFT JOIN publication_settings ps_doi
+      ON ps_doi.publication_id = p.publication_id
+      AND ps_doi.setting_name = 'doi'
     WHERE p.issue_id = ?
       AND p.status = 3
       AND s.status = 3
@@ -123,8 +130,11 @@ export async function fetchArticlesWithAuthors(
       pg.galley_id,
       pg.publication_id,
       pg.label,
-      pg.locale
+      pg.locale,
+      pg.remote_url,
+      sf.submission_file_id
     FROM publication_galleys pg
+    LEFT JOIN submission_files sf ON pg.submission_file_id = sf.submission_file_id
     WHERE pg.publication_id IN (?)
     ORDER BY pg.publication_id, pg.seq ASC`,
     [publicationIds]
@@ -146,9 +156,17 @@ export async function fetchArticlesWithAuthors(
     
     const ojsBaseUrl = process.env.OJS_BASE_URL || process.env.NEXT_PUBLIC_OJS_BASE_URL || ''
     const cleanBaseUrl = ojsBaseUrl.endsWith('/') ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
-    const pdfUrl = pdfGalley && cleanBaseUrl
-      ? `${cleanBaseUrl}/index.php/${journalUrlPath}/article/download/${row.submission_id}/${pdfGalley.galley_id}`
-      : null
+    
+    let pdfUrl = null;
+    if (pdfGalley) {
+      if (pdfGalley.remote_url) {
+        pdfUrl = pdfGalley.remote_url;
+      } else if (pdfGalley.submission_file_id) {
+        pdfUrl = `/api/pdf-proxy?journal=${journalUrlPath}&submissionId=${row.submission_id}&fileId=${pdfGalley.submission_file_id}`;
+      } else if (cleanBaseUrl) {
+        pdfUrl = `${cleanBaseUrl}/index.php/${journalUrlPath}/article/download/${row.submission_id}/${pdfGalley.galley_id}?inline=1`;
+      }
+    }
 
     return {
       publicationId: row.publication_id,
@@ -161,6 +179,7 @@ export async function fetchArticlesWithAuthors(
       sectionId: row.section_id,
       articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(row.cover_image_raw)),
       pdfUrl,
+      doi: row.doi,
     }
   })
 }
