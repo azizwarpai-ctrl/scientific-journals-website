@@ -53,10 +53,12 @@ export async function fetchArticlesWithAuthors(
       sec.seq AS section_seq,
       sec_title.setting_value AS section_title,
       ps_cover.setting_value AS cover_image_raw,
-      COALESCE(ps_doi.setting_value, ps_pubid.setting_value) AS doi
+      COALESCE(d.doi, ps_doi.setting_value, ps_pubid.setting_value) AS doi
     FROM publications p
     INNER JOIN submissions s
       ON s.submission_id = p.submission_id
+    LEFT JOIN dois d
+      ON p.doi_id = d.doi_id
     LEFT JOIN publication_settings ps_title
       ON ps_title.publication_id = p.publication_id
       AND ps_title.setting_name = 'title'
