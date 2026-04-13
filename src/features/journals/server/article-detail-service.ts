@@ -268,8 +268,7 @@ export async function fetchArticleDetail(
     [publicationId]
   )
 
-  const ojsBaseUrl = process.env.OJS_BASE_URL || process.env.NEXT_PUBLIC_OJS_BASE_URL || getOjsBaseUrl() || ''
-  const cleanBaseUrl = ojsBaseUrl.endsWith('/') ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
+  const ojsBaseUrl = getOjsBaseUrl()
   
   const galleys: ArticleGalley[] = galleyRows.map(row => {
     return {
@@ -280,8 +279,8 @@ export async function fetchArticleDetail(
         ? row.remote_url
         : (row.submission_file_id && article.journal_url_path)
           ? `/api/pdf-proxy?journal=${article.journal_url_path}&submissionId=${submissionId}&fileId=${row.submission_file_id}`
-          : (cleanBaseUrl && article.journal_url_path) 
-            ? `${cleanBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}?inline=1` 
+          : (ojsBaseUrl && article.journal_url_path) 
+            ? `${ojsBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}?inline=1` 
             : null
     }
   })

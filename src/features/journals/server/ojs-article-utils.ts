@@ -1,5 +1,6 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
+import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import type { CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/journals/types/current-issue-types"
 
 export interface ArticleRow {
@@ -52,7 +53,7 @@ export async function fetchArticlesWithAuthors(
       sec.seq AS section_seq,
       sec_title.setting_value AS section_title,
       ps_cover.setting_value AS cover_image_raw,
-      ps_doi.setting_value AS doi
+      COALESCE(ps_doi.setting_value, ps_pubid.setting_value) AS doi
     FROM publications p
     INNER JOIN submissions s
       ON s.submission_id = p.submission_id
@@ -77,6 +78,9 @@ export async function fetchArticlesWithAuthors(
     LEFT JOIN publication_settings ps_doi
       ON ps_doi.publication_id = p.publication_id
       AND ps_doi.setting_name = 'doi'
+    LEFT JOIN publication_settings ps_pubid
+      ON ps_pubid.publication_id = p.publication_id
+      AND ps_pubid.setting_name = 'pub-id::doi'
     WHERE p.issue_id = ?
       AND p.status = 3
       AND s.status = 3
@@ -154,8 +158,7 @@ export async function fetchArticlesWithAuthors(
     const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale) 
       || galleys.find(g => g.label?.toLowerCase().includes('pdf'))
     
-    const ojsBaseUrl = process.env.OJS_BASE_URL || process.env.NEXT_PUBLIC_OJS_BASE_URL || ''
-    const cleanBaseUrl = ojsBaseUrl.endsWith('/') ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
+    const ojsBaseUrl = getOjsBaseUrl()
     
     let pdfUrl = null;
     if (pdfGalley) {
@@ -163,8 +166,8 @@ export async function fetchArticlesWithAuthors(
         pdfUrl = pdfGalley.remote_url;
       } else if (pdfGalley.submission_file_id) {
         pdfUrl = `/api/pdf-proxy?journal=${journalUrlPath}&submissionId=${row.submission_id}&fileId=${pdfGalley.submission_file_id}`;
-      } else if (cleanBaseUrl) {
-        pdfUrl = `${cleanBaseUrl}/index.php/${journalUrlPath}/article/download/${row.submission_id}/${pdfGalley.galley_id}?inline=1`;
+      } else if (ojsBaseUrl) {
+        pdfUrl = `${ojsBaseUrl}/index.php/${journalUrlPath}/article/download/${row.submission_id}/${pdfGalley.galley_id}?inline=1`;
       }
     }
 

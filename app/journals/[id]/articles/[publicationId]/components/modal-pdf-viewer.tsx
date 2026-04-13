@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { FileText, Loader2, Download, Maximize } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { FileText, Loader2, Download, Maximize, AlertCircle, RefreshCcw } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -19,14 +19,53 @@ interface ModalPdfViewerProps {
 
 export function ModalPdfViewer({ pdfUrl, articleTitle = "Document", triggerStyle = "sidebar" }: ModalPdfViewerProps) {
   const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
   const [open, setOpen] = useState(false)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const clearTimer = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+  }
+
+  const handleRetry = () => {
+    setHasError(false)
+    setIsLoading(true)
+    // The iframe will re-attempt load if src is re-set or on state change
+  }
 
   // Reset loading state whenever the PDF URL changes or modal is re-opened
   useEffect(() => {
     if (open) {
       setIsLoading(true)
+      setHasError(false)
+
+      // Fail-safe timeout: hide loader and show error if it takes > 15s
+      clearTimer()
+      timeoutRef.current = setTimeout(() => {
+        if (isLoading) {
+          setIsLoading(false)
+          setHasError(true)
+        }
+      }, 15000)
     }
-  }, [pdfUrl, open])
+    
+    return () => clearTimer()
+  }, [pdfUrl, open, isLoading])
+
+  const handleLoad = () => {
+    setIsLoading(false)
+    setHasError(false)
+    clearTimer()
+  }
+
+  const handleError = () => {
+    setIsLoading(false)
+    setHasError(true)
+    clearTimer()
+  }
 
   if (!pdfUrl) {
     return (
@@ -80,7 +119,7 @@ export function ModalPdfViewer({ pdfUrl, articleTitle = "Document", triggerStyle
           </div>
         </DialogHeader>
 
-        <div className="flex-1 relative w-full h-full p-0">
+        <div className="flex-1 relative w-full h-full p-0 flex flex-col items-center justify-center">
           {isLoading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10 bg-background/60 backdrop-blur-md rounded-b-2xl">
               <div className="relative">
@@ -90,15 +129,38 @@ export function ModalPdfViewer({ pdfUrl, articleTitle = "Document", triggerStyle
               <p className="text-sm font-bold tracking-wide uppercase text-muted-foreground animate-pulse">Loading Document...</p>
             </div>
           )}
-          
-          <div className="w-full h-full overflow-hidden bg-white/50 dark:bg-white/5 rounded-b-2xl">
-            <iframe
-              src={pdfUrl}
-              className={`w-full h-full border-none transition-opacity duration-700 ${isLoading ? 'opacity-0' : 'opacity-100'} rounded-b-2xl`}
-              title={`${articleTitle} PDF`}
-              onLoad={() => setIsLoading(false)}
-            />
-          </div>
+
+          {hasError ? (
+            <div className="flex flex-col items-center justify-center gap-4 p-8 text-center animate-in fade-in zoom-in duration-300">
+               <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
+                 <AlertCircle className="h-8 w-8 text-destructive" />
+               </div>
+               <div className="space-y-1">
+                 <h3 className="text-lg font-bold text-foreground">Unable to load PDF</h3>
+                 <p className="text-sm text-muted-foreground max-w-[300px]">
+                   The document could not be retrieved from the OJS server or the request timed out.
+                 </p>
+               </div>
+               <Button 
+                 onClick={handleRetry} 
+                 variant="outline" 
+                 className="mt-2 gap-2 rounded-full border-primary/20 text-primary hover:bg-primary/5"
+               >
+                 <RefreshCcw className="h-4 w-4" />
+                 Retry Loading
+               </Button>
+            </div>
+          ) : (
+            <div className={`w-full h-full overflow-hidden bg-white/50 dark:bg-white/5 rounded-b-2xl transition-opacity duration-700 ${isLoading ? 'opacity-0' : 'opacity-100'}`}>
+              <iframe
+                src={pdfUrl}
+                className="w-full h-full border-none rounded-b-2xl"
+                title={`${articleTitle} PDF`}
+                onLoad={handleLoad}
+                onError={handleError}
+              />
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
