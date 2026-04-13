@@ -117,7 +117,7 @@ export function ArticleItem({ article }: ArticleItemProps) {
                 <Badge
                   key={i}
                   variant="default"
-                  className="px-2.5 py-0.5 rounded text-[10px] font-bold border border-border/40 cursor-default bg-background/50 text-muted-foreground hover:text-primary"
+                  className="px-2.5 py-0.5 rounded-full text-[12px] font-bold border border-border/40 cursor-default bg-primary/10 text-muted-foreground hover:text-primary-foreground"
                 >
                   {kw}
                 </Badge>
