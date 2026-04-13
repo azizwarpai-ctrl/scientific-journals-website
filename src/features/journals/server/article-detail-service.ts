@@ -135,9 +135,9 @@ export async function fetchArticleDetail(
         allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'b', 'i', 'sup', 'sub'],
         allowedAttributes: {},
       }) : null
-    } else if (s.setting_name === 'doi') {
+    } else if (s.setting_name === 'doi' && !doi && s.setting_value) {
       doi = s.setting_value
-    } else if (s.setting_name === 'pub-id::doi') {
+    } else if (s.setting_name === 'pub-id::doi' && s.setting_value) {
       fallbackDoi = s.setting_value
     } else if (s.setting_name === 'pages' && s.setting_value && (s.locale === primaryLocale || !pages)) {
       pages = s.setting_value
@@ -183,14 +183,14 @@ export async function fetchArticleDetail(
             cves.setting_value AS keyword,
             cves.locale
          FROM submissions s
-         JOIN publications p ON s.current_publication_id = p.publication_id
+         JOIN publications p ON p.publication_id = ?
          JOIN controlled_vocabs cv ON cv.assoc_id = p.publication_id 
              AND cv.symbolic IN ('submissionKeyword', 'publicationKeyword')
          JOIN controlled_vocab_entries cve ON cve.controlled_vocab_id = cv.controlled_vocab_id
          JOIN controlled_vocab_entry_settings cves ON cves.controlled_vocab_entry_id = cve.controlled_vocab_entry_id
          WHERE s.submission_id = ? 
          ORDER BY cve.seq ASC`,
-         [submissionId]
+         [publicationId, submissionId]
       )
       
       if (keywordRows.length > 0) {
