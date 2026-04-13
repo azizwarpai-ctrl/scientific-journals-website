@@ -31,9 +31,9 @@ export function ArticleItem({ article }: ArticleItemProps) {
   const [hasCoverError, setHasCoverError] = useState(false)
   const params = useParams()
   const journalId = params?.id as string
-  
+
   if (!journalId) return null
-  
+
   const articleUrl = `/journals/${journalId}/articles/${article.publicationId}`
 
   const sanitizeAbstract = (html: string | null | undefined): string => {
@@ -64,16 +64,16 @@ export function ArticleItem({ article }: ArticleItemProps) {
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/30 bg-gradient-to-br from-muted/20 to-muted/50">
-             <FileText className="h-12 w-12 mb-2" strokeWidth={1} />
+            <FileText className="h-12 w-12 mb-2" strokeWidth={1} />
           </div>
         )}
 
         {/* Modern floating badge */}
         {article.sectionTitle && (
           <div className="absolute top-3 left-3">
-             <Badge className="bg-background/90 text-foreground backdrop-blur-sm shadow-sm border-border/20 text-[10px] uppercase font-bold py-1 px-2.5">
-               {article.sectionTitle}
-             </Badge>
+            <Badge className="bg-background/90 text-foreground backdrop-blur-sm shadow-sm border-border/20 text-[10px] uppercase font-bold py-1 px-2.5">
+              {article.sectionTitle}
+            </Badge>
           </div>
         )}
       </div>
@@ -99,10 +99,10 @@ export function ArticleItem({ article }: ArticleItemProps) {
           {article.doi && (
             <div className="inline-flex items-center gap-1.5 mt-1 text-xs text-muted-foreground bg-muted/30 px-2 py-0.5 rounded-md border border-border/40 w-fit">
               <span className="font-bold">DOI</span>
-              <Link 
-                href={`https://doi.org/${article.doi}`} 
-                target="_blank" 
-                rel="noopener noreferrer" 
+              <Link
+                href={`https://doi.org/${article.doi}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="select-text hover:text-primary hover:underline transition-colors block break-all"
               >
                 {article.doi}
@@ -114,10 +114,10 @@ export function ArticleItem({ article }: ArticleItemProps) {
           {article.keywords && article.keywords.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {article.keywords.map((kw, i) => (
-                <Badge 
-                  key={i} 
-                  variant="secondary"
-                  className="px-2 py-0.5 rounded text-[10px] font-bold border border-border/40 cursor-default bg-background/50 text-muted-foreground hover:text-primary"
+                <Badge
+                  key={i}
+                  variant="default"
+                  className="px-2.5 py-0.5 rounded text-[10px] font-bold border border-border/40 cursor-default bg-background/50 text-muted-foreground hover:text-primary"
                 >
                   {kw}
                 </Badge>
@@ -172,7 +172,7 @@ export function ArticleItem({ article }: ArticleItemProps) {
         <div className="pt-4 mt-auto border-t border-border/40 flex items-center justify-between relative z-20">
           {article.datePublished ? (
             <span className="text-[11px] text-muted-foreground/80 font-bold uppercase tracking-wider">
-               {new Date(article.datePublished).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+              {new Date(article.datePublished).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
             </span>
           ) : (
             <span />
@@ -181,11 +181,11 @@ export function ArticleItem({ article }: ArticleItemProps) {
           <div className="flex items-center gap-2">
             <Button asChild variant="outline" size="sm" className="h-8 gap-2 rounded-full px-4">
               <Link href={articleUrl}>
-                 View Article
+                View Article
               </Link>
             </Button>
             {article.pdfUrl && (
-               <ModalPdfViewer pdfUrl={article.pdfUrl} articleTitle={article.title || undefined} triggerStyle="card" />
+              <ModalPdfViewer pdfUrl={article.pdfUrl} articleTitle={article.title || undefined} triggerStyle="card" />
             )}
           </div>
         </div>
