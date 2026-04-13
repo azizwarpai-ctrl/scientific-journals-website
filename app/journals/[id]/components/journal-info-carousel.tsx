@@ -57,19 +57,29 @@ const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightIte
         </p>
       </div>
 
-      {data.link && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full mt-4 justify-between text-[11px] h-9 rounded-lg border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-all group/btn font-bold uppercase tracking-wider flex-shrink-0"
-          asChild
-        >
-          <Link href={data.link} target="_blank" rel="noopener noreferrer">
-            <span>Explore More</span>
-            <ExternalLink className="h-3 w-3 opacity-60 group-hover/btn:opacity-100 transition-opacity" />
-          </Link>
-        </Button>
-      )}
+      {(() => {
+        if (!data.link) return null
+        try {
+          const url = new URL(data.link)
+          if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+          
+          return (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full mt-4 justify-between text-[11px] h-9 rounded-lg border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-all group/btn font-bold uppercase tracking-wider flex-shrink-0"
+              asChild
+            >
+              <Link href={data.link} target="_blank" rel="noopener noreferrer">
+                <span>Explore More</span>
+                <ExternalLink className="h-3 w-3 opacity-60 group-hover/btn:opacity-100 transition-opacity" />
+              </Link>
+            </Button>
+          )
+        } catch {
+          return null
+        }
+      })()}
     </div>
   )
 })
@@ -78,15 +88,22 @@ const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightIte
 
 function CarouselSkeleton() {
   return (
-    <div className="rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm">
-      <div className="px-5 py-4 border-b border-border/40 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent">
+    <div className="rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm flex flex-col">
+      <div className="px-5 py-4 border-b border-border/40 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent flex-shrink-0">
         <div className="h-5 w-40 bg-muted animate-pulse rounded-md" />
       </div>
-      <div className="p-5 space-y-3">
+      {/* Body container matching h-[380px] */}
+      <div className="p-5 h-[380px] space-y-4">
         <div className="h-40 w-full bg-muted animate-pulse rounded-xl" />
-        <div className="h-4 w-3/4 bg-muted animate-pulse rounded-md" />
-        <div className="h-3 w-full bg-muted animate-pulse rounded-md" />
-        <div className="h-3 w-5/6 bg-muted animate-pulse rounded-md" />
+        <div className="h-6 w-3/4 bg-muted animate-pulse rounded-md" />
+        <div className="h-4 w-full bg-muted animate-pulse rounded-md" />
+        <div className="h-4 w-5/6 bg-muted animate-pulse rounded-md" />
+      </div>
+      {/* Footer container matching dots area */}
+      <div className="h-[40px] border-t border-border/20 flex justify-center items-center gap-1.5 px-5 py-3 bg-muted/10">
+        <div className="h-1.5 w-6 bg-muted/20 animate-pulse rounded-full" />
+        <div className="h-1.5 w-1.5 bg-muted/20 animate-pulse rounded-full" />
+        <div className="h-1.5 w-1.5 bg-muted/20 animate-pulse rounded-full" />
       </div>
     </div>
   )
@@ -197,6 +214,7 @@ export function JournalInfoCarousel({ journalId }: JournalInfoCarouselProps) {
         {!isSingle && (
           <div className="flex items-center gap-1">
             <button
+              type="button"
               onClick={scrollPrev}
               aria-label="Previous highlight"
               className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-30"
@@ -204,6 +222,7 @@ export function JournalInfoCarousel({ journalId }: JournalInfoCarouselProps) {
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
+              type="button"
               onClick={scrollNext}
               aria-label="Next highlight"
               className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-30"
@@ -257,6 +276,7 @@ export function JournalInfoCarousel({ journalId }: JournalInfoCarouselProps) {
             {items.map((_, index) => (
               <button
                 key={index}
+                type="button"
                 onClick={() => scrollTo(index)}
                 aria-label={`Go to slide ${index + 1}`}
                 className={[
