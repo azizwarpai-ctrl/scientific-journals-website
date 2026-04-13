@@ -103,10 +103,25 @@ export function ArticleItem({ article }: ArticleItemProps) {
                 href={`https://doi.org/${article.doi}`} 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="select-text hover:text-primary hover:underline transition-colors block"
+                className="select-text hover:text-primary hover:underline transition-colors block break-all"
               >
                 {article.doi}
               </Link>
+            </div>
+          )}
+
+          {/* Keywords */}
+          {article.keywords && article.keywords.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {article.keywords.map((kw, i) => (
+                <Badge 
+                  key={i} 
+                  variant="secondary"
+                  className="px-2 py-0.5 rounded text-[10px] font-bold border border-border/40 cursor-default bg-background/50 text-muted-foreground hover:text-primary"
+                >
+                  {kw}
+                </Badge>
+              ))}
             </div>
           )}
         </div>

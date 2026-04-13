@@ -152,6 +152,34 @@ export async function fetchArticlesWithAuthors(
     galleysByPub.set(row.publication_id, existing)
   }
 
+  // ── Batch-fetch keywords for all publications ──────────
+  const keywordRows = await ojsQuery<{ publication_id: number, keyword: string, locale: string }>(
+    `SELECT 
+        p.publication_id,
+        cves.setting_value AS keyword,
+        cves.locale
+     FROM publications p
+     JOIN controlled_vocabs cv ON (cv.assoc_id = p.publication_id OR (cv.assoc_id = p.submission_id AND cv.assoc_type = 1048577))
+         AND cv.symbolic IN ('submissionKeyword', 'publicationKeyword')
+     JOIN controlled_vocab_entries cve ON cve.controlled_vocab_id = cv.controlled_vocab_id
+     JOIN controlled_vocab_entry_settings cves ON cves.controlled_vocab_entry_id = cve.controlled_vocab_entry_id
+     WHERE p.publication_id IN (?)
+     ORDER BY p.publication_id, cve.seq ASC`,
+    [publicationIds]
+  )
+  
+  // ── Group keywords by publication_id ───────────────────
+  const keywordsByPub = new Map<number, string[]>()
+  for (const row of keywordRows) {
+    if (row.locale !== primaryLocale && row.locale !== '') continue;
+    const splitKws = row.keyword.split(',').map(k => k.trim()).filter(Boolean)
+    const existing = keywordsByPub.get(row.publication_id) || []
+    for (const kw of splitKws) {
+       if (!existing.includes(kw)) existing.push(kw)
+    }
+    keywordsByPub.set(row.publication_id, existing)
+  }
+
   // ── Map articles with their authors and pdfUrl ───────────────────
   return articleRows.map((row) => {
     const galleys = galleysByPub.get(row.publication_id) || []
@@ -183,6 +211,7 @@ export async function fetchArticlesWithAuthors(
       articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(row.cover_image_raw)),
       pdfUrl,
       doi: row.doi,
+      keywords: keywordsByPub.get(row.publication_id) || [],
     }
   })
 }
