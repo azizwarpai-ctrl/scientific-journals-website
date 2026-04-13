@@ -68,10 +68,10 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
                 href={`https://doi.org/${article.doi}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="hover:text-primary hover:underline transition-colors flex items-center gap-1"
+                className="hover:text-primary hover:underline transition-colors flex items-center gap-1 break-all"
               >
                 {article.doi}
-                <ExternalLink className="h-3 w-3" />
+                <ExternalLink className="h-3 w-3 flex-shrink-0" />
               </a>
             </div>
           )}

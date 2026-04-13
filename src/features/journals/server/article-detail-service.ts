@@ -33,6 +33,7 @@ interface ArticleDbRow {
   publication_id: number
   submission_id: number
   date_published: string | null
+  doi: string | null
   journal_id: number
   issue_id: number | null
   volume: string | null
@@ -65,6 +66,7 @@ export async function fetchArticleDetail(
       p.publication_id,
       p.submission_id,
       p.date_published,
+      d.doi,
       s.context_id as journal_id,
       i.issue_id,
       i.volume,
@@ -81,6 +83,7 @@ export async function fetchArticleDetail(
       j.primary_locale
     FROM publications p
     INNER JOIN submissions s ON s.submission_id = p.submission_id
+    LEFT JOIN dois d ON p.doi_id = d.doi_id
     INNER JOIN journals j ON j.journal_id = s.context_id
     LEFT JOIN issues i ON i.issue_id = p.issue_id
     LEFT JOIN issue_settings is_title ON is_title.issue_id = i.issue_id AND is_title.setting_name = 'title' AND is_title.locale = j.primary_locale
@@ -117,7 +120,7 @@ export async function fetchArticleDetail(
 
   let title = null
   let abstract = null
-  let doi = null
+  let doi = article.doi || null
   let fallbackDoi = null
   let pages: string | null = null
   let coverImageRaw = null
@@ -174,47 +177,36 @@ export async function fetchArticleDetail(
   // 2.5 Fetch Keywords from controlled_vocabs (OJS 3.x Primary Source)
   if (keywords.length === 0) {
     try {
-      // PROOF: Fetching keywords from OJS controlled vocabulary system
-      // We try both Publication (1048585) and Submission (1048577) association types
-      const keywordRows = await ojsQuery<{ keyword: string }>(
-        `SELECT cves.setting_value AS keyword
-         FROM controlled_vocabs cv
+      // PROOF: Fetching keywords directly using validated schema mapping
+      const keywordRows = await ojsQuery<{ keyword: string, locale: string }>(
+        `SELECT 
+            cves.setting_value AS keyword,
+            cves.locale
+         FROM submissions s
+         JOIN publications p ON s.current_publication_id = p.publication_id
+         JOIN controlled_vocabs cv ON cv.assoc_id = p.publication_id 
+             AND cv.symbolic IN ('submissionKeyword', 'publicationKeyword')
          JOIN controlled_vocab_entries cve ON cve.controlled_vocab_id = cv.controlled_vocab_id
          JOIN controlled_vocab_entry_settings cves ON cves.controlled_vocab_entry_id = cve.controlled_vocab_entry_id
-         WHERE cv.symbolic = 'submissionKeyword'
-           AND (
-             (cv.assoc_type = 1048585 AND cv.assoc_id = ?) OR 
-             (cv.assoc_type = 1048577 AND cv.assoc_id = ?)
-           )
-           AND cves.setting_name IN ('interest', 'name', 'title') 
-           AND (cves.locale = ? OR cves.locale = '')
+         WHERE s.submission_id = ? 
          ORDER BY cve.seq ASC`,
-         [publicationId, submissionId, primaryLocale]
+         [submissionId]
       )
       
       if (keywordRows.length > 0) {
-        const uniqueKws = Array.from(new Set(keywordRows.map(r => r.keyword).filter(Boolean)))
-        keywords.push(...uniqueKws)
-      } else {
-        // Broad fallback: ignore locale if nothing found
-        const keywordFallbackRows = await ojsQuery<{ keyword: string }>(
-          `SELECT cves.setting_value AS keyword
-           FROM controlled_vocabs cv
-           JOIN controlled_vocab_entries cve ON cve.controlled_vocab_id = cv.controlled_vocab_id
-           JOIN controlled_vocab_entry_settings cves ON cves.controlled_vocab_entry_id = cve.controlled_vocab_entry_id
-           WHERE cv.symbolic = 'submissionKeyword'
-             AND (
-               (cv.assoc_type = 1048585 AND cv.assoc_id = ?) OR 
-               (cv.assoc_type = 1048577 AND cv.assoc_id = ?)
-             )
-             AND cves.setting_name IN ('interest', 'name', 'title')
-           ORDER BY cve.seq ASC`,
-           [publicationId, submissionId]
-        )
-        if (keywordFallbackRows.length > 0) {
-          const uniqueKws = Array.from(new Set(keywordFallbackRows.map(r => r.keyword).filter(Boolean)))
-          keywords.push(...uniqueKws)
+        // Filter by primary locale, fallback to first available if none match primary locale
+        let filteredRows = keywordRows.filter(r => r.locale === primaryLocale || r.locale === '')
+        if (filteredRows.length === 0) {
+           filteredRows = keywordRows
         }
+        
+        // Clean and split keywords in case they are comma separated in a single string (as discovered by user)
+        const processKeywords = (kws: string[]) => {
+           return kws.flatMap(k => k.split(',')).map(k => k.trim()).filter(Boolean)
+        }
+        
+        const uniqueKws = Array.from(new Set(processKeywords(filteredRows.map(r => r.keyword))))
+        keywords.push(...uniqueKws)
       }
     } catch (error) {
       console.warn(`[ArticleDetail] Could not fetch keywords from controlled_vocabs for publication ${publicationId}:`, error)
