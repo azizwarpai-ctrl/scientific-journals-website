@@ -25,6 +25,7 @@ export interface CurrentIssueArticle {
   sectionId: number | null
   articleCoverUrl: string | null
   pdfUrl: string | null
+  doi?: string | null
 }
 
 export interface CurrentIssue {

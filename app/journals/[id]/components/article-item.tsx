@@ -16,6 +16,7 @@ import DOMPurify from "dompurify"
 import type { CurrentIssueArticle } from "@/src/features/journals"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ModalPdfViewer } from "../articles/[publicationId]/components/modal-pdf-viewer"
 
 interface ArticleItemProps {
   article: CurrentIssueArticle
@@ -93,6 +94,21 @@ export function ArticleItem({ article }: ArticleItemProps) {
               <span className="line-clamp-2 leading-relaxed">{authorNames}</span>
             </div>
           )}
+
+          {/* DOI */}
+          {article.doi && (
+            <div className="inline-flex items-center gap-1.5 mt-1 text-xs text-muted-foreground bg-muted/30 px-2 py-0.5 rounded-md border border-border/40 w-fit">
+              <span className="font-bold">DOI</span>
+              <Link 
+                href={`https://doi.org/${article.doi}`} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="select-text hover:text-primary hover:underline transition-colors block"
+              >
+                {article.doi}
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Abstract Toggle */}
@@ -154,12 +170,7 @@ export function ArticleItem({ article }: ArticleItemProps) {
               </Link>
             </Button>
             {article.pdfUrl && (
-               <Button asChild variant="ghost" size="sm" className="h-8 gap-2 text-primary hover:bg-primary/10 rounded-full px-4 -mr-2">
-                 <a href={article.pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                   Download PDF
-                   <Download className="h-3.5 w-3.5 opacity-70" />
-                 </a>
-               </Button>
+               <ModalPdfViewer pdfUrl={article.pdfUrl} articleTitle={article.title || undefined} triggerStyle="card" />
             )}
           </div>
         </div>

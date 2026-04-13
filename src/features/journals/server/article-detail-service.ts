@@ -24,6 +24,7 @@ interface GalleyRow {
   galley_id: number
   label: string | null
   locale: string | null
+  remote_url: string | null
 }
 
 const OJS_STATUS_PUBLISHED = 3
@@ -117,6 +118,7 @@ export async function fetchArticleDetail(
   let title = null
   let abstract = null
   let doi = null
+  let fallbackDoi = null
   let pages: string | null = null
   let coverImageRaw = null
   const keywords: string[] = []
@@ -130,8 +132,10 @@ export async function fetchArticleDetail(
         allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'b', 'i', 'sup', 'sub'],
         allowedAttributes: {},
       }) : null
-    } else if (s.setting_name === 'pub-id::doi') {
+    } else if (s.setting_name === 'doi') {
       doi = s.setting_value
+    } else if (s.setting_name === 'pub-id::doi') {
+      fallbackDoi = s.setting_value
     } else if (s.setting_name === 'pages' && s.setting_value && (s.locale === primaryLocale || !pages)) {
       pages = s.setting_value
     } else if (s.setting_name === 'coverImage' && (s.locale === primaryLocale || !coverImageRaw)) {
@@ -161,6 +165,10 @@ export async function fetchArticleDetail(
         keywords.push(s.setting_value)
       }
     }
+  }
+
+  if (!doi && fallbackDoi) {
+    doi = fallbackDoi
   }
 
   // 2.5 Fetch Keywords from controlled_vocabs (OJS 3.x Primary Source)
@@ -245,29 +253,35 @@ export async function fetchArticleDetail(
     orcid: row.orcid
   }))
 
-  // 4. Fetch Galleys
-  const galleyRows = await ojsQuery<GalleyRow>(
+  // 4. Fetch Galleys and Submission Files
+  const galleyRows = await ojsQuery<GalleyRow & { submission_file_id: number | null }>(
     `SELECT
-      galley_id,
-      label,
-      locale
-    FROM publication_galleys
-    WHERE publication_id = ?
-    ORDER BY seq ASC`,
+      pg.galley_id,
+      pg.label,
+      pg.locale,
+      pg.remote_url,
+      sf.submission_file_id
+    FROM publication_galleys pg
+    LEFT JOIN submission_files sf ON pg.submission_file_id = sf.submission_file_id
+    WHERE pg.publication_id = ?
+    ORDER BY pg.seq ASC`,
     [publicationId]
   )
 
-  const ojsBaseUrl = process.env.OJS_BASE_URL || process.env.NEXT_PUBLIC_OJS_BASE_URL || getOjsBaseUrl() || ''
-  const cleanBaseUrl = ojsBaseUrl.endsWith('/') ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
+  const ojsBaseUrl = getOjsBaseUrl()
   
   const galleys: ArticleGalley[] = galleyRows.map(row => {
     return {
       galleyId: row.galley_id,
       label: row.label,
       locale: row.locale,
-      downloadUrl: (cleanBaseUrl && article.journal_url_path) 
-        ? `${cleanBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}?inline=1` 
-        : null
+      downloadUrl: row.remote_url 
+        ? row.remote_url
+        : (row.submission_file_id && article.journal_url_path)
+          ? `/api/pdf-proxy?journal=${article.journal_url_path}&submissionId=${submissionId}&fileId=${row.submission_file_id}`
+          : (ojsBaseUrl && article.journal_url_path) 
+            ? `${ojsBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}?inline=1` 
+            : null
     }
   })
 
