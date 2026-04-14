@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, memo } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ExternalLink, Sparkles, ChevronLeft, ChevronRight, Bug } from "lucide-react"
+import { ExternalLink, Sparkles, ChevronLeft, ChevronRight, Bug, Pause, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useGetCustomBlocks } from "@/src/features/journals/api/use-get-custom-blocks"
 import useEmblaCarousel from "embla-carousel-react"
@@ -64,13 +64,27 @@ function resolveItems(raw: unknown): HighlightItem[] {
 // the carousel never scrolls.
 
 const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightItem }) {
-  const safeLink = (() => {
+  const linkInfo = (() => {
     if (!data.link) return null
+    // Support relative paths (starting with / or .)
+    if (data.link.startsWith("/") || data.link.startsWith(".")) {
+      return { href: data.link, isExternal: false }
+    }
     try {
       const u = new URL(data.link)
-      return u.protocol === "http:" || u.protocol === "https:" ? data.link : null
-    } catch { return null }
+      const isExternal = u.protocol === "http:" || u.protocol === "https:"
+      return isExternal ? { href: data.link, isExternal: true } : null
+    } catch { 
+      // Treat as relative if it doesn't look like a protocol-led URL but contains safe path chars
+      if (/^[a-zA-Z0-9_\-\/.]+$/.test(data.link)) {
+        return { href: data.link, isExternal: false }
+      }
+      return null 
+    }
   })()
+
+  const safeLink = linkInfo?.href
+  const isExternal = linkInfo?.isExternal
 
   return (
     <div className="flex flex-col h-full p-5 select-none">
@@ -113,7 +127,11 @@ const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightIte
           className="w-full mt-4 justify-between text-[11px] h-9 rounded-lg border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-all group/btn font-bold uppercase tracking-wider flex-shrink-0"
           asChild
         >
-          <Link href={safeLink} target="_blank" rel="noopener noreferrer">
+          <Link 
+            href={safeLink} 
+            target={isExternal ? "_blank" : undefined} 
+            rel={isExternal ? "noopener noreferrer" : undefined}
+          >
             <span>Explore More</span>
             <ExternalLink className="h-3 w-3 opacity-60 group-hover/btn:opacity-100 transition-opacity" />
           </Link>
@@ -127,9 +145,12 @@ const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightIte
 // Renders only in development. Shows the raw API response shape so you can
 // immediately see which key holds your blocks array.
 
-function DebugPanel({ raw, items }: { raw: unknown; items: HighlightItem[] }) {
+function DebugPanel({ raw, items, debug }: { raw: unknown; items: HighlightItem[]; debug?: boolean }) {
   const [open, setOpen] = useState(true)
-  if (process.env.NODE_ENV === "production") return null
+  const isDev = process.env.NODE_ENV === "development"
+  
+  // Respect explicit debug prop or dev mode
+  if (!debug && !isDev) return null
 
   return (
     <div className="absolute top-2 right-2 z-50 max-w-[260px] text-left">
@@ -235,10 +256,12 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
 
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [progress, setProgress] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(true)
 
   const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi])
-  const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi])
-  const scrollTo = useCallback((i: number) => emblaApi?.scrollTo(i), [emblaApi])
+  const scrollNext = useCallback(() => { setProgress(0); emblaApi?.scrollNext() }, [emblaApi])
+  const scrollTo = useCallback((i: number) => { setProgress(0); emblaApi?.scrollTo(i) }, [emblaApi])
+  const togglePlay = useCallback(() => setIsPlaying(v => !v), [])
 
   // Sync selectedIndex with Embla — always clean up listeners
   useEffect(() => {
@@ -255,11 +278,11 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
 
   // Autoplay with animated progress bar
   useEffect(() => {
-    if (!emblaApi || items.length <= 1) return
-    setProgress(0)
+    if (!emblaApi || items.length <= 1 || !isPlaying) return
+    
     const tickMs = 50
     const maxTicks = AUTOPLAY_DELAY_MS / tickMs
-    let tick = 0
+    let tick = (progress * maxTicks) // Resume from where we were
 
     const timer = setInterval(() => {
       tick++
@@ -278,22 +301,35 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
       clearInterval(timer)
       emblaApi.off("select", resetOnNav)
     }
-  }, [emblaApi, items.length])
+  }, [emblaApi, items.length, isPlaying]) // Re-run when isPlaying changes
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
   if (isLoading) return <CarouselSkeleton />
-  if (items.length === 0) return null
-
+  
   const isSingle = items.length === 1
+  const showDebug = debug || process.env.NODE_ENV !== "production"
 
   return (
-    <div className="relative rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm flex flex-col">
+    <div 
+      className="relative rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm flex flex-col"
+      onPointerEnter={() => setIsPlaying(false)}
+      onPointerLeave={() => setIsPlaying(true)}
+      onFocusCapture={() => setIsPlaying(false)}
+      onBlurCapture={() => setIsPlaying(true)}
+    >
 
-      {/* Dev debug panel — invisible in production */}
-      {(debug || process.env.NODE_ENV !== "production") && (
-        <DebugPanel raw={rawData} items={items} />
+      {/* Dev debug panel — shows even if items.length === 0 */}
+      {showDebug && (
+        <DebugPanel raw={rawData} items={items} debug={debug} />
       )}
+
+      {items.length === 0 ? (
+        <div className="h-[150px] flex items-center justify-center text-muted-foreground bg-muted/5 italic text-sm">
+          No highlights available to display.
+        </div>
+      ) : (
+        <>
 
       {/* ── Header ── */}
       <div className="px-5 py-4 border-b border-border/40 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent flex-shrink-0 flex items-center justify-between">
@@ -313,6 +349,14 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
 
         {!isSingle && (
           <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={togglePlay}
+              aria-label={isPlaying ? "Pause autoplay" : "Start autoplay"}
+              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors mr-1"
+            >
+              {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+            </button>
             <button
               type="button"
               onClick={scrollPrev}
@@ -388,6 +432,8 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
               />
             ))}
           </div>
+        </>
+      )}
         </>
       )}
     </div>
