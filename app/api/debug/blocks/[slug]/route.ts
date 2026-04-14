@@ -48,7 +48,7 @@ export async function GET(
       const rawVal = blockManagerRaw[0].setting_value;
       try {
         activeBlocksParsed = JSON.parse(rawVal);
-      } catch (_e) {
+      } catch {
         blockManagerError = "Failed to parse JSON. Assuming standard PHP serialized string or raw text.";
         activeBlocksParsed = rawVal;
       }
@@ -77,7 +77,7 @@ export async function GET(
           if (parsed && typeof parsed === "object") {
              localeKeys = Object.keys(parsed);
           }
-        } catch (_e) {
+        } catch {
           parsed = "Parse Error! Value looked like JSON but failed.";
         }
       }

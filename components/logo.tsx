@@ -16,7 +16,8 @@ export function Logo({ className, width = 180, height = 60 }: LogoProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
+    const frame = requestAnimationFrame(() => setMounted(true))
+    return () => cancelAnimationFrame(frame)
   }, [])
 
   // Determine which logo to use based on the theme

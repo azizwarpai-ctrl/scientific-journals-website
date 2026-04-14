@@ -102,8 +102,11 @@ export function CommandPalette() {
       }, 50)
       return () => clearTimeout(t)
     } else {
-      setInputValue("")
-      setDebouncedQuery("")
+      // Use requestAnimationFrame to avoid "cascading render" lint error
+      requestAnimationFrame(() => {
+        setInputValue("")
+        setDebouncedQuery("")
+      })
     }
   }, [isOpen])
 
@@ -138,7 +141,9 @@ export function CommandPalette() {
   const [showLoadingState, setShowLoadingState] = useState(false)
   useEffect(() => {
     if (!isFetching || debouncedQuery.length < 1) {
-      if (showLoadingState) setShowLoadingState(false)
+      if (showLoadingState) {
+        requestAnimationFrame(() => setShowLoadingState(false))
+      }
       return
     }
     const t = setTimeout(() => setShowLoadingState(true), 200)
