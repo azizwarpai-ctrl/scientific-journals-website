@@ -246,6 +246,9 @@ export async function fetchArticleDetail(
   }))
 
   // 4. Fetch Galleys and Submission Files
+  // NOTE: We pass both galley_id (for OJS web download URL) and submission_file_id
+  // (for OJS REST API with key). galley_id is the correct ID for the public
+  // /article/download/{submissionId}/{galleyId} endpoint.
   const galleyRows = await ojsQuery<GalleyRow & { submission_file_id: number | null }>(
     `SELECT
       pg.galley_id,
@@ -261,19 +264,33 @@ export async function fetchArticleDetail(
   )
 
   const ojsBaseUrl = getOjsBaseUrl()
-  
+
   const galleys: ArticleGalley[] = galleyRows.map(row => {
+    if (row.remote_url) {
+      return { galleyId: row.galley_id, label: row.label, locale: row.locale, downloadUrl: row.remote_url }
+    }
+
+    if (!article.journal_url_path) {
+      return { galleyId: row.galley_id, label: row.label, locale: row.locale, downloadUrl: null }
+    }
+
+    // Build proxy URL using galley_id as primary identifier.
+    // The proxy uses galleyId for /article/download/{sub}/{galley} (no API key needed)
+    // and optionally fileId for the REST API path when OJS_API_KEY is set.
+    const params = new URLSearchParams({
+      journal: article.journal_url_path,
+      submissionId: String(submissionId),
+      galleyId: String(row.galley_id),
+    })
+    if (row.submission_file_id) {
+      params.set("fileId", String(row.submission_file_id))
+    }
+
     return {
       galleyId: row.galley_id,
       label: row.label,
       locale: row.locale,
-      downloadUrl: row.remote_url 
-        ? row.remote_url
-        : (row.submission_file_id && article.journal_url_path)
-          ? `/api/pdf-proxy?journal=${article.journal_url_path}&submissionId=${submissionId}&fileId=${row.submission_file_id}`
-          : (ojsBaseUrl && article.journal_url_path) 
-            ? `${ojsBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}?inline=1` 
-            : null
+      downloadUrl: `/api/pdf-proxy?${params.toString()}`,
     }
   })
 

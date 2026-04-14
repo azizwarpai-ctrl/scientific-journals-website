@@ -85,7 +85,7 @@ export function ModalPdfViewer({ pdfUrl, articleTitle = "Document", triggerStyle
           <Button className="w-full font-bold h-12 shadow-sm relative overflow-hidden group rounded-xl">
             <div className="absolute inset-0 bg-primary/10 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300" />
             <span className="relative flex items-center gap-2">
-              <Maximize className="h-5 w-5" /> View Full Text
+              <Maximize className="h-5 w-5" /> View PDF
             </span>
           </Button>
         ) : (

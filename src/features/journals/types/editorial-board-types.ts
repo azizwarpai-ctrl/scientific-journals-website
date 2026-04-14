@@ -19,6 +19,10 @@ export interface EditorialBoardMember {
   affiliation: string | null
   /** OJS role_id — numeric identifier for the role type */
   roleId: number
+  /** ORCID iD from user_settings (full URL or bare ID) */
+  orcid?: string | null
+  /** Personal or institutional website URL from user_settings */
+  url?: string | null
 }
 
 export interface EditorialBoardResponse {

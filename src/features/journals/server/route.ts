@@ -557,6 +557,44 @@ app.get("/:id/custom-blocks", zValidator("param", journalSlugParamSchema), async
   }
 })
 
+// ─── GET /journals/:id/policies — OJS Journal Policy Content ──────────
+
+app.get("/:id/policies", zValidator("param", journalSlugParamSchema), async (c) => {
+  try {
+    const { id } = c.req.valid("param")
+
+    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
+    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
+    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+
+    if (!journal) {
+      return c.json({ success: false, error: "Journal not found" }, 404)
+    }
+
+    if (!journal.ojs_id) {
+      return c.json({ success: true, data: null, message: "No OJS data" }, 200)
+    }
+
+    const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
+
+    if (!isOjsConfigured()) {
+      return c.json({ success: true, data: null, message: "OJS not configured" }, 200)
+    }
+
+    try {
+      const { fetchJournalPolicies } = await import("@/src/features/journals/server/journal-policies-service")
+      const policies = await fetchJournalPolicies(journal.ojs_id)
+      return c.json({ success: true, data: policies }, 200)
+    } catch (queryError) {
+      console.error("[Policies API] OJS Query Error:", queryError)
+      return c.json({ success: false, error: "Failed to fetch policies from OJS" }, 502)
+    }
+  } catch (error) {
+    console.error("Error fetching journal policies:", error)
+    return c.json({ success: false, error: "Failed to fetch journal policies" }, 500)
+  }
+})
+
 const journalIssueParamSchema = z.object({
   id: z.string().min(1),
   issueId: z.string().regex(/^\d+$/, "Issue ID must be numeric")

@@ -18,6 +18,7 @@ import {
   ArrowRight,
   Database,
   Calendar,
+  Scale,
 } from "lucide-react"
 
 import DOMPurify from "dompurify"
@@ -39,6 +40,7 @@ import { ArchiveSection } from "./components/archive-section"
 import { Newspaper as NewspaperIcon, Archive as ArchiveIcon } from "lucide-react"
 import { EditorialBoardSection } from "./components/editorial-board-section"
 import { JournalInfoCarousel } from "./components/journal-info-carousel"
+import { JournalPoliciesSection } from "./components/journal-policies-section"
 
 export default function JournalDetailPage() {
   const id = useJournalId()
@@ -280,6 +282,13 @@ export default function JournalDetailPage() {
                       <ArchiveIcon className="mr-2 h-4 w-4" />
                       Archive
                     </TabsTrigger>
+                    <TabsTrigger
+                      value="policies"
+                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                    >
+                      <Scale className="mr-2 h-4 w-4" />
+                      Policies
+                    </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="current" className="mt-8">
@@ -292,6 +301,10 @@ export default function JournalDetailPage() {
                     <ArchiveSection
                       journalId={id}
                     />
+                  </TabsContent>
+
+                  <TabsContent value="policies" className="mt-8">
+                    <JournalPoliciesSection journalId={id} />
                   </TabsContent>
 
                   <TabsContent value="about" className="mt-8 space-y-10">

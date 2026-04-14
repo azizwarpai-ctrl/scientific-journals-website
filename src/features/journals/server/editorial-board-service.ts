@@ -8,8 +8,9 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 
-// Roles to exclude from the editorial board (Author=65536, Reviewer=4096, Reader=1048576)
-const EXCLUDED_ROLE_IDS = "65536, 4096, 1048576"
+// Roles to exclude from the editorial board:
+//   16=Journal Manager (admin staff, not academic editors), 65536=Author, 4096=Reviewer, 1048576=Reader
+const EXCLUDED_ROLE_IDS = "16, 65536, 4096, 1048576"
 
 interface EditorialBoardRow {
   user_id: number
@@ -18,6 +19,8 @@ interface EditorialBoardRow {
   family_name: string | null
   affiliation: string | null
   role_name: string | null
+  orcid: string | null
+  url: string | null
 }
 
 function buildEditorialBoardQuery(whereClause: string) {
@@ -39,7 +42,9 @@ function buildEditorialBoardQuery(whereClause: string) {
       COALESCE(
         NULLIF(TRIM(ugs_name_loc.setting_value), ''),
         NULLIF(TRIM(ugs_name_any.setting_value), '')
-      ) AS role_name
+      ) AS role_name,
+      NULLIF(TRIM(us_orcid.setting_value), '') AS orcid,
+      NULLIF(TRIM(us_url.setting_value), '')   AS url
     FROM user_user_groups uug
     INNER JOIN user_groups ug
       ON ug.user_group_id = uug.user_group_id
@@ -104,6 +109,12 @@ function buildEditorialBoardQuery(whereClause: string) {
       ) gq ON gs1.user_group_id = gq.user_group_id AND gs1.locale = gq.min_loc
       WHERE gs1.setting_name = 'name'
     ) ugs_name_any ON ugs_name_any.user_group_id = ug.user_group_id
+    -- ORCID iD (locale-independent in OJS user_settings)
+    LEFT JOIN user_settings us_orcid
+      ON us_orcid.user_id = u.user_id AND us_orcid.setting_name = 'orcid'
+    -- Personal / institutional URL
+    LEFT JOIN user_settings us_url
+      ON us_url.user_id = u.user_id AND us_url.setting_name = 'url'
     ${whereClause}
     ORDER BY ug.role_id ASC, family_name ASC, given_name ASC`
 }
@@ -215,6 +226,8 @@ export async function fetchEditorialBoard(
       role: row.role_name?.trim() || "Editorial Board Member",
       affiliation: row.affiliation?.trim() || null,
       roleId: row.role_id,
+      orcid: row.orcid?.trim() || null,
+      url: row.url?.trim() || null,
     })
   }
 

@@ -223,51 +223,76 @@ export async function fetchCustomBlocks(
 
     if (!cleanContent) continue
     
-    // Deconstruct block HTML to find inner items as requested by strict workflow
+    // Deconstruct block HTML to find inner items.
+    //
+    // OJS custom blocks can have several structures:
+    //   A) <div class="content"><div>...item...</div><div>...item...</div></div>
+    //   B) <ul><li>...item...</li></ul>
+    //   C) Flat HTML with no wrapper structure (single item)
+    //   D) Multiple top-level <p> or text elements (single item)
+    //
+    // Strategy: try progressively broader selectors, pick the first that
+    // yields ≥2 child elements with meaningful content.
     const $ = load(cleanContent)
     const items: CustomBlock[] = []
-    
-    // Use an exact selector for standard OJS sidebar blocks (.content > div) to prevent nested elements spanning multiple slides
-    // Fall back to a generic deeper selector if the theme wrapper is missing
-    const container = $(".content > div").first()
-    const targetElements = container.length > 0 ? container.children("div") : $("div > div > div")
-    
-    targetElements.each((_, el) => {
-      // Prevent parent containers from being evaluated as single items if we used the generic selector
-      if ($(el).parent().hasClass("content")) return
 
-      const htmlContent = $(el).html() || ""
-      if (!htmlContent.trim()) return
+    // Candidate selectors from most-specific to most-generic
+    const CANDIDATE_SELECTORS = [
+      ".content > div",          // OJS default block theme wrapper
+      ".pkp_block > div",        // PKP sidebar block class
+      "ul > li",                 // List-style blocks
+      "> div",                   // Direct children of root (cheerio root = <html><body>)
+      "body > div",              // Direct div children of body
+      "div > div",               // Any nested divs
+    ]
 
-      const { title, image, link, description } = extractCardFields(htmlContent, name)
-      
-      // Strict validation per Phase 3 extraction logic to avoid duplicates/empty cards
-      if (title && description && description !== title && description !== 'No description available.') {
-        // Enforce backend map validation with zod
-        const itemResult = CustomBlockSchema.safeParse({
-          name: `${name}-${items.length}`,
-          content: htmlContent,
-          title,
-          image,
-          link,
-          description
-        })
+    let bestElements: ReturnType<typeof $> | null = null
 
-        if (itemResult.success) {
-          items.push(itemResult.data)
-        }
+    for (const selector of CANDIDATE_SELECTORS) {
+      const els = $(selector)
+      // Only accept if we get ≥2 elements, each with non-trivial text
+      const withContent = els.filter((_, el) => {
+        const text = $(el).text().trim()
+        return text.length > 20
+      })
+      if (withContent.length >= 2) {
+        bestElements = withContent
+        break
       }
-    })
+    }
+
+    if (bestElements && bestElements.length >= 2) {
+      bestElements.each((idx, el) => {
+        const htmlContent = $(el).html() || ""
+        if (!htmlContent.trim()) return
+
+        const { title, image, link, description } = extractCardFields(htmlContent, `${name}-${idx}`)
+
+        if (title && description && description !== title && description !== "No description available.") {
+          const itemResult = CustomBlockSchema.safeParse({
+            name: `${name}-${idx}`,
+            content: htmlContent,
+            title,
+            image,
+            link,
+            description,
+          })
+          if (itemResult.success) {
+            items.push(itemResult.data)
+          }
+        }
+      })
+    }
 
     if (items.length > 0) {
       blocks.push(...items)
     } else {
-      // Fallback for flat blocks that don't match the div nesting structure
+      // Fallback: treat the entire block as a single carousel item
       const cardFields = extractCardFields(cleanContent, name)
-      blocks.push({ 
-        name, 
+      blocks.push({
+        name,
         content: cleanContent,
-        ...cardFields
+        ...cardFields,
       })
     }
   }
