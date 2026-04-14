@@ -1,226 +1,395 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, memo } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ChevronLeft, ChevronRight, ExternalLink, Sparkles } from "lucide-react"
+import { ExternalLink, Sparkles, ChevronLeft, ChevronRight, Bug } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useGetCustomBlocks } from "@/src/features/journals/api/use-get-custom-blocks"
-import { motion, AnimatePresence } from "framer-motion"
+import useEmblaCarousel from "embla-carousel-react"
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface HighlightItem {
+  image?: string
+  title: string
+  description: string
+  link?: string
+}
 
 interface JournalInfoCarouselProps {
   journalId: string
+  /** Enable the debug panel (auto-enabled in development) */
+  debug?: boolean
 }
 
-export function JournalInfoCarousel({ journalId }: JournalInfoCarouselProps) {
-  const { data, isLoading } = useGetCustomBlocks(journalId)
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [direction, setDirection] = useState(0)
-  const [isHovered, setIsHovered] = useState(false)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
+// ─── Data resolver ────────────────────────────────────────────────────────────
+// useGetCustomBlocks can return data wrapped in different shapes depending on
+// the Hono RPC layer. This function tries every common shape so no items are
+// silently dropped due to a wrong accessor.
+//
+// Shapes handled:
+//   { blocks: [...] }              ← direct (most common)
+//   { data: { blocks: [...] } }    ← wrapped once by Hono success response
+//   { data: [...] }                ← array directly on data key
+//   { highlights: [...] }          ← OJS-native naming
+//   [...]                          ← bare array
 
-  const cards = data?.blocks || []
+function resolveItems(raw: unknown): HighlightItem[] {
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw as HighlightItem[]
+  if (typeof raw !== "object") return []
 
-  // Ensure currentIndex is always within bounds when cards list changes
-  useEffect(() => {
-    if (cards.length > 0 && currentIndex >= cards.length) {
-      setCurrentIndex(Math.max(0, cards.length - 1))
+  const r = raw as Record<string, unknown>
+
+  if (Array.isArray(r.blocks)) return r.blocks as HighlightItem[]
+  if (Array.isArray(r.highlights)) return r.highlights as HighlightItem[]
+  if (Array.isArray(r.items)) return r.items as HighlightItem[]
+
+  if (r.data) {
+    if (Array.isArray(r.data)) return r.data as HighlightItem[]
+    if (typeof r.data === "object") {
+      const d = r.data as Record<string, unknown>
+      if (Array.isArray(d.blocks)) return d.blocks as HighlightItem[]
+      if (Array.isArray(d.highlights)) return d.highlights as HighlightItem[]
     }
-  }, [cards.length, currentIndex])
-
-  const nextSlide = useCallback(() => {
-    if (cards.length <= 1) return
-    setDirection(1)
-    setCurrentIndex(prev => (prev + 1) % cards.length)
-  }, [cards.length])
-
-  const prevSlide = useCallback(() => {
-    if (cards.length <= 1) return
-    setDirection(-1)
-    setCurrentIndex(prev => (prev - 1 + cards.length) % cards.length)
-  }, [cards.length])
-
-  // Helper to (re)start the autoplay timer
-  const startTimer = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current)
-    if (cards.length <= 1 || isHovered) return
-
-    timerRef.current = setInterval(() => {
-      nextSlide()
-    }, 5000)
-  }, [cards.length, isHovered, nextSlide])
-
-  // Reset timer on manual navigation or hover
-  const resetTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
-    }
-  }, [])
-
-  // Auto-play logic: re-arms via startTimer helper
-  useEffect(() => {
-    startTimer()
-    return () => resetTimer()
-  }, [startTimer, resetTimer])
-
-  const goToSlide = useCallback((index: number) => {
-    if (index === currentIndex) return
-    setDirection(index > currentIndex ? 1 : -1)
-    setCurrentIndex(index)
-  }, [currentIndex])
-
-  // Slide animation variants
-  const variants = {
-    enter: (dir: number) => ({
-      x: dir > 0 ? 100 : -100,
-      opacity: 0,
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-    },
-    exit: (dir: number) => ({
-      x: dir > 0 ? -100 : 100,
-      opacity: 0,
-    }),
   }
 
-  if (isLoading) {
-    return (
-      <div className="rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm">
-        <div className="p-5 border-b border-border/40 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent">
-          <div className="h-5 w-40 bg-muted animate-pulse rounded-md" />
-        </div>
-        <div className="p-5 space-y-3">
-          <div className="h-40 w-full bg-muted animate-pulse rounded-xl" />
-          <div className="h-4 w-3/4 bg-muted animate-pulse rounded-md" />
-          <div className="h-3 w-full bg-muted animate-pulse rounded-md" />
-        </div>
-      </div>
-    )
-  }
+  return []
+}
 
-  if (cards.length === 0) return null
+// ─── HighlightCard ────────────────────────────────────────────────────────────
+// Defined OUTSIDE the parent component — if defined inside, React creates a new
+// component type on every render, forcing Embla to lose its DOM reference and
+// the carousel never scrolls.
 
-  const currentCard = cards[currentIndex]
+const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightItem }) {
+  const safeLink = (() => {
+    if (!data.link) return null
+    try {
+      const u = new URL(data.link)
+      return u.protocol === "http:" || u.protocol === "https:" ? data.link : null
+    } catch { return null }
+  })()
 
   return (
-    <div 
-      className="rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm flex flex-col h-full"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Section Header */}
-      <div className="px-5 py-4 border-b border-border/40 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/15">
-              <Sparkles className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold tracking-tight text-foreground uppercase tracking-wider">
-                Highlights
-              </h3>
-            </div>
-          </div>
+    <div className="flex flex-col h-full p-5 select-none">
+      {data.image && (
+        <div
+          className="relative w-full rounded-xl overflow-hidden border border-border/40 bg-muted/20 mb-4 shadow-inner flex-shrink-0"
+          style={{ aspectRatio: "16/9" }}
+        >
+          <Image
+            src={data.image}
+            alt={data.title}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 400px"
+            draggable={false}
+          />
+        </div>
+      )}
 
-          {cards.length > 1 && (
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => { prevSlide(); startTimer(); }}
-                className="p-1.5 rounded-full border border-border/60 hover:bg-primary/10 hover:border-primary/30 transition-all duration-300"
-                aria-label="Previous highlight"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => { nextSlide(); startTimer(); }}
-                className="p-1.5 rounded-full border border-border/60 hover:bg-primary/10 hover:border-primary/30 transition-all duration-300"
-                aria-label="Next highlight"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
+      <div className="flex-1 flex flex-col min-h-0">
+        <h4 className="text-[15px] font-bold text-foreground leading-snug mb-2 tracking-tight line-clamp-2">
+          {data.title}
+        </h4>
+        <p
+          className="text-[13px] text-muted-foreground/90 leading-relaxed font-medium italic flex-1 overflow-hidden"
+          style={{
+            display: "-webkit-box",
+            WebkitLineClamp: data.image ? 3 : 8,
+            WebkitBoxOrient: "vertical",
+          }}
+        >
+          &ldquo;{data.description}&rdquo;
+        </p>
+      </div>
+
+      {safeLink && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full mt-4 justify-between text-[11px] h-9 rounded-lg border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-all group/btn font-bold uppercase tracking-wider flex-shrink-0"
+          asChild
+        >
+          <Link href={safeLink} target="_blank" rel="noopener noreferrer">
+            <span>Explore More</span>
+            <ExternalLink className="h-3 w-3 opacity-60 group-hover/btn:opacity-100 transition-opacity" />
+          </Link>
+        </Button>
+      )}
+    </div>
+  )
+})
+
+// ─── Debug Panel ──────────────────────────────────────────────────────────────
+// Renders only in development. Shows the raw API response shape so you can
+// immediately see which key holds your blocks array.
+
+function DebugPanel({ raw, items }: { raw: unknown; items: HighlightItem[] }) {
+  const [open, setOpen] = useState(true)
+  if (process.env.NODE_ENV === "production") return null
+
+  return (
+    <div className="absolute top-2 right-2 z-50 max-w-[260px] text-left">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-yellow-400 text-black rounded shadow"
+      >
+        <Bug className="h-3 w-3" />
+        Debug {open ? "▲" : "▼"}
+      </button>
+
+      {open && (
+        <div className="mt-1 rounded border border-yellow-400 bg-black/90 text-yellow-300 text-[10px] font-mono p-2 overflow-auto max-h-56 space-y-1">
+          <p className="text-yellow-200 font-bold">Resolved items: {items.length}</p>
+          <p className="text-yellow-200 font-bold">Raw shape keys:</p>
+          <pre className="whitespace-pre-wrap break-all text-[9px]">
+            {JSON.stringify(
+              typeof raw === "object" && raw !== null
+                ? Object.keys(raw as object)
+                : raw,
+              null, 2
+            )}
+          </pre>
+          <p className="text-yellow-200 font-bold">Raw data (truncated):</p>
+          <pre className="whitespace-pre-wrap break-all text-[9px]">
+            {JSON.stringify(raw, null, 2).slice(0, 600)}
+          </pre>
+          {items.length <= 1 && (
+            <div className="bg-red-900 text-red-200 p-1.5 rounded mt-1 text-[9px] leading-relaxed">
+              ⚠ Only {items.length} item(s) found.
+              {"\n"}Check if the API returns more blocks — the raw shape above
+              shows all available keys. Update resolveItems() if the correct key
+              is missing, or fix the API query if it has a LIMIT.
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Carousel Content */}
-      <div className="relative flex-1 overflow-hidden min-h-[320px]">
-        <AnimatePresence initial={false} custom={direction} mode="wait">
-          <motion.div
-            key={currentIndex}
-            custom={direction}
-            variants={variants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: 0.4, ease: "anticipate" }}
-            className="absolute inset-0 w-full"
-          >
-            <div className="p-5 flex flex-col h-full">
-              {/* Card Image */}
-              {currentCard.image && (
-                <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden border border-border/40 bg-muted/20 mb-4 shadow-inner">
-                  <Image
-                    src={currentCard.image}
-                    alt={currentCard.title}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 400px"
-                  />
-                </div>
-              )}
-
-              {/* Text Content */}
-              <div className="flex-1">
-                <h4 className="text-base font-bold text-foreground leading-snug mb-2 tracking-tight">
-                  {currentCard.title}
-                </h4>
-
-                <p className="text-[13px] text-muted-foreground/90 leading-relaxed line-clamp-4 whitespace-pre-line font-medium italic">
-                  &ldquo;{currentCard.description}&rdquo;
-                </p>
-              </div>
-
-              {/* Action */}
-              {currentCard.link && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full mt-6 justify-between text-[11px] h-9 rounded-lg border-primary/20 text-primary hover:bg-primary hover:text-white transition-all group/btn font-bold uppercase tracking-wider"
-                  asChild
-                >
-                  <Link href={currentCard.link} target="_blank" rel="noopener noreferrer">
-                    <span>Explore More</span>
-                    <ExternalLink className="h-3 w-3 opacity-60 group-hover/btn:opacity-100 transition-opacity" />
-                  </Link>
-                </Button>
-              )}
-            </div>
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {/* Footer Navigation */}
-      {cards.length > 1 && (
-        <div className="flex justify-center items-center gap-2 px-5 py-4 border-t border-border/40 bg-muted/10 flex-shrink-0">
-          {cards.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => { goToSlide(idx); startTimer(); }}
-              aria-label={`Go to highlight ${idx + 1}`}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                currentIndex === idx
-                  ? "w-8 bg-primary shadow-sm"
-                  : "w-1.5 bg-muted-foreground/20 hover:bg-primary/40"
-              }`}
-            />
-          ))}
         </div>
       )}
     </div>
   )
 }
 
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+function CarouselSkeleton() {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm flex flex-col">
+      <div className="px-5 py-4 border-b border-border/40 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent flex-shrink-0">
+        <div className="h-5 w-40 bg-muted animate-pulse rounded-md" />
+      </div>
+      <div className="p-5 h-[380px] space-y-4">
+        <div className="h-40 w-full bg-muted animate-pulse rounded-xl" />
+        <div className="h-6 w-3/4 bg-muted animate-pulse rounded-md" />
+        <div className="h-4 w-full bg-muted animate-pulse rounded-md" />
+        <div className="h-4 w-5/6 bg-muted animate-pulse rounded-md" />
+      </div>
+      <div className="h-[40px] border-t border-border/20 flex justify-center items-center gap-1.5 bg-muted/10">
+        <div className="h-1.5 w-6 bg-muted/20 animate-pulse rounded-full" />
+        <div className="h-1.5 w-1.5 bg-muted/20 animate-pulse rounded-full" />
+        <div className="h-1.5 w-1.5 bg-muted/20 animate-pulse rounded-full" />
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────────
+
+const AUTOPLAY_DELAY_MS = 4500
+
+export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCarouselProps) {
+  const { data: rawData, isLoading } = useGetCustomBlocks(journalId)
+
+  // Resolve items defensively — handles all common API response shapes
+  const items: HighlightItem[] = resolveItems(rawData)
+
+  // Dev-only: print a detailed report to the console the moment data arrives
+  useEffect(() => {
+    if (rawData == null || process.env.NODE_ENV === "production") return
+    console.group("[JournalInfoCarousel] data diagnostic")
+    console.log("journalId:", journalId)
+    console.log("raw response:", rawData)
+    console.log(`resolved items (${items.length}):`, items)
+    if (items.length <= 1) {
+      console.warn(
+        `⚠ Only ${items.length} item(s) resolved.\n`,
+        "If the OJS database has more highlights, one of these is wrong:\n",
+        "  1. The API query has LIMIT 1 or filters by something unexpected.\n",
+        "  2. The response shape doesn't match any key in resolveItems().\n",
+        "  3. The OJS sync job only imported one highlight.\n",
+        "Check the raw response above and fix accordingly."
+      )
+    }
+    console.groupEnd()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawData])
+
+  // ── Embla ──────────────────────────────────────────────────────────────────
+  // CRITICAL: The element with `emblaRef` must have:
+  //   1. `overflow-hidden`  — clips slides that are translated out of view
+  //   2. An explicit height — without this, Embla can't measure positions and
+  //      the slide row overflows downward; nothing visually scrolls.
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: "start" })
+
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [progress, setProgress] = useState(0)
+
+  const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi])
+  const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi])
+  const scrollTo = useCallback((i: number) => emblaApi?.scrollTo(i), [emblaApi])
+
+  // Sync selectedIndex with Embla — always clean up listeners
+  useEffect(() => {
+    if (!emblaApi) return
+    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap())
+    emblaApi.on("select", onSelect)
+    emblaApi.on("reInit", onSelect)
+    onSelect()
+    return () => {
+      emblaApi.off("select", onSelect)
+      emblaApi.off("reInit", onSelect)
+    }
+  }, [emblaApi])
+
+  // Autoplay with animated progress bar
+  useEffect(() => {
+    if (!emblaApi || items.length <= 1) return
+    setProgress(0)
+    const tickMs = 50
+    const maxTicks = AUTOPLAY_DELAY_MS / tickMs
+    let tick = 0
+
+    const timer = setInterval(() => {
+      tick++
+      setProgress(tick / maxTicks)
+      if (tick >= maxTicks) {
+        tick = 0
+        setProgress(0)
+        emblaApi.scrollNext()
+      }
+    }, tickMs)
+
+    const resetOnNav = () => { tick = 0; setProgress(0) }
+    emblaApi.on("select", resetOnNav)
+
+    return () => {
+      clearInterval(timer)
+      emblaApi.off("select", resetOnNav)
+    }
+  }, [emblaApi, items.length])
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+
+  if (isLoading) return <CarouselSkeleton />
+  if (items.length === 0) return null
+
+  const isSingle = items.length === 1
+
+  return (
+    <div className="relative rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm flex flex-col">
+
+      {/* Dev debug panel — invisible in production */}
+      {(debug || process.env.NODE_ENV !== "production") && (
+        <DebugPanel raw={rawData} items={items} />
+      )}
+
+      {/* ── Header ── */}
+      <div className="px-5 py-4 border-b border-border/40 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent flex-shrink-0 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/15">
+            <Sparkles className="h-4 w-4 text-primary" />
+          </div>
+          <h3 className="text-sm font-bold tracking-widest text-foreground uppercase">
+            Highlights
+          </h3>
+          {!isSingle && (
+            <span className="text-xs text-muted-foreground/60 font-medium tabular-nums">
+              {selectedIndex + 1}&thinsp;/&thinsp;{items.length}
+            </span>
+          )}
+        </div>
+
+        {!isSingle && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={scrollPrev}
+              aria-label="Previous highlight"
+              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={scrollNext}
+              aria-label="Next highlight"
+              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Autoplay progress bar ── */}
+      {!isSingle && (
+        <div className="h-[2px] w-full bg-border/30 flex-shrink-0">
+          <div
+            className="h-full bg-primary/60"
+            style={{ width: `${progress * 100}%`, transition: "none" }}
+          />
+        </div>
+      )}
+
+      {/* ── Carousel body ──────────────────────────────────────────────────────
+          Single item: skip Embla entirely (no wasted JS, no layout thrash).
+          Multi item:  emblaRef container has `overflow-hidden h-[380px]` —
+                       both are required for clipping to work.
+      ─────────────────────────────────────────────────────────────────────── */}
+      {isSingle ? (
+        <div className="h-[380px]">
+          <HighlightCard data={items[0]} />
+        </div>
+      ) : (
+        <>
+          {/* Embla viewport — MUST be overflow-hidden + fixed height */}
+          <div ref={emblaRef} className="overflow-hidden h-[380px] flex-shrink-0">
+            {/* Embla container — translated by Embla to scroll */}
+            <div className="flex h-full">
+              {items.map((item, index) => (
+                <div
+                  key={index}
+                  // flex-[0_0_100%] = one full viewport width per slide
+                  // min-w-0         = prevent flex blowout beyond 100%
+                  className="flex-[0_0_100%] min-w-0 h-full"
+                >
+                  <HighlightCard data={item} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Dot indicators ── */}
+          <div className="flex justify-center items-center gap-1.5 px-5 py-3 bg-muted/10 border-t border-border/20 flex-shrink-0">
+            {items.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => scrollTo(index)}
+                aria-label={`Go to slide ${index + 1}`}
+                className={[
+                  "rounded-full transition-all duration-300",
+                  index === selectedIndex
+                    ? "w-6 h-1.5 bg-primary shadow-sm"
+                    : "w-1.5 h-1.5 bg-muted-foreground/30 hover:bg-primary/50",
+                ].join(" ")}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
