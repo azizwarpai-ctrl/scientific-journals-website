@@ -230,24 +230,18 @@ export async function fetchCustomBlocks(
       // Prevent parent containers from being evaluated as single items
       if ($(el).parent().hasClass("content")) return
 
-      const title = $(el).find("strong").first().text().trim()
-      const image = $(el).find("img").attr("src") || undefined
-      const linkAttr = $(el).find("a").attr("href")
-      const link = linkAttr && linkAttr.trim() !== "" ? linkAttr : undefined
-      const descriptionRaw = $(el).find("div").last().text().trim()
-      
-      const decodedTitle = decodeHtml(title)
-      const decodedDesc = decodeHtml(descriptionRaw)
+      const htmlContent = $(el).html() || ""
+      const { title, image, link, description } = extractCardFields(htmlContent, name)
       
       // Strict validation per Phase 3 extraction logic to avoid duplicates/empty cards
-      if (decodedTitle && decodedDesc && decodedDesc !== decodedTitle) {
+      if (title && description && description !== title && description !== 'No description available.') {
         items.push({
           name: `${name}-${items.length}`,
-          content: $(el).html() || "",
-          title: decodedTitle,
+          content: htmlContent,
+          title,
           image,
           link,
-          description: decodedDesc
+          description
         })
       }
     })
