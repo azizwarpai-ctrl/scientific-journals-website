@@ -26,6 +26,7 @@
  */
 
 import sanitizeHtml from "sanitize-html"
+import { load } from "cheerio"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import type { CustomBlock } from "@/src/features/journals/types/custom-block-types"
 
@@ -221,14 +222,47 @@ export async function fetchCustomBlocks(
 
     if (!cleanContent) continue
     
-    // Extract metadata using helper
-    const cardFields = extractCardFields(cleanContent, name)
+    // Deconstruct block HTML to find inner items as requested by strict workflow
+    const $ = load(cleanContent)
+    const items: CustomBlock[] = []
+    
+    $("div > div > div").each((_, el) => {
+      // Prevent parent containers from being evaluated as single items
+      if ($(el).parent().hasClass("content")) return
 
-    blocks.push({ 
-      name, 
-      content: cleanContent,
-      ...cardFields
+      const title = $(el).find("strong").first().text().trim()
+      const image = $(el).find("img").attr("src") || undefined
+      const linkAttr = $(el).find("a").attr("href")
+      const link = linkAttr && linkAttr.trim() !== "" ? linkAttr : undefined
+      const descriptionRaw = $(el).find("div").last().text().trim()
+      
+      const decodedTitle = decodeHtml(title)
+      const decodedDesc = decodeHtml(descriptionRaw)
+      
+      // Strict validation per Phase 3 extraction logic to avoid duplicates/empty cards
+      if (decodedTitle && decodedDesc && decodedDesc !== decodedTitle) {
+        items.push({
+          name: `${name}-${items.length}`,
+          content: $(el).html() || "",
+          title: decodedTitle,
+          image,
+          link,
+          description: decodedDesc
+        })
+      }
     })
+
+    if (items.length > 0) {
+      blocks.push(...items)
+    } else {
+      // Fallback for flat blocks that don't match the div nesting structure
+      const cardFields = extractCardFields(cleanContent, name)
+      blocks.push({ 
+        name, 
+        content: cleanContent,
+        ...cardFields
+      })
+    }
   }
 
   console.log(`[CustomBlocks] journal_id=${journalId}: returning ${blocks.length} parsed block(s)`)
