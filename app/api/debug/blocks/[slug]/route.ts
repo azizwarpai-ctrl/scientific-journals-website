@@ -111,12 +111,13 @@ export async function GET(
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown internal server error"
     const errorStack = error instanceof Error ? error.stack : undefined
+    const isDev = process.env.NODE_ENV !== "production"
     
     return NextResponse.json(
       { 
         success: false, 
         error: errorMessage, 
-        stack: errorStack 
+        ...(isDev && { stack: errorStack })
       }, 
       { status: 500 }
     );

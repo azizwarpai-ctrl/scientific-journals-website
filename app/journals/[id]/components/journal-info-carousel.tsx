@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { useState, useEffect, useCallback, memo, useRef } from "react"
+import { useState, useEffect, useCallback, memo, useRef, useMemo } from "react"
 import { ExternalLink, Sparkles, ChevronLeft, ChevronRight, Bug, Pause, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useGetCustomBlocks } from "@/src/features/journals/api/use-get-custom-blocks"
@@ -37,25 +37,36 @@ interface JournalInfoCarouselProps {
 
 function resolveItems(raw: unknown): HighlightItem[] {
   if (!raw) return []
-  if (Array.isArray(raw)) return raw as HighlightItem[]
-  if (typeof raw !== "object") return []
 
-  const r = raw as Record<string, unknown>
-
-  if (Array.isArray(r.blocks)) return r.blocks as HighlightItem[]
-  if (Array.isArray(r.highlights)) return r.highlights as HighlightItem[]
-  if (Array.isArray(r.items)) return r.items as HighlightItem[]
-
-  if (r.data) {
-    if (Array.isArray(r.data)) return r.data as HighlightItem[]
-    if (typeof r.data === "object") {
-      const d = r.data as Record<string, unknown>
-      if (Array.isArray(d.blocks)) return d.blocks as HighlightItem[]
-      if (Array.isArray(d.highlights)) return d.highlights as HighlightItem[]
+  let candidates: unknown[] = []
+  if (Array.isArray(raw)) {
+    candidates = raw
+  } else if (typeof raw === "object" && raw !== null) {
+    const r = raw as Record<string, unknown>
+    if (Array.isArray(r.blocks)) candidates = r.blocks
+    else if (Array.isArray(r.highlights)) candidates = r.highlights
+    else if (Array.isArray(r.items)) candidates = r.items
+    else if (r.data) {
+      if (Array.isArray(r.data)) candidates = r.data
+      else if (typeof r.data === "object" && r.data !== null) {
+        const d = r.data as Record<string, unknown>
+        if (Array.isArray(d.blocks)) candidates = d.blocks
+        else if (Array.isArray(d.highlights)) candidates = d.highlights
+      }
     }
   }
 
-  return []
+  // Filter and validate items defensively
+  return candidates.filter((item): item is HighlightItem => {
+    return (
+      item !== null &&
+      typeof item === "object" &&
+      typeof (item as any).title === "string" &&
+      (item as any).title.trim() !== "" &&
+      typeof (item as any).description === "string" &&
+      (item as any).description.trim() !== ""
+    )
+  })
 }
 
 // ─── HighlightCard ────────────────────────────────────────────────────────────
@@ -76,7 +87,8 @@ const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightIte
       return isExternal ? { href: data.link, isExternal: true } : null
     } catch {
       // Treat as relative if it doesn't look like a protocol-led URL but contains safe path chars
-      if (/^[a-zA-Z0-9_\-\/.]+$/.test(data.link)) {
+      // Broadened to allow query params and fragments: ? # = & % +
+      if (/^[a-zA-Z0-9_\-\/.\?#=&%+]+$/.test(data.link)) {
         return { href: data.link, isExternal: false }
       }
       return null
@@ -133,7 +145,9 @@ const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightIte
             rel={isExternal ? "noopener noreferrer" : undefined}
           >
             <span>Explore More</span>
-            <ExternalLink className="h-3 w-3 opacity-60 group-hover/btn:opacity-100 transition-opacity" />
+            {isExternal && (
+              <ExternalLink className="h-3 w-3 opacity-60 group-hover/btn:opacity-100 transition-opacity" />
+            )}
           </Link>
         </Button>
       )}
@@ -224,7 +238,7 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
   const { data: rawData, isLoading } = useGetCustomBlocks(journalId)
 
   // Resolve items defensively — handles all common API response shapes
-  const items: HighlightItem[] = resolveItems(rawData)
+  const items = useMemo(() => resolveItems(rawData), [rawData])
 
   // Dev-only: print a detailed report to the console the moment data arrives
   useEffect(() => {
@@ -257,6 +271,7 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [progress, setProgress] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true)
+  const [announcement, setAnnouncement] = useState("")
 
   const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi])
   const scrollNext = useCallback(() => { setProgress(0); emblaApi?.scrollNext() }, [emblaApi])
@@ -266,7 +281,15 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
   // Sync selectedIndex with Embla — always clean up listeners
   useEffect(() => {
     if (!emblaApi) return
-    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap())
+    const onSelect = () => {
+      const index = emblaApi.selectedScrollSnap()
+      setSelectedIndex(index)
+      // Announcement for screen readers
+      const currentItem = items[index]
+      if (currentItem) {
+        setAnnouncement(`Slide ${index + 1} of ${items.length}: ${currentItem.title}`)
+      }
+    }
     emblaApi.on("select", onSelect)
     emblaApi.on("reInit", onSelect)
     onSelect()
@@ -274,7 +297,7 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
       emblaApi.off("select", onSelect)
       emblaApi.off("reInit", onSelect)
     }
-  }, [emblaApi])
+  }, [emblaApi, items])
 
   const progressRef = useRef(progress)
   useEffect(() => { progressRef.current = progress }, [progress])
@@ -316,11 +339,23 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
   return (
     <div
       className="relative rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm flex flex-col"
+      role="region"
+      aria-roledescription="carousel"
+      aria-label="Journal Highlights"
       onPointerEnter={() => setIsPlaying(false)}
       onPointerLeave={() => setIsPlaying(true)}
       onFocusCapture={() => setIsPlaying(false)}
-      onBlurCapture={() => setIsPlaying(true)}
+      onBlurCapture={(e) => {
+        // Only resume if focus left the carousel entirely
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+          setIsPlaying(true)
+        }
+      }}
     >
+      {/* Visually hidden live region for slide announcements */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
 
       {/* Dev debug panel — shows even if items.length === 0 */}
       {showDebug && (
@@ -405,7 +440,7 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
               <div ref={emblaRef} className="overflow-hidden h-[380px] flex-shrink-0">
                 {/* Embla container — translated by Embla to scroll */}
                 <div className="flex h-full">
-                  {items.map((item, index) => (
+                  {items.map((item: HighlightItem, index: number) => (
                     <div
                       key={index}
                       // flex-[0_0_100%] = one full viewport width per slide
@@ -420,7 +455,7 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
 
               {/* ── Dot indicators ── */}
               <div className="flex justify-center items-center gap-1.5 px-5 py-3 bg-muted/10 border-t border-border/20 flex-shrink-0">
-                {items.map((_, index) => (
+                {items.map((_: HighlightItem, index: number) => (
                   <button
                     key={index}
                     type="button"
