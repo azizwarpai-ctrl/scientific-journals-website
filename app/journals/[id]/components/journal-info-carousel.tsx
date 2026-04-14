@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback, memo } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { useState, useEffect, useCallback, memo, useRef } from "react"
 import { ExternalLink, Sparkles, ChevronLeft, ChevronRight, Bug, Pause, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useGetCustomBlocks } from "@/src/features/journals/api/use-get-custom-blocks"
@@ -74,12 +74,12 @@ const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightIte
       const u = new URL(data.link)
       const isExternal = u.protocol === "http:" || u.protocol === "https:"
       return isExternal ? { href: data.link, isExternal: true } : null
-    } catch { 
+    } catch {
       // Treat as relative if it doesn't look like a protocol-led URL but contains safe path chars
       if (/^[a-zA-Z0-9_\-\/.]+$/.test(data.link)) {
         return { href: data.link, isExternal: false }
       }
-      return null 
+      return null
     }
   })()
 
@@ -127,9 +127,9 @@ const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightIte
           className="w-full mt-4 justify-between text-[11px] h-9 rounded-lg border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-all group/btn font-bold uppercase tracking-wider flex-shrink-0"
           asChild
         >
-          <Link 
-            href={safeLink} 
-            target={isExternal ? "_blank" : undefined} 
+          <Link
+            href={safeLink}
+            target={isExternal ? "_blank" : undefined}
             rel={isExternal ? "noopener noreferrer" : undefined}
           >
             <span>Explore More</span>
@@ -148,7 +148,7 @@ const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightIte
 function DebugPanel({ raw, items, debug }: { raw: unknown; items: HighlightItem[]; debug?: boolean }) {
   const [open, setOpen] = useState(true)
   const isDev = process.env.NODE_ENV === "development"
-  
+
   // Respect explicit debug prop or dev mode
   if (!debug && !isDev) return null
 
@@ -276,13 +276,16 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
     }
   }, [emblaApi])
 
+  const progressRef = useRef(progress)
+  useEffect(() => { progressRef.current = progress }, [progress])
+
   // Autoplay with animated progress bar
   useEffect(() => {
     if (!emblaApi || items.length <= 1 || !isPlaying) return
-    
+
     const tickMs = 50
     const maxTicks = AUTOPLAY_DELAY_MS / tickMs
-    let tick = (progress * maxTicks) // Resume from where we were
+    let tick = (progressRef.current * maxTicks) // Resume from where we were
 
     const timer = setInterval(() => {
       tick++
@@ -306,12 +309,12 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
   // ─── Render ───────────────────────────────────────────────────────────────
 
   if (isLoading) return <CarouselSkeleton />
-  
+
   const isSingle = items.length === 1
   const showDebug = debug || process.env.NODE_ENV !== "production"
 
   return (
-    <div 
+    <div
       className="relative rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm flex flex-col"
       onPointerEnter={() => setIsPlaying(false)}
       onPointerLeave={() => setIsPlaying(true)}
@@ -331,109 +334,109 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
       ) : (
         <>
 
-      {/* ── Header ── */}
-      <div className="px-5 py-4 border-b border-border/40 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent flex-shrink-0 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/15">
-            <Sparkles className="h-4 w-4 text-primary" />
+          {/* ── Header ── */}
+          <div className="px-5 py-4 border-b border-border/40 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent flex-shrink-0 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/15">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
+              <h3 className="text-sm font-bold tracking-widest text-foreground uppercase">
+                Highlights
+              </h3>
+              {!isSingle && (
+                <span className="text-xs text-muted-foreground/60 font-medium tabular-nums">
+                  {selectedIndex + 1}&thinsp;/&thinsp;{items.length}
+                </span>
+              )}
+            </div>
+
+            {!isSingle && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={togglePlay}
+                  aria-label={isPlaying ? "Pause autoplay" : "Start autoplay"}
+                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors mr-1"
+                >
+                  {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={scrollPrev}
+                  aria-label="Previous highlight"
+                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={scrollNext}
+                  aria-label="Next highlight"
+                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
-          <h3 className="text-sm font-bold tracking-widest text-foreground uppercase">
-            Highlights
-          </h3>
+
+          {/* ── Autoplay progress bar ── */}
           {!isSingle && (
-            <span className="text-xs text-muted-foreground/60 font-medium tabular-nums">
-              {selectedIndex + 1}&thinsp;/&thinsp;{items.length}
-            </span>
+            <div className="h-[2px] w-full bg-border/30 flex-shrink-0">
+              <div
+                className="h-full bg-primary/60"
+                style={{ width: `${progress * 100}%`, transition: "none" }}
+              />
+            </div>
           )}
-        </div>
 
-        {!isSingle && (
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={togglePlay}
-              aria-label={isPlaying ? "Pause autoplay" : "Start autoplay"}
-              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors mr-1"
-            >
-              {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-            </button>
-            <button
-              type="button"
-              onClick={scrollPrev}
-              aria-label="Previous highlight"
-              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={scrollNext}
-              aria-label="Next highlight"
-              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* ── Autoplay progress bar ── */}
-      {!isSingle && (
-        <div className="h-[2px] w-full bg-border/30 flex-shrink-0">
-          <div
-            className="h-full bg-primary/60"
-            style={{ width: `${progress * 100}%`, transition: "none" }}
-          />
-        </div>
-      )}
-
-      {/* ── Carousel body ──────────────────────────────────────────────────────
+          {/* ── Carousel body ──────────────────────────────────────────────────────
           Single item: skip Embla entirely (no wasted JS, no layout thrash).
           Multi item:  emblaRef container has `overflow-hidden h-[380px]` —
                        both are required for clipping to work.
       ─────────────────────────────────────────────────────────────────────── */}
-      {isSingle ? (
-        <div className="h-[380px]">
-          <HighlightCard data={items[0]} />
-        </div>
-      ) : (
-        <>
-          {/* Embla viewport — MUST be overflow-hidden + fixed height */}
-          <div ref={emblaRef} className="overflow-hidden h-[380px] flex-shrink-0">
-            {/* Embla container — translated by Embla to scroll */}
-            <div className="flex h-full">
-              {items.map((item, index) => (
-                <div
-                  key={index}
-                  // flex-[0_0_100%] = one full viewport width per slide
-                  // min-w-0         = prevent flex blowout beyond 100%
-                  className="flex-[0_0_100%] min-w-0 h-full"
-                >
-                  <HighlightCard data={item} />
-                </div>
-              ))}
+          {isSingle ? (
+            <div className="h-[380px]">
+              <HighlightCard data={items[0]} />
             </div>
-          </div>
+          ) : (
+            <>
+              {/* Embla viewport — MUST be overflow-hidden + fixed height */}
+              <div ref={emblaRef} className="overflow-hidden h-[380px] flex-shrink-0">
+                {/* Embla container — translated by Embla to scroll */}
+                <div className="flex h-full">
+                  {items.map((item, index) => (
+                    <div
+                      key={index}
+                      // flex-[0_0_100%] = one full viewport width per slide
+                      // min-w-0         = prevent flex blowout beyond 100%
+                      className="flex-[0_0_100%] min-w-0 h-full"
+                    >
+                      <HighlightCard data={item} />
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-          {/* ── Dot indicators ── */}
-          <div className="flex justify-center items-center gap-1.5 px-5 py-3 bg-muted/10 border-t border-border/20 flex-shrink-0">
-            {items.map((_, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => scrollTo(index)}
-                aria-label={`Go to slide ${index + 1}`}
-                className={[
-                  "rounded-full transition-all duration-300",
-                  index === selectedIndex
-                    ? "w-6 h-1.5 bg-primary shadow-sm"
-                    : "w-1.5 h-1.5 bg-muted-foreground/30 hover:bg-primary/50",
-                ].join(" ")}
-              />
-            ))}
-          </div>
-        </>
-      )}
+              {/* ── Dot indicators ── */}
+              <div className="flex justify-center items-center gap-1.5 px-5 py-3 bg-muted/10 border-t border-border/20 flex-shrink-0">
+                {items.map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => scrollTo(index)}
+                    aria-label={`Go to slide ${index + 1}`}
+                    className={[
+                      "rounded-full transition-all duration-300",
+                      index === selectedIndex
+                        ? "w-6 h-1.5 bg-primary shadow-sm"
+                        : "w-1.5 h-1.5 bg-muted-foreground/30 hover:bg-primary/50",
+                    ].join(" ")}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

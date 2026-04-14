@@ -137,14 +137,14 @@ export function CommandPalette() {
   // ── Loading state delay to prevent flicker ────────────────────────────────
   const [showLoadingState, setShowLoadingState] = useState(false)
   useEffect(() => {
-    let t: NodeJS.Timeout
-    if (isFetching && debouncedQuery.length >= 1) {
-      t = setTimeout(() => setShowLoadingState(true), 200) // 200ms delay
-    } else {
-      setShowLoadingState(false)
+    if (!isFetching || debouncedQuery.length < 1) {
+      if (showLoadingState) setShowLoadingState(false)
+      return
     }
+    const t = setTimeout(() => setShowLoadingState(true), 200)
     return () => clearTimeout(t)
-  }, [isFetching, debouncedQuery])
+  }, [isFetching, debouncedQuery, showLoadingState])
+
 
   // ── Guard: nothing to render when closed ─────────────────────────────────
   if (!isOpen) return null

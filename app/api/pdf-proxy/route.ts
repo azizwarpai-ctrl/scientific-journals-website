@@ -85,8 +85,8 @@ export async function GET(request: Request) {
         "Content-Disposition": `inline; filename="article-${submissionId}.pdf"`,
       },
     })
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'AbortError') {
       console.error("[PDF Proxy] Request timed out")
       return new NextResponse('OJS server did not respond in time', { status: 504 })
     }

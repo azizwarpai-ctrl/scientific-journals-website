@@ -2,6 +2,7 @@ import tseslintPlugin from '@typescript-eslint/eslint-plugin';
 import parser from '@typescript-eslint/parser';
 import unusedImports from 'eslint-plugin-unused-imports';
 import nextPlugin from '@next/eslint-plugin-next';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 export default [
     // Global ignores
@@ -34,6 +35,7 @@ export default [
             '@next/next': nextPlugin,
             '@typescript-eslint': tseslintPlugin,
             'unused-imports': unusedImports,
+            'react-hooks': reactHooks,
         },
         languageOptions: {
             parser,
@@ -47,6 +49,7 @@ export default [
             ...nextPlugin.configs.recommended.rules,
             ...nextPlugin.configs['core-web-vitals'].rules,
             ...tseslintPlugin.configs.recommended.rules,
+            ...reactHooks.configs.recommended.rules,
 
             // ✅ Unused imports (warn instead of error)
             'unused-imports/no-unused-imports': 'warn',
