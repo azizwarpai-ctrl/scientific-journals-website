@@ -28,6 +28,7 @@
 import sanitizeHtml from "sanitize-html"
 import { load } from "cheerio"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { CustomBlockSchema } from "@/src/features/journals/types/custom-block-types"
 import type { CustomBlock } from "@/src/features/journals/types/custom-block-types"
 
 // Permitted HTML tags in custom block content (generous but safe)
@@ -226,16 +227,24 @@ export async function fetchCustomBlocks(
     const $ = load(cleanContent)
     const items: CustomBlock[] = []
     
-    $("div > div > div").each((_, el) => {
-      // Prevent parent containers from being evaluated as single items
+    // Use an exact selector for standard OJS sidebar blocks (.content > div) to prevent nested elements spanning multiple slides
+    // Fall back to a generic deeper selector if the theme wrapper is missing
+    const container = $(".content > div").first()
+    const targetElements = container.length > 0 ? container.children("div") : $("div > div > div")
+    
+    targetElements.each((_, el) => {
+      // Prevent parent containers from being evaluated as single items if we used the generic selector
       if ($(el).parent().hasClass("content")) return
 
       const htmlContent = $(el).html() || ""
+      if (!htmlContent.trim()) return
+
       const { title, image, link, description } = extractCardFields(htmlContent, name)
       
       // Strict validation per Phase 3 extraction logic to avoid duplicates/empty cards
       if (title && description && description !== title && description !== 'No description available.') {
-        items.push({
+        // Enforce backend map validation with zod
+        const itemResult = CustomBlockSchema.safeParse({
           name: `${name}-${items.length}`,
           content: htmlContent,
           title,
@@ -243,6 +252,10 @@ export async function fetchCustomBlocks(
           link,
           description
         })
+
+        if (itemResult.success) {
+          items.push(itemResult.data)
+        }
       }
     })
 
@@ -286,11 +299,12 @@ export function extractCardFields(html: string, name: string) {
   const headingMatch = html.match(/<h[2-6][^>]*>(.*?)<\/h[2-6]>/i)
   const strongMatch = html.match(/<strong>(.*?)<\/strong>/i)
   
-  const rawTitle = (headingMatch ? headingMatch[1] : (strongMatch ? strongMatch[1] : name))
+  const rawTitleHtml = headingMatch ? headingMatch[0] : (strongMatch ? strongMatch[0] : '')
+  const rawTitleText = (headingMatch ? headingMatch[1] : (strongMatch ? strongMatch[1] : name))
     .replace(/<[^>]+>/g, '')
     .trim()
   
-  const title = decodeHtml(rawTitle) || name.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  const title = decodeHtml(rawTitleText) || name.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 
   // 2. Image: First img tag source
   const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i)
@@ -301,7 +315,10 @@ export function extractCardFields(html: string, name: string) {
   const link = linkMatch ? linkMatch[1] : undefined
 
   // 4. Description: Remove title/image/link elements and get remaining text
-  let descriptionRaw = html
+  // To avoid Frankenstein strings (title merged into description text), explicitly erase the actual title tag from processing
+  const contentWithoutTitle = rawTitleHtml ? html.replace(rawTitleHtml, '') : html;
+  
+  let descriptionRaw = contentWithoutTitle
     .replace(/<h[2-6][^>]*>.*?<\/h[2-6]>/gi, '')
     .replace(/<img[^>]*>/gi, '')
     .replace(/<a[^>]*>.*?<\/a>/gi, '')
