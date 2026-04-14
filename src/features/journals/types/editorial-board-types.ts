@@ -19,10 +19,16 @@ export interface EditorialBoardMember {
   affiliation: string | null
   /** OJS role_id — numeric identifier for the role type */
   roleId: number
-  /** ORCID iD from user_settings (full URL or bare ID) */
+  /** ORCID iD — bare 16-char ID (XXXX-XXXX-XXXX-XXXX) or null */
   orcid?: string | null
   /** Personal or institutional website URL from user_settings */
   url?: string | null
+  /** Profile image URL (resolved from OJS public/site/profileImages/) */
+  profileImage?: string | null
+  /** Google Scholar profile URL */
+  googleScholar?: string | null
+  /** Scopus author profile URL */
+  scopus?: string | null
 }
 
 export interface EditorialBoardResponse {

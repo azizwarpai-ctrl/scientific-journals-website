@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
+  type LucideIcon,
 } from "lucide-react"
 import { useGetJournalPolicies } from "@/src/features/journals/api/use-get-journal-policies"
 
@@ -19,7 +20,7 @@ interface JournalPoliciesSectionProps {
   journalId: string
 }
 
-type IconComponent = (props: { className?: string }) => JSX.Element
+type IconComponent = LucideIcon
 
 interface PolicyTab {
   id: string
@@ -77,7 +78,7 @@ const POLICY_TABS: PolicyTab[] = [
 const SAFE_HTML_OPTIONS = {
   ALLOWED_TAGS: ["p", "br", "strong", "em", "b", "i", "u", "ul", "ol", "li", "a", "h3", "h4", "h5", "blockquote", "span"],
   ALLOWED_ATTR: ["href", "target", "rel", "class"],
-} as const
+}
 
 function sanitize(html: string | null | undefined): string {
   if (!html) return ""

@@ -9,6 +9,8 @@ import {
   ChevronUp,
   ExternalLink,
   Globe,
+  GraduationCap,
+  Microscope,
 } from "lucide-react"
 import { useState } from "react"
 import { useGetEditorialBoard } from "@/src/features/journals/api/use-get-editorial-board"
@@ -19,12 +21,11 @@ interface EditorialBoardSectionProps {
 }
 
 // ── Role styling — academic seniority hierarchy ──────────────────────────────
-// Journal Manager (16) is excluded at the DB level; hierarchy starts at Editor (17)
 const ROLE_STYLES: Record<
   string,
   { bg: string; text: string; border: string; badge: string; dot: string }
 > = {
-  // Editor-in-Chief / Editor (17)
+  // Editor / Editor-in-Chief (17)
   "17": {
     bg: "bg-primary/5 dark:bg-primary/10",
     text: "text-primary",
@@ -58,11 +59,7 @@ const ROLE_STYLES: Record<
   },
 }
 
-// Legacy numeric aliases used by the fallback card (roleId 256 from local DB)
-const LEGACY_ALIASES: Record<string, string> = {
-  "256": "17",
-  "512": "19",
-}
+const LEGACY_ALIASES: Record<string, string> = { "256": "17", "512": "19" }
 
 function getRoleStyle(roleId: number) {
   const key = LEGACY_ALIASES[String(roleId)] ?? String(roleId)
@@ -81,7 +78,16 @@ const AVATAR_GRADIENTS = [
   "from-sky-500 to-cyan-400",
 ]
 
-function MemberAvatar({ name, userId }: { name: string; userId: number }) {
+function MemberAvatar({
+  name,
+  userId,
+  imageUrl,
+}: {
+  name: string
+  userId: number
+  imageUrl?: string | null
+}) {
+  const [imgError, setImgError] = useState(false)
   const initials = name
     .split(" ")
     .map((n) => n[0])
@@ -89,6 +95,21 @@ function MemberAvatar({ name, userId }: { name: string; userId: number }) {
     .slice(0, 2)
     .toUpperCase()
   const gradient = AVATAR_GRADIENTS[userId % AVATAR_GRADIENTS.length]
+
+  if (imageUrl && !imgError) {
+    return (
+      <div className="h-14 w-14 shrink-0 rounded-xl overflow-hidden shadow-md ring-2 ring-border/20">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageUrl}
+          alt={name}
+          className="h-full w-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      </div>
+    )
+  }
+
   return (
     <div
       className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-white text-sm font-bold select-none shadow-md`}
@@ -99,21 +120,12 @@ function MemberAvatar({ name, userId }: { name: string; userId: number }) {
   )
 }
 
-/** Normalise an ORCID value to the bare 16-character ID (XXXX-XXXX-XXXX-XXXX) */
-function normaliseOrcid(raw: string): string | null {
-  const cleaned = raw.trim()
-  const match = cleaned.match(/(\d{4}-\d{4}-\d{4}-\d{3}[\dX])/i)
-  return match ? match[1] : null
-}
-
-/** How many members to show initially */
 const INITIAL_VISIBLE = 8
 
 export function EditorialBoardSection({ journalId, editorInChief }: EditorialBoardSectionProps) {
   const { data, isLoading, isError } = useGetEditorialBoard(journalId)
   const [expanded, setExpanded] = useState(false)
 
-  // ── Loading skeleton ──
   if (isLoading) {
     return (
       <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
@@ -139,10 +151,8 @@ export function EditorialBoardSection({ journalId, editorInChief }: EditorialBoa
     )
   }
 
-  // ── Error — graceful degradation ──
   if (isError) return null
 
-  // ── Empty — fallback to local editor in chief if available ──
   if (!data || data.members.length === 0) {
     if (editorInChief) {
       return (
@@ -153,13 +163,8 @@ export function EditorialBoardSection({ journalId, editorInChief }: EditorialBoa
               roleDisplayName="Editor-in-Chief"
               roleId={17}
               groupTotalCount={1}
-              members={[
-                { userId: 9999, name: editorInChief, role: "Editor-in-Chief", affiliation: null, roleId: 17 },
-              ]}
+              members={[{ userId: 9999, name: editorInChief, role: "Editor-in-Chief", affiliation: null, roleId: 17 }]}
             />
-            <div className="text-center py-4 opacity-60">
-              <p className="text-xs text-muted-foreground">Full editorial board is being synced.</p>
-            </div>
           </div>
         </div>
       )
@@ -177,17 +182,15 @@ export function EditorialBoardSection({ journalId, editorInChief }: EditorialBoa
     )
   }
 
-  // ── Inject local editor_in_chief if OJS has no chief-level member ──
   const hasChief = data.members.some(
     (m) => m.roleId === 17 || m.roleId === 256 || m.role.toLowerCase().includes("chief")
   )
-  const members = [...data.members]
+  const members: MemberShape[] = [...data.members]
   if (editorInChief && !hasChief) {
-    members.unshift({ userId: 9999, name: editorInChief, roleId: 17, role: "Editor-in-Chief", affiliation: null })
+    members.unshift({ userId: 9999, name: String(editorInChief), roleId: 17, role: "Editor-in-Chief", affiliation: null })
   }
 
-  // ── Group by composite key (roleId + role) ──
-  const byRole = members.reduce<Record<string, typeof members>>((acc, m) => {
+  const byRole = members.reduce<Record<string, MemberShape[]>>((acc, m) => {
     const key = `${m.roleId}:${m.role}`
     if (!acc[key]) acc[key] = []
     acc[key].push(m)
@@ -198,7 +201,7 @@ export function EditorialBoardSection({ journalId, editorInChief }: EditorialBoa
   const needsExpansion = totalMembers > INITIAL_VISIBLE
 
   let displayedCount = 0
-  const visibleEntries: Array<[string, typeof members, number]> = []
+  const visibleEntries: Array<[string, MemberShape[], number]> = []
   for (const [groupKey, groupMembers] of Object.entries(byRole)) {
     if (!expanded && displayedCount >= INITIAL_VISIBLE) break
     const groupTotalCount = groupMembers.length
@@ -270,39 +273,40 @@ function BoardHeader({ count }: { count: number }) {
   )
 }
 
+interface MemberShape {
+  userId: number
+  name: string
+  role: string
+  affiliation: string | null
+  roleId: number
+  orcid?: string | null
+  url?: string | null
+  profileImage?: string | null
+  googleScholar?: string | null
+  scopus?: string | null
+}
+
 interface RoleGroupProps {
   roleDisplayName: string
   roleId: number
   groupTotalCount: number
-  members: Array<{
-    userId: number
-    name: string
-    role: string
-    affiliation: string | null
-    roleId: number
-    orcid?: string | null
-    url?: string | null
-  }>
+  members: MemberShape[]
 }
 
 function RoleGroup({ roleDisplayName, roleId, groupTotalCount, members }: RoleGroupProps) {
   const style = getRoleStyle(roleId)
   return (
     <div>
-      {/* Role heading */}
       <div className="flex items-center gap-2.5 mb-5">
         <div className={`h-2 w-2 rounded-full ${style.dot} shrink-0`} />
         <Award className={`h-4 w-4 ${style.text} shrink-0`} />
-        <span
-          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase ${style.badge}`}
-        >
+        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase ${style.badge}`}>
           {roleDisplayName}
         </span>
         <span className="text-xs text-muted-foreground">({groupTotalCount})</span>
         <div className="flex-1 h-px bg-border/40 ml-1" />
       </div>
 
-      {/* Members grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {members.map((member) => (
           <MemberCard key={member.userId} member={member} style={style} />
@@ -313,12 +317,12 @@ function RoleGroup({ roleDisplayName, roleId, groupTotalCount, members }: RoleGr
 }
 
 interface MemberCardProps {
-  member: RoleGroupProps["members"][number]
+  member: MemberShape
   style: (typeof ROLE_STYLES)[string]
 }
 
 function MemberCard({ member, style }: MemberCardProps) {
-  const orcidId = member.orcid ? normaliseOrcid(member.orcid) : null
+  const hasLinks = member.orcid || member.googleScholar || member.scopus || member.url
 
   return (
     <div
@@ -326,7 +330,7 @@ function MemberCard({ member, style }: MemberCardProps) {
     >
       {/* Avatar + name row */}
       <div className="flex items-start gap-3">
-        <MemberAvatar name={member.name} userId={member.userId} />
+        <MemberAvatar name={member.name} userId={member.userId} imageUrl={member.profileImage} />
         <div className="flex-1 min-w-0 pt-0.5">
           <p className="font-bold text-sm leading-snug text-foreground">{member.name}</p>
           <p className={`mt-0.5 text-xs font-semibold ${style.text}`}>{member.role}</p>
@@ -341,35 +345,69 @@ function MemberCard({ member, style }: MemberCardProps) {
         </div>
       )}
 
-      {/* Profile links */}
-      {(orcidId || member.url) && (
-        <div className="flex items-center gap-2 pt-1 border-t border-border/30 mt-auto">
-          {orcidId && (
+      {/* Profile links — ORCID · Google Scholar · Scopus · Website */}
+      {hasLinks && (
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/30 mt-auto">
+          {/* ORCID */}
+          {member.orcid && (
             <a
-              href={`https://orcid.org/${orcidId}`}
+              href={`https://orcid.org/${member.orcid}`}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`ORCID profile for ${member.name}`}
+              title="ORCID iD"
               className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#A6CE39] hover:text-[#89ab30] transition-colors"
             >
-              {/* ORCID logo-style badge */}
-              <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-[#A6CE39] text-white text-[9px] font-black leading-none">
+              <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-[#A6CE39] text-white text-[9px] font-black leading-none shrink-0">
                 iD
               </span>
               ORCID
             </a>
           )}
+
+          {/* Google Scholar */}
+          {member.googleScholar && (
+            <a
+              href={member.googleScholar}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Google Scholar profile for ${member.name}`}
+              title="Google Scholar"
+              className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+            >
+              <GraduationCap className="h-3.5 w-3.5 shrink-0" />
+              Scholar
+            </a>
+          )}
+
+          {/* Scopus */}
+          {member.scopus && (
+            <a
+              href={member.scopus}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Scopus profile for ${member.name}`}
+              title="Scopus"
+              className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 transition-colors"
+            >
+              <Microscope className="h-3.5 w-3.5 shrink-0" />
+              Scopus
+            </a>
+          )}
+
+          {/* Personal website */}
           {member.url && (
             <a
               href={member.url}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Website for ${member.name}`}
+              title="Personal website"
               className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors"
             >
-              <Globe className="h-3 w-3" />
+              <Globe className="h-3 w-3 shrink-0" />
               Profile
-              <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+              <ExternalLink className="h-2.5 w-2.5 opacity-60 shrink-0" />
             </a>
           )}
         </div>
