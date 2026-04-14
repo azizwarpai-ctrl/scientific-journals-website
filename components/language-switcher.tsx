@@ -54,7 +54,9 @@ export function LanguageSwitcher() {
     const [isTranslatorAvailable, setTranslatorAvailable] = useState(true)
 
     useEffect(() => {
-        setCurrentLang(getCurrentLanguage())
+        requestAnimationFrame(() => {
+            setCurrentLang(getCurrentLanguage())
+        })
 
         // Load the Google Translate script once
         const existingScript = document.querySelector('script[src*="translate.google.com"]')

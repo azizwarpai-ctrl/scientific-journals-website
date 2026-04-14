@@ -33,7 +33,7 @@ export async function GET(
     }
 
     // 2. Query block manager config
-    const blockManagerRaw = await ojsQuery<any>(
+    const blockManagerRaw = await ojsQuery<{ setting_name: string; setting_value: string }>(
       `SELECT setting_name, setting_value 
        FROM plugin_settings 
        WHERE plugin_name = 'customblockmanagerplugin' 
@@ -41,21 +41,21 @@ export async function GET(
       [jId]
     );
 
-    let activeBlocksParsed: any = null;
+    let activeBlocksParsed: unknown = null;
     let blockManagerError = null;
 
     if (blockManagerRaw.length > 0) {
       const rawVal = blockManagerRaw[0].setting_value;
       try {
         activeBlocksParsed = JSON.parse(rawVal);
-      } catch (e: any) {
+      } catch {
         blockManagerError = "Failed to parse JSON. Assuming standard PHP serialized string or raw text.";
         activeBlocksParsed = rawVal;
       }
     }
 
     // 3. Query all individual blocks registered to the journal
-    const blocksContentMap = await ojsQuery<any>(
+    const blocksContentMap = await ojsQuery<{ setting_name: string; setting_value: string }>(
       `SELECT setting_name, setting_value
        FROM plugin_settings
        WHERE plugin_name = 'customblockplugin'
@@ -77,7 +77,7 @@ export async function GET(
           if (parsed && typeof parsed === "object") {
              localeKeys = Object.keys(parsed);
           }
-        } catch (e) {
+        } catch {
           parsed = "Parse Error! Value looked like JSON but failed.";
         }
       }
@@ -108,12 +108,16 @@ export async function GET(
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown internal server error"
+    const errorStack = error instanceof Error ? error.stack : undefined
+    const isDev = process.env.NODE_ENV !== "production"
+    
     return NextResponse.json(
       { 
         success: false, 
-        error: error?.message || "Unknown internal server error", 
-        stack: error?.stack 
+        error: errorMessage, 
+        ...(isDev && { stack: errorStack })
       }, 
       { status: 500 }
     );

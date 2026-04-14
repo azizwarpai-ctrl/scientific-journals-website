@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { Logo } from "@/components/logo"
-import { Mail, Phone, MapPin } from "lucide-react"
+// No lucide-react icons used in current footer version
 
 export function Footer() {
   return (

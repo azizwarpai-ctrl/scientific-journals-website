@@ -6,7 +6,6 @@ import Image from "next/image"
 import {
   ChevronDown,
   ChevronUp,
-  Download,
   User,
   FileText
 } from "lucide-react"

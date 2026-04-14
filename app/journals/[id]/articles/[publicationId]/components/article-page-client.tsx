@@ -19,11 +19,11 @@ export function ArticlePageClient({ journalIdStr, publicationIdStr }: ArticlePag
   // Try to parse publication ID or let it fail
   const pubId = parseInt(publicationIdStr, 10)
   
+  const { data: responseData, isLoading, error } = useGetArticleDetail(journalIdStr, isNaN(pubId) ? 0 : pubId)
+  
   if (isNaN(pubId)) {
     return notFound()
   }
-
-  const { data: responseData, isLoading, error } = useGetArticleDetail(journalIdStr, pubId)
 
   // Integrate specifically with structural Next.js boundaries 
   if (isLoading) {

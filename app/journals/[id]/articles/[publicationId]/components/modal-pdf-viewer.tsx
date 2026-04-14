@@ -39,8 +39,10 @@ export function ModalPdfViewer({ pdfUrl, articleTitle = "Document", triggerStyle
   // Reset loading state whenever the PDF URL changes or modal is re-opened
   useEffect(() => {
     if (open) {
-      setIsLoading(true)
-      setHasError(false)
+      requestAnimationFrame(() => {
+        setIsLoading(true)
+        setHasError(false)
+      })
 
       // Fail-safe timeout: hide loader and show error if it takes > 15s
       clearTimer()

@@ -55,13 +55,40 @@ const TYPE_CONFIG = {
 
 type ResultType = keyof typeof TYPE_CONFIG
 
+// ─── Internal Hooks ──────────────────────────────────────────────────────────
+
+/**
+ * Delays a boolean becoming true, but makes it false immediately.
+ * Useful for preventing "loading flickers" for fast requests.
+ */
+function useDelayedLoading(isLoading: boolean, delay: number): boolean {
+  const [showLoading, setShowLoading] = useState(false)
+
+  useEffect(() => {
+    if (!isLoading) {
+      requestAnimationFrame(() => setShowLoading(false))
+      return
+    }
+    const t = setTimeout(() => setShowLoading(true), delay)
+    return () => clearTimeout(t)
+  }, [isLoading, delay])
+
+  return showLoading
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 export function CommandPalette() {
   const router = useRouter()
-  const { isOpen, open, close } = useSearchStore()
+  const { isOpen, open, close: originalClose } = useSearchStore()
 
   const [inputValue, setInputValue] = useState("")
   const [debouncedQuery, setDebouncedQuery] = useState("")
+
+  const close = useCallback(() => {
+    setInputValue("")
+    setDebouncedQuery("")
+    originalClose()
+  }, [originalClose])
   const inputRef = useRef<HTMLInputElement>(null)
 
   // ── Global keyboard shortcut: Ctrl+K / Cmd+K and Escape ──────────────────
@@ -89,7 +116,7 @@ export function CommandPalette() {
     return () => clearTimeout(timer)
   }, [inputValue])
 
-  // ── Focus on open; clear on close ────────────────────────────────────────
+  // ── Focus on open ──────────────────────────────────────────────────────
   useEffect(() => {
     if (isOpen) {
       // Small delay lets the DOM mount before we focus
@@ -101,9 +128,6 @@ export function CommandPalette() {
         }
       }, 50)
       return () => clearTimeout(t)
-    } else {
-      setInputValue("")
-      setDebouncedQuery("")
     }
   }, [isOpen])
 
@@ -135,16 +159,9 @@ export function CommandPalette() {
   }, [close, router, debouncedQuery])
 
   // ── Loading state delay to prevent flicker ────────────────────────────────
-  const [showLoadingState, setShowLoadingState] = useState(false)
-  useEffect(() => {
-    let t: NodeJS.Timeout
-    if (isFetching && debouncedQuery.length >= 1) {
-      t = setTimeout(() => setShowLoadingState(true), 200) // 200ms delay
-    } else {
-      setShowLoadingState(false)
-    }
-    return () => clearTimeout(t)
-  }, [isFetching, debouncedQuery])
+  const showLoadingState = useDelayedLoading(isFetching && debouncedQuery.length >= 1, 200)
+
+
 
   // ── Guard: nothing to render when closed ─────────────────────────────────
   if (!isOpen) return null
