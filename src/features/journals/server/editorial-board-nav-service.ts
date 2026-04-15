@@ -180,10 +180,12 @@ export function parseEditorialBoardHtml(rawHtml: string): RawMember[] {
     return null
   }
 
-  // Visit every <p> and <hr> element in document order.
-  // Using both selectors ensures we catch <hr> nested inside Word's
-  // <div class="MsoNormal"> wrappers.
-  $("p, hr").each((_, el) => {
+  // Visit every block-level element in document order.
+  // TinyMCE wraps uploaded images in <div>, <figure>, or <td> containers
+  // rather than <p>, so we must visit those too.  Without this, external
+  // URL images (inserted via TinyMCE "Insert Image") are silently dropped
+  // while Word-pasted inline base64 images (which stay in <p>) are found.
+  $("p, hr, div, figure, td, th").each((_, el) => {
     const tag = el.type === "tag" ? el.name : ""
 
     // ── HR: explicit member separator ──────────────────────────────────────
@@ -192,7 +194,49 @@ export function parseEditorialBoardHtml(rawHtml: string): RawMember[] {
       return
     }
 
-    if (tag !== "p") return
+    // Skip containers that themselves contain <p> children — their <p>
+    // children will be visited separately and we don't want to double-count.
+    // Only process leaf-level divs/figures/tds that directly hold an <img>.
+    if (tag !== "p") {
+      const $el = $(el)
+      // If this div/figure/td contains <p> children, skip it — the <p>
+      // iteration will handle the content.
+      if ($el.find("p").length > 0) return
+
+      // Only interested in containers that hold an <img> directly
+      let imgSrc: string | null = null
+      $el.find("img").each((_, img) => {
+        const src = safeUrl($(img).attr("src") ?? "")
+        if (src) {
+          imgSrc = src
+          return false // stop after first valid image
+        }
+      })
+
+      if (imgSrc) {
+        // Image found in a non-<p> container — attach to pending member
+        if (!pending) pending = { role: currentRole }
+        if (!pending.image) pending.image = imgSrc
+      }
+
+      // Also extract links from non-<p> containers (e.g. ORCID in a <div>)
+      $el.find("a[href]").each((_, a) => {
+        const href = ($(a).attr("href") ?? "").trim()
+        if (!href) return
+
+        if (!pending) pending = { role: currentRole }
+
+        if (href.includes("orcid.org/") && !pending.orcid) {
+          const m = href.match(/(\d{4}-\d{4}-\d{4}-\d{3}[\dX])/i)
+          if (m) pending.orcid = m[1]
+        } else if (href.includes("scholar.google.") && !pending.googleScholar) {
+          pending.googleScholar = href
+        } else if (href.includes("scopus.com/") && !pending.scopus) {
+          pending.scopus = href
+        }
+      })
+      return
+    }
 
     const $el = $(el)
 
