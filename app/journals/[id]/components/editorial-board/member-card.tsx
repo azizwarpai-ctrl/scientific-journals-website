@@ -1,17 +1,16 @@
-import { Building2, GraduationCap, Microscope, Globe } from "lucide-react"
-import { MemberAvatar } from "./member-avatar"
+import { GraduationCap } from "lucide-react"
+import { MemberPhoto } from "./member-avatar"
 import { getRoleConfig } from "./role-styles"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 
-function safeMemberUrl(url: string | null | undefined): string | null {
+/** Returns `url` only when it uses http(s) — rejects javascript:, data:, etc. */
+function safeLink(url: string | null | undefined): string | null {
   if (!url) return null
   try {
-    const parsed = new URL(url)
-    if (parsed.protocol === "https:" || parsed.protocol === "http:" || parsed.protocol === "mailto:") {
-      return url
-    }
+    const { protocol } = new URL(url)
+    if (protocol === "https:" || protocol === "http:") return url
   } catch {
-    // malformed URL — discard
+    /* malformed URL — discard */
   }
   return null
 }
@@ -22,86 +21,89 @@ interface MemberCardProps {
 
 export function MemberCard({ member }: MemberCardProps) {
   const config = getRoleConfig(member.roleId)
-  const safeUrl = safeMemberUrl(member.url)
-  const safeScholar = safeMemberUrl(member.googleScholar)
-  const safeScopus = safeMemberUrl(member.scopus)
-  const hasLinks = member.orcid || safeScholar || safeScopus || safeUrl
   const roleLabel = config.label || member.role
+  const isChief = config.tier === "chief"
+
+  const orcidUrl = member.orcid ? `https://orcid.org/${member.orcid}` : null
+  const scholarUrl = safeLink(member.googleScholar)
+  const scopusUrl = safeLink(member.scopus)
+  const hasLinks = orcidUrl || scholarUrl || scopusUrl
 
   return (
-    <div className="flex flex-col gap-3.5 rounded-xl border border-border/60 bg-card p-4 transition-shadow hover:shadow-sm">
-      {/* Avatar + name */}
-      <div className="flex items-start gap-3">
-        <MemberAvatar name={member.name} imageUrl={member.profileImage} size="md" />
-        <div className="flex-1 min-w-0 pt-0.5">
-          <p className="font-semibold text-sm leading-snug text-foreground">{member.name}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{roleLabel}</p>
+    <article className="group flex flex-col rounded-2xl border border-border/60 bg-card p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-md">
+      {/* Portrait — 4:5 aspect, rounded 20px */}
+      <MemberPhoto
+        name={member.name}
+        imageUrl={member.profileImage}
+        className="aspect-[4/5] w-full rounded-[18px]"
+      />
+
+      {/* Identity block */}
+      <div className="flex flex-1 flex-col gap-2 px-1 pt-4">
+        <h3 className="line-clamp-2 text-sm font-bold leading-snug text-foreground">
+          {member.name}
+        </h3>
+
+        <div>
+          <span
+            className={
+              isChief
+                ? "inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
+                : "inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+            }
+          >
+            {roleLabel}
+          </span>
         </div>
+
+        {member.affiliation && (
+          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+            {member.affiliation}
+          </p>
+        )}
       </div>
 
-      {/* Affiliation */}
-      {member.affiliation && (
-        <div className="flex items-start gap-1.5 text-xs text-muted-foreground leading-relaxed">
-          <Building2 className="h-3.5 w-3.5 shrink-0 mt-px" />
-          <span className="line-clamp-2">{member.affiliation}</span>
-        </div>
-      )}
-
-      {/* Profile links */}
+      {/* Profile links — DOI-style icon buttons, only rendered when present */}
       {hasLinks && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-3 border-t border-border/40 mt-auto">
-          {member.orcid && (
+        <div className="mt-4 flex items-center gap-1.5 border-t border-border/40 px-1 pt-3">
+          {orcidUrl && (
             <a
-              href={`https://orcid.org/${member.orcid}`}
+              href={orcidUrl}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`ORCID profile for ${member.name}`}
-              className="inline-flex items-center gap-1 text-xs text-[#A6CE39] hover:text-[#89ab30] transition-colors font-medium"
+              title="ORCID"
+              className="inline-flex size-8 items-center justify-center rounded-lg bg-[#A6CE39]/10 text-[#A6CE39] transition-colors hover:bg-[#A6CE39] hover:text-white"
             >
-              <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-[#A6CE39] text-white text-[8px] font-black leading-none shrink-0">
-                iD
-              </span>
-              ORCID
+              <span className="text-[10px] font-black leading-none">iD</span>
             </a>
           )}
-          {safeScholar && (
+          {scholarUrl && (
             <a
-              href={safeScholar}
+              href={scholarUrl}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Google Scholar profile for ${member.name}`}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
+              title="Google Scholar"
+              className="inline-flex size-8 items-center justify-center rounded-lg bg-[#4285F4]/10 text-[#4285F4] transition-colors hover:bg-[#4285F4] hover:text-white"
             >
-              <GraduationCap className="h-3.5 w-3.5 shrink-0" />
-              Scholar
+              <GraduationCap className="h-4 w-4" />
             </a>
           )}
-          {safeScopus && (
+          {scopusUrl && (
             <a
-              href={safeScopus}
+              href={scopusUrl}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Scopus profile for ${member.name}`}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
+              title="Scopus"
+              className="inline-flex size-8 items-center justify-center rounded-lg bg-[#E9711C]/10 text-[#E9711C] transition-colors hover:bg-[#E9711C] hover:text-white"
             >
-              <Microscope className="h-3.5 w-3.5 shrink-0" />
-              Scopus
-            </a>
-          )}
-          {safeUrl && (
-            <a
-              href={safeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Website for ${member.name}`}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
-            >
-              <Globe className="h-3.5 w-3.5 shrink-0" />
-              Profile
+              <span className="text-[11px] font-black leading-none">S</span>
             </a>
           )}
         </div>
       )}
-    </div>
+    </article>
   )
 }
