@@ -7,6 +7,7 @@ import { ExternalLink, Sparkles, ChevronLeft, ChevronRight, Bug, Pause, Play } f
 import { Button } from "@/components/ui/button"
 import { useGetCustomBlocks } from "@/src/features/journals/api/use-get-custom-blocks"
 import useEmblaCarousel from "embla-carousel-react"
+import Autoplay from "embla-carousel-autoplay"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -266,24 +267,29 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
   //   1. `overflow-hidden`  — clips slides that are translated out of view
   //   2. An explicit height — without this, Embla can't measure positions and
   //      the slide row overflows downward; nothing visually scrolls.
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: "start" })
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    { loop: true, align: "start" },
+    [Autoplay({ delay: AUTOPLAY_DELAY_MS, stopOnInteraction: false })]
+  )
 
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const [progress, setProgress] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true)
   const [announcement, setAnnouncement] = useState("")
+  const [progressKey, setProgressKey] = useState(0) // Used to reset CSS animation on slide change
 
-  const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi])
-  const scrollNext = useCallback(() => { setProgress(0); emblaApi?.scrollNext() }, [emblaApi])
-  const scrollTo = useCallback((i: number) => { setProgress(0); emblaApi?.scrollTo(i) }, [emblaApi])
+  const scrollPrev = useCallback(() => { emblaApi?.scrollPrev() }, [emblaApi])
+  const scrollNext = useCallback(() => { emblaApi?.scrollNext() }, [emblaApi])
+  const scrollTo = useCallback((i: number) => { emblaApi?.scrollTo(i) }, [emblaApi])
   const togglePlay = useCallback(() => setIsPlaying(v => !v), [])
 
-  // Sync selectedIndex with Embla — always clean up listeners
+  // Sync selectedIndex with Embla and reset progress bar animation
   useEffect(() => {
     if (!emblaApi) return
     const onSelect = () => {
       const index = emblaApi.selectedScrollSnap()
       setSelectedIndex(index)
+      setProgressKey(k => k + 1) // Resets the CSS animation to 0
+      
       // Announcement for screen readers
       const currentItem = items[index]
       if (currentItem) {
@@ -292,42 +298,26 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
     }
     emblaApi.on("select", onSelect)
     emblaApi.on("reInit", onSelect)
-    onSelect()
+    onSelect() // Initial set
+    
     return () => {
       emblaApi.off("select", onSelect)
       emblaApi.off("reInit", onSelect)
     }
   }, [emblaApi, items])
 
-  const progressRef = useRef(progress)
-  useEffect(() => { progressRef.current = progress }, [progress])
-
-  // Autoplay with animated progress bar
+  // Sync play/pause state with Embla Autoplay plugin
   useEffect(() => {
-    if (!emblaApi || items.length <= 1 || !isPlaying) return
+    if (!emblaApi) return
+    const autoplay = emblaApi.plugins().autoplay
+    if (!autoplay) return
 
-    const tickMs = 50
-    const maxTicks = AUTOPLAY_DELAY_MS / tickMs
-    let tick = (progressRef.current * maxTicks) // Resume from where we were
-
-    const timer = setInterval(() => {
-      tick++
-      setProgress(tick / maxTicks)
-      if (tick >= maxTicks) {
-        tick = 0
-        setProgress(0)
-        emblaApi.scrollNext()
-      }
-    }, tickMs)
-
-    const resetOnNav = () => { tick = 0; setProgress(0) }
-    emblaApi.on("select", resetOnNav)
-
-    return () => {
-      clearInterval(timer)
-      emblaApi.off("select", resetOnNav)
+    if (isPlaying) {
+      autoplay.play()
+    } else {
+      autoplay.stop()
     }
-  }, [emblaApi, items.length, isPlaying]) // Re-run when isPlaying changes
+  }, [emblaApi, isPlaying])
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -417,11 +407,21 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
 
           {/* ── Autoplay progress bar ── */}
           {!isSingle && (
-            <div className="h-[2px] w-full bg-border/30 flex-shrink-0">
+            <div className="h-[2px] w-full bg-border/30 flex-shrink-0 overflow-hidden relative">
               <div
-                className="h-full bg-primary/60"
-                style={{ width: `${progress * 100}%`, transition: "none" }}
+                key={progressKey}
+                className="absolute top-0 left-0 h-full bg-primary/60 outline-none"
+                style={{
+                  width: isPlaying ? "100%" : "0%",
+                  animation: isPlaying ? `progress-fill ${AUTOPLAY_DELAY_MS}ms linear forwards` : "none"
+                }}
               />
+              <style>{`
+                @keyframes progress-fill {
+                  from { width: 0%; }
+                  to { width: 100%; }
+                }
+              `}</style>
             </div>
           )}
 
