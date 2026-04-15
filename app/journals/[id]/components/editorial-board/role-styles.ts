@@ -29,9 +29,46 @@ const ROLE_STYLES: Record<string, RoleStyle> = {
 
 const LEGACY_ALIASES: Record<string, string> = { "256": "17", "512": "19" }
 
+export type RoleTier = "featured" | "standard" | "default"
+
+export interface RoleConfig extends RoleStyle {
+  priority: number
+  label: string
+  tier: RoleTier
+}
+
+const ROLE_CONFIGS: Record<string, Omit<RoleConfig, keyof RoleStyle>> = {
+  "17": {
+    priority: 1,
+    label: "Editor-in-Chief",
+    tier: "featured",
+  },
+  "18": {
+    priority: 2,
+    label: "Associate Editor",
+    tier: "standard",
+  },
+  "19": {
+    priority: 3,
+    label: "Editorial Board Member",
+    tier: "standard",
+  },
+}
+
 export type { RoleStyle }
 
 export function getRoleStyle(roleId: number): RoleStyle {
   const key = LEGACY_ALIASES[String(roleId)] ?? String(roleId)
   return ROLE_STYLES[key] ?? ROLE_STYLES.default
+}
+
+export function getRoleConfig(roleId: number): RoleConfig {
+  const style = getRoleStyle(roleId)
+  const aliasId = LEGACY_ALIASES[String(roleId)] ?? String(roleId)
+  const config = ROLE_CONFIGS[aliasId] ?? {
+    priority: 10,
+    label: "Board Member",
+    tier: "default" as RoleTier,
+  }
+  return { ...style, ...config }
 }
