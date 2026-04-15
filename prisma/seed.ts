@@ -58,7 +58,7 @@ async function main() {
         full_name: 'Super Administrator',
         role: 'super_admin',
       }
-    })
+    ];
 
     // 2. Upsert Support User
     console.log('🛠️ Upserting Support User...')
@@ -72,7 +72,7 @@ async function main() {
         full_name: 'Technical Support',
         role: 'admin',
       }
-    ]
+    });
 
     const ALLOWED_ROLES = ['admin', 'super_admin'];
 
