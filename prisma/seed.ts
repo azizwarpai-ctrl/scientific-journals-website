@@ -59,7 +59,7 @@ async function main() {
         email: 'ellarousi@gmail.com',
         password_hash: adminPassword,
         full_name: 'Super Administrator',
-        role: 'superadmin',
+        role: 'super_admin',
       }
     })
 
@@ -73,7 +73,7 @@ async function main() {
         email: 'www.alshebani88@gmail.com',
         password_hash: supportPassword,
         full_name: 'Technical Support',
-        role: 'support',
+        role: 'admin',
       }
     })
 
@@ -95,6 +95,34 @@ async function main() {
         setting_key: 'contact_email',
         setting_value: JSON.stringify('support@digstobob.com'),
         description: 'Primary contact email for the platform',
+      }
+    })
+
+    // 4. Initialize About page core sections (idempotent)
+    console.log('📖 Upserting About page sections...')
+    await prisma.aboutSection.upsert({
+      where: { section_key: 'our_mission' },
+      update: {},
+      create: {
+        section_key: 'our_mission',
+        block_type: 'TEXT',
+        title: 'Our Mission',
+        content: 'To empower journals, editors, and researchers worldwide with comprehensive digital publishing solutions that uphold the highest standards of transparency, quality, and ethical scholarly communication. We bridge the gap between research creation, dissemination, and long-term preservation.',
+        is_active: true,
+        display_order: 1
+      }
+    })
+
+    await prisma.aboutSection.upsert({
+      where: { section_key: 'our_vision' },
+      update: {},
+      create: {
+        section_key: 'our_vision',
+        block_type: 'TEXT',
+        title: 'Our Vision',
+        content: 'To create a vibrant ecosystem where science and technology evolve in harmony, fostering a trusted environment where scholarly work can thrive. We envision a future where every researcher has access to world-class publishing tools and global reach.',
+        is_active: true,
+        display_order: 2
       }
     })
 

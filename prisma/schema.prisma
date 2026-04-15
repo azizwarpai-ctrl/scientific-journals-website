@@ -365,6 +365,7 @@ model Invoice {
 
 model AboutSection {
   id            BigInt      @id @default(autoincrement())
+  section_key   String?     @unique @db.VarChar(50)
   block_type    String      @db.VarChar(50)
   title         String?     @db.VarChar(255)
   subtitle      String?     @db.Text
