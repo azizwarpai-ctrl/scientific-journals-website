@@ -207,17 +207,36 @@ function resolveProfileImageUrl(rawValue: string | null): string | null {
   return `${ojsBaseUrl}/public/site/profileImages/${trimmed}`
 }
 
+/** Returns `url` only when it uses http/https — rejects everything else. */
+function requireHttps(url: string): string | null {
+  try {
+    const { protocol } = new URL(url)
+    return protocol === "https:" || protocol === "http:" ? url : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Build a canonical Google Scholar URL from a raw setting value.
  * The value may be:
  *   - Full URL: "https://scholar.google.com/citations?user=XXXXX"
  *   - Just the user ID: "XXXXX"
+ * Only scholar.google.* hostnames are accepted for full URLs.
  */
 function resolveScholarUrl(raw: string | null): string | null {
   if (!raw) return null
   const trimmed = raw.trim()
   if (!trimmed) return null
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    try {
+      const { hostname } = new URL(trimmed)
+      if (hostname === "scholar.google.com" || hostname.endsWith(".scholar.google.com")) {
+        return trimmed
+      }
+    } catch { /* invalid URL */ }
+    return null
+  }
   // Treat as bare user ID
   return `https://scholar.google.com/citations?user=${encodeURIComponent(trimmed)}`
 }
@@ -227,12 +246,21 @@ function resolveScholarUrl(raw: string | null): string | null {
  * The value may be:
  *   - Full URL: "https://www.scopus.com/authid/detail.uri?authorId=XXXXXX"
  *   - Just the numeric author ID: "123456789"
+ * Only scopus.com hostnames are accepted for full URLs.
  */
 function resolveScopusUrl(raw: string | null): string | null {
   if (!raw) return null
   const trimmed = raw.trim()
   if (!trimmed) return null
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    try {
+      const { hostname } = new URL(trimmed)
+      if (hostname === "scopus.com" || hostname.endsWith(".scopus.com")) {
+        return trimmed
+      }
+    } catch { /* invalid URL */ }
+    return null
+  }
   if (/^\d+$/.test(trimmed)) {
     return `https://www.scopus.com/authid/detail.uri?authorId=${trimmed}`
   }
@@ -417,7 +445,7 @@ async function fetchFromUserGroups(
       affiliation: row.affiliation?.trim() || null,
       roleId: row.role_id,
       orcid,
-      url: row.url?.trim() || null,
+      url: row.url?.trim() ? requireHttps(row.url.trim()) : null,
       profileImage,
       googleScholar,
       scopus,
@@ -428,10 +456,17 @@ async function fetchFromUserGroups(
   members.sort((a, b) => {
     const getRank = (roleId?: number, roleName = "") => {
       const n = roleName.toLowerCase()
-      if (roleId === 16 || n.includes("chief") || n.includes("principal")) return 1
-      if (roleId === 19 || n.includes("section")) return 2
-      if (roleId === 17 || n.includes("editor")) return 3
-      return 4
+      // Canonical OJS role_id ranks (lower = more senior)
+      if (roleId === 16) return 1                                             // Journal Manager / Editor-in-Chief alias
+      if (roleId === 17) return 2                                             // Editor
+      if (roleId === 18) return 3                                             // Guest Editor
+      if (roleId === 19) return 4                                             // Section Editor
+      // Name-based heuristics for non-standard role IDs (68, 69, etc.)
+      if (n.includes("chief") || n.includes("principal")) return 1
+      if (n.includes("editor") && !n.includes("section") && !n.includes("guest")) return 2
+      if (n.includes("guest")) return 3
+      if (n.includes("section")) return 4
+      return 5
     }
     const diff = getRank(a.roleId, a.role) - getRank(b.roleId, b.role)
     return diff !== 0 ? diff : a.name.localeCompare(b.name)

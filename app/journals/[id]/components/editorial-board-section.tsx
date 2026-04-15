@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { useGetEditorialBoard } from "@/src/features/journals/api/use-get-editorial-board"
+import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 
 interface EditorialBoardSectionProps {
   journalId: string
@@ -199,12 +200,12 @@ export function EditorialBoardSection({ journalId, editorInChief }: EditorialBoa
   const hasChief = data.members.some(
     (m) => m.roleId === 17 || m.roleId === 256 || m.role.toLowerCase().includes("chief")
   )
-  const members: MemberShape[] = [...data.members]
+  const members: EditorialBoardMember[] = [...data.members]
   if (editorInChief && !hasChief) {
     members.unshift({ userId: 9999, name: String(editorInChief), roleId: 17, role: "Editor-in-Chief", affiliation: null })
   }
 
-  const byRole = members.reduce<Record<string, MemberShape[]>>((acc, m) => {
+  const byRole = members.reduce<Record<string, EditorialBoardMember[]>>((acc, m) => {
     const key = `${m.roleId}:${m.role}`
     if (!acc[key]) acc[key] = []
     acc[key].push(m)
@@ -215,7 +216,7 @@ export function EditorialBoardSection({ journalId, editorInChief }: EditorialBoa
   const needsExpansion = totalMembers > INITIAL_VISIBLE
 
   let displayedCount = 0
-  const visibleEntries: Array<[string, MemberShape[], number]> = []
+  const visibleEntries: Array<[string, EditorialBoardMember[], number]> = []
   for (const [groupKey, groupMembers] of Object.entries(byRole)) {
     if (!expanded && displayedCount >= INITIAL_VISIBLE) break
     const groupTotalCount = groupMembers.length
@@ -287,24 +288,11 @@ function BoardHeader({ count }: { count: number }) {
   )
 }
 
-interface MemberShape {
-  userId: number
-  name: string
-  role: string
-  affiliation: string | null
-  roleId: number
-  orcid?: string | null
-  url?: string | null
-  profileImage?: string | null
-  googleScholar?: string | null
-  scopus?: string | null
-}
-
 interface RoleGroupProps {
   roleDisplayName: string
   roleId: number
   groupTotalCount: number
-  members: MemberShape[]
+  members: EditorialBoardMember[]
 }
 
 function RoleGroup({ roleDisplayName, roleId, groupTotalCount, members }: RoleGroupProps) {
@@ -331,13 +319,15 @@ function RoleGroup({ roleDisplayName, roleId, groupTotalCount, members }: RoleGr
 }
 
 interface MemberCardProps {
-  member: MemberShape
+  member: EditorialBoardMember
   style: (typeof ROLE_STYLES)[string]
 }
 
 function MemberCard({ member, style }: MemberCardProps) {
   const safeUrl = safeMemberUrl(member.url)
-  const hasLinks = member.orcid || member.googleScholar || member.scopus || safeUrl
+  const safeScholar = safeMemberUrl(member.googleScholar)
+  const safeScopus = safeMemberUrl(member.scopus)
+  const hasLinks = member.orcid || safeScholar || safeScopus || safeUrl
 
   return (
     <div
@@ -381,9 +371,9 @@ function MemberCard({ member, style }: MemberCardProps) {
           )}
 
           {/* Google Scholar */}
-          {member.googleScholar && (
+          {safeScholar && (
             <a
-              href={member.googleScholar}
+              href={safeScholar}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Google Scholar profile for ${member.name}`}
@@ -396,9 +386,9 @@ function MemberCard({ member, style }: MemberCardProps) {
           )}
 
           {/* Scopus */}
-          {member.scopus && (
+          {safeScopus && (
             <a
-              href={member.scopus}
+              href={safeScopus}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Scopus profile for ${member.name}`}

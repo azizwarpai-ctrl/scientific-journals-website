@@ -82,7 +82,9 @@ const SAFE_HTML_OPTIONS: Config = {
 
 function sanitize(html: string | null | undefined): string {
   if (!html) return ""
-  if (typeof window === "undefined") return html
+  // Fail closed on the server — policy HTML is already sanitized server-side by
+  // journal-policies-service.ts; returning raw HTML here could expose it in SSR output.
+  if (typeof window === "undefined") return ""
   return DOMPurify.sanitize(html, SAFE_HTML_OPTIONS)
 }
 
@@ -254,6 +256,7 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
               />
             ) : (
               <PolicyContent
+                key={active.field}
                 html={policies ? policies[active.field as keyof typeof policies] as string | null : null}
                 plainDescription={active.description}
               />

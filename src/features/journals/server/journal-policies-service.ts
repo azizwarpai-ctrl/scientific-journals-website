@@ -58,11 +58,12 @@ function pickBestLocale(rows: PolicyRow[], settingName: string, primaryLocale: s
   const matching = rows.filter((r) => r.setting_name === settingName)
   if (matching.length === 0) return null
 
+  // Use existence checks (not truthiness) so an intentionally empty string is preserved.
   const localeMatch = matching.find((r) => r.locale === primaryLocale)
-  if (localeMatch?.setting_value) return localeMatch.setting_value
+  if (localeMatch !== undefined) return localeMatch.setting_value
 
   const unlocalized = matching.find((r) => r.locale === "")
-  if (unlocalized?.setting_value) return unlocalized.setting_value
+  if (unlocalized !== undefined) return unlocalized.setting_value
 
   return matching[0]?.setting_value ?? null
 }
@@ -125,7 +126,7 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
   }
 
   const doiRaw = pickBestLocale(rows, "enableDois", primaryLocale)
-  const competingInterestsRow = rows.find((r) => r.setting_name === "requireAuthorCompetingInterests")
+  const competingInterestsRaw = pickBestLocale(rows, "requireAuthorCompetingInterests", primaryLocale)
 
   return {
     privacyStatement: sanitizePolicy(pickBestLocale(rows, "privacyStatement", primaryLocale)),
@@ -134,6 +135,6 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
     reviewPolicy: sanitizePolicy(pickBestLocale(rows, "reviewPolicy", primaryLocale)),
     openAccessPolicy: sanitizePolicy(pickBestLocale(rows, "openAccessPolicy", primaryLocale)),
     doiEnabled: doiRaw === "1" || doiRaw === "true",
-    requireAuthorCompetingInterestsEnabled: competingInterestsRow?.setting_value === "1",
+    requireAuthorCompetingInterestsEnabled: competingInterestsRaw === "1" || competingInterestsRaw === "true",
   }
 }

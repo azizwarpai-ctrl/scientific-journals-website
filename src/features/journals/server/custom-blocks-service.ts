@@ -261,7 +261,7 @@ export async function fetchCustomBlocks(
       // single block) as separate items.
       if (selector === "div > div") {
         const parents = new Set<unknown>()
-        withContent.each((_, el) => parents.add(el.parent))
+        withContent.each((_, el) => { parents.add(el.parent) })
         if (parents.size > 1) continue
       }
 

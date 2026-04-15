@@ -144,15 +144,15 @@ export function parseEditorialBoardHtml(rawHtml: string): RawMember[] {
     pending = null
   }
 
-  /** Safe URL check — reject local file paths and javascript: URIs. */
+  /** Safe URL check — only http and https are allowed. Rejects data:, javascript:, file:, etc. */
   const safeUrl = (src: string): string | null => {
     const s = src.trim()
     if (!s) return null
-    if (s.startsWith("file:///")) return null
-    if (s.startsWith("javascript:")) return null
     // Skip base64 data URIs — they bloat JSON responses (100 KB+ per image)
     if (s.startsWith("data:")) return null
-    return s
+    // Explicitly allow only http and https; reject everything else
+    if (s.startsWith("https://") || s.startsWith("http://")) return s
+    return null
   }
 
   // Visit every <p> and <hr> element in document order.
