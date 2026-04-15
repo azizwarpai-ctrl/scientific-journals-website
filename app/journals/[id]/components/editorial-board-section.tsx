@@ -117,6 +117,7 @@ export function EditorialBoardSection({ journalId, editorInChief }: EditorialBoa
       {shouldShowExpandButton && (
         <div className="mt-8">
           <button
+            type="button"
             onClick={() => setIsExpanded(!isExpanded)}
             className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
@@ -148,9 +149,9 @@ function EditorialBoardSkeleton() {
       <div className="space-y-4">
         <Skeleton className="h-3 w-28" />
         <div className="h-px bg-border" />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Skeleton className="h-24 rounded-xl" />
-          <Skeleton className="h-24 rounded-xl" />
+        <div className="grid max-w-3xl gap-4 sm:grid-cols-2">
+          <Skeleton className="aspect-[4/5] w-full rounded-xl" />
+          <Skeleton className="aspect-[4/5] w-full rounded-xl" />
         </div>
       </div>
       <div className="space-y-4">
@@ -158,7 +159,7 @@ function EditorialBoardSkeleton() {
         <div className="h-px bg-border" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+            <Skeleton key={i} className="aspect-[4/5] w-full rounded-xl" />
           ))}
         </div>
       </div>

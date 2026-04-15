@@ -21,7 +21,11 @@ interface MemberCardProps {
 
 export function MemberCard({ member }: MemberCardProps) {
   const config = getRoleConfig(member.roleId)
-  const roleLabel = config.label || member.role
+  // When the role ID is unknown, getRoleConfig returns the default placeholder
+  // config whose label is a generic "Board Member" string. Fall back to the
+  // free-text role parsed from OJS in that case so headings like "Advisory
+  // Board" actually surface instead of being flattened to the placeholder.
+  const roleLabel = config.tier === "default" ? member.role : config.label
   const isChief = config.tier === "chief"
 
   const orcidUrl = member.orcid ? `https://orcid.org/${member.orcid}` : null

@@ -44,6 +44,16 @@ import type { EditorialBoardMember } from "@/src/features/journals/types/editori
 /** Maximum accepted size for an inline base64 image (≈ 400 KB). */
 const MAX_DATA_URI_BYTES = 400_000
 
+/**
+ * Strict data-URI matcher: `data:<image-mime>;base64,<base64-payload>`.
+ * Only common web image MIMEs are allowed, and the payload must be valid
+ * base64 (A–Z, a–z, 0–9, +, /, with optional `=` padding). This rejects
+ * URL-encoded `data:image/svg+xml` payloads (which can embed scripts) and
+ * any malformed / non-base64 content.
+ */
+const DATA_IMAGE_URI_RE =
+  /^data:image\/(?:png|jpeg|jpg|gif|webp);base64,(?:[A-Za-z0-9+/]+={0,2})$/
+
 /** Lowercase keywords that identify a paragraph as a role/group heading. */
 const ROLE_KEYWORDS = [
   "editor", "chief", "board", "associate", "section", "guest",
@@ -151,14 +161,22 @@ export function parseEditorialBoardHtml(rawHtml: string): RawMember[] {
   /**
    * Safe URL check for <img src>. Allows:
    *   - http / https remote URLs
-   *   - data:image/* base64 payloads (capped — see MAX_DATA_URI_BYTES)
-   * Rejects everything else (javascript:, file:, about:, blob:, etc.)
+   *   - data:image/<png|jpeg|jpg|gif|webp>;base64,<valid-base64> payloads
+   *     whose total length is ≤ MAX_DATA_URI_BYTES
+   * Rejects everything else (javascript:, file:, about:, blob:,
+   * data:image/svg+xml, URL-encoded data URIs, non-base64 payloads, etc.)
    */
   const safeUrl = (src: string): string | null => {
     const s = src.trim()
     if (!s) return null
     if (s.startsWith("https://") || s.startsWith("http://")) return s
-    if (s.startsWith("data:image/") && s.length <= MAX_DATA_URI_BYTES) return s
+    if (
+      s.startsWith("data:image/") &&
+      s.length <= MAX_DATA_URI_BYTES &&
+      DATA_IMAGE_URI_RE.test(s)
+    ) {
+      return s
+    }
     return null
   }
 
