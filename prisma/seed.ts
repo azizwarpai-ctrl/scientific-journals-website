@@ -120,6 +120,7 @@ async function main() {
         section_key: 'who_we_are',
         block_type: 'TEXT',
         title: 'Who We Are',
+        subtitle: null,
         content: 'DigitoPub is the official publishing house and platform of Digitodontics International Academy. At DigitoPub, we redefine the future of academic publishing through seamless digital integration and innovation. As a forward-thinking scientific publisher, we provide a comprehensive suite of digital publishing and management solutions designed to empower journals, editors, and researchers worldwide.\n\nOur services include e-journal platform solutions for journal creation, hosting, and management; SubmitManager, our intuitive e-submission platform; and end-to-end e-editorial and e-review systems that streamline every stage of scholarly communication.\n\nBeyond these core services, we offer CrossRef integration (DOI, Crossmark, Similarity Check), XML, PDF, and LaTeX production, ORCID author identification, citation metrics, indexing, and archiving solutions through Portico and CLOCKSS, ensuring every publication meets the highest international standards of accessibility and integrity.',
         display_order: 10,
         items: []
@@ -128,6 +129,7 @@ async function main() {
         section_key: 'mission_vision',
         block_type: 'CARDS',
         title: 'Our Mission & Vision',
+        subtitle: null,
         content: null,
         display_order: 20,
         items: [
@@ -157,6 +159,7 @@ async function main() {
           section_key: section.section_key,
           block_type: section.block_type,
           title: section.title,
+          subtitle: section.subtitle,
           content: section.content,
           display_order: section.display_order,
           is_active: true,
