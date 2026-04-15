@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
-import bcrypt from 'bcryptjs' // or 'bcrypt' based on project dependencies
+const bcrypt = require('bcryptjs') // or 'bcrypt' based on project dependencies
 
 /**
  * Stage 2: Phase 3 - Implementation
@@ -56,16 +56,22 @@ async function main() {
       {
         email: 'superadmin@digitopub.com',
         full_name: 'Super Administrator',
-        role: 'superadmin',
+        role: 'super_admin',
       },
       {
         email: 'support@digitopub.com',
         full_name: 'Technical Support',
-        role: 'support',
+        role: 'admin',
       }
     ]
 
+    const ALLOWED_ROLES = ['admin', 'super_admin'];
+
     for (const user of baseUsers) {
+      if (!ALLOWED_ROLES.includes(user.role)) {
+         throw new Error(`❌ Validation Error: Invalid role '${user.role}' for user ${user.email}. Allowed roles: ${ALLOWED_ROLES.join(', ')}`);
+      }
+
       await prisma.adminUser.upsert({
         where: { email: user.email },
         update: {}, // Will not overwrite if already exists

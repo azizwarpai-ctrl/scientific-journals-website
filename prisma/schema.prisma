@@ -7,170 +7,169 @@ datasource db {
 }
 
 model AdminUser {
-  id            BigInt   @id @default(autoincrement())
-  email         String   @unique @db.VarChar(255)
-  full_name     String   @db.VarChar(255)
-  role          String   @default("admin") @db.VarChar(50)
-  password_hash String   @db.VarChar(255)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @default(now()) @updatedAt
-
-  // OJS extended fields
-  country     String? @db.VarChar(90)
-  phone       String? @db.VarChar(32)
-  affiliation String? @db.VarChar(255)
-  department  String? @db.VarChar(255)
-  orcid       String? @db.VarChar(255)
-  biography   String? @db.Text
-
-  created_journals     Journal[]          @relation("CreatedBy")
-  created_submissions  Submission[]       @relation("CreatedBy")
-  assigned_submissions Submission[]       @relation("AssignedTo")
-  assigned_reviews     Review[]           @relation("AssignedBy")
-  published_articles   PublishedArticle[] @relation("PublishedBy")
-  updated_settings     SystemSetting[]    @relation("UpdatedBy")
-  subscription         Subscription?
+  id                   BigInt             @id @default(autoincrement())
+  email                String             @unique @db.VarChar(255)
+  full_name            String             @db.VarChar(255)
+  role                 String             @default("admin") @db.VarChar(50)
+  password_hash        String             @db.VarChar(255)
+  created_at           DateTime           @default(now())
+  updated_at           DateTime           @default(now()) @updatedAt
+  affiliation          String?            @db.VarChar(255)
+  biography            String?            @db.Text
+  country              String?            @db.VarChar(90)
+  department           String?            @db.VarChar(255)
+  orcid                String?            @db.VarChar(255)
+  phone                String?            @db.VarChar(32)
   checkout_session     CheckoutSession?
+  created_journals     Journal[]          @relation("CreatedBy")
+  published_articles   PublishedArticle[] @relation("PublishedBy")
+  assigned_reviews     Review[]           @relation("AssignedBy")
+  assigned_submissions Submission[]       @relation("AssignedTo")
+  created_submissions  Submission[]       @relation("CreatedBy")
+  subscription         Subscription?
+  updated_settings     SystemSetting[]    @relation("UpdatedBy")
 
   @@index([email])
   @@map("admin_users")
 }
 
 model Journal {
-  id              BigInt   @id @default(autoincrement())
-  title           String   @db.Text
-  abbreviation    String?  @db.VarChar(100)
-  issn            String?  @unique @db.VarChar(20)
-  e_issn          String?  @db.VarChar(20)
-  description     String?  @db.Text
-  field           String   @db.VarChar(100)
-  publisher       String?  @db.VarChar(255)
-  editor_in_chief String?  @db.VarChar(255)
-  frequency       String?  @db.VarChar(50)
-  submission_fee  Decimal? @default(0) @db.Decimal(10, 2)
-  publication_fee Decimal? @default(0) @db.Decimal(10, 2)
-  cover_image_url String?  @db.VarChar(500)
-  website_url     String?  @db.VarChar(500)
-  status          String?  @default("active") @db.VarChar(20)
-  created_at      DateTime @default(now())
-  updated_at      DateTime @default(now()) @updatedAt
-  created_by      BigInt?
-  ojs_id          String?  @unique @db.VarChar(50)
-  ojs_path        String?  @unique @db.VarChar(100)
-  aims_and_scope    String?  @db.Text
-  author_guidelines String?  @db.Text
-
-  creator            AdminUser?         @relation("CreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
-  submissions        Submission[]
+  id                 BigInt             @id @default(autoincrement())
+  title              String             @db.Text
+  abbreviation       String?            @db.VarChar(100)
+  issn               String?            @unique @db.VarChar(20)
+  e_issn             String?            @db.VarChar(20)
+  description        String?            @db.Text
+  field              String             @db.VarChar(100)
+  publisher          String?            @db.VarChar(255)
+  editor_in_chief    String?            @db.VarChar(255)
+  frequency          String?            @db.VarChar(50)
+  submission_fee     Decimal?           @default(0.00) @db.Decimal(10, 2)
+  publication_fee    Decimal?           @default(0.00) @db.Decimal(10, 2)
+  cover_image_url    String?            @db.VarChar(500)
+  website_url        String?            @db.VarChar(500)
+  status             String?            @default("active") @db.VarChar(20)
+  created_at         DateTime           @default(now())
+  updated_at         DateTime           @default(now()) @updatedAt
+  created_by         BigInt?
+  ojs_id             String?            @unique @db.VarChar(50)
+  aims_and_scope     String?            @db.Text
+  author_guidelines  String?            @db.Text
+  ojs_path           String?            @unique @db.VarChar(100)
+  creator            AdminUser?         @relation("CreatedBy", fields: [created_by], references: [id])
   published_articles PublishedArticle[]
+  submissions        Submission[]
 
   @@index([field])
   @@index([status])
   @@index([issn])
   @@index([ojs_id])
+  @@index([created_by], map: "journals_created_by_fkey")
   @@map("journals")
 }
 
 model Submission {
-  id                         BigInt   @id @default(autoincrement())
+  id                         BigInt             @id @default(autoincrement())
   journal_id                 BigInt
-  manuscript_title           String   @db.Text
-  abstract                   String   @db.Text
+  manuscript_title           String             @db.Text
+  abstract                   String             @db.Text
   keywords                   Json?
-  submission_type            String?  @db.VarChar(50)
-  author_name                String   @db.VarChar(255)
-  author_email               String   @db.VarChar(255)
-  corresponding_author_name  String?  @db.VarChar(255)
-  corresponding_author_email String?  @db.VarChar(255)
+  submission_type            String?            @db.VarChar(50)
+  author_name                String             @db.VarChar(255)
+  author_email               String             @db.VarChar(255)
+  corresponding_author_name  String?            @db.VarChar(255)
+  corresponding_author_email String?            @db.VarChar(255)
   co_authors                 Json?
-  manuscript_file_url        String?  @db.VarChar(500)
+  manuscript_file_url        String?            @db.VarChar(500)
   supplementary_files        Json?
-  status                     String?  @default("submitted") @db.VarChar(50)
-  submission_date            DateTime @default(now())
-  last_updated               DateTime @default(now()) @updatedAt
+  status                     String?            @default("submitted") @db.VarChar(50)
+  submission_date            DateTime           @default(now())
+  last_updated               DateTime           @default(now()) @updatedAt
   assigned_to                BigInt?
-  notes                      String?  @db.Text
+  notes                      String?            @db.Text
   created_by                 BigInt?
-  ojs_submission_id          String?  @unique @db.VarChar(50)
-
-  journal            Journal            @relation(fields: [journal_id], references: [id], onDelete: Cascade)
-  assignee           AdminUser?         @relation("AssignedTo", fields: [assigned_to], references: [id], onDelete: SetNull)
-  creator            AdminUser?         @relation("CreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
-  reviews            Review[]
-  published_articles PublishedArticle[]
+  ojs_submission_id          String?            @unique @db.VarChar(50)
+  published_articles         PublishedArticle[]
+  reviews                    Review[]
+  assignee                   AdminUser?         @relation("AssignedTo", fields: [assigned_to], references: [id])
+  creator                    AdminUser?         @relation("CreatedBy", fields: [created_by], references: [id])
+  journal                    Journal            @relation(fields: [journal_id], references: [id], onDelete: Cascade)
 
   @@index([journal_id])
   @@index([status])
   @@index([author_email])
   @@index([submission_date])
   @@index([ojs_submission_id])
+  @@index([assigned_to], map: "submissions_assigned_to_fkey")
+  @@index([created_by], map: "submissions_created_by_fkey")
   @@map("submissions")
 }
 
 model Review {
-  id                   BigInt    @id @default(autoincrement())
+  id                   BigInt     @id @default(autoincrement())
   submission_id        BigInt
-  reviewer_name        String    @db.VarChar(255)
-  reviewer_email       String    @db.VarChar(255)
-  reviewer_affiliation String?   @db.VarChar(255)
-  review_status        String?   @default("pending") @db.VarChar(50)
-  recommendation       String?   @db.VarChar(50)
-  comments_to_author   String?   @db.Text
-  comments_to_editor   String?   @db.Text
+  reviewer_name        String     @db.VarChar(255)
+  reviewer_email       String     @db.VarChar(255)
+  reviewer_affiliation String?    @db.VarChar(255)
+  review_status        String?    @default("pending") @db.VarChar(50)
+  recommendation       String?    @db.VarChar(50)
+  comments_to_author   String?    @db.Text
+  comments_to_editor   String?    @db.Text
   review_date          DateTime?
-  created_at           DateTime  @default(now())
+  created_at           DateTime   @default(now())
   assigned_by          BigInt?
-
-  submission Submission @relation(fields: [submission_id], references: [id], onDelete: Cascade)
-  assigner   AdminUser? @relation("AssignedBy", fields: [assigned_by], references: [id], onDelete: SetNull)
+  assigner             AdminUser? @relation("AssignedBy", fields: [assigned_by], references: [id])
+  submission           Submission @relation(fields: [submission_id], references: [id], onDelete: Cascade)
 
   @@index([submission_id])
   @@index([review_status])
   @@index([reviewer_email])
+  @@index([assigned_by], map: "reviews_assigned_by_fkey")
   @@map("reviews")
 }
 
 model PublishedArticle {
-  id                 BigInt   @id @default(autoincrement())
+  id                 BigInt     @id @default(autoincrement())
   submission_id      BigInt
   journal_id         BigInt
-  doi                String?  @unique @db.VarChar(255)
+  doi                String?    @unique @db.VarChar(255)
   volume             Int?
   issue              Int?
   page_start         Int?
   page_end           Int?
-  publication_date   DateTime @db.Date
-  pdf_url            String?  @db.VarChar(500)
-  html_url           String?  @db.VarChar(500)
-  views_count        Int?     @default(0)
-  downloads_count    Int?     @default(0)
-  citations_count    Int?     @default(0)
-  created_at         DateTime @default(now())
+  publication_date   DateTime   @db.Date
+  pdf_url            String?    @db.VarChar(500)
+  html_url           String?    @db.VarChar(500)
+  views_count        Int?       @default(0)
+  downloads_count    Int?       @default(0)
+  citations_count    Int?       @default(0)
+  created_at         DateTime   @default(now())
   published_by       BigInt?
-  ojs_publication_id String?  @unique @db.VarChar(50)
-
-  submission Submission @relation(fields: [submission_id], references: [id], onDelete: Cascade)
-  journal    Journal    @relation(fields: [journal_id], references: [id], onDelete: Cascade)
-  publisher  AdminUser? @relation("PublishedBy", fields: [published_by], references: [id], onDelete: SetNull)
+  ojs_publication_id String?    @unique @db.VarChar(50)
+  journal            Journal    @relation(fields: [journal_id], references: [id], onDelete: Cascade)
+  publisher          AdminUser? @relation("PublishedBy", fields: [published_by], references: [id])
+  submission         Submission @relation(fields: [submission_id], references: [id], onDelete: Cascade)
 
   @@index([journal_id])
   @@index([doi])
   @@index([publication_date])
   @@index([ojs_publication_id])
+  @@index([published_by], map: "published_articles_published_by_fkey")
+  @@index([submission_id], map: "published_articles_submission_id_fkey")
   @@map("published_articles")
 }
 
 model SystemSetting {
-  id            BigInt   @id @default(autoincrement())
-  setting_key   String   @unique @db.VarChar(255)
+  id            BigInt     @id @default(autoincrement())
+  setting_key   String     @unique @db.VarChar(255)
   setting_value Json
-  description   String?  @db.Text
-  updated_at    DateTime @default(now()) @updatedAt
+  description   String?    @db.Text
+  updated_at    DateTime   @default(now()) @updatedAt
   updated_by    BigInt?
-
-  updater AdminUser? @relation("UpdatedBy", fields: [updated_by], references: [id], onDelete: SetNull)
+  updater       AdminUser? @relation("UpdatedBy", fields: [updated_by], references: [id])
 
   @@index([setting_key])
+  @@index([updated_by], map: "system_settings_updated_by_fkey")
   @@map("system_settings")
 }
 
@@ -208,8 +207,7 @@ model HelpTopic {
   is_active   Boolean      @default(true)
   created_at  DateTime     @default(now())
   updated_at  DateTime     @default(now()) @updatedAt
-
-  category HelpCategory @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  category    HelpCategory @relation(fields: [category_id], references: [id], onDelete: Cascade)
 
   @@index([category_id])
   @@index([is_active])
@@ -262,34 +260,32 @@ model OjsSsoToken {
 }
 
 model EmailTemplate {
-  id           BigInt   @id @default(autoincrement())
-  name         String   @unique @db.VarChar(100)
-  subject      String   @db.VarChar(500)
-  html_content String   @db.LongText
-  text_content String?  @db.LongText
+  id           BigInt     @id @default(autoincrement())
+  name         String     @unique @db.VarChar(100)
+  subject      String     @db.VarChar(500)
+  html_content String     @db.LongText
+  text_content String?    @db.LongText
   variables    Json?
-  description  String?  @db.Text
-  is_active    Boolean  @default(true)
-  created_at   DateTime @default(now())
-  updated_at   DateTime @default(now()) @updatedAt
-
-  email_logs EmailLog[]
+  description  String?    @db.Text
+  is_active    Boolean    @default(true)
+  created_at   DateTime   @default(now())
+  updated_at   DateTime   @default(now()) @updatedAt
+  email_logs   EmailLog[]
 
   @@index([is_active])
   @@map("email_templates")
 }
 
 model EmailLog {
-  id            BigInt    @id @default(autoincrement())
+  id            BigInt         @id @default(autoincrement())
   template_id   BigInt?
-  to_email      String    @db.VarChar(255)
-  subject       String    @db.VarChar(500)
-  status        String    @default("pending") @db.VarChar(50)
-  error_message String?   @db.Text
+  to_email      String         @db.VarChar(255)
+  subject       String         @db.VarChar(500)
+  status        String         @default("pending") @db.VarChar(50)
+  error_message String?        @db.Text
   sent_at       DateTime?
-  created_at    DateTime  @default(now())
-
-  template EmailTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
+  created_at    DateTime       @default(now())
+  template      EmailTemplate? @relation(fields: [template_id], references: [id])
 
   @@index([template_id])
   @@index([status])
@@ -298,66 +294,64 @@ model EmailLog {
 }
 
 model PricingPlan {
-  id              BigInt   @id @default(autoincrement())
-  name            String   @db.VarChar(100)
-  description     String?  @db.Text
-  price           Decimal  @db.Decimal(10, 2)
-  features        Json?
-  stripe_price_id String?  @unique @db.VarChar(255)
-  is_active       Boolean  @default(true)
-  is_popular      Boolean  @default(false)
-  created_at      DateTime @default(now())
-  updated_at      DateTime @default(now()) @updatedAt
-
-  subscriptions     Subscription[]
+  id                BigInt            @id @default(autoincrement())
+  name              String            @db.VarChar(100)
+  description       String?           @db.Text
+  price             Decimal           @db.Decimal(10, 2)
+  features          Json?
+  stripe_price_id   String?           @unique @db.VarChar(255)
+  is_active         Boolean           @default(true)
+  is_popular        Boolean           @default(false)
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @default(now()) @updatedAt
   checkout_sessions CheckoutSession[]
+  subscriptions     Subscription[]
 
   @@map("pricing_plans")
 }
 
 model CheckoutSession {
-  id                 BigInt   @id @default(autoincrement())
-  admin_user_id      BigInt   @unique
+  id                 BigInt      @id @default(autoincrement())
+  admin_user_id      BigInt      @unique
   pricing_plan_id    BigInt
-  stripe_checkout_id String   @unique @db.VarChar(255)
-  url                String   @db.VarChar(500)
+  stripe_checkout_id String      @unique @db.VarChar(255)
+  url                String      @db.VarChar(500)
   expires_at         DateTime
-  created_at         DateTime @default(now())
+  created_at         DateTime    @default(now())
+  admin_user         AdminUser   @relation(fields: [admin_user_id], references: [id], onDelete: Cascade)
+  pricing_plan       PricingPlan @relation(fields: [pricing_plan_id], references: [id], onDelete: Cascade)
 
-  admin_user   AdminUser   @relation(fields: [admin_user_id], references: [id], onDelete: Cascade)
-  pricing_plan PricingPlan @relation(fields: [pricing_plan_id], references: [id], onDelete: Cascade)
-
+  @@index([pricing_plan_id], map: "checkout_sessions_pricing_plan_id_fkey")
   @@map("checkout_sessions")
 }
 
 model Subscription {
-  id                     BigInt   @id @default(autoincrement())
-  admin_user_id          BigInt   @unique
+  id                     BigInt      @id @default(autoincrement())
+  admin_user_id          BigInt      @unique
   pricing_plan_id        BigInt
-  stripe_customer_id     String   @unique @db.VarChar(255)
-  stripe_subscription_id String   @unique @db.VarChar(255)
-  status                 String   @db.VarChar(50)
+  stripe_customer_id     String      @unique @db.VarChar(255)
+  stripe_subscription_id String      @unique @db.VarChar(255)
+  status                 String      @db.VarChar(50)
   current_period_end     DateTime
-  created_at             DateTime @default(now())
-  updated_at             DateTime @default(now()) @updatedAt
+  created_at             DateTime    @default(now())
+  updated_at             DateTime    @default(now()) @updatedAt
+  invoices               Invoice[]
+  admin_user             AdminUser   @relation(fields: [admin_user_id], references: [id])
+  pricing_plan           PricingPlan @relation(fields: [pricing_plan_id], references: [id])
 
-  admin_user   AdminUser   @relation(fields: [admin_user_id], references: [id], onDelete: Restrict)
-  pricing_plan PricingPlan @relation(fields: [pricing_plan_id], references: [id], onDelete: Restrict)
-  invoices     Invoice[]
-
+  @@index([pricing_plan_id], map: "subscriptions_pricing_plan_id_fkey")
   @@map("subscriptions")
 }
 
 model Invoice {
-  id                BigInt   @id @default(autoincrement())
+  id                BigInt       @id @default(autoincrement())
   subscription_id   BigInt
-  amount            Decimal  @db.Decimal(10, 2)
-  status            String   @db.VarChar(50)
-  stripe_invoice_id String   @unique @db.VarChar(255)
-  invoice_url       String?  @db.VarChar(500)
-  created_at        DateTime @default(now())
-
-  subscription Subscription @relation(fields: [subscription_id], references: [id], onDelete: Cascade)
+  amount            Decimal      @db.Decimal(10, 2)
+  status            String       @db.VarChar(50)
+  stripe_invoice_id String       @unique @db.VarChar(255)
+  invoice_url       String?      @db.VarChar(500)
+  created_at        DateTime     @default(now())
+  subscription      Subscription @relation(fields: [subscription_id], references: [id], onDelete: Cascade)
 
   @@index([subscription_id])
   @@map("invoices")
@@ -374,7 +368,6 @@ model AboutSection {
   section_key   String?     @unique @db.VarChar(50)
   created_at    DateTime    @default(now())
   updated_at    DateTime    @default(now()) @updatedAt
-
   items         AboutItem[]
 
   @@index([is_active, display_order])
@@ -389,7 +382,6 @@ model AboutItem {
   icon          String?      @db.VarChar(50)
   color_theme   String?      @db.VarChar(50)
   display_order Int          @default(0)
-  
   section       AboutSection @relation(fields: [section_id], references: [id], onDelete: Cascade)
 
   @@index([section_id])
