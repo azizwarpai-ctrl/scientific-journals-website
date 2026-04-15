@@ -5,6 +5,7 @@ import { Users, ChevronDown, ChevronUp } from "lucide-react"
 import { useGetEditorialBoard } from "@/src/features/journals/api/use-get-editorial-board"
 import { RoleGroup } from "./editorial-board/role-group"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
+import { cn } from "@/src/lib/utils"
 
 interface EditorialBoardSectionProps {
   journalId: string
@@ -62,102 +63,141 @@ export function EditorialBoardSection({ journalId, editorInChief }: EditorialBoa
 
   if (isError) return null
 
-  if (!data || data.members.length === 0) {
-    if (editorInChief) {
-      return (
-        <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
-          <BoardHeader count={1} />
-          <div className="space-y-8">
-            <RoleGroup
-              roleDisplayName="Editor-in-Chief"
-              roleId={17}
-              groupTotalCount={1}
-              members={[{ userId: 9999, name: editorInChief, role: "Editor-in-Chief", affiliation: null, roleId: 17 }]}
-            />
-          </div>
-        </div>
-      )
-    }
-    return (
-      <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
-        <BoardHeader count={0} />
-        <div className="text-center py-8">
-          <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">
-            Editorial board information is being prepared for this journal.
-          </p>
-        </div>
-      </div>
-    )
-  }
+  // Prepare members list
+  let members: EditorialBoardMember[] = data?.members ? [...data.members] : []
 
-  const hasChief = data.members.some(
-    (m) => m.roleId === 17 || m.roleId === 256 || m.role.toLowerCase().includes("chief")
+  // Add fallback Editor-in-Chief if provided but not in data
+  const hasChief = members.some((m) =>
+    m.roleId === 17 || m.roleId === 256 || m.role.toLowerCase().includes("chief")
   )
-  const members: EditorialBoardMember[] = [...data.members]
+
   if (editorInChief && !hasChief) {
-    members.unshift({ userId: 9999, name: String(editorInChief), roleId: 17, role: "Editor-in-Chief", affiliation: null })
+    members.unshift({
+      userId: 9999,
+      name: String(editorInChief),
+      roleId: 17,
+      role: "Editor-in-Chief",
+      affiliation: null,
+    })
   }
 
-  const byRole = members.reduce<Record<string, EditorialBoardMember[]>>((acc, m) => {
-    const key = `${m.roleId}:${m.role}`
+  if (members.length === 0) {
+    return <EmptyState />
+  }
+
+  // Sort by hierarchy priority
+  members.sort((a, b) => {
+    const configA = getRoleConfig(a.roleId)
+    const configB = getRoleConfig(b.roleId)
+    if (configA.priority !== configB.priority) {
+      return configA.priority - configB.priority
+    }
+    return a.name.localeCompare(b.name)
+  })
+
+  // Group by role tier
+  const grouped = members.reduce<Record<string, EditorialBoardMember[]>>((acc, member) => {
+    const config = getRoleConfig(member.roleId)
+    const key = config.tier === "default" ? member.role : config.label
     if (!acc[key]) acc[key] = []
-    acc[key].push(m)
+    acc[key].push(member)
     return acc
   }, {})
 
   const totalMembers = members.length
   const needsExpansion = totalMembers > INITIAL_VISIBLE
 
+  // Filter for display based on expansion state
   let displayedCount = 0
-  const visibleEntries: Array<[string, EditorialBoardMember[], number]> = []
-  for (const [groupKey, groupMembers] of Object.entries(byRole)) {
+  const visibleGroups: Array<[string, EditorialBoardMember[], number]> = []
+
+  for (const [roleName, roleMembers] of Object.entries(grouped)) {
     if (!expanded && displayedCount >= INITIAL_VISIBLE) break
-    const groupTotalCount = groupMembers.length
+
+    const groupTotal = roleMembers.length
+    let displayMembers = roleMembers
+
     if (!expanded) {
-      const sliced = groupMembers.slice(0, INITIAL_VISIBLE - displayedCount)
-      visibleEntries.push([groupKey, sliced, groupTotalCount])
-      displayedCount += sliced.length
+      const remaining = INITIAL_VISIBLE - displayedCount
+      displayMembers = roleMembers.slice(0, remaining)
+      displayedCount += displayMembers.length
     } else {
-      visibleEntries.push([groupKey, groupMembers, groupTotalCount])
-      displayedCount += groupMembers.length
+      displayedCount += groupTotal
+    }
+
+    if (displayMembers.length > 0) {
+      visibleGroups.push([roleName, displayMembers, groupTotal])
     }
   }
 
+  // Find Editor-in-Chief for featured display
+  const chiefGroup = visibleGroups.find(([role]) => role === "Editor-in-Chief")
+  const otherGroups = visibleGroups.filter(([role]) => role !== "Editor-in-Chief")
+
   return (
-    <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
-      <BoardHeader count={totalMembers} />
-
-      <div className="space-y-10">
-        {visibleEntries.map(([groupKey, groupMembers, groupTotalCount]) => {
-          const first = groupMembers[0]
-          return (
-            <RoleGroup
-              key={groupKey}
-              roleDisplayName={first?.role || "Editorial Board Member"}
-              roleId={first?.roleId ?? 0}
-              groupTotalCount={groupTotalCount}
-              members={groupMembers}
-            />
-          )
-        })}
-      </div>
-
-      {needsExpansion && (
-        <div className="mt-8 text-center">
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
-          >
-            {expanded ? (
-              <>Show Less <ChevronUp className="h-4 w-4" /></>
-            ) : (
-              <>Show All {totalMembers} Members <ChevronDown className="h-4 w-4" /></>
-            )}
-          </button>
+    <section className="w-full bg-gradient-to-b from-slate-50/50 to-white dark:from-slate-950 dark:to-slate-900/50 py-16 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center justify-center p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-slate-200 dark:ring-slate-700 mb-6">
+            <BookOpen className="h-6 w-6 text-primary" />
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-slate-100 tracking-tight mb-3">
+            Editorial Board
+          </h2>
+          <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto text-lg">
+            Distinguished scholars and researchers committed to maintaining the highest standards of academic excellence
+          </p>
+          {totalMembers > 0 && (
+            <p className="mt-4 text-sm font-medium text-slate-500 dark:text-slate-500">
+              {totalMembers} members
+            </p>
+          )}
         </div>
-      )}
-    </div>
+
+        {/* Featured Editor-in-Chief */}
+        {chiefGroup && (
+          <div className="mb-16">
+            <FeaturedChief
+              members={chiefGroup[1]}
+              totalCount={chiefGroup[2]}
+            />
+          </div>
+        )}
+
+        {/* Other Editorial Groups */}
+        <div className="space-y-16">
+          {otherGroups.map(([roleName, members, totalCount]) => (
+            <RoleSection
+              key={roleName}
+              roleName={roleName}
+              members={members}
+              totalCount={totalCount}
+              shownCount={members.length}
+            />
+          ))}
+        </div>
+
+        {/* Expand/Collapse */}
+        {needsExpansion && (
+          <div className="mt-16 text-center">
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="group inline-flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-full shadow-sm ring-1 ring-slate-200 dark:ring-slate-700 transition-all duration-200 hover:shadow-md"
+            >
+              {expanded ? (
+                <>
+                  Show Less <ChevronUp className="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />
+                </>
+              ) : (
+                <>
+                  View All {totalMembers} Members <ChevronDown className="h-4 w-4 transition-transform group-hover:translate-y-0.5" />
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
