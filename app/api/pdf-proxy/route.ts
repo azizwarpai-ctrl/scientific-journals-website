@@ -65,6 +65,8 @@ export async function GET(request: Request) {
         "Content-Disposition": `inline; filename="article-${submissionId}.pdf"`,
         // Prevent browser from blocking the iframe
         "X-Frame-Options": "SAMEORIGIN",
+        // Open-access PDFs change infrequently; cache for 1 h, serve stale up to 24 h
+        "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
       },
     })
 

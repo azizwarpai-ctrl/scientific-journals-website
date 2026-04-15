@@ -94,7 +94,7 @@ function MemberAvatar({
     .join("")
     .slice(0, 2)
     .toUpperCase()
-  const gradient = AVATAR_GRADIENTS[userId % AVATAR_GRADIENTS.length]
+  const gradient = AVATAR_GRADIENTS[Math.abs(userId) % AVATAR_GRADIENTS.length]
 
   if (imageUrl && !imgError) {
     return (
@@ -121,6 +121,20 @@ function MemberAvatar({
 }
 
 const INITIAL_VISIBLE = 8
+
+/** Returns `url` only when it uses http(s) or mailto — rejects javascript: and similar. */
+function safeMemberUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol === "https:" || parsed.protocol === "http:" || parsed.protocol === "mailto:") {
+      return url
+    }
+  } catch {
+    // malformed URL — discard
+  }
+  return null
+}
 
 export function EditorialBoardSection({ journalId, editorInChief }: EditorialBoardSectionProps) {
   const { data, isLoading, isError } = useGetEditorialBoard(journalId)
@@ -322,7 +336,8 @@ interface MemberCardProps {
 }
 
 function MemberCard({ member, style }: MemberCardProps) {
-  const hasLinks = member.orcid || member.googleScholar || member.scopus || member.url
+  const safeUrl = safeMemberUrl(member.url)
+  const hasLinks = member.orcid || member.googleScholar || member.scopus || safeUrl
 
   return (
     <div
@@ -396,9 +411,9 @@ function MemberCard({ member, style }: MemberCardProps) {
           )}
 
           {/* Personal website */}
-          {member.url && (
+          {safeUrl && (
             <a
-              href={member.url}
+              href={safeUrl}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Website for ${member.name}`}

@@ -195,7 +195,7 @@ export async function fetchArticlesWithAuthors(
       if (pdfGalley.remote_url) {
         pdfUrl = pdfGalley.remote_url;
       } else if (pdfGalley.submission_file_id) {
-        pdfUrl = `/api/pdf-proxy?journal=${journalUrlPath}&submissionId=${row.submission_id}&fileId=${pdfGalley.submission_file_id}`;
+        pdfUrl = `/api/pdf-proxy?journal=${journalUrlPath}&submissionId=${row.submission_id}&galleyId=${pdfGalley.galley_id}&fileId=${pdfGalley.submission_file_id}`;
       } else if (ojsBaseUrl) {
         pdfUrl = `${ojsBaseUrl}/index.php/${journalUrlPath}/article/download/${row.submission_id}/${pdfGalley.galley_id}?inline=1`;
       }

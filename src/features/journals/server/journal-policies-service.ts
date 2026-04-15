@@ -19,6 +19,7 @@
  *   Journal-level policies live exclusively in journal_settings.
  */
 
+import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 
 export interface JournalPolicies {
@@ -29,8 +30,8 @@ export interface JournalPolicies {
   openAccessPolicy: string | null
   /** Whether DOI registration is enabled for this journal (boolean stored as '0'/'1') */
   doiEnabled: boolean
-  /** Whether ORCID collection is enabled */
-  orcidEnabled: boolean
+  /** Whether authors are required to declare competing interests */
+  requireAuthorCompetingInterestsEnabled: boolean
 }
 
 interface PolicyRow {
@@ -74,7 +75,7 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
     reviewPolicy: null,
     openAccessPolicy: null,
     doiEnabled: false,
-    orcidEnabled: false,
+    requireAuthorCompetingInterestsEnabled: false,
   }
 
   if (!/^\d+$/.test(ojsJournalId)) return empty
@@ -110,19 +111,29 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
     )
   } catch (err) {
     console.error(`[JournalPolicies] Failed to fetch policies for journal_id=${journalId}:`, err)
-    return empty
+    throw err
+  }
+
+  const POLICY_SANITIZE_OPTIONS = {
+    allowedTags: ["p", "br", "strong", "em", "b", "i", "u", "ul", "ol", "li", "a", "h3", "h4", "h5", "blockquote", "span"],
+    allowedAttributes: { a: ["href", "target", "rel"] },
+  }
+
+  const sanitizePolicy = (raw: string | null): string | null => {
+    if (!raw) return null
+    return sanitizeHtml(raw, POLICY_SANITIZE_OPTIONS)
   }
 
   const doiRaw = pickBestLocale(rows, "enableDois", primaryLocale)
-  const orcidRow = rows.find((r) => r.setting_name === "requireAuthorCompetingInterests")
+  const competingInterestsRow = rows.find((r) => r.setting_name === "requireAuthorCompetingInterests")
 
   return {
-    privacyStatement: pickBestLocale(rows, "privacyStatement", primaryLocale),
-    copyrightStatement: pickBestLocale(rows, "copyrightStatement", primaryLocale),
-    authorSelfArchivePolicy: pickBestLocale(rows, "authorSelfArchivePolicy", primaryLocale),
-    reviewPolicy: pickBestLocale(rows, "reviewPolicy", primaryLocale),
-    openAccessPolicy: pickBestLocale(rows, "openAccessPolicy", primaryLocale),
+    privacyStatement: sanitizePolicy(pickBestLocale(rows, "privacyStatement", primaryLocale)),
+    copyrightStatement: sanitizePolicy(pickBestLocale(rows, "copyrightStatement", primaryLocale)),
+    authorSelfArchivePolicy: sanitizePolicy(pickBestLocale(rows, "authorSelfArchivePolicy", primaryLocale)),
+    reviewPolicy: sanitizePolicy(pickBestLocale(rows, "reviewPolicy", primaryLocale)),
+    openAccessPolicy: sanitizePolicy(pickBestLocale(rows, "openAccessPolicy", primaryLocale)),
     doiEnabled: doiRaw === "1" || doiRaw === "true",
-    orcidEnabled: orcidRow?.setting_value === "1" || false,
+    requireAuthorCompetingInterestsEnabled: competingInterestsRow?.setting_value === "1",
   }
 }

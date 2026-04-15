@@ -241,9 +241,8 @@ export async function fetchCustomBlocks(
       ".content > div",          // OJS default block theme wrapper
       ".pkp_block > div",        // PKP sidebar block class
       "ul > li",                 // List-style blocks
-      "> div",                   // Direct children of root (cheerio root = <html><body>)
       "body > div",              // Direct div children of body
-      "div > div",               // Any nested divs
+      "div > div",               // Any nested divs (requires parent-consistency check)
     ]
 
     let bestElements: ReturnType<typeof $> | null = null
@@ -255,10 +254,19 @@ export async function fetchCustomBlocks(
         const text = $(el).text().trim()
         return text.length > 20
       })
-      if (withContent.length >= 2) {
-        bestElements = withContent
-        break
+      if (withContent.length < 2) continue
+
+      // For the generic "div > div" selector, require that all matched elements
+      // share the same parent to avoid treating sub-structure (header + body of a
+      // single block) as separate items.
+      if (selector === "div > div") {
+        const parents = new Set<unknown>()
+        withContent.each((_, el) => parents.add(el.parent))
+        if (parents.size > 1) continue
       }
+
+      bestElements = withContent
+      break
     }
 
     if (bestElements && bestElements.length >= 2) {

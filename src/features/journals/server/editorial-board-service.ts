@@ -1,23 +1,22 @@
 /**
  * editorial-board-service.ts
  *
- * Provides a robust API for retrieving OJS editorial board members
- * mapped to the unified Next.js representation.
+ * Provides a robust API for retrieving OJS editorial board members.
  *
- * SQL strategy:
- *   users → user_user_groups → user_groups → user_settings → user_group_settings
+ * Source priority:
+ *   1. navigation_menu_items (path='editorial-board') — fetchEditorialBoardFromNavPage()
+ *      Journals on this platform store their boards as hand-authored HTML in a
+ *      custom OJS page.  This is the authoritative source when content exists.
+ *   2. user_user_groups + user_settings — fetchFromUserGroups()
+ *      Built-in OJS editorial team system.  Used as fallback when the nav page
+ *      is absent or has no content (content_length = 0).
  *
- * Fields extracted per member:
- *   name, role, affiliation, orcid, url, profileImage, googleScholar, scopus
- *
- * profileImage  — user_settings.profileImage (JSON or plain filename)
- * googleScholar — user_settings.googleScholar (direct URL or ID)
- * scopus        — user_settings.scopusId / scopus (Scopus author ID or URL)
- * biography     — user_settings.biography (HTML, parsed as fallback for links)
+ * The public export `fetchEditorialBoard` transparently orchestrates both sources.
  */
 
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
+import { fetchEditorialBoardFromNavPage } from "./editorial-board-nav-service"
 
 // Roles to exclude from the editorial board:
 //   16=Journal Manager (admin staff, not academic editors), 65536=Author, 4096=Reviewer, 1048576=Reader
@@ -277,7 +276,41 @@ const boardCache = new Map<string, { data: EditorialBoardMember[]; timestamp: nu
 const CACHE_TTL_MS = 15 * 60 * 1000
 
 /**
- * Fetch editorial board members for the given OJS journal.
+ * Public entry point.  Tries the nav page first; falls back to user_groups.
+ *
+ * Nav page returns null  → journal has no editorial-board custom page content
+ *                          (or the DB query failed) → use user_groups fallback.
+ * Nav page returns []    → page exists but parsed 0 members (possibly malformed
+ *                          HTML) → still prefer nav page result (empty array)
+ *                          so we don't accidentally show stale user_groups data.
+ */
+export async function fetchEditorialBoard(
+  ojsJournalId: string
+): Promise<EditorialBoardMember[]> {
+  // ── Step 0: Resolve primary locale (shared between both sources) ──
+  let primaryLocale = "en"
+  if (/^\d+$/.test(ojsJournalId)) {
+    try {
+      const rows = await ojsQuery<{ primary_locale: string }>(
+        "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
+        [parseInt(ojsJournalId, 10)]
+      )
+      if (rows[0]?.primary_locale) primaryLocale = rows[0].primary_locale
+    } catch { /* non-fatal */ }
+  }
+
+  // ── Step 1: Nav page (primary source) ──
+  const navMembers = await fetchEditorialBoardFromNavPage(ojsJournalId, primaryLocale)
+  if (navMembers !== null) {
+    return navMembers // authoritative — even if empty
+  }
+
+  // ── Step 2: user_groups fallback ──
+  return fetchFromUserGroups(ojsJournalId, primaryLocale)
+}
+
+/**
+ * Fallback: fetch editorial board members from OJS user_user_groups tables.
  *
  * SQL path:
  *   users → user_user_groups → user_groups → user_settings → user_group_settings
@@ -289,8 +322,9 @@ const CACHE_TTL_MS = 15 * 60 * 1000
  *
  * Exclusion: Journal Manager (16), Author (65536), Reviewer (4096), Reader (1048576)
  */
-export async function fetchEditorialBoard(
-  ojsJournalId: string
+async function fetchFromUserGroups(
+  ojsJournalId: string,
+  primaryLocale: string
 ): Promise<EditorialBoardMember[]> {
   const now = Date.now()
   const cached = boardCache.get(ojsJournalId)
@@ -306,25 +340,11 @@ export async function fetchEditorialBoard(
 
   const journalId = parseInt(ojsJournalId, 10)
 
-  // ── Step 0: Get journal primary locale ──
-  let primaryLocale = "en_US"
-  try {
-    const localeRows = await ojsQuery<{ primary_locale: string }>(
-      "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
-      [journalId]
-    )
-    if (localeRows.length > 0 && localeRows[0].primary_locale) {
-      primaryLocale = localeRows[0].primary_locale
-    }
-  } catch (err) {
-    console.warn(`[EditorialBoard] Failed to fetch primary_locale, defaulting to en_US.`, err)
-  }
-
   // ── Step 1: Broad role query ──
   const broadWhere = `WHERE (
       uug.masthead = 1
       OR (uug.masthead IS NULL AND ug.masthead = 1)
-      OR ug.role_id IN (16, 17, 18, 19, 68, 69)
+      OR ug.role_id IN (17, 18, 19, 68, 69)
       OR LOWER(ugs_name_loc.setting_value) LIKE '%editor%'
       OR LOWER(ugs_name_any.setting_value) LIKE '%editor%'
       OR LOWER(ugs_name_loc.setting_value) LIKE '%board%'

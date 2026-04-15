@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import DOMPurify from "dompurify"
+import DOMPurify, { type Config } from "dompurify"
 import {
   Shield,
   Copyright,
@@ -75,7 +75,7 @@ const POLICY_TABS: PolicyTab[] = [
   },
 ]
 
-const SAFE_HTML_OPTIONS = {
+const SAFE_HTML_OPTIONS: Config = {
   ALLOWED_TAGS: ["p", "br", "strong", "em", "b", "i", "u", "ul", "ol", "li", "a", "h3", "h4", "h5", "blockquote", "span"],
   ALLOWED_ATTR: ["href", "target", "rel", "class"],
 }
@@ -134,7 +134,7 @@ function PolicyContent({ html, plainDescription }: { html: string | null; plainD
   )
 }
 
-function DoiOrcidPanel({ doiEnabled, orcidEnabled }: { doiEnabled: boolean; orcidEnabled: boolean }) {
+function DoiOrcidPanel({ doiEnabled, requireAuthorCompetingInterestsEnabled }: { doiEnabled: boolean; requireAuthorCompetingInterestsEnabled: boolean }) {
   return (
     <div className="space-y-5">
       <div className={`rounded-xl border p-4 ${doiEnabled ? "border-primary/20 bg-primary/5" : "border-border/40 bg-muted/30"}`}>
@@ -154,20 +154,20 @@ function DoiOrcidPanel({ doiEnabled, orcidEnabled }: { doiEnabled: boolean; orci
         </p>
       </div>
 
-      <div className={`rounded-xl border p-4 ${orcidEnabled ? "border-[#A6CE39]/40 bg-[#A6CE39]/5" : "border-border/40 bg-muted/30"}`}>
+      <div className={`rounded-xl border p-4 ${requireAuthorCompetingInterestsEnabled ? "border-amber-400/40 bg-amber-50/50 dark:bg-amber-950/20" : "border-border/40 bg-muted/30"}`}>
         <div className="flex items-center gap-3 mb-2">
-          <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${orcidEnabled ? "bg-[#A6CE39] text-white" : "bg-muted text-muted-foreground"}`}>
-            iD
+          <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg text-xs font-black ${requireAuthorCompetingInterestsEnabled ? "bg-amber-500 text-white" : "bg-muted text-muted-foreground"}`}>
+            CI
           </span>
-          <h4 className="text-sm font-bold">ORCID iD Integration</h4>
-          <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${orcidEnabled ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
-            {orcidEnabled ? "Enabled" : "Not configured"}
+          <h4 className="text-sm font-bold">Competing Interests</h4>
+          <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${requireAuthorCompetingInterestsEnabled ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+            {requireAuthorCompetingInterestsEnabled ? "Required" : "Not required"}
           </span>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          {orcidEnabled
-            ? "Authors are required to provide their ORCID iD, ensuring unambiguous author identification across publications."
-            : "ORCID iD collection has not been enabled for this journal."}
+          {requireAuthorCompetingInterestsEnabled
+            ? "Authors are required to declare any competing interests at the time of submission."
+            : "A competing interests declaration is not currently required by this journal."}
         </p>
       </div>
     </div>
@@ -176,7 +176,7 @@ function DoiOrcidPanel({ doiEnabled, orcidEnabled }: { doiEnabled: boolean; orci
 
 export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProps) {
   const [activeTab, setActiveTab] = useState("privacy")
-  const { data: policies, isLoading } = useGetJournalPolicies(journalId)
+  const { data: policies, isLoading, isError } = useGetJournalPolicies(journalId)
 
   const active = POLICY_TABS.find((t) => t.id === activeTab) ?? POLICY_TABS[0]
   const ActiveIcon = active.icon
@@ -225,6 +225,16 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
             <div className="h-4 bg-muted rounded w-5/6" />
             <div className="h-4 bg-muted rounded w-2/3" />
           </div>
+        ) : isError ? (
+          <div className="flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-4">
+            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5 text-destructive" />
+            <div>
+              <p className="text-sm font-semibold text-destructive">Failed to load policies</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Journal policy information could not be retrieved. Please try again later.
+              </p>
+            </div>
+          </div>
         ) : (
           <>
             {/* Active tab descriptor */}
@@ -240,7 +250,7 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
             {active.field === "_doiorcid" ? (
               <DoiOrcidPanel
                 doiEnabled={policies?.doiEnabled ?? false}
-                orcidEnabled={policies?.orcidEnabled ?? false}
+                requireAuthorCompetingInterestsEnabled={policies?.requireAuthorCompetingInterestsEnabled ?? false}
               />
             ) : (
               <PolicyContent
