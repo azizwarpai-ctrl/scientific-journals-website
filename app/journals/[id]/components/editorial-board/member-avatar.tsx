@@ -1,25 +1,67 @@
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
-import { UserCircle2 } from "lucide-react"
+"use client"
 
-interface MemberAvatarProps {
+import { useState } from "react"
+
+interface MemberPhotoProps {
   name: string
   imageUrl?: string | null
+  className?: string
 }
 
-export function MemberAvatar({ name, imageUrl }: MemberAvatarProps) {
-  const initials = name
-    .split(" ")
+function getInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
     .map((n) => n[0])
     .join("")
     .slice(0, 2)
     .toUpperCase()
+}
+
+/**
+ * MemberPhoto — rectangular portrait frame for editorial board members.
+ *
+ * Renders a real <img> when a valid URL is provided (http/https or
+ * data:image/*) and silently falls back to an initials tile on load error
+ * or when no URL is available. The container ships with no size/aspect
+ * defaults — pass those via `className` (e.g. "aspect-[4/5] w-full").
+ */
+export function MemberPhoto({ name, imageUrl, className = "" }: MemberPhotoProps) {
+  const [failed, setFailed] = useState(false)
+  const [lastImageUrl, setLastImageUrl] = useState(imageUrl)
+
+  // "Adjust state during rendering" — when the incoming URL changes,
+  // clear the previous failure so a new member's image gets a fresh
+  // chance to load. This is the React-recommended alternative to
+  // calling setState inside useEffect, which triggers cascading renders.
+  if (imageUrl !== lastImageUrl) {
+    setLastImageUrl(imageUrl)
+    setFailed(false)
+  }
+
+  const showImage = Boolean(imageUrl) && !failed
 
   return (
-    <Avatar className="size-14 shrink-0 ring-1 ring-border/30">
-      <AvatarImage src={imageUrl || undefined} alt={name} className="object-cover" />
-      <AvatarFallback className="text-sm font-semibold text-muted-foreground">
-        {initials || <UserCircle2 className="h-5 w-5" />}
-      </AvatarFallback>
-    </Avatar>
+    <div
+      className={`relative overflow-hidden bg-gradient-to-br from-muted to-muted/60 ${className}`}
+    >
+      {showImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageUrl ?? ""}
+          alt={name}
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center">
+          <span className="text-2xl font-semibold tracking-wide text-muted-foreground/70">
+            {getInitials(name)}
+          </span>
+        </div>
+      )}
+    </div>
   )
 }

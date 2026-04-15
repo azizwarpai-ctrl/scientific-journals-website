@@ -30,8 +30,9 @@
  *     <div><hr></div>                              ← explicit separator
  *     (next member)
  *
- * base64 data: URIs are intentionally skipped — they bloat JSON responses
- * by hundreds of KB per member.  The UI will show gradient-initials avatars.
+ * Inline base64 `data:image/*` URIs are accepted (capped per image) because
+ * OJS TinyMCE often embeds member portraits this way after Word pastes.
+ * Without this the UI would silently fall back to initials avatars.
  */
 
 import { load } from "cheerio"
@@ -39,6 +40,19 @@ import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 
 // ── Constants ─────────────────────────────────────────────────────────────────
+
+/** Maximum accepted size for an inline base64 image (≈ 400 KB). */
+const MAX_DATA_URI_BYTES = 400_000
+
+/**
+ * Strict data-URI matcher: `data:<image-mime>;base64,<base64-payload>`.
+ * Only common web image MIMEs are allowed, and the payload must be valid
+ * base64 (A–Z, a–z, 0–9, +, /, with optional `=` padding). This rejects
+ * URL-encoded `data:image/svg+xml` payloads (which can embed scripts) and
+ * any malformed / non-base64 content.
+ */
+const DATA_IMAGE_URI_RE =
+  /^data:image\/(?:png|jpeg|jpg|gif|webp);base64,(?:[A-Za-z0-9+/]+={0,2})$/
 
 /** Lowercase keywords that identify a paragraph as a role/group heading. */
 const ROLE_KEYWORDS = [
@@ -144,14 +158,25 @@ export function parseEditorialBoardHtml(rawHtml: string): RawMember[] {
     pending = null
   }
 
-  /** Safe URL check — only http and https are allowed. Rejects data:, javascript:, file:, etc. */
+  /**
+   * Safe URL check for <img src>. Allows:
+   *   - http / https remote URLs
+   *   - data:image/<png|jpeg|jpg|gif|webp>;base64,<valid-base64> payloads
+   *     whose total length is ≤ MAX_DATA_URI_BYTES
+   * Rejects everything else (javascript:, file:, about:, blob:,
+   * data:image/svg+xml, URL-encoded data URIs, non-base64 payloads, etc.)
+   */
   const safeUrl = (src: string): string | null => {
     const s = src.trim()
     if (!s) return null
-    // Skip base64 data URIs — they bloat JSON responses (100 KB+ per image)
-    if (s.startsWith("data:")) return null
-    // Explicitly allow only http and https; reject everything else
     if (s.startsWith("https://") || s.startsWith("http://")) return s
+    if (
+      s.startsWith("data:image/") &&
+      s.length <= MAX_DATA_URI_BYTES &&
+      DATA_IMAGE_URI_RE.test(s)
+    ) {
+      return s
+    }
     return null
   }
 
