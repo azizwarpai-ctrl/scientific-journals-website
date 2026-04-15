@@ -333,8 +333,8 @@ app.get("/", zValidator("query", searchQuerySchema), async (c) => {
               select: { id: true, title: true, content: true, category: { select: { title: true } } },
               take: limit,
             })
-            .then((topics: any[]) =>
-              topics.map((t: any) => ({
+            .then((topics) =>
+              topics.map((t) => ({
                 id: `faq-${t.id.toString()}`,
                 type: "faq" as const,
                 title: t.title,

@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
@@ -21,7 +21,7 @@ async function main() {
     return;
   }
 
-  const data = setting.setting_value;
+  const data: any = setting.setting_value;
   
   // Create HERO
   if (data.heroTitle || data.heroSubtitle) {
@@ -92,7 +92,7 @@ async function main() {
         display_order: 3,
         is_active: true,
         items: {
-          create: data.coreValues.map((v, i) => ({
+          create: data.coreValues.map((v: any, i: number) => ({
             title: v.title || "",
             description: v.desc || "",
             icon: v.icon || "Globe",

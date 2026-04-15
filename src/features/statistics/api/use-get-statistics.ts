@@ -6,7 +6,7 @@ export const useGetPlatformStatistics = () => {
     return useQuery({
         queryKey: ["platform-statistics"],
         queryFn: async () => {
-            const response = await client.statistics.index.$get()
+            const response = await client.statistics.$get()
             if (!response.ok) {
                 throw new Error("Failed to fetch platform statistics")
             }

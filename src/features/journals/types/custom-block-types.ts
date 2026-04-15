@@ -6,11 +6,28 @@
  * and individual '{blockName}customblockplugin' entries.
  */
 
-export interface CustomBlock {
+import { z } from "zod";
+
+export const CustomBlockSchema = z.object({
   /** Machine name of the block (e.g. "myblock") */
-  name: string
+  name: z.string(),
   /** Sanitized HTML content of the block */
-  content: string
+  content: z.string(),
+  
+  // Structured data parsed from HTML
+  title: z.string().min(1, "Title is required"),
+  description: z.string(),
+  link: z.string().optional(),
+  image: z.string().optional(),
+});
+
+export type CustomBlock = z.infer<typeof CustomBlockSchema>;
+
+export interface JournalInfoCard {
+  title: string
+  description: string
+  link?: string
+  image?: string
 }
 
 export interface CustomBlocksResponse {

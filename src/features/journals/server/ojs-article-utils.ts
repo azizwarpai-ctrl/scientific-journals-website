@@ -1,5 +1,6 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
+import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import type { CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/journals/types/current-issue-types"
 
 export interface ArticleRow {
@@ -13,6 +14,7 @@ export interface ArticleRow {
   section_seq: number | null
   section_title: string | null
   cover_image_raw: string | null
+  doi: string | null
 }
 
 export interface AuthorRow {
@@ -28,6 +30,8 @@ export interface GalleyRow {
   publication_id: number
   label: string | null
   locale: string | null
+  remote_url: string | null
+  submission_file_id: number | null
 }
 
 export async function fetchArticlesWithAuthors(
@@ -48,10 +52,13 @@ export async function fetchArticlesWithAuthors(
       sec.section_id,
       sec.seq AS section_seq,
       sec_title.setting_value AS section_title,
-      ps_cover.setting_value AS cover_image_raw
+      ps_cover.setting_value AS cover_image_raw,
+      COALESCE(d.doi, ps_doi.setting_value, ps_pubid.setting_value) AS doi
     FROM publications p
     INNER JOIN submissions s
       ON s.submission_id = p.submission_id
+    LEFT JOIN dois d
+      ON p.doi_id = d.doi_id
     LEFT JOIN publication_settings ps_title
       ON ps_title.publication_id = p.publication_id
       AND ps_title.setting_name = 'title'
@@ -70,6 +77,12 @@ export async function fetchArticlesWithAuthors(
       ON sec_title.section_id = sec.section_id
       AND sec_title.setting_name = 'title'
       AND sec_title.locale = ?
+    LEFT JOIN publication_settings ps_doi
+      ON ps_doi.publication_id = p.publication_id
+      AND ps_doi.setting_name = 'doi'
+    LEFT JOIN publication_settings ps_pubid
+      ON ps_pubid.publication_id = p.publication_id
+      AND ps_pubid.setting_name = 'pub-id::doi'
     WHERE p.issue_id = ?
       AND p.status = 3
       AND s.status = 3
@@ -84,37 +97,53 @@ export async function fetchArticlesWithAuthors(
   // ── Batch-fetch authors for all publications ──────────
   const publicationIds = articleRows.map((a) => a.publication_id)
 
-  const authorRows = await ojsQuery<AuthorRow>(
-    `SELECT
-      a.author_id,
-      a.publication_id,
-      a.seq,
-      as_given.setting_value AS given_name,
-      as_family.setting_value AS family_name
-    FROM authors a
-    LEFT JOIN author_settings as_given
-      ON as_given.author_id = a.author_id
-      AND as_given.setting_name = 'givenName'
-      AND as_given.locale = ?
-    LEFT JOIN author_settings as_family
-      ON as_family.author_id = a.author_id
-      AND as_family.setting_name = 'familyName'
-      AND as_family.locale = ?
-    WHERE a.publication_id IN (?)
-      AND a.include_in_browse = 1
-    ORDER BY a.publication_id, a.seq ASC`,
-    [primaryLocale, primaryLocale, publicationIds]
+  const authorRows = await ojsQuery<{ author_id: number, publication_id: number, seq: number }>(
+    `SELECT a.author_id, a.publication_id, a.seq
+     FROM authors a
+     WHERE a.publication_id IN (?)
+       AND a.include_in_browse = 1
+     ORDER BY a.publication_id, a.seq ASC`,
+    [publicationIds]
   )
 
-  // ── Group authors by publication_id ───────────────────
   const authorsByPub = new Map<number, CurrentIssueAuthor[]>()
-  for (const row of authorRows) {
-    const existing = authorsByPub.get(row.publication_id) || []
-    existing.push({
-      givenName: row.given_name,
-      familyName: row.family_name,
-    })
-    authorsByPub.set(row.publication_id, existing)
+
+  if (authorRows.length > 0) {
+    const authorIds = authorRows.map(r => r.author_id)
+    const authorSettingsRows = await ojsQuery<{
+      author_id: number
+      locale: string
+      setting_name: string
+      setting_value: string
+    }>(
+      `SELECT author_id, locale, setting_name, setting_value
+       FROM author_settings
+       WHERE author_id IN (${authorIds.join(',')})`
+    )
+
+    for (const row of authorRows) {
+      const settings = authorSettingsRows.filter(s => s.author_id === row.author_id)
+
+      const getBestSetting = (name: string): string | null => {
+        const matches = settings.filter(s => s.setting_name === name)
+        if (matches.length === 0) return null
+        const primaryMatch = matches.find(s => s.locale === primaryLocale)
+        if (primaryMatch?.setting_value) return primaryMatch.setting_value
+        const enMatch = matches.find(s => s.locale === 'en_US' || s.locale === 'en')
+        if (enMatch?.setting_value) return enMatch.setting_value
+        const emptyMatch = matches.find(s => s.locale === '')
+        if (emptyMatch?.setting_value) return emptyMatch.setting_value
+        return matches[0].setting_value || null
+      }
+
+      const existing = authorsByPub.get(row.publication_id) || []
+      existing.push({
+        givenName: getBestSetting('givenName'),
+        familyName: getBestSetting('familyName'),
+        affiliation: getBestSetting('affiliation'),
+      })
+      authorsByPub.set(row.publication_id, existing)
+    }
   }
 
   // ── Batch-fetch galleys for all publications ──────────
@@ -123,8 +152,11 @@ export async function fetchArticlesWithAuthors(
       pg.galley_id,
       pg.publication_id,
       pg.label,
-      pg.locale
+      pg.locale,
+      pg.remote_url,
+      sf.submission_file_id
     FROM publication_galleys pg
+    LEFT JOIN submission_files sf ON pg.submission_file_id = sf.submission_file_id
     WHERE pg.publication_id IN (?)
     ORDER BY pg.publication_id, pg.seq ASC`,
     [publicationIds]
@@ -138,17 +170,52 @@ export async function fetchArticlesWithAuthors(
     galleysByPub.set(row.publication_id, existing)
   }
 
+  // ── Batch-fetch keywords for all publications ──────────
+  const keywordRows = await ojsQuery<{ publication_id: number, keyword: string, locale: string }>(
+    `SELECT 
+        p.publication_id,
+        cves.setting_value AS keyword,
+        cves.locale
+     FROM publications p
+     JOIN controlled_vocabs cv ON (cv.assoc_id = p.publication_id OR (cv.assoc_id = p.submission_id AND cv.assoc_type = 1048577))
+         AND cv.symbolic IN ('submissionKeyword', 'publicationKeyword')
+     JOIN controlled_vocab_entries cve ON cve.controlled_vocab_id = cv.controlled_vocab_id
+     JOIN controlled_vocab_entry_settings cves ON cves.controlled_vocab_entry_id = cve.controlled_vocab_entry_id
+     WHERE p.publication_id IN (?)
+     ORDER BY p.publication_id, cve.seq ASC`,
+    [publicationIds]
+  )
+  
+  // ── Group keywords by publication_id ───────────────────
+  const keywordsByPub = new Map<number, string[]>()
+  for (const row of keywordRows) {
+    if (row.locale !== primaryLocale && row.locale !== '') continue;
+    const splitKws = row.keyword.split(',').map(k => k.trim()).filter(Boolean)
+    const existing = keywordsByPub.get(row.publication_id) || []
+    for (const kw of splitKws) {
+       if (!existing.includes(kw)) existing.push(kw)
+    }
+    keywordsByPub.set(row.publication_id, existing)
+  }
+
   // ── Map articles with their authors and pdfUrl ───────────────────
   return articleRows.map((row) => {
     const galleys = galleysByPub.get(row.publication_id) || []
     const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale) 
       || galleys.find(g => g.label?.toLowerCase().includes('pdf'))
     
-    const ojsBaseUrl = process.env.OJS_BASE_URL || process.env.NEXT_PUBLIC_OJS_BASE_URL || ''
-    const cleanBaseUrl = ojsBaseUrl.endsWith('/') ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
-    const pdfUrl = pdfGalley && cleanBaseUrl
-      ? `${cleanBaseUrl}/index.php/${journalUrlPath}/article/download/${row.submission_id}/${pdfGalley.galley_id}`
-      : null
+    const ojsBaseUrl = getOjsBaseUrl()
+    
+    let pdfUrl = null;
+    if (pdfGalley) {
+      if (pdfGalley.remote_url) {
+        pdfUrl = pdfGalley.remote_url;
+      } else if (pdfGalley.submission_file_id) {
+        pdfUrl = `/api/pdf-proxy?journal=${journalUrlPath}&submissionId=${row.submission_id}&galleyId=${pdfGalley.galley_id}&fileId=${pdfGalley.submission_file_id}`;
+      } else if (ojsBaseUrl) {
+        pdfUrl = `${ojsBaseUrl}/index.php/${journalUrlPath}/article/download/${row.submission_id}/${pdfGalley.galley_id}?inline=1`;
+      }
+    }
 
     return {
       publicationId: row.publication_id,
@@ -161,6 +228,8 @@ export async function fetchArticlesWithAuthors(
       sectionId: row.section_id,
       articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(row.cover_image_raw)),
       pdfUrl,
+      doi: row.doi,
+      keywords: keywordsByPub.get(row.publication_id) || [],
     }
   })
 }

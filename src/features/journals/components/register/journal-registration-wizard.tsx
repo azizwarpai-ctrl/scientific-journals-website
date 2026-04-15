@@ -18,7 +18,8 @@ export function JournalRegistrationWizard() {
   // Prevent hydration errors by not rendering until mounted
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
-    setMounted(true)
+    const frame = requestAnimationFrame(() => setMounted(true))
+    return () => cancelAnimationFrame(frame)
   }, [])
 
   if (!mounted) {

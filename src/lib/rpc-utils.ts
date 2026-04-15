@@ -2,10 +2,11 @@
  * RPC utility functions
  */
 
-export async function parseRpcResponse<T>(res: any, defaultErrorMessage = "Request failed"): Promise<T> {
+export async function parseRpcResponse<T>(res: Response, defaultErrorMessage = "Request failed"): Promise<T> {
   const data = await res.json()
   if (!res.ok) {
-    throw new Error((data as any).error || defaultErrorMessage)
+    const errorMsg = (data as { error?: string }).error || defaultErrorMessage
+    throw new Error(errorMsg)
   }
   return data as T
 }

@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
-import { Mail, Phone, MapPin } from "lucide-react"
+import { Logo } from "@/components/logo"
+// No lucide-react icons used in current footer version
 
 export function Footer() {
   return (
@@ -11,7 +11,7 @@ export function Footer() {
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <Image src="/images/logodigitopub.png" alt="DigitoPub" width={120} height={40} className="h-10 w-auto" />
+              <Logo width={120} height={40} className="h-10 w-auto" />
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Advancing open, ethical, and impactful scholarly communication through digital innovation.
@@ -72,28 +72,18 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Contact */}
+          {/* Contact Us */}
           <div>
-            <h3 className="mb-4 text-sm font-semibold">Contact Info</h3>
-            <ul className="space-y-3 text-sm">
+            <h3 className="mb-4 text-sm font-semibold">Contact Us</h3>
+            <ul className="space-y-2 text-sm">
               <li>
-                <a href="mailto:contact@digitopub.com" className="flex items-center gap-2 text-muted-foreground hover:text-primary">
-                  <Mail className="h-4 w-4" />
-                  contact@digitopub.com
+                <a href="mailto:info@digitalpub.com" className="text-muted-foreground hover:text-primary transition-colors">
+                  info@digitalpub.com
                 </a>
-              </li>
-              <li>
-                <a href="tel:+15551234567" className="flex items-center gap-2 text-muted-foreground hover:text-primary">
-                  <Phone className="h-4 w-4" />
-                  +1 (555) 123-4567
-                </a>
-              </li>
-              <li className="flex items-start gap-2">
-                <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">123 Academic Way, Research City</span>
               </li>
             </ul>
           </div>
+
         </div>
 
         <div className="mt-12 border-t pt-8 text-center text-sm text-muted-foreground">

@@ -6,7 +6,6 @@ import Image from "next/image"
 import {
   ChevronDown,
   ChevronUp,
-  Download,
   User,
   FileText
 } from "lucide-react"
@@ -16,6 +15,7 @@ import DOMPurify from "dompurify"
 import type { CurrentIssueArticle } from "@/src/features/journals"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ModalPdfViewer } from "../articles/[publicationId]/components/modal-pdf-viewer"
 
 interface ArticleItemProps {
   article: CurrentIssueArticle
@@ -30,9 +30,9 @@ export function ArticleItem({ article }: ArticleItemProps) {
   const [hasCoverError, setHasCoverError] = useState(false)
   const params = useParams()
   const journalId = params?.id as string
-  
+
   if (!journalId) return null
-  
+
   const articleUrl = `/journals/${journalId}/articles/${article.publicationId}`
 
   const sanitizeAbstract = (html: string | null | undefined): string => {
@@ -43,10 +43,7 @@ export function ArticleItem({ article }: ArticleItemProps) {
     })
   }
 
-  const authorNames = article.authors
-    .map(a => `${a.givenName || ''} ${a.familyName || ''}`.trim())
-    .filter(Boolean)
-    .join(", ")
+
 
   return (
     <div className="group relative flex flex-col sm:flex-row rounded-2xl border border-border/40 bg-card overflow-hidden transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:-translate-y-1">
@@ -63,16 +60,16 @@ export function ArticleItem({ article }: ArticleItemProps) {
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/30 bg-gradient-to-br from-muted/20 to-muted/50">
-             <FileText className="h-12 w-12 mb-2" strokeWidth={1} />
+            <FileText className="h-12 w-12 mb-2" strokeWidth={1} />
           </div>
         )}
 
         {/* Modern floating badge */}
         {article.sectionTitle && (
           <div className="absolute top-3 left-3">
-             <Badge className="bg-background/90 text-foreground backdrop-blur-sm shadow-sm border-border/20 text-[10px] uppercase font-bold py-1 px-2.5">
-               {article.sectionTitle}
-             </Badge>
+            <Badge className="bg-background/90 text-foreground backdrop-blur-sm shadow-sm border-border/20 text-[10px] uppercase font-bold py-1 px-2.5">
+              {article.sectionTitle}
+            </Badge>
           </div>
         )}
       </div>
@@ -87,10 +84,56 @@ export function ArticleItem({ article }: ArticleItemProps) {
           </Link>
 
           {/* Authors */}
-          {authorNames && (
-            <div className="flex items-start gap-2.5 text-sm text-foreground/70 font-medium">
+          {article.authors && article.authors.length > 0 && (
+            <div className="flex items-start gap-2.5 text-sm text-foreground/70">
               <User className="h-4 w-4 shrink-0 mt-0.5 text-primary/60" />
-              <span className="line-clamp-2 leading-relaxed">{authorNames}</span>
+              <div className="flex flex-col gap-2 w-full">
+                {article.authors.map((author, idx) => {
+                  const name = `${author.givenName || ''} ${author.familyName || ''}`.trim()
+                  if (!name) return null
+                  
+                  return (
+                    <div key={idx} className="flex flex-col">
+                      <span className="font-medium">{name}</span>
+                      {author.affiliation && (
+                        <span className="text-[11px] text-muted-foreground leading-tight">
+                          {author.affiliation}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* DOI */}
+          {article.doi && (
+            <div className="inline-flex items-center gap-1.5 mt-1 text-xs text-muted-foreground bg-muted/30 px-2 py-0.5 rounded-md border border-border/40 w-fit">
+              <span className="font-bold">DOI</span>
+              <Link
+                href={`https://doi.org/${article.doi}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="select-text hover:text-primary hover:underline transition-colors block break-all"
+              >
+                {article.doi}
+              </Link>
+            </div>
+          )}
+
+          {/* Keywords */}
+          {article.keywords && article.keywords.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {article.keywords.map((kw, i) => (
+                <Badge
+                  key={i}
+                  variant="default"
+                  className="px-2.5 py-0.5 rounded-full text-[12px] font-bold border border-border/40 cursor-default bg-primary/10 text-muted-foreground hover:text-primary-foreground"
+                >
+                  {kw}
+                </Badge>
+              ))}
             </div>
           )}
         </div>
@@ -141,7 +184,7 @@ export function ArticleItem({ article }: ArticleItemProps) {
         <div className="pt-4 mt-auto border-t border-border/40 flex items-center justify-between relative z-20">
           {article.datePublished ? (
             <span className="text-[11px] text-muted-foreground/80 font-bold uppercase tracking-wider">
-               {new Date(article.datePublished).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+              {new Date(article.datePublished).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
             </span>
           ) : (
             <span />
@@ -150,16 +193,11 @@ export function ArticleItem({ article }: ArticleItemProps) {
           <div className="flex items-center gap-2">
             <Button asChild variant="outline" size="sm" className="h-8 gap-2 rounded-full px-4">
               <Link href={articleUrl}>
-                 View Article
+                View Article
               </Link>
             </Button>
             {article.pdfUrl && (
-               <Button asChild variant="ghost" size="sm" className="h-8 gap-2 text-primary hover:bg-primary/10 rounded-full px-4 -mr-2">
-                 <a href={article.pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                   Download PDF
-                   <Download className="h-3.5 w-3.5 opacity-70" />
-                 </a>
-               </Button>
+              <ModalPdfViewer pdfUrl={article.pdfUrl} articleTitle={article.title || undefined} triggerStyle="card" />
             )}
           </div>
         </div>

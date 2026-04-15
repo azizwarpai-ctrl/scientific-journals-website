@@ -12,6 +12,7 @@
 export interface CurrentIssueAuthor {
   givenName: string | null
   familyName: string | null
+  affiliation?: string | null
 }
 
 export interface CurrentIssueArticle {
@@ -25,6 +26,8 @@ export interface CurrentIssueArticle {
   sectionId: number | null
   articleCoverUrl: string | null
   pdfUrl: string | null
+  doi?: string | null
+  keywords?: string[]
 }
 
 export interface CurrentIssue {

@@ -225,6 +225,67 @@ export async function initializeDatabase() {
         })
       }
 
+      // Foundation CMS Content: About Page (Idempotent)
+      console.log('[DB Init] 📝 Initializing About Page baseline structure...')
+      const aboutContent = [
+        {
+          section_key: 'who_we_are',
+          block_type: 'TEXT',
+          title: 'Who We Are',
+          subtitle: null,
+          content: 'DigitoPub is the official publishing house and platform of Digitodontics International Academy. At DigitoPub, we redefine the future of academic publishing through seamless digital integration and innovation. As a forward-thinking scientific publisher, we provide a comprehensive suite of digital publishing and management solutions designed to empower journals, editors, and researchers worldwide.\n\nOur services include e-journal platform solutions for journal creation, hosting, and management; SubmitManager, our intuitive e-submission platform; and end-to-end e-editorial and e-review systems that streamline every stage of scholarly communication.\n\nBeyond these core services, we offer CrossRef integration (DOI, Crossmark, Similarity Check), XML, PDF, and LaTeX production, ORCID author identification, citation metrics, indexing, and archiving solutions through Portico and CLOCKSS, ensuring every publication meets the highest international standards of accessibility and integrity.',
+          display_order: 10,
+          items: []
+        },
+        {
+          section_key: 'mission_vision',
+          block_type: 'CARDS',
+          title: 'Our Mission & Vision',
+          subtitle: null,
+          content: null,
+          display_order: 20,
+          items: [
+            {
+              title: 'Our Mission',
+              description: 'To empower journals, editors, and researchers worldwide with comprehensive digital publishing solutions that uphold the highest standards of transparency, quality, and ethical scholarly communication. We bridge the gap between research creation, dissemination, and long-term preservation.',
+              icon: 'Target',
+              color_theme: 'primary',
+              display_order: 0,
+            },
+            {
+              title: 'Our Vision',
+              description: 'To create a vibrant ecosystem where science and technology evolve in harmony, fostering a trusted environment where scholarly work can thrive. We envision a future where every researcher has access to world-class publishing tools and global reach.',
+              icon: 'Eye',
+              color_theme: 'secondary',
+              display_order: 1,
+            }
+          ]
+        }
+      ]
+
+      for (const section of aboutContent) {
+        await prisma.aboutSection.upsert({
+          where: { section_key: section.section_key },
+          update: {}, // Strict rule: never override what an Admin has tuned in the future
+          create: {
+            section_key: section.section_key,
+            block_type: section.block_type,
+            title: section.title,
+            subtitle: section.subtitle,
+            content: section.content,
+            display_order: section.display_order,
+            is_active: true,
+            ...(section.items && section.items.length > 0
+              ? {
+                  items: {
+                    create: section.items,
+                  },
+                }
+              : {}),
+          }
+        })
+      }
+
       console.log('[DB Init] ✅ Database initialization completed successfully.')
       isInitialized = true
     } catch (error) {

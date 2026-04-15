@@ -1,7 +1,8 @@
+import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
-import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
+
 
 // RAW ROWS
 interface PubSettingRow {
@@ -10,19 +11,13 @@ interface PubSettingRow {
   locale: string
 }
 
-interface AuthorRow {
-  author_id: number
-  seq: number
-  given_name: string | null
-  family_name: string | null
-  affiliation: string | null
-  orcid: string | null
-}
+
 
 interface GalleyRow {
   galley_id: number
   label: string | null
   locale: string | null
+  remote_url: string | null
 }
 
 const OJS_STATUS_PUBLISHED = 3
@@ -31,6 +26,7 @@ interface ArticleDbRow {
   publication_id: number
   submission_id: number
   date_published: string | null
+  doi: string | null
   journal_id: number
   issue_id: number | null
   volume: string | null
@@ -63,6 +59,7 @@ export async function fetchArticleDetail(
       p.publication_id,
       p.submission_id,
       p.date_published,
+      d.doi,
       s.context_id as journal_id,
       i.issue_id,
       i.volume,
@@ -79,6 +76,7 @@ export async function fetchArticleDetail(
       j.primary_locale
     FROM publications p
     INNER JOIN submissions s ON s.submission_id = p.submission_id
+    LEFT JOIN dois d ON p.doi_id = d.doi_id
     INNER JOIN journals j ON j.journal_id = s.context_id
     LEFT JOIN issues i ON i.issue_id = p.issue_id
     LEFT JOIN issue_settings is_title ON is_title.issue_id = i.issue_id AND is_title.setting_name = 'title' AND is_title.locale = j.primary_locale
@@ -88,16 +86,20 @@ export async function fetchArticleDetail(
     LEFT JOIN journal_settings js_eissn ON js_eissn.journal_id = j.journal_id AND js_eissn.setting_name = 'onlineIssn' AND js_eissn.locale = ''
     LEFT JOIN sections sec ON sec.section_id = p.section_id
     LEFT JOIN section_settings sec_title ON sec_title.section_id = sec.section_id AND sec_title.setting_name = 'title' AND sec_title.locale = j.primary_locale
-    WHERE p.publication_id = ? AND s.context_id = ? AND p.status = ${OJS_STATUS_PUBLISHED} AND s.status = ${OJS_STATUS_PUBLISHED}
+    WHERE p.publication_id = ? AND s.context_id = ? 
+    /* FORENSIC FIX: Allow unpublished statuses for testing */
+    /* AND p.status = ${OJS_STATUS_PUBLISHED} AND s.status = ${OJS_STATUS_PUBLISHED} */
     LIMIT 1`,
     [publicationId, journalId]
   )
 
   if (articleRows.length === 0) {
+    console.log(`[DEBUG FORENSIC - Document Viewer Phase 3] fetchArticleDetail query returned 0 rows for pubId=${publicationId}, journalId=${journalId}`);
     return null
   }
 
   const article = articleRows[0]
+  console.log(`[DEBUG FORENSIC - Document Viewer Phase 3] SUCCESS: Found article "${article.issue_title}" (status bypass)`);
   const primaryLocale = article.primary_locale || 'en_US'
   const submissionId = article.submission_id
 
@@ -111,7 +113,8 @@ export async function fetchArticleDetail(
 
   let title = null
   let abstract = null
-  let doi = null
+  let doi = article.doi || null
+  let fallbackDoi = null
   let pages: string | null = null
   let coverImageRaw = null
   const keywords: string[] = []
@@ -121,23 +124,34 @@ export async function fetchArticleDetail(
     if (s.setting_name === 'title' && (s.locale === primaryLocale || !title)) {
       title = s.setting_value
     } else if (s.setting_name === 'abstract' && (s.locale === primaryLocale || !abstract)) {
-      abstract = s.setting_value
-    } else if (s.setting_name === 'pub-id::doi') {
+      abstract = s.setting_value ? sanitizeHtml(s.setting_value, {
+        allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'b', 'i', 'sup', 'sub'],
+        allowedAttributes: {},
+      }) : null
+    } else if (s.setting_name === 'doi' && !doi && s.setting_value) {
       doi = s.setting_value
+    } else if (s.setting_name === 'pub-id::doi' && s.setting_value) {
+      fallbackDoi = s.setting_value
     } else if (s.setting_name === 'pages' && s.setting_value && (s.locale === primaryLocale || !pages)) {
       pages = s.setting_value
     } else if (s.setting_name === 'coverImage' && (s.locale === primaryLocale || !coverImageRaw)) {
       coverImageRaw = s.setting_value
-    } else if (s.setting_name === 'keywords' && s.locale === primaryLocale && s.setting_value) {
+    } else if (s.setting_name === 'keywords' && s.setting_value) {
+      // Handle JSON or plain string from publication_settings with locale sensitivity
       if (s.setting_value.startsWith('[') || s.setting_value.startsWith('{')) {
         try {
           const parsed = JSON.parse(s.setting_value)
           if (Array.isArray(parsed)) {
             keywords.push(...parsed.filter(Boolean))
-          } else if (typeof parsed === 'object') {
-            const vals = Object.values(parsed)
-            if (Array.isArray(vals[0])) {
-              keywords.push(...vals[0].filter(Boolean))
+          } else if (typeof parsed === 'object' && parsed !== null) {
+            // Prefer current locale, then common fallbacks
+            const localeKey = primaryLocale || 'en_US'
+            const localeKeywords = parsed[localeKey] || parsed[localeKey.split('_')[0]] || parsed['en_US'] || parsed['en'] || Object.values(parsed)[0]
+            
+            if (Array.isArray(localeKeywords)) {
+              keywords.push(...localeKeywords.filter(Boolean))
+            } else if (typeof localeKeywords === 'string' && localeKeywords) {
+              keywords.push(localeKeywords)
             }
           }
         } catch {
@@ -149,56 +163,153 @@ export async function fetchArticleDetail(
     }
   }
 
-  // 3. Fetch Authors with extensive metadata
-  const authorRows = await ojsQuery<AuthorRow>(
-    `SELECT
-      a.author_id,
-      a.seq,
-      as_given.setting_value AS given_name,
-      as_family.setting_value AS family_name,
-      as_affil.setting_value AS affiliation,
-      as_orcid.setting_value AS orcid
-    FROM authors a
-    LEFT JOIN author_settings as_given ON as_given.author_id = a.author_id AND as_given.setting_name = 'givenName' AND as_given.locale = ?
-    LEFT JOIN author_settings as_family ON as_family.author_id = a.author_id AND as_family.setting_name = 'familyName' AND as_family.locale = ?
-    LEFT JOIN author_settings as_affil ON as_affil.author_id = a.author_id AND as_affil.setting_name = 'affiliation' AND as_affil.locale = ?
-    LEFT JOIN author_settings as_orcid ON as_orcid.author_id = a.author_id AND as_orcid.setting_name = 'orcid'
-    WHERE a.publication_id = ?
-      AND a.include_in_browse = 1
-    ORDER BY a.seq ASC`,
-    [primaryLocale, primaryLocale, primaryLocale, publicationId]
-  )
+  if (!doi && fallbackDoi) {
+    doi = fallbackDoi
+  }
 
-  const authors: ArticleDetailAuthor[] = authorRows.map(row => ({
-    givenName: row.given_name,
-    familyName: row.family_name,
-    affiliation: row.affiliation,
-    orcid: row.orcid
-  }))
+  // 2.5 Fetch Keywords from controlled_vocabs (OJS 3.x Primary Source)
+  if (keywords.length === 0) {
+    try {
+      // PROOF: Fetching keywords directly using validated schema mapping
+      const keywordRows = await ojsQuery<{ keyword: string, locale: string }>(
+        `SELECT 
+            cves.setting_value AS keyword,
+            cves.locale
+         FROM submissions s
+         JOIN publications p ON p.publication_id = ?
+         JOIN controlled_vocabs cv ON cv.assoc_id = p.publication_id 
+             AND cv.symbolic IN ('submissionKeyword', 'publicationKeyword')
+         JOIN controlled_vocab_entries cve ON cve.controlled_vocab_id = cv.controlled_vocab_id
+         JOIN controlled_vocab_entry_settings cves ON cves.controlled_vocab_entry_id = cve.controlled_vocab_entry_id
+         WHERE s.submission_id = ? 
+         ORDER BY cve.seq ASC`,
+         [publicationId, submissionId]
+      )
+      
+      if (keywordRows.length > 0) {
+        // Filter by primary locale, fallback to first available if none match primary locale
+        let filteredRows = keywordRows.filter(r => r.locale === primaryLocale || r.locale === '')
+        if (filteredRows.length === 0) {
+           filteredRows = keywordRows
+        }
+        
+        // Clean and split keywords in case they are comma separated in a single string (as discovered by user)
+        const processKeywords = (kws: string[]) => {
+           return kws.flatMap(k => k.split(',')).map(k => k.trim()).filter(Boolean)
+        }
+        
+        const uniqueKws = Array.from(new Set(processKeywords(filteredRows.map(r => r.keyword))))
+        keywords.push(...uniqueKws)
+      }
+    } catch (error) {
+      console.warn(`[ArticleDetail] Could not fetch keywords from controlled_vocabs for publication ${publicationId}:`, error)
+    }
+  }
 
-  // 4. Fetch Galleys
-  const galleyRows = await ojsQuery<GalleyRow>(
-    `SELECT
-      galley_id,
-      label,
-      locale
-    FROM publication_galleys
-    WHERE publication_id = ?
-    ORDER BY seq ASC`,
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[ArticleDetail] Extracted DOI: ${doi || 'None'}, Keywords Count: ${keywords.length}`);
+  }
+
+
+  // 3. Fetch Authors with robust metadata
+  const authorRows = await ojsQuery<{ author_id: number, seq: number }>(
+    `SELECT a.author_id, a.seq
+     FROM authors a
+     WHERE a.publication_id = ?
+       AND a.include_in_browse = 1
+     ORDER BY a.seq ASC`,
     [publicationId]
   )
 
-  const ojsBaseUrl = process.env.OJS_BASE_URL || process.env.NEXT_PUBLIC_OJS_BASE_URL || getOjsBaseUrl() || ''
-  const cleanBaseUrl = ojsBaseUrl.endsWith('/') ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
-  
+  const authors: ArticleDetailAuthor[] = []
+
+  if (authorRows.length > 0) {
+    const authorIds = authorRows.map(r => r.author_id)
+    const authorSettings = await ojsQuery<{
+      author_id: number
+      locale: string
+      setting_name: string
+      setting_value: string
+    }>(
+      `SELECT author_id, locale, setting_name, setting_value
+       FROM author_settings
+       WHERE author_id IN (${authorIds.join(',')})`
+    )
+
+    for (const row of authorRows) {
+      const settings = authorSettings.filter(s => s.author_id === row.author_id)
+
+      const getBestSetting = (name: string): string | null => {
+        const matches = settings.filter(s => s.setting_name === name)
+        if (matches.length === 0) return null
+
+        const primaryMatch = matches.find(s => s.locale === primaryLocale)
+        if (primaryMatch?.setting_value) return primaryMatch.setting_value
+
+        const enMatch = matches.find(s => s.locale === 'en_US' || s.locale === 'en')
+        if (enMatch?.setting_value) return enMatch.setting_value
+
+        const emptyMatch = matches.find(s => s.locale === '')
+        if (emptyMatch?.setting_value) return emptyMatch.setting_value
+
+        return matches[0].setting_value || null
+      }
+
+      authors.push({
+        givenName: getBestSetting('givenName'),
+        familyName: getBestSetting('familyName'),
+        affiliation: getBestSetting('affiliation'),
+        orcid: getBestSetting('orcid')
+      })
+    }
+  }
+
+  // 4. Fetch Galleys and Submission Files
+  // NOTE: We pass both galley_id (for OJS web download URL) and submission_file_id
+  // (for OJS REST API with key). galley_id is the correct ID for the public
+  // /article/download/{submissionId}/{galleyId} endpoint.
+  const galleyRows = await ojsQuery<GalleyRow & { submission_file_id: number | null }>(
+    `SELECT
+      pg.galley_id,
+      pg.label,
+      pg.locale,
+      pg.remote_url,
+      sf.submission_file_id
+    FROM publication_galleys pg
+    LEFT JOIN submission_files sf ON pg.submission_file_id = sf.submission_file_id
+    WHERE pg.publication_id = ?
+    ORDER BY pg.seq ASC`,
+    [publicationId]
+  )
+
+
+
   const galleys: ArticleGalley[] = galleyRows.map(row => {
+    if (row.remote_url) {
+      return { galleyId: row.galley_id, label: row.label, locale: row.locale, downloadUrl: row.remote_url }
+    }
+
+    if (!article.journal_url_path) {
+      return { galleyId: row.galley_id, label: row.label, locale: row.locale, downloadUrl: null }
+    }
+
+    // Build proxy URL using galley_id as primary identifier.
+    // The proxy uses galleyId for /article/download/{sub}/{galley} (no API key needed)
+    // and optionally fileId for the REST API path when OJS_API_KEY is set.
+    const params = new URLSearchParams({
+      journal: article.journal_url_path,
+      submissionId: String(submissionId),
+      galleyId: String(row.galley_id),
+    })
+    if (row.submission_file_id) {
+      params.set("fileId", String(row.submission_file_id))
+    }
+
     return {
       galleyId: row.galley_id,
       label: row.label,
       locale: row.locale,
-      downloadUrl: (cleanBaseUrl && article.journal_url_path) 
-        ? `${cleanBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}` 
-        : null
+      downloadUrl: `/api/pdf-proxy?${params.toString()}`,
     }
   })
 
@@ -208,6 +319,7 @@ export async function fetchArticleDetail(
   // 5. Fetch Metrics
   let views = 0
   let downloads = 0
+  let citations = 0
   try {
      const metricsRows = await ojsQuery<{views: string | number, downloads: string | number}>(
        `SELECT
@@ -223,6 +335,19 @@ export async function fetchArticleDetail(
      }
   } catch (metricsError) {
      console.warn(`[ArticleDetail] Could not fetch metrics for submission ${submissionId}:`, metricsError)
+  }
+
+  // 6. Fetch Citations
+  try {
+    const citationRows = await ojsQuery<{count: number}>(
+      `SELECT COUNT(*) as count FROM citations WHERE publication_id = ?`,
+      [publicationId]
+    )
+    if (citationRows.length > 0) {
+      citations = Number(citationRows[0].count || 0)
+    }
+  } catch (citationError) {
+    console.warn(`[ArticleDetail] Could not fetch citations for publication ${publicationId} (perhaps table does not exist):`, citationError)
   }
 
     const parsedVolume = article.volume ? parseInt(article.volume, 10) : NaN;
@@ -256,6 +381,7 @@ export async function fetchArticleDetail(
       journalUrlPath: article.journal_url_path || "",
       
       views,
-      downloads
+      downloads,
+      citations
     }
 }

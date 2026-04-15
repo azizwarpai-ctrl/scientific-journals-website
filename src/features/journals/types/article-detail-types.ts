@@ -44,4 +44,5 @@ export interface ArticleDetail {
   // Metrics
   views: number
   downloads: number
+  citations: number
 }

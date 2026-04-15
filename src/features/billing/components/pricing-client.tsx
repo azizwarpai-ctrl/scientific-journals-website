@@ -46,8 +46,10 @@ export const PricingClient = () => {
   // Handle form reset when dialog closes
   useEffect(() => {
     if (!isOpen) {
-      setEditingPlan(null)
-      form.reset(DEFAULT_FORM_VALUES)
+      requestAnimationFrame(() => {
+        setEditingPlan(null)
+        form.reset(DEFAULT_FORM_VALUES)
+      })
     }
   }, [isOpen, form])
 
