@@ -1,18 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import DOMPurify, { type Config } from "dompurify"
 import {
   Shield,
-  Copyright,
-  FileCheck,
-  BookMarked,
-  Search,
   Fingerprint,
   ChevronDown,
   ChevronUp,
   AlertCircle,
-  type LucideIcon,
+  FileText
 } from "lucide-react"
 import { useGetJournalPolicies } from "@/src/features/journals/api/use-get-journal-policies"
 
@@ -20,64 +16,13 @@ interface JournalPoliciesSectionProps {
   journalId: string
 }
 
-type IconComponent = LucideIcon
-
-interface PolicyTab {
-  id: string
-  label: string
-  icon: IconComponent
-  field: "privacyStatement" | "copyrightStatement" | "authorSelfArchivePolicy" | "reviewPolicy" | "openAccessPolicy" | "_doiorcid"
-  description: string
-}
-
-const POLICY_TABS: PolicyTab[] = [
-  {
-    id: "privacy",
-    label: "Privacy",
-    icon: Shield,
-    field: "privacyStatement",
-    description: "How we collect, use, and protect personal data submitted to this journal.",
-  },
-  {
-    id: "ethics",
-    label: "Ethics",
-    icon: FileCheck,
-    field: "reviewPolicy",
-    description: "Peer review process, authorship criteria, and publication ethics standards.",
-  },
-  {
-    id: "copyright",
-    label: "Copyright",
-    icon: Copyright,
-    field: "copyrightStatement",
-    description: "Copyright terms, author rights, and permitted reuse of published content.",
-  },
-  {
-    id: "workflow",
-    label: "Workflow",
-    icon: BookMarked,
-    field: "authorSelfArchivePolicy",
-    description: "Editorial workflow, self-archiving, and open access policies.",
-  },
-  {
-    id: "indexing",
-    label: "Indexing",
-    icon: Search,
-    field: "openAccessPolicy",
-    description: "Database indexing, open access terms, and discoverability information.",
-  },
-  {
-    id: "doiorcid",
-    label: "DOI & ORCID",
-    icon: Fingerprint,
-    field: "_doiorcid",
-    description: "Digital Object Identifier and ORCID iD policies for this journal.",
-  },
-]
-
 const SAFE_HTML_OPTIONS: Config = {
-  ALLOWED_TAGS: ["p", "br", "strong", "em", "b", "i", "u", "ul", "ol", "li", "a", "h3", "h4", "h5", "blockquote", "span"],
-  ALLOWED_ATTR: ["href", "target", "rel", "class"],
+  ALLOWED_TAGS: [
+    "p", "br", "strong", "em", "b", "i", "u", "ul", "ol", "li", "a", 
+    "h1", "h2", "h3", "h4", "h5", "blockquote", "span", "div", 
+    "table", "tbody", "tr", "td", "th", "thead", "img"
+  ],
+  ALLOWED_ATTR: ["href", "target", "rel", "class", "style", "src", "alt", "width", "height"],
 }
 
 function sanitize(html: string | null | undefined): string {
@@ -88,11 +33,11 @@ function sanitize(html: string | null | undefined): string {
   return DOMPurify.sanitize(html, SAFE_HTML_OPTIONS)
 }
 
-function PolicyContent({ html, plainDescription }: { html: string | null; plainDescription: string }) {
+function PolicyContent({ html, plainDescription }: { html: string | null; plainDescription?: string }) {
   const [expanded, setExpanded] = useState(false)
   const MAX_HEIGHT = 260
 
-  if (!html) {
+  if (!html && plainDescription) {
     return (
       <div className="flex items-start gap-3 text-muted-foreground py-4">
         <AlertCircle className="h-5 w-5 mt-0.5 shrink-0 text-muted-foreground/50" />
@@ -110,7 +55,7 @@ function PolicyContent({ html, plainDescription }: { html: string | null; plainD
         style={{ maxHeight: !expanded ? `${MAX_HEIGHT}px` : undefined }}
       >
         <div
-          className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground prose-p:leading-relaxed prose-a:text-primary"
+          className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground prose-p:leading-relaxed prose-a:text-primary prose-table:w-full prose-table:border-collapse prose-td:border prose-td:p-2 prose-th:border prose-th:p-2 prose-img:rounded-md"
           dangerouslySetInnerHTML={{ __html: safe }}
         />
       </div>
@@ -177,11 +122,22 @@ function DoiOrcidPanel({ doiEnabled, requireAuthorCompetingInterestsEnabled }: {
 }
 
 export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProps) {
-  const [activeTab, setActiveTab] = useState("privacy")
+  const [activeTabSlug, setActiveTabSlug] = useState<string | null>(null)
   const { data: policies, isLoading, isError } = useGetJournalPolicies(journalId)
 
-  const active = POLICY_TABS.find((t) => t.id === activeTab) ?? POLICY_TABS[0]
-  const ActiveIcon = active.icon
+  const tabs = policies?.tabs || []
+  const hasDoiFeatures = policies?.doiEnabled || policies?.requireAuthorCompetingInterestsEnabled
+
+  const defaultTabSlug = tabs.length > 0 ? tabs[0].slug : (hasDoiFeatures ? "_doiorcid" : null);
+  const currentTabSlug = activeTabSlug || defaultTabSlug;
+
+  // If completely empty without config
+  if (!isLoading && !isError && tabs.length === 0 && !hasDoiFeatures) {
+    return null; // Hide the entire section if absolutely no policies exist
+  }
+
+  const activeTabContent = tabs.find(t => t.slug === currentTabSlug)
+  const isDoiTabActive = currentTabSlug === "_doiorcid"
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card shadow-sm overflow-hidden">
@@ -196,25 +152,49 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
       {/* Tab navigation — scrollable on mobile */}
       <div className="overflow-x-auto border-b border-border/40 bg-muted/20">
         <div className="flex min-w-max px-2">
-          {POLICY_TABS.map((tab) => {
-            const Icon = tab.icon
-            const isActive = activeTab === tab.id
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={[
-                  "flex items-center gap-2 px-4 py-3.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all whitespace-nowrap",
-                  isActive
-                    ? "border-primary text-primary bg-primary/5"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40",
-                ].join(" ")}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {tab.label}
-              </button>
-            )
-          })}
+          {isLoading ? (
+            <div className="flex gap-4 p-4 animate-pulse">
+              <div className="h-4 bg-muted rounded w-16" />
+              <div className="h-4 bg-muted rounded w-20" />
+              <div className="h-4 bg-muted rounded w-16" />
+            </div>
+          ) : (
+            <>
+              {tabs.map((tab) => {
+                const isActive = currentTabSlug === tab.slug
+                return (
+                  <button
+                    key={tab.slug}
+                    onClick={() => setActiveTabSlug(tab.slug)}
+                    className={[
+                      "flex items-center gap-2 px-4 py-3.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all whitespace-nowrap",
+                      isActive
+                        ? "border-primary text-primary bg-primary/5"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                    ].join(" ")}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    {tab.title}
+                  </button>
+                )
+              })}
+              
+              {hasDoiFeatures && (
+                <button
+                  onClick={() => setActiveTabSlug("_doiorcid")}
+                  className={[
+                    "flex items-center gap-2 px-4 py-3.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all whitespace-nowrap",
+                    isDoiTabActive
+                      ? "border-primary text-primary bg-primary/5"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                  ].join(" ")}
+                >
+                  <Fingerprint className="h-3.5 w-3.5" />
+                  DOI & ORCID
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
 
@@ -242,23 +222,28 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
             {/* Active tab descriptor */}
             <div className="flex items-center gap-2.5 mb-5">
               <div className="p-2 rounded-lg bg-primary/10">
-                <ActiveIcon className="h-4 w-4 text-primary" />
+                {isDoiTabActive ? (
+                  <Fingerprint className="h-4 w-4 text-primary" />
+                ) : (
+                  <FileText className="h-4 w-4 text-primary" />
+                )}
               </div>
               <div>
-                <h3 className="text-sm font-bold text-foreground">{active.label} Policy</h3>
+                <h3 className="text-sm font-bold text-foreground">
+                  {isDoiTabActive ? "DOI & ORCID Policy" : activeTabContent?.title}
+                </h3>
               </div>
             </div>
 
-            {active.field === "_doiorcid" ? (
+            {isDoiTabActive ? (
               <DoiOrcidPanel
                 doiEnabled={policies?.doiEnabled ?? false}
                 requireAuthorCompetingInterestsEnabled={policies?.requireAuthorCompetingInterestsEnabled ?? false}
               />
             ) : (
               <PolicyContent
-                key={active.field}
-                html={policies ? policies[active.field as keyof typeof policies] as string | null : null}
-                plainDescription={active.description}
+                key={currentTabSlug || "unselected"}
+                html={activeTabContent?.content || null}
               />
             )}
           </>

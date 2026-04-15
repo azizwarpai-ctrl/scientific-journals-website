@@ -1,33 +1,22 @@
 /**
  * Journal Policies Service
  *
- * Fetches editorial/legal policy text from the OJS journal_settings table.
- *
- * OJS stores all journal configuration in a key-value EAV (Entity-Attribute-Value)
- * table: journal_settings (journal_id, locale, setting_name, setting_value).
- *
- * SQL proof:
- *   SELECT setting_name, setting_value
- *   FROM journal_settings
- *   WHERE journal_id = ?
- *   AND setting_name IN ('privacyStatement','copyrightStatement','authorSelfArchivePolicy',
- *                        'reviewPolicy','openAccessPolicy','focusAndScope')
- *   AND (locale = ? OR locale = '')
- *
- * Why NOT publication_settings:
- *   publication_settings stores per-article metadata (title, abstract, doi).
- *   Journal-level policies live exclusively in journal_settings.
+ * Fetches dynamic policy tabs from the OJS "Journal Policies" navigation menu.
+ * Previously this fetched hard-coded static keys, but OJS manages policy pages
+ * dynamically via navigation_menus, navigation_menu_items, and their settings.
  */
 
 import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 
+export interface PolicyTab {
+  title: string
+  slug: string
+  content: string
+}
+
 export interface JournalPolicies {
-  privacyStatement: string | null
-  copyrightStatement: string | null
-  authorSelfArchivePolicy: string | null
-  reviewPolicy: string | null
-  openAccessPolicy: string | null
+  tabs: PolicyTab[]
   /** Whether DOI registration is enabled for this journal (boolean stored as '0'/'1') */
   doiEnabled: boolean
   /** Whether authors are required to declare competing interests */
@@ -40,12 +29,16 @@ interface PolicyRow {
   locale: string
 }
 
+interface MenuRow {
+  navigation_menu_item_id: number
+  slug: string
+  seq: number
+  setting_name: string
+  setting_value: string | null
+  locale: string
+}
+
 const POLICY_SETTING_NAMES = [
-  "privacyStatement",
-  "copyrightStatement",
-  "authorSelfArchivePolicy",
-  "reviewPolicy",
-  "openAccessPolicy",
   "enableDois",
   "requireAuthorCompetingInterests",
 ]
@@ -54,7 +47,7 @@ const POLICY_SETTING_NAMES = [
  * Returns the best locale value for a given setting name from a list of rows.
  * Priority: primaryLocale > '' (unlocalized) > any available locale
  */
-function pickBestLocale(rows: PolicyRow[], settingName: string, primaryLocale: string): string | null {
+function pickBestLocale(rows: { setting_name: string; setting_value: string | null; locale: string }[], settingName: string, primaryLocale: string): string | null {
   const matching = rows.filter((r) => r.setting_name === settingName)
   if (matching.length === 0) return null
 
@@ -70,11 +63,7 @@ function pickBestLocale(rows: PolicyRow[], settingName: string, primaryLocale: s
 
 export async function fetchJournalPolicies(ojsJournalId: string): Promise<JournalPolicies> {
   const empty: JournalPolicies = {
-    privacyStatement: null,
-    copyrightStatement: null,
-    authorSelfArchivePolicy: null,
-    reviewPolicy: null,
-    openAccessPolicy: null,
+    tabs: [],
     doiEnabled: false,
     requireAuthorCompetingInterestsEnabled: false,
   }
@@ -97,12 +86,13 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
     // Proceed with default
   }
 
-  let rows: PolicyRow[] = []
+  let configRows: PolicyRow[] = []
+  let menuRows: MenuRow[] = []
+
   try {
-    // Fetch all policy-relevant settings in a single query.
-    // We request both the primary locale and '' (unlocalized) rows.
+    // 1. Fetch system-wide toggles (DOI/Competing Interests)
     const placeholders = POLICY_SETTING_NAMES.map(() => "?").join(", ")
-    rows = await ojsQuery<PolicyRow>(
+    configRows = await ojsQuery<PolicyRow>(
       `SELECT setting_name, setting_value, locale
        FROM journal_settings
        WHERE journal_id = ?
@@ -110,31 +100,89 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
          AND (locale = ? OR locale = '')`,
       [journalId, ...POLICY_SETTING_NAMES, primaryLocale]
     )
+
+    // 2. Fetch dynamic tabs from 'Journal Policies' menu
+    menuRows = await ojsQuery<MenuRow>(
+      `SELECT 
+          nmi.navigation_menu_item_id, 
+          nmi.path as slug, 
+          nmia.seq, 
+          nmis.setting_name, 
+          nmis.setting_value, 
+          nmis.locale
+       FROM navigation_menus nm
+       JOIN navigation_menu_item_assignments nmia ON nm.navigation_menu_id = nmia.navigation_menu_id
+       JOIN navigation_menu_items nmi ON nmia.navigation_menu_item_id = nmi.navigation_menu_item_id
+       LEFT JOIN navigation_menu_item_settings nmis ON nmi.navigation_menu_item_id = nmis.navigation_menu_item_id
+       WHERE nm.title = 'Journal Policies' AND nm.context_id = ?
+       ORDER BY nmia.seq ASC`,
+      [journalId]
+    )
   } catch (err) {
     console.error(`[JournalPolicies] Failed to fetch policies for journal_id=${journalId}:`, err)
     throw err
   }
 
   const POLICY_SANITIZE_OPTIONS = {
-    allowedTags: ["p", "br", "strong", "em", "b", "i", "u", "ul", "ol", "li", "a", "h3", "h4", "h5", "blockquote", "span"],
-    allowedAttributes: { a: ["href", "target", "rel"] },
+    allowedTags: [
+      "p", "br", "strong", "em", "b", "i", "u", "ul", "ol", "li", "a", 
+      "h1", "h2", "h3", "h4", "h5", "blockquote", "span", "div", 
+      "table", "tbody", "tr", "td", "th", "thead", "img"
+    ],
+    allowedAttributes: { 
+      a: ["href", "target", "rel"],
+      img: ["src", "alt", "width", "height"],
+      "*": ["class", "style"] 
+    },
   }
 
-  const sanitizePolicy = (raw: string | null): string | null => {
-    if (!raw) return null
+  const sanitizePolicy = (raw: string | null): string => {
+    if (!raw) return ""
     return sanitizeHtml(raw, POLICY_SANITIZE_OPTIONS)
   }
 
-  const doiRaw = pickBestLocale(rows, "enableDois", primaryLocale)
-  const competingInterestsRaw = pickBestLocale(rows, "requireAuthorCompetingInterests", primaryLocale)
+  const doiRaw = pickBestLocale(configRows, "enableDois", primaryLocale)
+  const competingInterestsRaw = pickBestLocale(configRows, "requireAuthorCompetingInterests", primaryLocale)
+
+  // Group the flat EAV menu rows into structured items
+  const itemsMap = new Map<number, { slug: string; seq: number; settings: { setting_name: string; setting_value: string | null; locale: string }[] }>()
+
+  for (const row of menuRows) {
+    if (!itemsMap.has(row.navigation_menu_item_id)) {
+      itemsMap.set(row.navigation_menu_item_id, { slug: row.slug, seq: row.seq, settings: [] })
+    }
+    if (row.setting_name) {
+      itemsMap.get(row.navigation_menu_item_id)!.settings.push({
+        setting_name: row.setting_name,
+        setting_value: row.setting_value,
+        locale: row.locale,
+      })
+    }
+  }
+
+  const tabs: PolicyTab[] = []
+  
+  const sortedItems = Array.from(itemsMap.values()).sort((a, b) => a.seq - b.seq)
+
+  for (const item of sortedItems) {
+    const title = pickBestLocale(item.settings, "title", primaryLocale) || "Policy"
+    const rawContent = pickBestLocale(item.settings, "content", primaryLocale)
+    const content = sanitizePolicy(rawContent)
+
+    // Strict constraint: hide tab if empty or broken
+    if (!content.trim() && !rawContent?.trim()) continue
+
+    tabs.push({
+      title,
+      slug: item.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      content,
+    })
+  }
 
   return {
-    privacyStatement: sanitizePolicy(pickBestLocale(rows, "privacyStatement", primaryLocale)),
-    copyrightStatement: sanitizePolicy(pickBestLocale(rows, "copyrightStatement", primaryLocale)),
-    authorSelfArchivePolicy: sanitizePolicy(pickBestLocale(rows, "authorSelfArchivePolicy", primaryLocale)),
-    reviewPolicy: sanitizePolicy(pickBestLocale(rows, "reviewPolicy", primaryLocale)),
-    openAccessPolicy: sanitizePolicy(pickBestLocale(rows, "openAccessPolicy", primaryLocale)),
+    tabs,
     doiEnabled: doiRaw === "1" || doiRaw === "true",
     requireAuthorCompetingInterestsEnabled: competingInterestsRaw === "1" || competingInterestsRaw === "true",
   }
 }
+
