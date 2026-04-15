@@ -1,12 +1,18 @@
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
-import { UserCircle2 } from "lucide-react"
 
 interface MemberAvatarProps {
   name: string
   imageUrl?: string | null
+  size?: "sm" | "md" | "lg"
 }
 
-export function MemberAvatar({ name, imageUrl }: MemberAvatarProps) {
+const SIZE_CLASS = {
+  sm: "size-9",
+  md: "size-11",
+  lg: "size-14",
+} as const
+
+export function MemberAvatar({ name, imageUrl, size = "md" }: MemberAvatarProps) {
   const initials = name
     .split(" ")
     .map((n) => n[0])
@@ -15,10 +21,10 @@ export function MemberAvatar({ name, imageUrl }: MemberAvatarProps) {
     .toUpperCase()
 
   return (
-    <Avatar className="size-14 shrink-0 ring-1 ring-border/30">
+    <Avatar className={`${SIZE_CLASS[size]} shrink-0`}>
       <AvatarImage src={imageUrl || undefined} alt={name} className="object-cover" />
-      <AvatarFallback className="text-sm font-semibold text-muted-foreground">
-        {initials || <UserCircle2 className="h-5 w-5" />}
+      <AvatarFallback className="text-sm font-semibold bg-primary/8 text-primary/70">
+        {initials}
       </AvatarFallback>
     </Avatar>
   )
