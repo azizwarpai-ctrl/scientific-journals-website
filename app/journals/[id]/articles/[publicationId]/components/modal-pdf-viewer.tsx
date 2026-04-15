@@ -22,6 +22,7 @@ export function ModalPdfViewer({ pdfUrl, articleTitle = "Document", triggerStyle
   const [hasError, setHasError] = useState(false)
   const [open, setOpen] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isLoadingRef = useRef(true)
 
   const clearTimer = () => {
     if (timeoutRef.current) {
@@ -32,14 +33,18 @@ export function ModalPdfViewer({ pdfUrl, articleTitle = "Document", triggerStyle
 
   const handleRetry = () => {
     setHasError(false)
+    isLoadingRef.current = true
     setIsLoading(true)
     // The iframe will re-attempt load if src is re-set or on state change
   }
 
-  // Reset loading state whenever the PDF URL changes or modal is re-opened
+  // Reset loading state whenever the PDF URL changes or modal is re-opened.
+  // isLoading is intentionally excluded from deps — its value is tracked via
+  // isLoadingRef to avoid the timeout callback closing over a stale boolean.
   useEffect(() => {
     if (open) {
       requestAnimationFrame(() => {
+        isLoadingRef.current = true
         setIsLoading(true)
         setHasError(false)
       })
@@ -47,23 +52,27 @@ export function ModalPdfViewer({ pdfUrl, articleTitle = "Document", triggerStyle
       // Fail-safe timeout: hide loader and show error if it takes > 15s
       clearTimer()
       timeoutRef.current = setTimeout(() => {
-        if (isLoading) {
+        if (isLoadingRef.current) {
+          isLoadingRef.current = false
           setIsLoading(false)
           setHasError(true)
         }
       }, 15000)
     }
-    
+
     return () => clearTimer()
-  }, [pdfUrl, open, isLoading])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdfUrl, open])
 
   const handleLoad = () => {
+    isLoadingRef.current = false
     setIsLoading(false)
     setHasError(false)
     clearTimer()
   }
 
   const handleError = () => {
+    isLoadingRef.current = false
     setIsLoading(false)
     setHasError(true)
     clearTimer()
@@ -85,7 +94,7 @@ export function ModalPdfViewer({ pdfUrl, articleTitle = "Document", triggerStyle
           <Button className="w-full font-bold h-12 shadow-sm relative overflow-hidden group rounded-xl">
             <div className="absolute inset-0 bg-primary/10 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300" />
             <span className="relative flex items-center gap-2">
-              <Maximize className="h-5 w-5" /> View Full Text
+              <Maximize className="h-5 w-5" /> View PDF
             </span>
           </Button>
         ) : (

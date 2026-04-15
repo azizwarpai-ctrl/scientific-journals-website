@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { ChevronRight, Calendar, User, ExternalLink } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { DoiCopyButton } from "./doi-copy-button"
 import type { ArticleDetail } from "@/src/features/journals"
 
 interface ArticleHeaderProps {
@@ -62,18 +63,7 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
           )}
           
           {article.doi && (
-            <div className="flex items-center gap-2">
-              <span className="font-semibold px-2 py-0.5 rounded-md bg-muted/50 border border-border/40">DOI</span>
-              <a 
-                href={`https://doi.org/${article.doi}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="hover:text-primary hover:underline transition-colors flex items-center gap-1 break-all"
-              >
-                {article.doi}
-                <ExternalLink className="h-3 w-3 flex-shrink-0" />
-              </a>
-            </div>
+            <DoiCopyButton doi={article.doi} />
           )}
         </div>
       </div>
@@ -117,25 +107,7 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
         </div>
       </div>
 
-      {article.keywords && article.keywords.length > 0 && (
-        <div className="pt-8 border-t border-border/40">
-          <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-4">
-            Keywords
-          </h3>
-          <div className="flex flex-wrap gap-2.5">
-            {article.keywords.map((kw, i) => (
-              <Badge 
-                key={i} 
-                variant="secondary"
-                data-slot="badge"
-                className="px-3.5 py-1.5 rounded-lg bg-muted/30 text-muted-foreground text-[11px] font-bold border border-border/40 hover:bg-primary/5 hover:text-primary hover:border-primary/20 transition-all cursor-default shadow-sm"
-              >
-                {kw}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Keywords are rendered BELOW the abstract — see ArticleAbstract */}
     </div>
   )
 }

@@ -15,7 +15,7 @@ export function ArticleSidebar({ article }: ArticleSidebarProps) {
       {/* Primary Actions */}
       <div className="rounded-xl border border-border/50 bg-card p-5 space-y-4 shadow-sm">
         <h3 className="font-semibold text-lg flex items-center gap-2">
-          <FileText className="h-5 w-5 text-primary" /> Access Full Text
+          <FileText className="h-5 w-5 text-primary" /> Full Text
         </h3>
 
         {article.pdfUrl ? (

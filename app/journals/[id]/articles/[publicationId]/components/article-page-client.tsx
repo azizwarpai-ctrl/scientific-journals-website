@@ -62,7 +62,7 @@ export function ArticlePageClient({ journalIdStr, publicationIdStr }: ArticlePag
           
           <div className="h-px bg-border/60 w-full" />
           
-          <ArticleAbstract abstract={article.abstract} />
+          <ArticleAbstract abstract={article.abstract} keywords={article.keywords} />
         </div>
 
         {/* Sidebar & PDF Interactive Elements (Hydrated Client Boundary) */}
