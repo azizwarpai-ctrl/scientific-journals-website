@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 interface MemberPhotoProps {
   name: string
@@ -28,12 +28,16 @@ function getInitials(name: string): string {
  */
 export function MemberPhoto({ name, imageUrl, className = "" }: MemberPhotoProps) {
   const [failed, setFailed] = useState(false)
+  const [lastImageUrl, setLastImageUrl] = useState(imageUrl)
 
-  // Reset failure state whenever the source URL changes, so a new member's
-  // image gets a fresh chance to load even after a previous one errored out.
-  useEffect(() => {
+  // "Adjust state during rendering" — when the incoming URL changes,
+  // clear the previous failure so a new member's image gets a fresh
+  // chance to load. This is the React-recommended alternative to
+  // calling setState inside useEffect, which triggers cascading renders.
+  if (imageUrl !== lastImageUrl) {
+    setLastImageUrl(imageUrl)
     setFailed(false)
-  }, [imageUrl])
+  }
 
   const showImage = Boolean(imageUrl) && !failed
 
