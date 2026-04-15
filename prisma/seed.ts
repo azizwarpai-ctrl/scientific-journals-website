@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
-const bcrypt = require('bcryptjs') // or 'bcrypt' based on project dependencies
+import bcrypt from 'bcryptjs'
 
 /**
  * Stage 2: Phase 3 - Implementation

@@ -12,6 +12,7 @@
 export interface CurrentIssueAuthor {
   givenName: string | null
   familyName: string | null
+  affiliation?: string | null
 }
 
 export interface CurrentIssueArticle {

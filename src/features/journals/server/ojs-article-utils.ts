@@ -97,37 +97,53 @@ export async function fetchArticlesWithAuthors(
   // ── Batch-fetch authors for all publications ──────────
   const publicationIds = articleRows.map((a) => a.publication_id)
 
-  const authorRows = await ojsQuery<AuthorRow>(
-    `SELECT
-      a.author_id,
-      a.publication_id,
-      a.seq,
-      as_given.setting_value AS given_name,
-      as_family.setting_value AS family_name
-    FROM authors a
-    LEFT JOIN author_settings as_given
-      ON as_given.author_id = a.author_id
-      AND as_given.setting_name = 'givenName'
-      AND as_given.locale = ?
-    LEFT JOIN author_settings as_family
-      ON as_family.author_id = a.author_id
-      AND as_family.setting_name = 'familyName'
-      AND as_family.locale = ?
-    WHERE a.publication_id IN (?)
-      AND a.include_in_browse = 1
-    ORDER BY a.publication_id, a.seq ASC`,
-    [primaryLocale, primaryLocale, publicationIds]
+  const authorRows = await ojsQuery<{ author_id: number, publication_id: number, seq: number }>(
+    `SELECT a.author_id, a.publication_id, a.seq
+     FROM authors a
+     WHERE a.publication_id IN (?)
+       AND a.include_in_browse = 1
+     ORDER BY a.publication_id, a.seq ASC`,
+    [publicationIds]
   )
 
-  // ── Group authors by publication_id ───────────────────
   const authorsByPub = new Map<number, CurrentIssueAuthor[]>()
-  for (const row of authorRows) {
-    const existing = authorsByPub.get(row.publication_id) || []
-    existing.push({
-      givenName: row.given_name,
-      familyName: row.family_name,
-    })
-    authorsByPub.set(row.publication_id, existing)
+
+  if (authorRows.length > 0) {
+    const authorIds = authorRows.map(r => r.author_id)
+    const authorSettingsRows = await ojsQuery<{
+      author_id: number
+      locale: string
+      setting_name: string
+      setting_value: string
+    }>(
+      `SELECT author_id, locale, setting_name, setting_value
+       FROM author_settings
+       WHERE author_id IN (${authorIds.join(',')})`
+    )
+
+    for (const row of authorRows) {
+      const settings = authorSettingsRows.filter(s => s.author_id === row.author_id)
+
+      const getBestSetting = (name: string): string | null => {
+        const matches = settings.filter(s => s.setting_name === name)
+        if (matches.length === 0) return null
+        const primaryMatch = matches.find(s => s.locale === primaryLocale)
+        if (primaryMatch?.setting_value) return primaryMatch.setting_value
+        const enMatch = matches.find(s => s.locale === 'en_US' || s.locale === 'en')
+        if (enMatch?.setting_value) return enMatch.setting_value
+        const emptyMatch = matches.find(s => s.locale === '')
+        if (emptyMatch?.setting_value) return emptyMatch.setting_value
+        return matches[0].setting_value || null
+      }
+
+      const existing = authorsByPub.get(row.publication_id) || []
+      existing.push({
+        givenName: getBestSetting('givenName'),
+        familyName: getBestSetting('familyName'),
+        affiliation: getBestSetting('affiliation'),
+      })
+      authorsByPub.set(row.publication_id, existing)
+    }
   }
 
   // ── Batch-fetch galleys for all publications ──────────

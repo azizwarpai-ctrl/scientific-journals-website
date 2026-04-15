@@ -43,10 +43,7 @@ export function ArticleItem({ article }: ArticleItemProps) {
     })
   }
 
-  const authorNames = article.authors
-    .map(a => `${a.givenName || ''} ${a.familyName || ''}`.trim())
-    .filter(Boolean)
-    .join(", ")
+
 
   return (
     <div className="group relative flex flex-col sm:flex-row rounded-2xl border border-border/40 bg-card overflow-hidden transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:-translate-y-1">
@@ -87,10 +84,26 @@ export function ArticleItem({ article }: ArticleItemProps) {
           </Link>
 
           {/* Authors */}
-          {authorNames && (
-            <div className="flex items-start gap-2.5 text-sm text-foreground/70 font-medium">
+          {article.authors && article.authors.length > 0 && (
+            <div className="flex items-start gap-2.5 text-sm text-foreground/70">
               <User className="h-4 w-4 shrink-0 mt-0.5 text-primary/60" />
-              <span className="line-clamp-2 leading-relaxed">{authorNames}</span>
+              <div className="flex flex-col gap-2 w-full">
+                {article.authors.map((author, idx) => {
+                  const name = `${author.givenName || ''} ${author.familyName || ''}`.trim()
+                  if (!name) return null
+                  
+                  return (
+                    <div key={idx} className="flex flex-col">
+                      <span className="font-medium">{name}</span>
+                      {author.affiliation && (
+                        <span className="text-[11px] text-muted-foreground leading-tight">
+                          {author.affiliation}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
 
