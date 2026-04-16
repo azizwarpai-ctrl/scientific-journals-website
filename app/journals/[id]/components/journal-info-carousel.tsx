@@ -267,9 +267,18 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
   //   1. `overflow-hidden`  — clips slides that are translated out of view
   //   2. An explicit height — without this, Embla can't measure positions and
   //      the slide row overflows downward; nothing visually scrolls.
+  //
+  // The Autoplay plugin MUST be stored in a ref so the same instance is reused
+  // across renders. Creating it inline (Autoplay({…})) produces a new object
+  // every render, which causes useEmblaCarousel's plugin-change effect to fire
+  // continuously — triggering reInit, resetting the autoplay timer before it
+  // can elapse, and making the carousel appear frozen.
+  const autoplayPlugin = useRef(
+    Autoplay({ delay: AUTOPLAY_DELAY_MS, stopOnInteraction: false })
+  )
   const [emblaRef, emblaApi] = useEmblaCarousel(
     { loop: true, align: "start" },
-    [Autoplay({ delay: AUTOPLAY_DELAY_MS, stopOnInteraction: false })]
+    [autoplayPlugin.current]
   )
 
   const [selectedIndex, setSelectedIndex] = useState(0)
