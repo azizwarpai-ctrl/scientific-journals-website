@@ -64,6 +64,15 @@ interface StaticPageRow {
 //
 // OJS built-in navigation menu item types resolve their display content from
 // journal_settings rather than navigation_menu_item_settings.
+//
+// This map intentionally covers only the built-in types that carry policy HTML
+// in journal_settings.  It is NOT exhaustive: types such as NMI_TYPE_ABOUT,
+// NMI_TYPE_SUBMISSIONS, and NMI_TYPE_EDITORIAL_TEAM point to other parts of
+// the OJS UI and have no standalone HTML content to display here.
+//
+// To add support for a new built-in type, insert an entry keyed by the OJS
+// PHP constant name (e.g. "NMI_TYPE_FOO") with the corresponding
+// journal_settings key and a default display title.
 
 const BUILTIN_TYPE_TO_SETTING: Record<string, { settingName: string; defaultTitle: string }> = {
   "NMI_TYPE_PRIVACY": { settingName: "privacyStatement", defaultTitle: "Privacy Statement" },
@@ -166,7 +175,10 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
          AND setting_name IN ('enableDois', 'requireAuthorCompetingInterests')
          AND (locale = ? OR locale = '')`,
       [journalId, primaryLocale],
-    ).catch((): SettingRow[] => []),
+    ).catch((err): SettingRow[] => {
+      console.error(`[JournalPolicies] Failed to load DOI/competing-interests config for journal_id=${journalId}:`, err)
+      return []
+    }),
 
     // 2. Navigation menu items from the "Journal Policies" custom menu
     ojsQuery<MenuRow>(
@@ -189,7 +201,10 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
          AND nm.context_id = ?
        ORDER BY nmia.seq ASC`,
       [journalId],
-    ).catch((): MenuRow[] => []),
+    ).catch((err): MenuRow[] => {
+      console.error(`[JournalPolicies] Failed to load "Journal Policies" navigation menu for journal_id=${journalId}:`, err)
+      return []
+    }),
 
     // 3. Standard policy fields from journal_settings (content source + fallback)
     ojsQuery<SettingRow>(
@@ -199,7 +214,10 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
          AND setting_name IN (${policyPlaceholders})
          AND (locale = ? OR locale = '')`,
       [journalId, ...policySettingNames, primaryLocale],
-    ).catch((): SettingRow[] => []),
+    ).catch((err): SettingRow[] => {
+      console.error(`[JournalPolicies] Failed to load standard policy settings for journal_id=${journalId}:`, err)
+      return []
+    }),
 
     // 4. Static pages (plugin-managed content — table may not exist)
     ojsQuery<StaticPageRow>(
@@ -214,7 +232,10 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
          ON sp.static_page_id = sps.static_page_id
        WHERE sp.context_id = ?`,
       [journalId],
-    ).catch((): StaticPageRow[] => []),
+    ).catch((err): StaticPageRow[] => {
+      console.error(`[JournalPolicies] Failed to load static pages for journal_id=${journalId}:`, err)
+      return []
+    }),
   ])
 
   // ── Config toggles ─────────────────────────────────────────────────────
@@ -294,11 +315,10 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
         }
       }
 
-      if (!title) title = "Policy"
-
       const sanitized = sanitizePolicy(content)
-      if (!sanitized.trim() && !content?.trim()) continue
+      if (!sanitized.trim()) continue
 
+      if (!title) title = "Policy"
       menuTabs.push({
         title,
         slug: item.slug || makeSlug(title),
