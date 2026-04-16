@@ -39,7 +39,7 @@ export function MemberCard({ member }: MemberCardProps) {
       <MemberPhoto
         name={member.name}
         imageUrl={member.profileImage}
-        className="aspect-[4/5] w-full rounded-[18px]"
+        className="mx-auto aspect-[4/5] w-4/5 rounded-[18px]"
       />
 
       {/* Identity block */}
