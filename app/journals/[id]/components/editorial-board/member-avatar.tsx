@@ -57,7 +57,7 @@ export function MemberPhoto({ name, imageUrl, className = "" }: MemberPhotoProps
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center">
-          <span className="text-2xl font-semibold tracking-wide text-muted-foreground/70">
+          <span className="text-sm font-semibold tracking-wide text-muted-foreground/70">
             {getInitials(name)}
           </span>
         </div>

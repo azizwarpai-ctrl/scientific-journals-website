@@ -3,14 +3,13 @@ import { MemberPhoto } from "./member-avatar"
 import { getRoleConfig } from "./role-styles"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 
-/** Returns `url` only when it uses http(s) — rejects javascript:, data:, etc. */
 function safeLink(url: string | null | undefined): string | null {
   if (!url) return null
   try {
     const { protocol } = new URL(url)
     if (protocol === "https:" || protocol === "http:") return url
   } catch {
-    /* malformed URL — discard */
+    /* malformed URL */
   }
   return null
 }
@@ -21,10 +20,6 @@ interface MemberCardProps {
 
 export function MemberCard({ member }: MemberCardProps) {
   const config = getRoleConfig(member.roleId)
-  // When the role ID is unknown, getRoleConfig returns the default placeholder
-  // config whose label is a generic "Board Member" string. Fall back to the
-  // free-text role parsed from OJS in that case so headings like "Advisory
-  // Board" actually surface instead of being flattened to the placeholder.
   const roleLabel = config.tier === "default" ? member.role : config.label
   const isChief = config.tier === "chief"
 
@@ -34,42 +29,43 @@ export function MemberCard({ member }: MemberCardProps) {
   const hasLinks = orcidUrl || scholarUrl || scopusUrl
 
   return (
-    <article className="group mx-auto flex w-4/5 flex-col rounded-2xl border border-border/60 bg-card p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-md">
-      {/* Portrait — 4:5 aspect, rounded 20px */}
-      <MemberPhoto
-        name={member.name}
-        imageUrl={member.profileImage}
-        className="mx-auto aspect-[4/5] w-full rounded-[18px]"
-      />
+    <article className="group flex flex-col rounded-xl border border-border/50 bg-card transition-all duration-200 hover:border-border hover:shadow-md overflow-hidden">
+      {/* Top row: avatar + info */}
+      <div className="flex items-start gap-3 p-3.5">
+        {/* Compact square avatar */}
+        <MemberPhoto
+          name={member.name}
+          imageUrl={member.profileImage}
+          className="w-12 h-12 rounded-lg shrink-0"
+        />
 
-      {/* Identity block */}
-      <div className="flex flex-1 flex-col gap-2 px-1 pt-4">
-        <h3 className="line-clamp-2 text-sm font-bold leading-snug text-foreground">
-          {member.name}
-        </h3>
+        {/* Identity */}
+        <div className="flex-1 min-w-0 space-y-1">
+          <h3 className="text-sm font-bold leading-snug text-foreground line-clamp-2">
+            {member.name}
+          </h3>
 
-        <div>
           <span
             className={
               isChief
-                ? "inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
-                : "inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                ? "inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
+                : "inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
             }
           >
             {roleLabel}
           </span>
-        </div>
 
-        {member.affiliation && (
-          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-            {member.affiliation}
-          </p>
-        )}
+          {member.affiliation && (
+            <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-2">
+              {member.affiliation}
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* Profile links — DOI-style icon buttons, only rendered when present */}
+      {/* Profile links */}
       {hasLinks && (
-        <div className="mt-4 flex items-center gap-1.5 border-t border-border/40 px-1 pt-3">
+        <div className="flex items-center gap-1.5 px-3.5 pb-3 border-t border-border/30 pt-2.5 mt-auto">
           {orcidUrl && (
             <a
               href={orcidUrl}
@@ -77,9 +73,9 @@ export function MemberCard({ member }: MemberCardProps) {
               rel="noopener noreferrer"
               aria-label={`ORCID profile for ${member.name}`}
               title="ORCID"
-              className="inline-flex size-8 items-center justify-center rounded-lg bg-[#A6CE39]/10 text-[#A6CE39] transition-colors hover:bg-[#A6CE39] hover:text-white"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#A6CE39]/10 text-[#A6CE39] transition-colors hover:bg-[#A6CE39] hover:text-white"
             >
-              <span className="text-[10px] font-black leading-none">iD</span>
+              <span className="text-[9px] font-black leading-none">iD</span>
             </a>
           )}
           {scholarUrl && (
@@ -89,9 +85,9 @@ export function MemberCard({ member }: MemberCardProps) {
               rel="noopener noreferrer"
               aria-label={`Google Scholar profile for ${member.name}`}
               title="Google Scholar"
-              className="inline-flex size-8 items-center justify-center rounded-lg bg-[#4285F4]/10 text-[#4285F4] transition-colors hover:bg-[#4285F4] hover:text-white"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#4285F4]/10 text-[#4285F4] transition-colors hover:bg-[#4285F4] hover:text-white"
             >
-              <GraduationCap className="h-4 w-4" />
+              <GraduationCap className="h-3.5 w-3.5" />
             </a>
           )}
           {scopusUrl && (
@@ -101,9 +97,9 @@ export function MemberCard({ member }: MemberCardProps) {
               rel="noopener noreferrer"
               aria-label={`Scopus profile for ${member.name}`}
               title="Scopus"
-              className="inline-flex size-8 items-center justify-center rounded-lg bg-[#E9711C]/10 text-[#E9711C] transition-colors hover:bg-[#E9711C] hover:text-white"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#E9711C]/10 text-[#E9711C] transition-colors hover:bg-[#E9711C] hover:text-white"
             >
-              <span className="text-[11px] font-black leading-none">S</span>
+              <span className="text-[10px] font-black leading-none">S</span>
             </a>
           )}
         </div>
