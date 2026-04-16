@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { createPortal } from "react-dom"
 import {
   FileText,
   Loader2,
@@ -36,14 +35,10 @@ export function ModalPdfViewer({
   const [hasError, setHasError] = useState(false)
   const [renderMethod, setRenderMethod] = useState<RenderMethod>("object")
   const [zoom, setZoom] = useState(100)
-  const [mounted, setMounted] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isLoadingRef = useRef(true)
 
   const directUrl = pdfDirectUrl || pdfUrl
-
-  // Mount guard for portal
-  useEffect(() => { setMounted(true) }, [])
 
   const clearTimer = useCallback(() => {
     if (timeoutRef.current) {
@@ -75,7 +70,7 @@ export function ModalPdfViewer({
     document.addEventListener("keydown", handleKey)
     document.body.style.overflow = "hidden"
 
-    // 15-second fail-safe timeout
+    // 15-second fail-safe
     clearTimer()
     timeoutRef.current = setTimeout(() => {
       if (isLoadingRef.current) {
@@ -102,12 +97,9 @@ export function ModalPdfViewer({
   const handleError = useCallback(() => {
     clearTimer()
     if (renderMethod === "object") {
-      // Fallback: try iframe
       setRenderMethod("iframe")
       setIsLoading(true)
       isLoadingRef.current = true
-
-      // Reset timeout for iframe attempt
       timeoutRef.current = setTimeout(() => {
         if (isLoadingRef.current) {
           isLoadingRef.current = false
@@ -120,14 +112,13 @@ export function ModalPdfViewer({
       setIsLoading(false)
       setRenderMethod("fallback")
     }
-  }, [renderMethod])
+  }, [renderMethod, clearTimer])
 
   const handleRetry = useCallback(() => {
     setHasError(false)
     setRenderMethod("object")
     setIsLoading(true)
     isLoadingRef.current = true
-
     clearTimer()
     timeoutRef.current = setTimeout(() => {
       if (isLoadingRef.current) {
@@ -174,8 +165,11 @@ export function ModalPdfViewer({
       </Button>
     )
 
-  const modal = mounted && open
-    ? createPortal(
+  return (
+    <>
+      {trigger}
+
+      {open && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4"
           role="dialog"
@@ -196,7 +190,6 @@ export function ModalPdfViewer({
           >
             {/* ── Sticky toolbar ── */}
             <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 bg-card/80 backdrop-blur-sm shrink-0">
-              {/* Left: icon + title */}
               <FileText className="h-4 w-4 text-primary shrink-0 opacity-80" />
               <span className="flex-1 truncate text-sm font-semibold text-foreground mr-2">
                 {articleTitle}
@@ -282,7 +275,7 @@ export function ModalPdfViewer({
                 </div>
               )}
 
-              {/* PDF renderers */}
+              {/* object renderer */}
               {renderMethod === "object" && !hasError && (
                 <div
                   className="w-full h-full transition-opacity duration-500"
@@ -296,12 +289,12 @@ export function ModalPdfViewer({
                     onLoad={handleLoad}
                     onError={handleError}
                   >
-                    {/* Fallback text inside object when unsupported */}
                     <span />
                   </object>
                 </div>
               )}
 
+              {/* iframe renderer */}
               {renderMethod === "iframe" && !hasError && (
                 <div
                   className="w-full h-full transition-opacity duration-500"
@@ -318,7 +311,7 @@ export function ModalPdfViewer({
                 </div>
               )}
 
-              {/* Final fallback — authentication-blocked or unsupported */}
+              {/* Final fallback */}
               {(renderMethod === "fallback" || hasError) && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 p-8 text-center animate-in fade-in zoom-in-95 duration-300">
                   <div className="w-20 h-20 rounded-2xl bg-destructive/10 flex items-center justify-center">
@@ -332,11 +325,7 @@ export function ModalPdfViewer({
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-3 justify-center">
-                    <Button
-                      onClick={handleRetry}
-                      variant="outline"
-                      className="gap-2 rounded-full"
-                    >
+                    <Button onClick={handleRetry} variant="outline" className="gap-2 rounded-full">
                       <RefreshCcw className="h-4 w-4" />
                       Try Again
                     </Button>
@@ -361,15 +350,8 @@ export function ModalPdfViewer({
               )}
             </div>
           </div>
-        </div>,
-        document.body
-      )
-    : null
-
-  return (
-    <>
-      {trigger}
-      {modal}
+        </div>
+      )}
     </>
   )
 }
