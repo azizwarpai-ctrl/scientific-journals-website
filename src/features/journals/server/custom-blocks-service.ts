@@ -276,11 +276,24 @@ export async function fetchCustomBlocks(
       // first real item doesn't inherit "Journal Information" as its title.
       const strippedHtml = stripBlockTitleHeading(cleanContent)
       const cardFields = extractCardFields(strippedHtml || cleanContent, name)
-      blocks.push({
+      const finalTitle =
+        cardFields.title ||
+        name.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+      const finalDescription = buildFinalDescription(
+        finalTitle,
+        cardFields.description
+      )
+      const itemResult = CustomBlockSchema.safeParse({
         name,
         content: cleanContent,
-        ...cardFields,
+        title: finalTitle,
+        image: cardFields.image,
+        link: cardFields.link,
+        description: finalDescription,
       })
+      if (itemResult.success) {
+        blocks.push(itemResult.data)
+      }
     }
   }
 
@@ -319,18 +332,19 @@ function decodeHtml(html: string): string {
 /**
  * Extracts structured fields from sanitized HTML for the Journal Carousel.
  * Pure helper function for testability.
+ * Returns title: undefined if no heading/strong is found (caller may skip such cards).
  */
-export function extractCardFields(html: string, name: string) {
-  // 1. Title: Look for headings, then strong tags, or fallback to block name
+export function extractCardFields(html: string, _name: string) {
+  // 1. Title: Look for headings, then strong tags. Return undefined if not found.
   const headingMatch = html.match(/<h[2-6][^>]*>(.*?)<\/h[2-6]>/i)
   const strongMatch = html.match(/<strong>(.*?)<\/strong>/i)
-  
-  const rawTitleHtml = headingMatch ? headingMatch[0] : (strongMatch ? strongMatch[0] : '')
-  const rawTitleText = (headingMatch ? headingMatch[1] : (strongMatch ? strongMatch[1] : name))
-    .replace(/<[^>]+>/g, '')
+
+  const rawTitleHtml = headingMatch ? headingMatch[0] : (strongMatch ? strongMatch[0] : null)
+  const rawTitleText = (headingMatch ? headingMatch[1] : (strongMatch ? strongMatch[1] : null))
+    ?.replace(/<[^>]+>/g, '')
     .trim()
-  
-  const title = decodeHtml(rawTitleText) || name.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+
+  const title = rawTitleText ? decodeHtml(rawTitleText) : undefined
 
   // 2. Image: First img tag source
   const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i)
@@ -354,8 +368,9 @@ export function extractCardFields(html: string, name: string) {
 
   // If description is too short, try to use p tags as before but more broadly
   if (descriptionRaw.length < 10) {
-    const allText = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    descriptionRaw = allText.length > title.length ? allText : "View details to learn more."
+    const allText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+    const titleLen = title?.length ?? 0
+    descriptionRaw = allText.length > titleLen ? allText : "View details to learn more."
   }
 
   const decodedDesc = decodeHtml(descriptionRaw)
@@ -416,11 +431,31 @@ export function stripBlockTitleHeading(html: string): string {
 export function splitBlockIntoCards(html: string): string[] {
   const withoutTitle = stripBlockTitleHeading(html)
 
-  // 1. <hr> boundaries
-  const hrSegments = withoutTitle
-    .split(/<hr\s*\/?>/gi)
-    .map((s) => s.trim())
-    .filter(hasRenderableText)
+  // 1. <hr> boundaries (DOM-based to preserve nested HTML structure)
+  const $hr = load(withoutTitle)
+  const bodyElHr = ($hr("body").length ? $hr("body") : $hr.root()) as Cheerio<AnyNode>
+  const hrChildren = bodyElHr
+    .children()
+    .toArray()
+    .filter((c) => (c as unknown as { type?: string }).type === "tag")
+
+  const hrSegments: string[] = []
+  let currentSegment: AnyNode[] = []
+  for (const child of hrChildren) {
+    if (tagOf(child) === "hr") {
+      if (currentSegment.length > 0) {
+        const seg = currentSegment.map((el) => $hr.html(el) ?? "").join("")
+        if (hasRenderableText(seg)) hrSegments.push(seg)
+        currentSegment = []
+      }
+    } else {
+      currentSegment.push(child)
+    }
+  }
+  if (currentSegment.length > 0) {
+    const seg = currentSegment.map((el) => $hr.html(el) ?? "").join("")
+    if (hasRenderableText(seg)) hrSegments.push(seg)
+  }
   if (hrSegments.length >= 2) return hrSegments
 
   const $ = load(withoutTitle)
@@ -435,10 +470,10 @@ export function splitBlockIntoCards(html: string): string[] {
     if (htmls.length >= 2) return htmls
   }
 
-  // 3. Image-anchored splitting (reliable when each card has exactly 1 image)
+  // 3. Image-anchored splitting (reliable when each card has an image)
   const imgCount = $("img").length
   const anchorCount = $("h2, h3, h4, h5, h6, strong").length
-  if (imgCount >= 2 && (anchorCount === 0 || anchorCount === imgCount)) {
+  if (imgCount >= 2 && anchorCount <= imgCount) {
     const imgSegs = splitFlatByPredicate($, bodyEl, (el) => tagOf(el) === "img" || $(el).find("img").length > 0)
     if (imgSegs.length >= 2) return imgSegs
   }
@@ -465,10 +500,10 @@ export function splitBlockIntoCards(html: string): string[] {
 }
 
 /**
- * Walk the DOM looking for the deepest parent whose direct children include
+ * Walk the DOM looking for the shallowest parent whose direct children include
  * ≥2 element nodes that each look like a card (contains a heading/strong
  * title AND/OR an <img>). Returns the list of matching child elements, or
- * null if no level qualifies.
+ * null if no level qualifies. Stops descending once a match is found.
  */
 function findRepeatingContainer(
   $: CheerioAPI,
@@ -482,9 +517,12 @@ function findRepeatingContainer(
     return (hasTitle && $n.text().trim().length > 0) || hasImg
   }
 
-  let best: AnyNode[] | null = null
+  let found: AnyNode[] | null = null
 
-  const visit = (node: AnyNode) => {
+  const visit = (node: AnyNode): boolean => {
+    // If we already found a match at a shallower level, stop descending
+    if (found) return true
+
     const $node = $(node)
     const children = $node
       .children()
@@ -492,17 +530,22 @@ function findRepeatingContainer(
       .filter((c) => (c as unknown as { type?: string }).type === "tag")
     if (children.length >= 2) {
       const cardLike = children.filter(looksLikeCard)
-      // Prefer the DEEPEST level with ≥2 card-like siblings. Require at least
-      // 2/3 of siblings to look like cards to avoid matching navigation nodes.
+      // Require at least 2/3 of siblings to look like cards to avoid
+      // matching navigation nodes. Record this level and stop descending.
       if (cardLike.length >= 2 && cardLike.length * 3 >= children.length * 2) {
-        best = cardLike
+        found = cardLike
+        return true // Stop visiting children
       }
     }
-    for (const c of children) visit(c)
+    // Try children; stop if any returns true
+    for (const c of children) {
+      if (visit(c)) return true
+    }
+    return false
   }
 
   visit(root[0] as AnyNode)
-  return best
+  return found
 }
 
 /**

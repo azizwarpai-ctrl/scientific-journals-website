@@ -96,6 +96,24 @@ describe("splitBlockIntoCards", () => {
     expect(segments).toEqual([])
   })
 
+  it("ignores <hr> nested inside another element (does not root-level split)", () => {
+    const html = `
+      <div>
+        <p><strong>Card One</strong></p>
+        <p>Body 1</p>
+        <hr/>
+        <p><strong>Card Two</strong></p>
+        <p>Body 2</p>
+      </div>
+    `
+    const segments = splitBlockIntoCards(html)
+    // HR is nested, so no root-level split. Fallback strategies may or may not
+    // find a pattern depending on DOM structure; what matters is we don't
+    // incorrectly split on the nested <hr> via regex.
+    // Either 0 (no pattern) or 1-2 (found via other strategy), but NOT from <hr> split.
+    expect(segments.length).not.toBeGreaterThanOrEqual(2)
+  })
+
   it("produces 4 cards matching the expected JSON shape when run through extractCardFields", () => {
     const html = `
       <h3>Journal Information</h3>
