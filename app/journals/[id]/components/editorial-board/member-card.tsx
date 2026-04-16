@@ -34,12 +34,12 @@ export function MemberCard({ member }: MemberCardProps) {
   const hasLinks = orcidUrl || scholarUrl || scopusUrl
 
   return (
-    <article className="group flex flex-col rounded-2xl border border-border/60 bg-card p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-md">
+    <article className="group mx-auto flex w-4/5 flex-col rounded-2xl border border-border/60 bg-card p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-md">
       {/* Portrait — 4:5 aspect, rounded 20px */}
       <MemberPhoto
         name={member.name}
         imageUrl={member.profileImage}
-        className="mx-auto aspect-[4/5] w-4/5 rounded-[18px]"
+        className="mx-auto aspect-[4/5] w-full rounded-[18px]"
       />
 
       {/* Identity block */}
