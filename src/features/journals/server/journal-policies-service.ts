@@ -248,6 +248,7 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
   const menuTabs: PolicyTab[] = []
   const usedSettingNames = new Set<string>()
   const usedStaticPageIds = new Set<number>()
+  const usedSlugs = new Set<string>()
 
   if (menuRows.length > 0) {
     // Group flat EAV rows by navigation_menu_item_id
@@ -319,9 +320,20 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
       if (!sanitized.trim()) continue
 
       if (!title) title = "Policy"
+
+      // Generate unique slug, appending numeric suffix if necessary
+      let baseSlug = item.slug || makeSlug(title)
+      let finalSlug = baseSlug
+      let counter = 2
+      while (usedSlugs.has(finalSlug)) {
+        finalSlug = `${baseSlug}-${counter}`
+        counter++
+      }
+      usedSlugs.add(finalSlug)
+
       menuTabs.push({
         title,
-        slug: item.slug || makeSlug(title),
+        slug: finalSlug,
         content: sanitized,
       })
     }
@@ -335,13 +347,14 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
   for (const spec of STANDARD_POLICY_SETTINGS) {
     if (usedSettingNames.has(spec.settingName)) continue
 
-    // Also skip if a menu tab already covers this slug (e.g. custom item with same slug)
-    if (menuTabs.some((t) => t.slug === spec.slug)) continue
+    // Also skip if a menu tab already covers this slug
+    if (usedSlugs.has(spec.slug)) continue
 
     const raw = pickBestLocale(policySettingRows, spec.settingName, primaryLocale)
     const sanitized = sanitizePolicy(raw)
     if (!sanitized.trim()) continue
 
+    usedSlugs.add(spec.slug)
     settingsTabs.push({
       title: spec.defaultTitle,
       slug: spec.slug,
@@ -377,10 +390,19 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
     const sanitized = sanitizePolicy(raw)
     if (!sanitized.trim()) continue
 
-    const slug = page.path || makeSlug(title || "page")
+    let slug = page.path || makeSlug(title || "page")
 
-    // Deduplicate against already-collected tabs
-    if (menuTabs.some((t) => t.slug === slug) || settingsTabs.some((t) => t.slug === slug)) continue
+    // Deduplicate against already-collected tabs, appending suffix if needed
+    if (usedSlugs.has(slug)) {
+      let counter = 2
+      let finalSlug = `${slug}-${counter}`
+      while (usedSlugs.has(finalSlug)) {
+        counter++
+        finalSlug = `${slug}-${counter}`
+      }
+      slug = finalSlug
+    }
+    usedSlugs.add(slug)
 
     staticTabs.push({
       title: title || page.path || "Policy",
