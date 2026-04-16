@@ -35,7 +35,7 @@ import type { CustomBlock } from "@/src/features/journals/types/custom-block-typ
 const ALLOWED_TAGS = [
   "p", "br", "strong", "em", "b", "i", "u",
   "ul", "ol", "li",
-  "h2", "h3", "h4", "h5",
+  "h2", "h3", "h4", "h5", "h6",
   "a", "span", "div",
   "table", "thead", "tbody", "tr", "th", "td",
   "img",
@@ -223,88 +223,172 @@ export async function fetchCustomBlocks(
 
     if (!cleanContent) continue
     
-    // Deconstruct block HTML to find inner items.
+    // ── Deconstruct block HTML to find inner items ──────────────────────
     //
     // OJS custom blocks can have several structures:
-    //   A) <div class="content"><div>...item...</div><div>...item...</div></div>
-    //   B) <ul><li>...item...</li></ul>
-    //   C) Flat HTML with no wrapper structure (single item)
-    //   D) Multiple top-level <p> or text elements (single item)
+    //   A) Items separated by <hr> tags (most common editor pattern)
+    //   B) Repeating heading+image+text groups (flat HTML)
+    //   C) <div class="content"><div>...item...</div>...</div>
+    //   D) <ul><li>...item...</li></ul>
+    //   E) Flat HTML with no clear structure (single item fallback)
     //
-    // Strategy: try progressively broader selectors, pick the first that
-    // yields ≥2 child elements with meaningful content.
+    // Strategy (priority order):
+    //   1. Split on <hr> boundaries
+    //   2. Detect repeating heading groups (h2-h6 or <strong> as delimiters)
+    //   3. Try CSS selector-based matching (legacy approach)
+    //   4. Fallback: treat entire block as one carousel item
     const $ = load(cleanContent)
     const items: CustomBlock[] = []
 
-    // Candidate selectors from most-specific to most-generic
-    const CANDIDATE_SELECTORS = [
-      ".content > div",          // OJS default block theme wrapper
-      ".pkp_block > div",        // PKP sidebar block class
-      "ul > li",                 // List-style blocks
-      "body > div",              // Direct div children of body
-      "body > p",                // Flat paragraphs (common OJS pattern)
-      "div > div",               // Any nested divs (requires parent-consistency check)
-      "div > p",                 // Paragraphs inside a wrapper div
-    ]
+    // ── Strategy 1: Split on <hr> ──────────────────────────────────────
+    // OJS editors frequently use horizontal rules to separate highlight
+    // cards. We split the HTML at each <hr> boundary.
+    const hrElements = $('hr')
+    if (hrElements.length >= 1) {
+      // Get the full HTML, split by <hr> variants
+      const segments = cleanContent
+        .split(/<hr\s*\/?>/gi)
+        .map((s: string) => s.trim())
+        .filter((s: string) => s.length > 0 && s.replace(/<[^>]+>/g, '').trim().length > 0)
 
-    let bestElements: ReturnType<typeof $> | null = null
-
-    for (const selector of CANDIDATE_SELECTORS) {
-      const els = $(selector)
-      // Only accept if we get ≥2 elements with non-empty text
-      const withContent = els.filter((_, el) => {
-        const text = $(el).text().trim()
-        return text.length > 5
-      })
-      if (withContent.length < 2) continue
-
-      // For generic selectors, require that all matched elements share the
-      // same parent to avoid treating sub-structure (header + body of a
-      // single block) as separate items.
-      if (selector === "div > div" || selector === "div > p") {
-        const parents = new Set<unknown>()
-        withContent.each((_, el) => { parents.add(el.parent) })
-        if (parents.size > 1) continue
-      }
-
-      bestElements = withContent
-      break
-    }
-
-    if (bestElements && bestElements.length >= 2) {
-      bestElements.each((idx, el) => {
-        const htmlContent = $(el).html() || ""
-        if (!htmlContent.trim()) return
-
-        const { title, image, link, description } = extractCardFields(htmlContent, `${name}-${idx}`)
-
-        if (title && description) {
-          // Use a derived fallback when description duplicates the title or
-          // when extractCardFields could not produce a real description.
-          const finalDescription =
-            (description === title || description === "No description available.")
-              ? "View details to learn more."
-              : description
-
-          const itemResult = CustomBlockSchema.safeParse({
-            name: `${name}-${idx}`,
-            content: htmlContent,
-            title,
-            image,
-            link,
-            description: finalDescription,
-          })
-          if (itemResult.success) {
-            items.push(itemResult.data)
+      if (segments.length >= 2) {
+        for (let idx = 0; idx < segments.length; idx++) {
+          const segHtml = segments[idx]
+          const { title, image, link, description } = extractCardFields(segHtml, `${name}-${idx}`)
+          if (title) {
+            const finalDescription = buildFinalDescription(title, description)
+            const itemResult = CustomBlockSchema.safeParse({
+              name: `${name}-${idx}`,
+              content: segHtml,
+              title, image, link,
+              description: finalDescription,
+            })
+            if (itemResult.success) items.push(itemResult.data)
           }
         }
-      })
+      }
     }
 
+    // ── Strategy 2: Heading-group detection ─────────────────────────────
+    // When there are no <hr> tags, detect repeating patterns where each
+    // "item" starts with a heading (h2-h6) or a <p><strong>…</strong></p>.
+    // Each heading marks the start of a new card.
+    if (items.length < 2) {
+      items.length = 0 // reset partial results
+      const headings = $('h2, h3, h4, h5, h6, strong, p > strong')
+
+      if (headings.length >= 2) {
+        // Each heading starts a new item. Collect all siblings until the
+        // next heading (or end) as part of that item's content.
+        const bodyEl = $('body').length ? $('body') : $.root()
+        const children = (bodyEl as any).children().toArray()
+
+        let currentGroup: string[] = []
+        const groups: string[] = []
+
+        for (const child of children) {
+          const tagName = (child as unknown as { tagName?: string }).tagName?.toLowerCase() || ''
+          const isHeading = /^h[2-6]$/.test(tagName)
+          
+          // Also treat <strong> or <p><strong>...</strong></p> as a heading if it's a top-level child
+          const isStrong = tagName === 'strong' || (tagName === 'p' && $(child).find('> strong').length > 0 && $(child).text().trim() === $(child).find('> strong').text().trim())
+
+          if ((isHeading || isStrong) && currentGroup.length > 0) {
+            // Flush previous group
+            groups.push(currentGroup.join(''))
+            currentGroup = []
+          }
+          currentGroup.push($.html(child) || '')
+        }
+        if (currentGroup.length > 0) {
+          groups.push(currentGroup.join(''))
+        }
+
+        // Only use this strategy if we got ≥2 groups with real content
+        const validGroups = groups.filter(g =>
+          g.replace(/<[^>]+>/g, '').trim().length > 0
+        )
+
+        if (validGroups.length >= 2) {
+          for (let idx = 0; idx < validGroups.length; idx++) {
+            const groupHtml = validGroups[idx]
+            const { title, image, link, description } = extractCardFields(groupHtml, `${name}-${idx}`)
+            if (title) {
+              const finalDescription = buildFinalDescription(title, description)
+              const itemResult = CustomBlockSchema.safeParse({
+                name: `${name}-${idx}`,
+                content: groupHtml,
+                title, image, link,
+                description: finalDescription,
+              })
+              if (itemResult.success) items.push(itemResult.data)
+            }
+          }
+        }
+      }
+    }
+
+    // ── Strategy 3: CSS selector-based matching (legacy) ────────────────
+    if (items.length < 2) {
+      items.length = 0
+
+      const CANDIDATE_SELECTORS = [
+        ".content > div",          // OJS default block theme wrapper
+        ".pkp_block > div",        // PKP sidebar block class
+        "ul > li",                 // List-style blocks
+        "body > div",              // Direct div children of body
+        "div > div",               // Any nested divs
+        "div > p",                 // Paragraphs inside a wrapper div
+      ]
+
+      let bestElements: ReturnType<typeof $> | null = null
+
+      for (const selector of CANDIDATE_SELECTORS) {
+        const els = $(selector)
+        // Accept if we get ≥2 elements with any non-empty text
+        const withContent = els.filter((_, el) => {
+          const text = $(el).text().trim()
+          return text.length > 0
+        })
+        if (withContent.length < 2) continue
+
+        // For generic selectors, require shared parent to avoid
+        // treating sub-structure as separate items.
+        if (selector === "div > div" || selector === "div > p") {
+          const parents = new Set<unknown>()
+          withContent.each((_, el) => { parents.add(el.parent) })
+          if (parents.size > 1) continue
+        }
+
+        bestElements = withContent
+        break
+      }
+
+      if (bestElements && bestElements.length >= 2) {
+        bestElements.each((idx, el) => {
+          const htmlContent = $(el).html() || ""
+          if (!htmlContent.trim()) return
+
+          const { title, image, link, description } = extractCardFields(htmlContent, `${name}-${idx}`)
+
+          if (title) {
+            const finalDescription = buildFinalDescription(title, description)
+            const itemResult = CustomBlockSchema.safeParse({
+              name: `${name}-${idx}`,
+              content: htmlContent,
+              title, image, link,
+              description: finalDescription,
+            })
+            if (itemResult.success) items.push(itemResult.data)
+          }
+        })
+      }
+    }
+
+    // ── Strategy 4: Fallback — single item ──────────────────────────────
     if (items.length > 0) {
       blocks.push(...items)
     } else {
-      // Fallback: treat the entire block as a single carousel item
       const cardFields = extractCardFields(cleanContent, name)
       blocks.push({
         name,
@@ -316,6 +400,20 @@ export async function fetchCustomBlocks(
 
   console.log(`[CustomBlocks] journal_id=${journalId}: returning ${blocks.length} parsed block(s)`)
   return blocks
+}
+/**
+ * Normalises a description: if it duplicates the title or is a placeholder,
+ * return a generic fallback. Used by all parsing strategies.
+ */
+function buildFinalDescription(title: string, description: string): string {
+  if (
+    !description ||
+    description === title ||
+    description === "No description available."
+  ) {
+    return "View details to learn more."
+  }
+  return description
 }
 
 /**

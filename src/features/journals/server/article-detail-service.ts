@@ -1,6 +1,7 @@
 import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
+import { getOjsBaseUrl, getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
 
 
@@ -52,6 +53,7 @@ export async function fetchArticleDetail(
   }
 
   const journalId = parseInt(ojsJournalId, 10)
+  const publicOjsBaseUrl = getPublicOjsBaseUrl()
 
   // 1. Fetch Main Article Data (JOINing publications, submissions, issues, journals, sections)
   const articleRows = await ojsQuery<ArticleDbRow>(
@@ -147,7 +149,7 @@ export async function fetchArticleDetail(
             // Prefer current locale, then common fallbacks
             const localeKey = primaryLocale || 'en_US'
             const localeKeywords = parsed[localeKey] || parsed[localeKey.split('_')[0]] || parsed['en_US'] || parsed['en'] || Object.values(parsed)[0]
-            
+
             if (Array.isArray(localeKeywords)) {
               keywords.push(...localeKeywords.filter(Boolean))
             } else if (typeof localeKeywords === 'string' && localeKeywords) {
@@ -155,7 +157,7 @@ export async function fetchArticleDetail(
             }
           }
         } catch {
-           keywords.push(s.setting_value)
+          keywords.push(s.setting_value)
         }
       } else {
         keywords.push(s.setting_value)
@@ -183,21 +185,21 @@ export async function fetchArticleDetail(
          JOIN controlled_vocab_entry_settings cves ON cves.controlled_vocab_entry_id = cve.controlled_vocab_entry_id
          WHERE s.submission_id = ? 
          ORDER BY cve.seq ASC`,
-         [publicationId, submissionId]
+        [publicationId, submissionId]
       )
-      
+
       if (keywordRows.length > 0) {
         // Filter by primary locale, fallback to first available if none match primary locale
         let filteredRows = keywordRows.filter(r => r.locale === primaryLocale || r.locale === '')
         if (filteredRows.length === 0) {
-           filteredRows = keywordRows
+          filteredRows = keywordRows
         }
-        
+
         // Clean and split keywords in case they are comma separated in a single string (as discovered by user)
         const processKeywords = (kws: string[]) => {
-           return kws.flatMap(k => k.split(',')).map(k => k.trim()).filter(Boolean)
+          return kws.flatMap(k => k.split(',')).map(k => k.trim()).filter(Boolean)
         }
-        
+
         const uniqueKws = Array.from(new Set(processKeywords(filteredRows.map(r => r.keyword))))
         keywords.push(...uniqueKws)
       }
@@ -286,11 +288,11 @@ export async function fetchArticleDetail(
 
   const galleys: ArticleGalley[] = galleyRows.map(row => {
     if (row.remote_url) {
-      return { galleyId: row.galley_id, label: row.label, locale: row.locale, downloadUrl: row.remote_url }
+      return { galleyId: row.galley_id, label: row.label, locale: row.locale, downloadUrl: row.remote_url, directUrl: row.remote_url }
     }
 
     if (!article.journal_url_path) {
-      return { galleyId: row.galley_id, label: row.label, locale: row.locale, downloadUrl: null }
+      return { galleyId: row.galley_id, label: row.label, locale: row.locale, downloadUrl: null, directUrl: null }
     }
 
     // Build proxy URL using galley_id as primary identifier.
@@ -310,36 +312,39 @@ export async function fetchArticleDetail(
       label: row.label,
       locale: row.locale,
       downloadUrl: `/api/pdf-proxy?${params.toString()}`,
+      directUrl: publicOjsBaseUrl 
+        ? `${publicOjsBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}?inline=1`
+        : null,
     }
   })
 
   const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale)
-     || galleys.find(g => g.label?.toLowerCase().includes('pdf'))
+    || galleys.find(g => g.label?.toLowerCase().includes('pdf'))
 
   // 5. Fetch Metrics
   let views = 0
   let downloads = 0
   let citations = 0
   try {
-     const metricsRows = await ojsQuery<{views: string | number, downloads: string | number}>(
-       `SELECT
+    const metricsRows = await ojsQuery<{ views: string | number, downloads: string | number }>(
+      `SELECT
           SUM(CASE WHEN assoc_type = 1048585 THEN metric ELSE 0 END) AS views,
           SUM(CASE WHEN assoc_type = 515 THEN metric ELSE 0 END) AS downloads
         FROM metrics_submission
         WHERE submission_id = ?`,
-       [submissionId]
-     )
-     if (metricsRows.length > 0) {
-       views = Number(metricsRows[0].views || 0)
-       downloads = Number(metricsRows[0].downloads || 0)
-     }
+      [submissionId]
+    )
+    if (metricsRows.length > 0) {
+      views = Number(metricsRows[0].views || 0)
+      downloads = Number(metricsRows[0].downloads || 0)
+    }
   } catch (metricsError) {
-     console.warn(`[ArticleDetail] Could not fetch metrics for submission ${submissionId}:`, metricsError)
+    console.warn(`[ArticleDetail] Could not fetch metrics for submission ${submissionId}:`, metricsError)
   }
 
   // 6. Fetch Citations
   try {
-    const citationRows = await ojsQuery<{count: number}>(
+    const citationRows = await ojsQuery<{ count: number }>(
       `SELECT COUNT(*) as count FROM citations WHERE publication_id = ?`,
       [publicationId]
     )
@@ -350,38 +355,39 @@ export async function fetchArticleDetail(
     console.warn(`[ArticleDetail] Could not fetch citations for publication ${publicationId} (perhaps table does not exist):`, citationError)
   }
 
-    const parsedVolume = article.volume ? parseInt(article.volume, 10) : NaN;
-    const parsedYear = article.year ? parseInt(article.year, 10) : NaN;
+  const parsedVolume = article.volume ? parseInt(article.volume, 10) : NaN;
+  const parsedYear = article.year ? parseInt(article.year, 10) : NaN;
 
-    return {
-      publicationId: article.publication_id,
-      submissionId: article.submission_id,
-      title,
-      abstract,
-      doi,
-      keywords,
-      pages,
-      datePublished: article.date_published,
-      authors,
-      sectionTitle: article.section_title,
-      articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(coverImageRaw)),
-      galleys,
-      pdfUrl: pdfGalley?.downloadUrl || null,
-      
-      issueId: article.issue_id || 0,
-      issueTitle: article.issue_title,
-      volume: Number.isNaN(parsedVolume) ? null : parsedVolume,
-      issueNumber: article.number,
-      year: Number.isNaN(parsedYear) ? null : parsedYear,
-      
-      journalTitle: article.journal_title,
-      journalAbbreviation: article.journal_abbreviation,
-      issn: article.issn,
-      eIssn: article.e_issn,
-      journalUrlPath: article.journal_url_path || "",
-      
-      views,
-      downloads,
-      citations
-    }
+  return {
+    publicationId: article.publication_id,
+    submissionId: article.submission_id,
+    title,
+    abstract,
+    doi,
+    keywords,
+    pages,
+    datePublished: article.date_published,
+    authors,
+    sectionTitle: article.section_title,
+    articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(coverImageRaw)),
+    galleys,
+    pdfUrl: pdfGalley?.downloadUrl || null,
+    pdfDirectUrl: pdfGalley?.directUrl || null,
+
+    issueId: article.issue_id || 0,
+    issueTitle: article.issue_title,
+    volume: Number.isNaN(parsedVolume) ? null : parsedVolume,
+    issueNumber: article.number,
+    year: Number.isNaN(parsedYear) ? null : parsedYear,
+
+    journalTitle: article.journal_title,
+    journalAbbreviation: article.journal_abbreviation,
+    issn: article.issn,
+    eIssn: article.e_issn,
+    journalUrlPath: article.journal_url_path || "",
+
+    views,
+    downloads,
+    citations
+  }
 }

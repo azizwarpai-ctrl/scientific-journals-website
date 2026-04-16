@@ -10,6 +10,7 @@ export interface ArticleGalley {
   label: string | null
   locale: string | null
   downloadUrl: string | null
+  directUrl: string | null
 }
 
 export interface ArticleDetail {
@@ -26,6 +27,7 @@ export interface ArticleDetail {
   articleCoverUrl: string | null
   galleys: ArticleGalley[]
   pdfUrl: string | null
+  pdfDirectUrl: string | null
 
   // Issue context
   issueId: number
