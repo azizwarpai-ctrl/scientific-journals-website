@@ -27,9 +27,24 @@
 
 import sanitizeHtml from "sanitize-html"
 import { load } from "cheerio"
+import type { CheerioAPI, Cheerio } from "cheerio"
+import type { AnyNode } from "domhandler"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { CustomBlockSchema } from "@/src/features/journals/types/custom-block-types"
 import type { CustomBlock } from "@/src/features/journals/types/custom-block-types"
+
+// Headings that signal a block-level title (e.g. "Journal Information").
+// Stripped from the root before card splitting so the outer label doesn't
+// collapse multiple cards into one.
+const BLOCK_TITLE_PATTERNS = [
+  /^journal\s+information$/i,
+  /^journal\s+info$/i,
+  /^information$/i,
+  /^side\s*menu$/i,
+  /^highlights?$/i,
+  /^links?$/i,
+  /^about\s+(the\s+)?journal$/i,
+]
 
 // Permitted HTML tags in custom block content (generous but safe)
 const ALLOWED_TAGS = [
@@ -223,173 +238,44 @@ export async function fetchCustomBlocks(
 
     if (!cleanContent) continue
     
-    // ── Deconstruct block HTML to find inner items ──────────────────────
-    //
-    // OJS custom blocks can have several structures:
-    //   A) Items separated by <hr> tags (most common editor pattern)
-    //   B) Repeating heading+image+text groups (flat HTML)
-    //   C) <div class="content"><div>...item...</div>...</div>
-    //   D) <ul><li>...item...</li></ul>
-    //   E) Flat HTML with no clear structure (single item fallback)
-    //
-    // Strategy (priority order):
-    //   1. Split on <hr> boundaries
-    //   2. Detect repeating heading groups (h2-h6 or <strong> as delimiters)
-    //   3. Try CSS selector-based matching (legacy approach)
-    //   4. Fallback: treat entire block as one carousel item
-    const $ = load(cleanContent)
+    // ── Deconstruct block HTML into one card per inner item ──────────────
+    // Strategies, evaluated in order by `splitBlockIntoCards`:
+    //   1. Strip the outer block-title heading (e.g. "Journal Information")
+    //      so it doesn't glue the first card to the block label.
+    //   2. Split on <hr> boundaries.
+    //   3. Recursively find the DOM level where ≥2 sibling containers each
+    //      hold a card marker (heading / <strong> / <img>).
+    //   4. Split flat content using <img> elements as anchors (1 per card).
+    //   5. Split flat content using <strong>/heading elements as anchors.
+    //   6. Fall back to the whole HTML as a single card.
+    const cardHtmlSegments = splitBlockIntoCards(cleanContent)
     const items: CustomBlock[] = []
 
-    // ── Strategy 1: Split on <hr> ──────────────────────────────────────
-    // OJS editors frequently use horizontal rules to separate highlight
-    // cards. We split the HTML at each <hr> boundary.
-    const hrElements = $('hr')
-    if (hrElements.length >= 1) {
-      // Get the full HTML, split by <hr> variants
-      const segments = cleanContent
-        .split(/<hr\s*\/?>/gi)
-        .map((s: string) => s.trim())
-        .filter((s: string) => s.length > 0 && s.replace(/<[^>]+>/g, '').trim().length > 0)
-
-      if (segments.length >= 2) {
-        for (let idx = 0; idx < segments.length; idx++) {
-          const segHtml = segments[idx]
-          const { title, image, link, description } = extractCardFields(segHtml, `${name}-${idx}`)
-          if (title) {
-            const finalDescription = buildFinalDescription(title, description)
-            const itemResult = CustomBlockSchema.safeParse({
-              name: `${name}-${idx}`,
-              content: segHtml,
-              title, image, link,
-              description: finalDescription,
-            })
-            if (itemResult.success) items.push(itemResult.data)
-          }
-        }
-      }
-    }
-
-    // ── Strategy 2: Heading-group detection ─────────────────────────────
-    // When there are no <hr> tags, detect repeating patterns where each
-    // "item" starts with a heading (h2-h6) or a <p><strong>…</strong></p>.
-    // Each heading marks the start of a new card.
-    if (items.length < 2) {
-      items.length = 0 // reset partial results
-      const headings = $('h2, h3, h4, h5, h6, strong, p > strong')
-
-      if (headings.length >= 2) {
-        // Each heading starts a new item. Collect all siblings until the
-        // next heading (or end) as part of that item's content.
-        const bodyEl = $('body').length ? $('body') : $.root()
-        const children = (bodyEl as any).children().toArray()
-
-        let currentGroup: string[] = []
-        const groups: string[] = []
-
-        for (const child of children) {
-          const tagName = (child as unknown as { tagName?: string }).tagName?.toLowerCase() || ''
-          const isHeading = /^h[2-6]$/.test(tagName)
-          
-          // Also treat <strong> or <p><strong>...</strong></p> as a heading if it's a top-level child
-          const isStrong = tagName === 'strong' || (tagName === 'p' && $(child).find('> strong').length > 0 && $(child).text().trim() === $(child).find('> strong').text().trim())
-
-          if ((isHeading || isStrong) && currentGroup.length > 0) {
-            // Flush previous group
-            groups.push(currentGroup.join(''))
-            currentGroup = []
-          }
-          currentGroup.push($.html(child) || '')
-        }
-        if (currentGroup.length > 0) {
-          groups.push(currentGroup.join(''))
-        }
-
-        // Only use this strategy if we got ≥2 groups with real content
-        const validGroups = groups.filter(g =>
-          g.replace(/<[^>]+>/g, '').trim().length > 0
-        )
-
-        if (validGroups.length >= 2) {
-          for (let idx = 0; idx < validGroups.length; idx++) {
-            const groupHtml = validGroups[idx]
-            const { title, image, link, description } = extractCardFields(groupHtml, `${name}-${idx}`)
-            if (title) {
-              const finalDescription = buildFinalDescription(title, description)
-              const itemResult = CustomBlockSchema.safeParse({
-                name: `${name}-${idx}`,
-                content: groupHtml,
-                title, image, link,
-                description: finalDescription,
-              })
-              if (itemResult.success) items.push(itemResult.data)
-            }
-          }
-        }
-      }
-    }
-
-    // ── Strategy 3: CSS selector-based matching (legacy) ────────────────
-    if (items.length < 2) {
-      items.length = 0
-
-      const CANDIDATE_SELECTORS = [
-        ".content > div",          // OJS default block theme wrapper
-        ".pkp_block > div",        // PKP sidebar block class
-        "ul > li",                 // List-style blocks
-        "body > div",              // Direct div children of body
-        "div > div",               // Any nested divs
-        "div > p",                 // Paragraphs inside a wrapper div
-      ]
-
-      let bestElements: ReturnType<typeof $> | null = null
-
-      for (const selector of CANDIDATE_SELECTORS) {
-        const els = $(selector)
-        // Accept if we get ≥2 elements with any non-empty text
-        const withContent = els.filter((_, el) => {
-          const text = $(el).text().trim()
-          return text.length > 0
+    if (cardHtmlSegments.length >= 2) {
+      for (let idx = 0; idx < cardHtmlSegments.length; idx++) {
+        const segHtml = cardHtmlSegments[idx]
+        const { title, image, link, description } = extractCardFields(segHtml, `${name}-${idx}`)
+        if (!title) continue
+        const finalDescription = buildFinalDescription(title, description)
+        const itemResult = CustomBlockSchema.safeParse({
+          name: `${name}-${idx}`,
+          content: segHtml,
+          title,
+          image,
+          link,
+          description: finalDescription,
         })
-        if (withContent.length < 2) continue
-
-        // For generic selectors, require shared parent to avoid
-        // treating sub-structure as separate items.
-        if (selector === "div > div" || selector === "div > p") {
-          const parents = new Set<unknown>()
-          withContent.each((_, el) => { parents.add(el.parent) })
-          if (parents.size > 1) continue
-        }
-
-        bestElements = withContent
-        break
-      }
-
-      if (bestElements && bestElements.length >= 2) {
-        bestElements.each((idx, el) => {
-          const htmlContent = $(el).html() || ""
-          if (!htmlContent.trim()) return
-
-          const { title, image, link, description } = extractCardFields(htmlContent, `${name}-${idx}`)
-
-          if (title) {
-            const finalDescription = buildFinalDescription(title, description)
-            const itemResult = CustomBlockSchema.safeParse({
-              name: `${name}-${idx}`,
-              content: htmlContent,
-              title, image, link,
-              description: finalDescription,
-            })
-            if (itemResult.success) items.push(itemResult.data)
-          }
-        })
+        if (itemResult.success) items.push(itemResult.data)
       }
     }
 
-    // ── Strategy 4: Fallback — single item ──────────────────────────────
     if (items.length > 0) {
       blocks.push(...items)
     } else {
-      const cardFields = extractCardFields(cleanContent, name)
+      // Single-card fallback — strip the block-title heading first so the
+      // first real item doesn't inherit "Journal Information" as its title.
+      const strippedHtml = stripBlockTitleHeading(cleanContent)
+      const cardFields = extractCardFields(strippedHtml || cleanContent, name)
       blocks.push({
         name,
         content: cleanContent,
@@ -473,9 +359,183 @@ export function extractCardFields(html: string, name: string) {
   }
 
   const decodedDesc = decodeHtml(descriptionRaw)
-  const description = decodedDesc.length > 300 
+  const description = decodedDesc.length > 300
     ? decodedDesc.substring(0, 297) + "..."
     : decodedDesc
 
   return { title, image, link, description: description || 'No description available.' }
+}
+
+// ── Card splitter ───────────────────────────────────────────────────────────
+
+type CheerioEl = AnyNode
+
+function hasRenderableText(html: string): boolean {
+  return html.replace(/<[^>]+>/g, "").trim().length > 0
+}
+
+function tagOf(node: CheerioEl): string {
+  return (node as unknown as { tagName?: string }).tagName?.toLowerCase() ?? ""
+}
+
+/**
+ * Strip the outer block-title heading (e.g. `<h3>Journal Information</h3>`)
+ * from the top of the block HTML. OJS's Custom Block Manager frequently
+ * prefixes the entire block with one heading that labels the whole sidebar
+ * card group, which must not be treated as the first card's title.
+ *
+ * Only strips the FIRST top-level heading (h2-h6) and only if its text matches
+ * a known block-label pattern OR it's the sole heading at the root level.
+ */
+export function stripBlockTitleHeading(html: string): string {
+  const $ = load(html)
+  const bodyEl = ($("body").length ? $("body") : $.root()) as Cheerio<AnyNode>
+  const rootHeadings = bodyEl.children("h2, h3, h4, h5, h6")
+  if (rootHeadings.length === 0) return html
+
+  const first = rootHeadings.first()
+  const text = first.text().trim()
+  const matchesLabel = BLOCK_TITLE_PATTERNS.some((re) => re.test(text))
+
+  // Strip if it looks like a block label OR it's the only top-level heading
+  // and there is at least one other "card-start" signal below it (strong/img/heading).
+  const hasCardSignalsBelow =
+    bodyEl.find("h2, h3, h4, h5, h6, strong, img").length > 1
+
+  if (matchesLabel || (rootHeadings.length === 1 && hasCardSignalsBelow)) {
+    first.remove()
+    return bodyEl.html() ?? html
+  }
+  return html
+}
+
+/**
+ * Split a block's sanitized HTML into one HTML segment per card. Returns
+ * [] if no repeating pattern can be detected (caller falls back to single-card).
+ */
+export function splitBlockIntoCards(html: string): string[] {
+  const withoutTitle = stripBlockTitleHeading(html)
+
+  // 1. <hr> boundaries
+  const hrSegments = withoutTitle
+    .split(/<hr\s*\/?>/gi)
+    .map((s) => s.trim())
+    .filter(hasRenderableText)
+  if (hrSegments.length >= 2) return hrSegments
+
+  const $ = load(withoutTitle)
+  const bodyEl = ($("body").length ? $("body") : $.root()) as Cheerio<AnyNode>
+
+  // 2. Recursive repeating-container detection
+  const repeating = findRepeatingContainer($, bodyEl)
+  if (repeating && repeating.length >= 2) {
+    const htmls = repeating
+      .map((el) => $.html(el))
+      .filter(hasRenderableText)
+    if (htmls.length >= 2) return htmls
+  }
+
+  // 3. Image-anchored splitting (reliable when each card has exactly 1 image)
+  const imgCount = $("img").length
+  const anchorCount = $("h2, h3, h4, h5, h6, strong").length
+  if (imgCount >= 2 && (anchorCount === 0 || anchorCount === imgCount)) {
+    const imgSegs = splitFlatByPredicate($, bodyEl, (el) => tagOf(el) === "img" || $(el).find("img").length > 0)
+    if (imgSegs.length >= 2) return imgSegs
+  }
+
+  // 4. Heading/strong-anchored splitting (flat document order)
+  if (anchorCount >= 2) {
+    const headingSegs = splitFlatByPredicate($, bodyEl, (el) => {
+      const tag = tagOf(el)
+      if (/^h[2-6]$/.test(tag)) return true
+      if (tag === "strong") return true
+      // A <p>/<div> that starts with a <strong> child whose text equals the
+      // element's text is a title paragraph — treat as anchor.
+      if (tag === "p" || tag === "div") {
+        const $el = $(el)
+        const inner = $el.children("strong").first()
+        if (inner.length > 0 && $el.text().trim() === inner.text().trim()) return true
+      }
+      return false
+    })
+    if (headingSegs.length >= 2) return headingSegs
+  }
+
+  return []
+}
+
+/**
+ * Walk the DOM looking for the deepest parent whose direct children include
+ * ≥2 element nodes that each look like a card (contains a heading/strong
+ * title AND/OR an <img>). Returns the list of matching child elements, or
+ * null if no level qualifies.
+ */
+function findRepeatingContainer(
+  $: CheerioAPI,
+  root: Cheerio<AnyNode>,
+): AnyNode[] | null {
+  const looksLikeCard = (node: AnyNode): boolean => {
+    const $n = $(node)
+    const hasTitle =
+      $n.find("h2, h3, h4, h5, h6").length > 0 || $n.find("strong").length > 0
+    const hasImg = $n.find("img").length > 0
+    return (hasTitle && $n.text().trim().length > 0) || hasImg
+  }
+
+  let best: AnyNode[] | null = null
+
+  const visit = (node: AnyNode) => {
+    const $node = $(node)
+    const children = $node
+      .children()
+      .toArray()
+      .filter((c) => (c as unknown as { type?: string }).type === "tag")
+    if (children.length >= 2) {
+      const cardLike = children.filter(looksLikeCard)
+      // Prefer the DEEPEST level with ≥2 card-like siblings. Require at least
+      // 2/3 of siblings to look like cards to avoid matching navigation nodes.
+      if (cardLike.length >= 2 && cardLike.length * 3 >= children.length * 2) {
+        best = cardLike
+      }
+    }
+    for (const c of children) visit(c)
+  }
+
+  visit(root[0] as AnyNode)
+  return best
+}
+
+/**
+ * Split the DIRECT children of `root` (in document order) at every node that
+ * satisfies `isAnchor`. Each anchor begins a new segment; previous content
+ * above the first anchor is dropped.
+ */
+function splitFlatByPredicate(
+  $: CheerioAPI,
+  root: Cheerio<AnyNode>,
+  isAnchor: (el: AnyNode) => boolean,
+): string[] {
+  const children = root
+    .children()
+    .toArray()
+    .filter((c) => (c as unknown as { type?: string }).type === "tag")
+
+  const segments: string[] = []
+  let current: string[] = []
+  let started = false
+
+  for (const child of children) {
+    if (isAnchor(child)) {
+      if (started && current.length > 0) {
+        segments.push(current.join(""))
+      }
+      current = [$.html(child) ?? ""]
+      started = true
+    } else if (started) {
+      current.push($.html(child) ?? "")
+    }
+  }
+  if (started && current.length > 0) segments.push(current.join(""))
+
+  return segments.filter(hasRenderableText)
 }
