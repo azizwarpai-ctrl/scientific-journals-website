@@ -60,6 +60,15 @@ interface StaticPageRow {
   locale: string
 }
 
+interface StandaloneNavRow {
+  navigation_menu_item_id: number
+  path: string
+  type: string
+  setting_name: string
+  setting_value: string | null
+  locale: string
+}
+
 // ── OJS built-in type → journal_settings mapping ────────────────────────────
 //
 // OJS built-in navigation menu item types resolve their display content from
@@ -166,7 +175,7 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
   const policySettingNames = STANDARD_POLICY_SETTINGS.map((s) => s.settingName)
   const policyPlaceholders = policySettingNames.map(() => "?").join(", ")
 
-  const [configRows, menuRows, policySettingRows, staticPageRows] = await Promise.all([
+  const [configRows, menuRows, policySettingRows, staticPageRows, standaloneNavRows] = await Promise.all([
     // 1. DOI / Competing-Interests toggles
     ojsQuery<SettingRow>(
       `SELECT setting_name, setting_value, locale
@@ -236,6 +245,29 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
       console.error(`[JournalPolicies] Failed to load static pages for journal_id=${journalId}:`, err)
       return []
     }),
+
+    // 5. ALL standalone navigation_menu_items with content for this journal.
+    //    This catches policy pages stored as CMS items (same pattern as
+    //    editorial-board) that are NOT assigned to the "Journal Policies" menu.
+    ojsQuery<StandaloneNavRow>(
+      `SELECT
+          nmi.navigation_menu_item_id,
+          nmi.path,
+          nmi.type,
+          nmis.setting_name,
+          nmis.setting_value,
+          nmis.locale
+       FROM navigation_menu_items nmi
+       LEFT JOIN navigation_menu_item_settings nmis
+         ON nmi.navigation_menu_item_id = nmis.navigation_menu_item_id
+       WHERE nmi.context_id = ?
+         AND nmi.path IS NOT NULL
+         AND nmi.path != ''`,
+      [journalId],
+    ).catch((err): StandaloneNavRow[] => {
+      console.error(`[JournalPolicies] Failed to load standalone nav items for journal_id=${journalId}:`, err)
+      return []
+    }),
   ])
 
   // ── Config toggles ─────────────────────────────────────────────────────
@@ -249,12 +281,14 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
   const usedSettingNames = new Set<string>()
   const usedStaticPageIds = new Set<number>()
   const usedSlugs = new Set<string>()
+  const usedNavItemIds = new Set<number>()
 
   if (menuRows.length > 0) {
     // Group flat EAV rows by navigation_menu_item_id
     const itemsMap = new Map<
       number,
       {
+        id: number
         slug: string
         type: string
         seq: number
@@ -265,6 +299,7 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
     for (const row of menuRows) {
       if (!itemsMap.has(row.navigation_menu_item_id)) {
         itemsMap.set(row.navigation_menu_item_id, {
+          id: row.navigation_menu_item_id,
           slug: row.slug,
           type: row.type || "",
           seq: row.seq,
@@ -321,6 +356,9 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
 
       if (!title) title = "Policy"
 
+      // Track this nav item as consumed so SOURCE 4 doesn't duplicate it
+      usedNavItemIds.add(item.id)
+
       // Generate unique slug, appending numeric suffix if necessary
       let baseSlug = item.slug || makeSlug(title)
       let finalSlug = baseSlug
@@ -334,6 +372,101 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
       menuTabs.push({
         title,
         slug: finalSlug,
+        content: sanitized,
+      })
+    }
+  }
+
+  // ── SOURCE 4 — Standalone navigation menu items (not in any named menu) ──
+  //
+  // OJS stores custom CMS pages as navigation_menu_items with a path and
+  // content in navigation_menu_item_settings.  These may or may not be
+  // assigned to a navigation menu.  This source catches policy pages that
+  // exist as standalone items — the same pattern used by editorial-board.
+
+  const standaloneTabs: PolicyTab[] = []
+
+  if (standaloneNavRows.length > 0) {
+    const standaloneMap = new Map<
+      number,
+      {
+        path: string
+        type: string
+        settings: { setting_name: string; setting_value: string | null; locale: string }[]
+      }
+    >()
+
+    for (const row of standaloneNavRows) {
+      // Skip items already collected via SOURCE 1 (menu-assigned items)
+      if (usedNavItemIds.has(row.navigation_menu_item_id)) continue
+
+      if (!standaloneMap.has(row.navigation_menu_item_id)) {
+        standaloneMap.set(row.navigation_menu_item_id, {
+          path: row.path,
+          type: row.type || "",
+          settings: [],
+        })
+      }
+      if (row.setting_name) {
+        standaloneMap.get(row.navigation_menu_item_id)!.settings.push({
+          setting_name: row.setting_name,
+          setting_value: row.setting_value,
+          locale: row.locale,
+        })
+      }
+    }
+
+    for (const [, item] of standaloneMap) {
+      // Skip items whose slug is already covered by a menu tab
+      if (usedSlugs.has(item.path)) continue
+
+      let title = pickBestLocale(item.settings, "title", primaryLocale) || ""
+      let content: string | null = null
+
+      // Built-in types resolve content from journal_settings
+      const builtinMapping = BUILTIN_TYPE_TO_SETTING[item.type]
+      if (builtinMapping) {
+        content = pickBestLocale(policySettingRows, builtinMapping.settingName, primaryLocale)
+        usedSettingNames.add(builtinMapping.settingName)
+        if (!title) title = builtinMapping.defaultTitle
+      }
+
+      // Content from navigation_menu_item_settings
+      if (!content) {
+        content = pickBestLocale(item.settings, "content", primaryLocale)
+      }
+
+      // Try static page with same path
+      if (!content && item.path) {
+        const matching = staticPageRows.filter((r) => r.path === item.path)
+        if (matching.length > 0) {
+          content = pickBestLocale(
+            matching.map((r) => ({
+              setting_name: r.setting_name,
+              setting_value: r.setting_value,
+              locale: r.locale,
+            })),
+            "content",
+            primaryLocale,
+          )
+          for (const r of matching) usedStaticPageIds.add(r.static_page_id)
+        }
+      }
+
+      const sanitized = sanitizePolicy(content)
+      if (!sanitized.trim()) continue
+
+      // Derive a human-readable title from the path if no title setting exists
+      if (!title) {
+        title = item.path
+          .replace(/[-_]/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase())
+      }
+
+      usedSlugs.add(item.path)
+      standaloneTabs.push({
+        title,
+        slug: item.path,
         content: sanitized,
       })
     }
@@ -411,9 +544,10 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
     })
   }
 
-  // ── Merge — menu tabs first (explicit ordering), then settings, then static pages
+  // ── Merge — menu tabs first (explicit ordering), then standalone nav items,
+  // then journal_settings fallback, then static pages
 
-  const tabs: PolicyTab[] = [...menuTabs, ...settingsTabs, ...staticTabs]
+  const tabs: PolicyTab[] = [...menuTabs, ...standaloneTabs, ...settingsTabs, ...staticTabs]
 
   return {
     tabs,

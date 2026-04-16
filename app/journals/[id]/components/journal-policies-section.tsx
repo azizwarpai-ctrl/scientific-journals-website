@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import DOMPurify, { type Config } from "dompurify"
 import {
   Shield,
@@ -8,7 +8,9 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
-  FileText
+  FileText,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { useGetJournalPolicies } from "@/src/features/journals/api/use-get-journal-policies"
 
@@ -18,9 +20,9 @@ interface JournalPoliciesSectionProps {
 
 const SAFE_HTML_OPTIONS: Config = {
   ALLOWED_TAGS: [
-    "p", "br", "strong", "em", "b", "i", "u", "ul", "ol", "li", "a", 
-    "h1", "h2", "h3", "h4", "h5", "blockquote", "span", "div", 
-    "table", "tbody", "tr", "td", "th", "thead", "img"
+    "p", "br", "strong", "em", "b", "i", "u", "ul", "ol", "li", "a",
+    "h1", "h2", "h3", "h4", "h5", "blockquote", "span", "div",
+    "table", "tbody", "tr", "td", "th", "thead", "img",
   ],
   ALLOWED_ATTR: ["href", "target", "rel", "class", "style", "src", "alt", "width", "height"],
 }
@@ -49,13 +51,13 @@ function PolicyContent({ html, plainDescription }: { html: string | null; plainD
   const safe = sanitize(html)
 
   return (
-    <div className="relative">
+    <div className="relative animate-in fade-in duration-300">
       <div
-        className={`overflow-hidden transition-all duration-300 ${!expanded ? "max-h-[260px]" : "max-h-[9999px]"}`}
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${!expanded ? "max-h-[260px]" : "max-h-[9999px]"}`}
         style={{ maxHeight: !expanded ? `${MAX_HEIGHT}px` : undefined }}
       >
         <div
-          className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground prose-p:leading-relaxed prose-a:text-primary prose-table:w-full prose-table:border-collapse prose-td:border prose-td:p-2 prose-th:border prose-th:p-2 prose-img:rounded-md"
+          className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground prose-headings:text-foreground prose-headings:font-bold prose-p:leading-relaxed prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-table:w-full prose-table:border-collapse prose-td:border prose-td:border-border/50 prose-td:p-2.5 prose-th:border prose-th:border-border/50 prose-th:p-2.5 prose-th:bg-muted/40 prose-th:font-semibold prose-img:rounded-lg prose-img:shadow-sm prose-blockquote:border-l-primary/40 prose-blockquote:bg-muted/20 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-li:marker:text-primary/60 prose-ul:space-y-1 prose-ol:space-y-1"
           dangerouslySetInnerHTML={{ __html: safe }}
         />
       </div>
@@ -63,16 +65,16 @@ function PolicyContent({ html, plainDescription }: { html: string | null; plainD
       {safe.length > 600 && (
         <>
           {!expanded && (
-            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-card to-transparent pointer-events-none" />
+            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
           )}
           <button
             onClick={() => setExpanded((prev: boolean) => !prev)}
-            className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+            className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors group"
           >
             {expanded ? (
-              <><ChevronUp className="h-3.5 w-3.5" /> Show less</>
+              <><ChevronUp className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5" /> Show less</>
             ) : (
-              <><ChevronDown className="h-3.5 w-3.5" /> Read full policy</>
+              <><ChevronDown className="h-3.5 w-3.5 transition-transform group-hover:translate-y-0.5" /> Read full policy</>
             )}
           </button>
         </>
@@ -83,7 +85,7 @@ function PolicyContent({ html, plainDescription }: { html: string | null; plainD
 
 function DoiOrcidPanel({ doiEnabled, requireAuthorCompetingInterestsEnabled }: { doiEnabled: boolean; requireAuthorCompetingInterestsEnabled: boolean }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 animate-in fade-in duration-300">
       <div className={`rounded-xl border p-4 ${doiEnabled ? "border-primary/20 bg-primary/5" : "border-border/40 bg-muted/30"}`}>
         <div className="flex items-center gap-3 mb-2">
           <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg text-xs font-black ${doiEnabled ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
@@ -121,6 +123,72 @@ function DoiOrcidPanel({ doiEnabled, requireAuthorCompetingInterestsEnabled }: {
   )
 }
 
+// ── Scroll indicator arrows for mobile tab overflow ──────────────────────────
+
+function TabScrollContainer({ children }: { children: React.ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 4)
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4)
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    checkScroll()
+    el.addEventListener("scroll", checkScroll, { passive: true })
+    const ro = new ResizeObserver(checkScroll)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener("scroll", checkScroll)
+      ro.disconnect()
+    }
+  }, [checkScroll])
+
+  const scroll = (dir: "left" | "right") => {
+    scrollRef.current?.scrollBy({ left: dir === "left" ? -160 : 160, behavior: "smooth" })
+  }
+
+  return (
+    <div className="relative group/tabs">
+      {/* Left fade + arrow */}
+      {canScrollLeft && (
+        <button
+          onClick={() => scroll("left")}
+          aria-label="Scroll tabs left"
+          className="absolute left-0 top-0 bottom-0 z-10 w-8 flex items-center justify-center bg-gradient-to-r from-muted/90 to-transparent transition-opacity"
+        >
+          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+        </button>
+      )}
+
+      <div ref={scrollRef} className="overflow-x-auto scrollbar-none">
+        <div className="flex min-w-max px-2">
+          {children}
+        </div>
+      </div>
+
+      {/* Right fade + arrow */}
+      {canScrollRight && (
+        <button
+          onClick={() => scroll("right")}
+          aria-label="Scroll tabs right"
+          className="absolute right-0 top-0 bottom-0 z-10 w-8 flex items-center justify-center bg-gradient-to-l from-muted/90 to-transparent transition-opacity"
+        >
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Main component ──────────────────────────────────────────────────────────
+
 export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProps) {
   const [activeTabSlug, setActiveTabSlug] = useState<string | null>(null)
   const { data: policies, isLoading, isError } = useGetJournalPolicies(journalId)
@@ -149,53 +217,54 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
         <h2 className="text-xl font-bold">Journal Policies</h2>
       </div>
 
-      {/* Tab navigation — scrollable on mobile */}
-      <div className="overflow-x-auto border-b border-border/40 bg-muted/20">
-        <div className="flex min-w-max px-2">
-          {isLoading ? (
-            <div className="flex gap-4 p-4 animate-pulse">
-              <div className="h-4 bg-muted rounded w-16" />
-              <div className="h-4 bg-muted rounded w-20" />
-              <div className="h-4 bg-muted rounded w-16" />
-            </div>
-          ) : (
-            <>
-              {tabs.map((tab) => {
-                const isActive = currentTabSlug === tab.slug
-                return (
-                  <button
-                    key={tab.slug}
-                    onClick={() => setActiveTabSlug(tab.slug)}
-                    className={[
-                      "flex items-center gap-2 px-4 py-3.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all whitespace-nowrap",
-                      isActive
-                        ? "border-primary text-primary bg-primary/5"
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40",
-                    ].join(" ")}
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    {tab.title}
-                  </button>
-                )
-              })}
-              
-              {hasDoiFeatures && (
+      {/* Tab navigation — scrollable on mobile with arrow indicators */}
+      <div className="border-b border-border/40 bg-muted/20 sticky top-0 z-10">
+        {isLoading ? (
+          <div className="flex gap-4 p-4 animate-pulse px-4">
+            <div className="h-4 bg-muted rounded w-16" />
+            <div className="h-4 bg-muted rounded w-20" />
+            <div className="h-4 bg-muted rounded w-16" />
+            <div className="h-4 bg-muted rounded w-24" />
+          </div>
+        ) : (
+          <TabScrollContainer>
+            {tabs.map((tab) => {
+              const isActive = currentTabSlug === tab.slug
+              return (
                 <button
-                  onClick={() => setActiveTabSlug("_doiorcid")}
+                  key={tab.slug}
+                  id={`policy-tab-${tab.slug}`}
+                  onClick={() => setActiveTabSlug(tab.slug)}
                   className={[
-                    "flex items-center gap-2 px-4 py-3.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all whitespace-nowrap",
-                    isDoiTabActive
+                    "flex items-center gap-2 px-4 py-3.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all duration-200 whitespace-nowrap",
+                    isActive
                       ? "border-primary text-primary bg-primary/5"
                       : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40",
                   ].join(" ")}
                 >
-                  <Fingerprint className="h-3.5 w-3.5" />
-                  DOI & ORCID
+                  <FileText className="h-3.5 w-3.5" />
+                  {tab.title}
                 </button>
-              )}
-            </>
-          )}
-        </div>
+              )
+            })}
+
+            {hasDoiFeatures && (
+              <button
+                id="policy-tab-doi-orcid"
+                onClick={() => setActiveTabSlug("_doiorcid")}
+                className={[
+                  "flex items-center gap-2 px-4 py-3.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all duration-200 whitespace-nowrap",
+                  isDoiTabActive
+                    ? "border-primary text-primary bg-primary/5"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                ].join(" ")}
+              >
+                <Fingerprint className="h-3.5 w-3.5" />
+                DOI &amp; ORCID
+              </button>
+            )}
+          </TabScrollContainer>
+        )}
       </div>
 
       {/* Active tab content */}
