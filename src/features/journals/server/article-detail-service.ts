@@ -1,7 +1,7 @@
 import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
-import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
+import { getOjsBaseUrl, getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
 
 
@@ -53,7 +53,7 @@ export async function fetchArticleDetail(
   }
 
   const journalId = parseInt(ojsJournalId, 10)
-  const ojsBaseUrl = getOjsBaseUrl()
+  const publicOjsBaseUrl = getPublicOjsBaseUrl()
 
   // 1. Fetch Main Article Data (JOINing publications, submissions, issues, journals, sections)
   const articleRows = await ojsQuery<ArticleDbRow>(
@@ -312,7 +312,9 @@ export async function fetchArticleDetail(
       label: row.label,
       locale: row.locale,
       downloadUrl: `/api/pdf-proxy?${params.toString()}`,
-      directUrl: `${ojsBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}?inline=1`,
+      directUrl: publicOjsBaseUrl 
+        ? `${publicOjsBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}?inline=1`
+        : null,
     }
   })
 

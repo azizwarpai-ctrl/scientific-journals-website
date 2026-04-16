@@ -48,10 +48,27 @@ export async function GET(request: Request) {
   const webDownloadUrl = `${baseUrl}/index.php/${journal}/article/download/${submissionId}/${galleyId}?inline=1`
 
   // Helper to validate and return the proxy response
-  const handleOjsResponse = async (res: Response, sourceUrl: string) => {
-    // 1. Detect redirects (OJS returns 302 to login page if PDF is restricted)
-    if (res.type === "opaqueredirect" || (res.status >= 300 && res.status <= 399)) {
-      console.warn(`[PDF Proxy] OJS redirected request for ${sourceUrl}. Likely requires authentication.`);
+  const handleOjsResponse = async (res: Response, sourceUrl: string): Promise<NextResponse> => {
+    // 1. Detect redirects (OJS might redirect to a CDN or a canonical URL)
+    if (res.status >= 300 && res.status <= 399) {
+      const location = res.headers.get("location")
+      if (location) {
+        const targetUrl = new URL(location, sourceUrl)
+        const ojsHost = new URL(baseUrl).host
+        
+        // Trusted if same host or trusted digitopub infrastructure
+        const isTrusted = targetUrl.host === ojsHost || 
+                          targetUrl.host.endsWith(".digitopub.com") ||
+                          targetUrl.host === "digitopub.com"
+
+        if (isTrusted) {
+          console.log(`[PDF Proxy] Following trusted redirect from ${sourceUrl} to ${location}`)
+          const redirectedRes = await fetchWithTimeout(targetUrl.toString())
+          return handleOjsResponse(redirectedRes, targetUrl.toString())
+        }
+      }
+
+      console.warn(`[PDF Proxy] Blocked untrusted redirect for ${sourceUrl}. Likely auth wall or external link.`);
       return new NextResponse("Access Denied: PDF requires authentication or is not published.", { status: 403 });
     }
 

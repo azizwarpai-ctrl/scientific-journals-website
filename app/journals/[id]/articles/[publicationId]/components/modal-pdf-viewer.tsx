@@ -57,24 +57,6 @@ export function ModalPdfViewer({ pdfUrl, pdfDirectUrl, articleTitle = "Document"
           setHasError(true)
         }
       }, 15000)
-
-      // Pre-flight check to see if the PDF actually exists and isn't an HTML redirect
-      fetch(pdfUrl, { method: 'HEAD' })
-        .then(res => {
-          if (!res.ok || (res.headers.get("content-type") && res.headers.get("content-type")?.includes("text/html"))) {
-            throw new Error(`Upstream returned ${res.status}`)
-          }
-          // The object/iframe will now take over loading
-        })
-        .catch(err => {
-          console.error("[ModalPdfViewer] Pre-flight failed:", err);
-          if (isLoadingRef.current) {
-             isLoadingRef.current = false
-             setIsLoading(false)
-             setHasError(true)
-             clearTimer()
-          }
-        })
     }
 
     return () => clearTimer()

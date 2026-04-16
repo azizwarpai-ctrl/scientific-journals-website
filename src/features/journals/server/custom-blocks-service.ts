@@ -35,7 +35,7 @@ import type { CustomBlock } from "@/src/features/journals/types/custom-block-typ
 const ALLOWED_TAGS = [
   "p", "br", "strong", "em", "b", "i", "u",
   "ul", "ol", "li",
-  "h2", "h3", "h4", "h5",
+  "h2", "h3", "h4", "h5", "h6",
   "a", "span", "div",
   "table", "thead", "tbody", "tr", "th", "td",
   "img",
@@ -275,7 +275,7 @@ export async function fetchCustomBlocks(
     // Each heading marks the start of a new card.
     if (items.length < 2) {
       items.length = 0 // reset partial results
-      const headings = $('h2, h3, h4, h5, h6')
+      const headings = $('h2, h3, h4, h5, h6, strong, p > strong')
 
       if (headings.length >= 2) {
         // Each heading starts a new item. Collect all siblings until the
@@ -289,8 +289,11 @@ export async function fetchCustomBlocks(
         for (const child of children) {
           const tagName = (child as unknown as { tagName?: string }).tagName?.toLowerCase() || ''
           const isHeading = /^h[2-6]$/.test(tagName)
+          
+          // Also treat <strong> or <p><strong>...</strong></p> as a heading if it's a top-level child
+          const isStrong = tagName === 'strong' || (tagName === 'p' && $(child).find('> strong').length > 0 && $(child).text().trim() === $(child).find('> strong').text().trim())
 
-          if (isHeading && currentGroup.length > 0) {
+          if ((isHeading || isStrong) && currentGroup.length > 0) {
             // Flush previous group
             groups.push(currentGroup.join(''))
             currentGroup = []
