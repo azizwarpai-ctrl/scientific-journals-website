@@ -450,12 +450,15 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
                 {/* Embla container — translated by Embla to scroll */}
                 <div className="flex h-full">
                   {items.map((item: HighlightItem, index: number) => (
-                    <div
-                      key={index}
-                      // flex-[0_0_100%] = one full viewport width per slide
-                      // min-w-0         = prevent flex blowout beyond 100%
-                      className="flex-[0_0_100%] min-w-0 h-full"
-                    >
+                      <div
+                        key={index}
+                        role="group"
+                        aria-roledescription="slide"
+                        aria-label={`${index + 1} of ${items.length}`}
+                        // flex-[0_0_100%] = one full viewport width per slide
+                        // min-w-0         = prevent flex blowout beyond 100%
+                        className="flex-[0_0_100%] min-w-0 h-full"
+                      >
                       <HighlightCard data={item} />
                     </div>
                   ))}

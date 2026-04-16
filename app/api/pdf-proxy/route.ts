@@ -38,37 +38,48 @@ export async function GET(request: Request) {
       return await fetch(url, {
         headers: { "User-Agent": "DigitoPub-PDF-Proxy", ...headers },
         signal: controller.signal,
+        redirect: "manual", // Detect redirects to login pages instead of silently following them
       })
     } finally {
       clearTimeout(timer)
     }
   }
 
-  /**
-   * OJS download URL strategies (in priority order):
-   *
-   * 1. REST API with API key — requires submission_file_id (fileId):
-   *    /index.php/{journal}/api/v1/submissions/{sub}/files/{fileId}/download
-   *
-   * 2. Standard web download — uses galley_id (galleyId), no auth needed for open-access:
-   *    /index.php/{journal}/article/download/{sub}/{galleyId}?inline=1
-   *
-   * Strategy 1 is tried when both apiKey and fileId are available.
-   * Strategy 2 is always tried as the fallback (or primary when no API key).
-   */
   const webDownloadUrl = `${baseUrl}/index.php/${journal}/article/download/${submissionId}/${galleyId}?inline=1`
 
-  const buildResponse = (res: Response) =>
-    new NextResponse(res.body, {
+  // Helper to validate and return the proxy response
+  const handleOjsResponse = async (res: Response, sourceUrl: string) => {
+    // 1. Detect redirects (OJS returns 302 to login page if PDF is restricted)
+    if (res.type === "opaqueredirect" || (res.status >= 300 && res.status <= 399)) {
+      console.warn(`[PDF Proxy] OJS redirected request for ${sourceUrl}. Likely requires authentication.`);
+      return new NextResponse("Access Denied: PDF requires authentication or is not published.", { status: 403 });
+    }
+
+    if (!res.ok) {
+        console.error(`[PDF Proxy] Request failed: ${res.status} for ${sourceUrl}`);
+        return new NextResponse(`OJS returned ${res.status}`, { status: res.status });
+    }
+
+    // 2. Validate Content-Type
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("text/html")) {
+      console.error(`[PDF Proxy] Failed: Upstream returned HTML instead of PDF for ${sourceUrl}`);
+      return new NextResponse("Failed to load PDF. Upstream returned an HTML page.", { status: 502 });
+    }
+
+    // 3. Optional: Read first few bytes to literally check for PDF magics could be done if contentType is unreliable,
+    //    but OJS usually correctly sets text/html for login pages and application/pdf for galleys.
+
+    return new NextResponse(res.body, {
       headers: {
-        "Content-Type": res.headers.get("Content-Type") || "application/pdf",
+        "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="article-${submissionId}.pdf"`,
-        // Prevent browser from blocking the iframe
         "X-Frame-Options": "SAMEORIGIN",
-        // Open-access PDFs change infrequently; cache for 1 h, serve stale up to 24 h
         "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+        ...(process.env.NODE_ENV === "development" ? { "X-PDF-Proxy-Source": sourceUrl } : {})
       },
-    })
+    });
+  };
 
   try {
     // Strategy 1: REST API with API key (only if key + fileId available)
@@ -76,21 +87,16 @@ export async function GET(request: Request) {
       const apiUrl = `${baseUrl}/index.php/${journal}/api/v1/submissions/${submissionId}/files/${fileId}/download`
       const apiRes = await fetchWithTimeout(apiUrl, { Authorization: `Bearer ${apiKey}` })
 
-      if (apiRes.ok) {
-        return buildResponse(apiRes)
+      if (apiRes.ok && apiRes.status === 200 && (apiRes.headers.get('content-type') || '').includes('pdf')) {
+        return handleOjsResponse(apiRes, apiUrl)
       }
-      console.warn(`[PDF Proxy] REST API failed (${apiRes.status}), falling back to web download URL`)
+      console.warn(`[PDF Proxy] REST API failed or not PDF (${apiRes.status}), falling back to web download URL`)
     }
 
     // Strategy 2: Standard web download URL (galleyId)
     const webRes = await fetchWithTimeout(webDownloadUrl)
+    return handleOjsResponse(webRes, webDownloadUrl)
 
-    if (!webRes.ok) {
-      console.error(`[PDF Proxy] Web download failed: ${webRes.status} for ${webDownloadUrl}`)
-      return new NextResponse(`OJS returned ${webRes.status}`, { status: webRes.status })
-    }
-
-    return buildResponse(webRes)
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "AbortError") {
       console.error("[PDF Proxy] Request timed out")
