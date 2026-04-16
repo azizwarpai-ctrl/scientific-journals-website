@@ -140,6 +140,16 @@ export async function initializeDatabase() {
         }
       }
       console.log('[DB Init] Applied schema patch: Synchronized admin_users profile columns')
+      
+      try {
+        await prisma.$executeRawUnsafe('ALTER TABLE `about_sections` ADD COLUMN `section_key` VARCHAR(50) NULL UNIQUE;')
+        console.log('[DB Init] Applied schema patch: Added section_key to about_sections')
+      } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e)
+        if (!errorMsg.includes('Duplicate column name')) {
+          console.error('[DB Init] Failed to add section_key column:', errorMsg)
+        }
+      }
 
       // --- END MIGRATIONS ---
 
@@ -168,13 +178,13 @@ export async function initializeDatabase() {
         where: { email: adminEmail },
         update: {
           password_hash: adminHash,
-          role: 'superadmin' // Ensure role is correct if email matches
+          role: 'super_admin' // Ensure role is correct if email matches
         },
         create: {
           email: adminEmail,
           password_hash: adminHash,
           full_name: 'Super Administrator',
-          role: 'superadmin',
+          role: 'super_admin',
         }
       })
       console.log(`[DB Init] Super Admin (${maskEmail(adminEmail)}) synchronized.`)
@@ -185,13 +195,13 @@ export async function initializeDatabase() {
         where: { email: supportEmail },
         update: {
           password_hash: supportHash,
-          role: 'support'
+          role: 'admin'
         },
         create: {
           email: supportEmail,
           password_hash: supportHash,
           full_name: 'Technical Support',
-          role: 'support',
+          role: 'admin',
         }
       })
       console.log(`[DB Init] Support User (${maskEmail(supportEmail)}) synchronized.`)

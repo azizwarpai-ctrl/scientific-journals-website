@@ -57,13 +57,22 @@ async function main() {
         email: 'superadmin@digitopub.com',
         full_name: 'Super Administrator',
         role: 'super_admin',
-      },
-      {
-        email: 'support@digitopub.com',
+      }
+    ];
+
+    // 2. Upsert Support User
+    console.log('🛠️ Upserting Support User...')
+    const supportPassword = await bcrypt.hash('00000000', 10)
+    await prisma.adminUser.upsert({
+      where: { email: 'www.alshebani88@gmail.com' },
+      update: {}, // Don't overwrite if already exists
+      create: {
+        email: 'www.alshebani88@gmail.com',
+        password_hash: supportPassword,
         full_name: 'Technical Support',
         role: 'admin',
       }
-    ]
+    });
 
     const ALLOWED_ROLES = ['admin', 'super_admin'];
 
@@ -174,7 +183,35 @@ async function main() {
       })
     }
 
-    console.log('\n✅ Database initialization complete.')
+    // 4. Initialize About page core sections (idempotent)
+    console.log('📖 Upserting About page sections...')
+    await prisma.aboutSection.upsert({
+      where: { section_key: 'our_mission' },
+      update: {},
+      create: {
+        section_key: 'our_mission',
+        block_type: 'TEXT',
+        title: 'Our Mission',
+        content: 'To empower journals, editors, and researchers worldwide with comprehensive digital publishing solutions that uphold the highest standards of transparency, quality, and ethical scholarly communication. We bridge the gap between research creation, dissemination, and long-term preservation.',
+        is_active: true,
+        display_order: 1
+      }
+    })
+
+    await prisma.aboutSection.upsert({
+      where: { section_key: 'our_vision' },
+      update: {},
+      create: {
+        section_key: 'our_vision',
+        block_type: 'TEXT',
+        title: 'Our Vision',
+        content: 'To create a vibrant ecosystem where science and technology evolve in harmony, fostering a trusted environment where scholarly work can thrive. We envision a future where every researcher has access to world-class publishing tools and global reach.',
+        is_active: true,
+        display_order: 2
+      }
+    })
+
+    console.log('\n✅ System initialized successfully with 2 core users.')
     console.log('──────────────────────────────────────────────────')
     console.log('Available Support/Admin Accounts:')
     for (const user of baseUsers) {
