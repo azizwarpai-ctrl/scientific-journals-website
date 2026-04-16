@@ -242,24 +242,26 @@ export async function fetchCustomBlocks(
       ".pkp_block > div",        // PKP sidebar block class
       "ul > li",                 // List-style blocks
       "body > div",              // Direct div children of body
+      "body > p",                // Flat paragraphs (common OJS pattern)
       "div > div",               // Any nested divs (requires parent-consistency check)
+      "div > p",                 // Paragraphs inside a wrapper div
     ]
 
     let bestElements: ReturnType<typeof $> | null = null
 
     for (const selector of CANDIDATE_SELECTORS) {
       const els = $(selector)
-      // Only accept if we get ≥2 elements, each with non-trivial text
+      // Only accept if we get ≥2 elements with non-empty text
       const withContent = els.filter((_, el) => {
         const text = $(el).text().trim()
-        return text.length > 20
+        return text.length > 5
       })
       if (withContent.length < 2) continue
 
-      // For the generic "div > div" selector, require that all matched elements
-      // share the same parent to avoid treating sub-structure (header + body of a
+      // For generic selectors, require that all matched elements share the
+      // same parent to avoid treating sub-structure (header + body of a
       // single block) as separate items.
-      if (selector === "div > div") {
+      if (selector === "div > div" || selector === "div > p") {
         const parents = new Set<unknown>()
         withContent.each((_, el) => { parents.add(el.parent) })
         if (parents.size > 1) continue
@@ -276,14 +278,21 @@ export async function fetchCustomBlocks(
 
         const { title, image, link, description } = extractCardFields(htmlContent, `${name}-${idx}`)
 
-        if (title && description && description !== title && description !== "No description available.") {
+        if (title && description) {
+          // Use a derived fallback when description duplicates the title or
+          // when extractCardFields could not produce a real description.
+          const finalDescription =
+            (description === title || description === "No description available.")
+              ? "View details to learn more."
+              : description
+
           const itemResult = CustomBlockSchema.safeParse({
             name: `${name}-${idx}`,
             content: htmlContent,
             title,
             image,
             link,
-            description,
+            description: finalDescription,
           })
           if (itemResult.success) {
             items.push(itemResult.data)
