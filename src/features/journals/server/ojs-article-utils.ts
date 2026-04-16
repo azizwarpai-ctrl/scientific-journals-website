@@ -110,6 +110,8 @@ export async function fetchArticlesWithAuthors(
 
   if (authorRows.length > 0) {
     const authorIds = authorRows.map(r => r.author_id)
+
+    // Fetch author_settings (names + legacy affiliation field)
     const authorSettingsRows = await ojsQuery<{
       author_id: number
       locale: string
@@ -120,6 +122,34 @@ export async function fetchArticlesWithAuthors(
        FROM author_settings
        WHERE author_id IN (${authorIds.join(',')})`
     )
+
+    // Fetch affiliations from the newer author_affiliations / author_affiliation_settings
+    // tables (OJS 3.4+). Falls back gracefully if tables are absent (query returns []).
+    let newAffiliationRows: { author_id: number; locale: string; setting_value: string }[] = []
+    try {
+      newAffiliationRows = await ojsQuery<{
+        author_id: number
+        locale: string
+        setting_value: string
+      }>(
+        `SELECT aa.author_id, aas.locale, aas.setting_value
+         FROM author_affiliations aa
+         JOIN author_affiliation_settings aas
+           ON aas.author_affiliation_id = aa.author_affiliation_id
+          AND aas.setting_name = 'name'
+         WHERE aa.author_id IN (${authorIds.join(',')})`
+      )
+    } catch {
+      // Table may not exist in older OJS instances — silently ignore
+    }
+
+    // Index new-style affiliations by author_id for O(1) lookup
+    const newAffByAuthor = new Map<number, { locale: string; setting_value: string }[]>()
+    for (const row of newAffiliationRows) {
+      const existing = newAffByAuthor.get(row.author_id) || []
+      existing.push(row)
+      newAffByAuthor.set(row.author_id, existing)
+    }
 
     for (const row of authorRows) {
       const settings = authorSettingsRows.filter(s => s.author_id === row.author_id)
@@ -136,11 +166,27 @@ export async function fetchArticlesWithAuthors(
         return matches[0].setting_value || null
       }
 
+      // Resolve affiliation: prefer new table, fall back to legacy author_settings key
+      const resolveAffiliation = (): string | null => {
+        const newAffRows = newAffByAuthor.get(row.author_id)
+        if (newAffRows && newAffRows.length > 0) {
+          const primary = newAffRows.find(r => r.locale === primaryLocale)
+          if (primary?.setting_value) return primary.setting_value
+          const en = newAffRows.find(r => r.locale === 'en_US' || r.locale === 'en')
+          if (en?.setting_value) return en.setting_value
+          const empty = newAffRows.find(r => r.locale === '')
+          if (empty?.setting_value) return empty.setting_value
+          if (newAffRows[0].setting_value) return newAffRows[0].setting_value
+        }
+        // Fallback: legacy author_settings 'affiliation' key
+        return getBestSetting('affiliation')
+      }
+
       const existing = authorsByPub.get(row.publication_id) || []
       existing.push({
         givenName: getBestSetting('givenName'),
         familyName: getBestSetting('familyName'),
-        affiliation: getBestSetting('affiliation'),
+        affiliation: resolveAffiliation(),
       })
       authorsByPub.set(row.publication_id, existing)
     }
