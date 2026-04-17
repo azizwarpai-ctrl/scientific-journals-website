@@ -23,54 +23,90 @@ interface ModalPdfViewerProps {
 
 type Phase = "probing" | "rendering" | "error"
 
+type ProbeErrorCode =
+  | "AUTH_REQUIRED"
+  | "FILE_NOT_FOUND"
+  | "INVALID_RESPONSE"
+  | "UPSTREAM_ERROR"
+  | "TIMEOUT"
+  | "NETWORK_ERROR"
+  | "BAD_REQUEST"
+  | "UNKNOWN"
+
 interface ProbeResult {
   ok: boolean
-  contentType?: string
-  status?: number
+  code?: ProbeErrorCode
   message?: string
 }
 
+const ERROR_MESSAGES: Record<ProbeErrorCode, string> = {
+  AUTH_REQUIRED: "This file requires access permission.",
+  FILE_NOT_FOUND: "PDF file was not found.",
+  INVALID_RESPONSE: "Invalid file response received from source server.",
+  UPSTREAM_ERROR: "Source server is temporarily unavailable.",
+  TIMEOUT: "Source server did not respond in time.",
+  NETWORK_ERROR: "Network error while loading document.",
+  BAD_REQUEST: "This document cannot be loaded — the link appears invalid.",
+  UNKNOWN: "Unable to load document.",
+}
+
+function mapStatusToCode(status: number): ProbeErrorCode {
+  if (status === 401 || status === 403) return "AUTH_REQUIRED"
+  if (status === 404 || status === 410) return "FILE_NOT_FOUND"
+  if (status === 400) return "BAD_REQUEST"
+  if (status === 504) return "TIMEOUT"
+  if (status >= 500) return "UPSTREAM_ERROR"
+  return "UNKNOWN"
+}
+
+async function parseProxyError(res: Response): Promise<{ code: ProbeErrorCode; message: string }> {
+  const headerCode = res.headers.get("x-proxy-error") as ProbeErrorCode | null
+  const contentType = res.headers.get("content-type") || ""
+  if (contentType.includes("application/json")) {
+    try {
+      const body = await res.clone().json() as { error?: string; message?: string }
+      const code = (headerCode || body.error || mapStatusToCode(res.status)) as ProbeErrorCode
+      const message = body.message || ERROR_MESSAGES[code] || ERROR_MESSAGES.UNKNOWN
+      return { code, message }
+    } catch {
+      /* fall through */
+    }
+  }
+  const code = headerCode || mapStatusToCode(res.status)
+  return { code, message: ERROR_MESSAGES[code] || ERROR_MESSAGES.UNKNOWN }
+}
+
 /**
- * Probe the PDF URL with a HEAD request (falls back to a ranged GET if HEAD
- * is unsupported). This lets us surface a clear error for upstream proxies
- * that respond 502/403 with an HTML body — which iframes would otherwise
- * render silently as a broken document.
+ * Probe the PDF URL with a ranged GET. The proxy returns structured JSON for
+ * errors (Content-Type: application/json + X-Proxy-Error header), which lets
+ * us surface accurate reasons — auth walls, missing files, upstream issues —
+ * instead of silently letting an iframe render an error page.
  */
 async function probePdf(url: string, signal: AbortSignal): Promise<ProbeResult> {
-  const validate = (res: Response): ProbeResult => {
-    const contentType = res.headers.get("content-type") || ""
-    if (!res.ok) {
-      return { ok: false, status: res.status, contentType, message: `Server returned ${res.status}` }
-    }
-    if (contentType && !/pdf|octet-stream/i.test(contentType)) {
-      return { ok: false, status: res.status, contentType, message: "Upstream did not return a PDF" }
-    }
-    return { ok: true, status: res.status, contentType }
-  }
-
+  let res: Response
   try {
-    const headRes = await fetch(url, { method: "HEAD", signal, redirect: "follow" })
-    // Some servers (or our proxy) don't implement HEAD — fall through to ranged GET
-    if (headRes.status !== 405 && headRes.status !== 501) {
-      return validate(headRes)
-    }
-  } catch (err) {
-    if ((err as Error).name === "AbortError") throw err
-    // Some CDNs reject HEAD at the network level — fall through to ranged GET
-  }
-
-  try {
-    const getRes = await fetch(url, {
+    res = await fetch(url, {
       method: "GET",
       signal,
       redirect: "follow",
-      headers: { Range: "bytes=0-1023" },
+      headers: { Range: "bytes=0-1023", Accept: "application/pdf,application/json" },
     })
-    return validate(getRes)
   } catch (err) {
     if ((err as Error).name === "AbortError") throw err
-    return { ok: false, message: "Network error while loading document" }
+    return { ok: false, code: "NETWORK_ERROR", message: ERROR_MESSAGES.NETWORK_ERROR }
   }
+
+  if (res.ok) {
+    const contentType = (res.headers.get("content-type") || "").toLowerCase()
+    if (!contentType || /pdf|octet-stream/.test(contentType)) {
+      return { ok: true }
+    }
+    // Success status but wrong content type — treat as invalid.
+    return { ok: false, code: "INVALID_RESPONSE", message: ERROR_MESSAGES.INVALID_RESPONSE }
+  }
+
+  const { code, message } = await parseProxyError(res)
+  return { ok: false, code, message }
 }
 
 export function ModalPdfViewer({
@@ -82,6 +118,7 @@ export function ModalPdfViewer({
   const [open, setOpen] = useState(false)
   const [phase, setPhase] = useState<Phase>("probing")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [errorCode, setErrorCode] = useState<ProbeErrorCode | null>(null)
   const [attempt, setAttempt] = useState(0)
   const triggerRef = useRef<HTMLElement | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -92,6 +129,7 @@ export function ModalPdfViewer({
     triggerRef.current = document.activeElement as HTMLElement
     setPhase("probing")
     setErrorMessage(null)
+    setErrorCode(null)
     setAttempt((n) => n + 1)
     setOpen(true)
   }, [])
@@ -103,6 +141,7 @@ export function ModalPdfViewer({
   const retry = useCallback(() => {
     setPhase("probing")
     setErrorMessage(null)
+    setErrorCode(null)
     setAttempt((n) => n + 1)
   }, [])
 
@@ -160,12 +199,14 @@ export function ModalPdfViewer({
         if (result.ok) {
           setPhase("rendering")
         } else {
-          setErrorMessage(result.message || "Unable to display PDF")
+          setErrorCode(result.code ?? "UNKNOWN")
+          setErrorMessage(result.message || ERROR_MESSAGES.UNKNOWN)
           setPhase("error")
         }
       } catch (err) {
         if (cancelled || (err as Error).name === "AbortError") return
-        setErrorMessage("Network error while loading document")
+        setErrorCode("NETWORK_ERROR")
+        setErrorMessage(ERROR_MESSAGES.NETWORK_ERROR)
         setPhase("error")
       }
     })()
@@ -293,7 +334,12 @@ export function ModalPdfViewer({
             />
           )}
           {phase === "error" && (
-            <FallbackView directUrl={directUrl} message={errorMessage} onRetry={retry} />
+            <FallbackView
+              directUrl={directUrl}
+              code={errorCode}
+              message={errorMessage}
+              onRetry={retry}
+            />
           )}
         </div>
       </div>
@@ -326,11 +372,24 @@ function LoadingView() {
 
 interface FallbackViewProps {
   directUrl: string | null | undefined
+  code: ProbeErrorCode | null
   message: string | null
   onRetry: () => void
 }
 
-function FallbackView({ directUrl, message, onRetry }: FallbackViewProps) {
+const ERROR_HEADINGS: Record<ProbeErrorCode, string> = {
+  AUTH_REQUIRED: "Access permission required",
+  FILE_NOT_FOUND: "PDF not found",
+  INVALID_RESPONSE: "Invalid file from source",
+  UPSTREAM_ERROR: "Source server unavailable",
+  TIMEOUT: "Source server timed out",
+  NETWORK_ERROR: "Network error",
+  BAD_REQUEST: "Unable to display PDF",
+  UNKNOWN: "Unable to display PDF",
+}
+
+function FallbackView({ directUrl, code, message, onRetry }: FallbackViewProps) {
+  const heading = code ? ERROR_HEADINGS[code] : "Unable to Display PDF"
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-8 text-center animate-in fade-in duration-300 bg-[#1a1a1a]">
       <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
@@ -338,7 +397,7 @@ function FallbackView({ directUrl, message, onRetry }: FallbackViewProps) {
       </div>
 
       <div className="space-y-2 max-w-md">
-        <h3 className="text-lg font-bold text-white/90">Unable to Display PDF</h3>
+        <h3 className="text-lg font-bold text-white/90">{heading}</h3>
         <p className="text-sm text-white/50 leading-relaxed">
           {message ||
             "The document may require authentication or is blocked by the upstream server."}{" "}
