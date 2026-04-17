@@ -178,7 +178,11 @@ export function ArticleItem({ article }: ArticleItemProps) {
               </Link>
             </Button>
             {article.pdfUrl && (
-              <ModalPdfViewer pdfUrl={article.pdfUrl} articleTitle={article.title || undefined} triggerStyle="card" />
+              <ModalPdfViewer
+                pdfUrl={article.pdfUrl}
+                articleTitle={article.title || undefined}
+                triggerStyle="card"
+              />
             )}
           </div>
         </div>
