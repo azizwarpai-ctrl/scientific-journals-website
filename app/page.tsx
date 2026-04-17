@@ -15,6 +15,7 @@ import type { Journal } from "@/src/features/journals"
 import { useGetPlatformStatistics } from "@/src/features/statistics/api/use-get-statistics"
 import { HomeStatsSkeleton } from "@/components/skeletons/home-stats-skeleton"
 import { JournalCardSkeleton } from "@/components/skeletons/journal-card-skeleton"
+import { CtaSection } from "@/components/cta-section"
 
 export default function HomePage() {
   const { data: journals = [], isLoading: isLoadingOjs, isError: isErrorOjs } = useGetJournals()
@@ -195,24 +196,7 @@ export default function HomePage() {
         </GSAPWrapper>
 
         {/* CTA Section */}
-        <GSAPWrapper animation="scale" delay={0.5}>
-          <section className="py-20">
-            <div className="container mx-auto px-4 md:px-6">
-              <div className="mx-auto max-w-3xl rounded-2xl bg-gradient-to-br from-primary to-secondary p-8 text-center text-primary-foreground md:p-12">
-                <h2 className="mb-4 text-3xl font-bold md:text-4xl">Ready to Publish?</h2>
-                <p className="mb-8 text-lg opacity-90 leading-relaxed">Join our growing community of researchers sharing their work with the global scientific community.</p>
-                <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
-                  <Button size="lg" variant="secondary" asChild>
-                    <Link href="/register">Get Started</Link>
-                  </Button>
-                  <Button size="lg" variant="outline" className="bg-transparent hover:bg-primary-foreground/10" asChild>
-                    <Link href="/contact">Contact Us</Link>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </section>
-        </GSAPWrapper>
+        <CtaSection />
         </div>
       </main>
 
