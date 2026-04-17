@@ -30,12 +30,12 @@ export function MemberCard({ member }: MemberCardProps) {
 
   return (
     <article className="group flex flex-col rounded-xl border border-border/50 bg-card transition-all duration-200 hover:border-border hover:shadow-md overflow-hidden h-full">
-      {/* Portrait photo — compact aspect ratio */}
+      {/* Portrait photo */}
       <div className="relative overflow-hidden bg-muted/30 shrink-0">
         <MemberPhoto
           name={member.name}
           imageUrl={member.profileImage}
-          className="aspect-[4/3] w-full"
+          className="aspect-[3/4] w-full"
         />
         {/* Role badge overlaid on photo */}
         <div className="absolute bottom-2 left-2 right-2 flex justify-start">

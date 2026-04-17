@@ -33,6 +33,8 @@ export function ModalPdfViewer({
   const [renderMethod, setRenderMethod] = useState<RenderMethod>("object")
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isLoadingRef = useRef(true)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLElement | null>(null)
 
   const directUrl = pdfDirectUrl || pdfUrl
 
@@ -49,41 +51,19 @@ export function ModalPdfViewer({
   }, [clearTimer])
 
   const openModal = useCallback(() => {
+    triggerRef.current = document.activeElement as HTMLElement
     setOpen(true)
     setIsLoading(true)
     setRenderMethod("object")
     isLoadingRef.current = true
   }, [])
 
-  useEffect(() => {
-    if (!open) return
-
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeModal()
-    }
-    document.addEventListener("keydown", handleKey)
-    document.body.style.overflow = "hidden"
-
+  // Stable fallback handler used by IframeFallback.onFallback in both usages
+  const handleFallbackFromIframe = useCallback(() => {
     clearTimer()
-    timeoutRef.current = setTimeout(() => {
-      if (isLoadingRef.current) {
-        isLoadingRef.current = false
-        setIsLoading(false)
-        setRenderMethod("fallback")
-      }
-    }, 15000)
-
-    return () => {
-      document.removeEventListener("keydown", handleKey)
-      document.body.style.overflow = ""
-      clearTimer()
-    }
-  }, [open, closeModal, clearTimer])
-
-  const handleLoad = useCallback(() => {
     isLoadingRef.current = false
-    clearTimer()
     setIsLoading(false)
+    setRenderMethod("fallback")
   }, [clearTimer])
 
   const handleObjectError = useCallback(() => {
@@ -100,6 +80,80 @@ export function ModalPdfViewer({
     }, 10000)
   }, [clearTimer])
 
+  useEffect(() => {
+    if (!open) return
+
+    const panel = panelRef.current
+
+    // Focus management — move focus into dialog, restore on close
+    const focusableSelectors = [
+      'button:not([disabled])',
+      'a[href]',
+      'input:not([disabled])',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(', ')
+
+    const getFocusable = () =>
+      panel ? Array.from(panel.querySelectorAll<HTMLElement>(focusableSelectors)) : []
+
+    // Move focus to first focusable element (close button) when dialog opens
+    requestAnimationFrame(() => {
+      const focusable = getFocusable()
+      focusable[0]?.focus()
+    })
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        closeModal()
+        return
+      }
+
+      // Tab trap
+      if (e.key === "Tab") {
+        const focusable = getFocusable()
+        if (focusable.length === 0) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault()
+            last.focus()
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault()
+            first.focus()
+          }
+        }
+      }
+    }
+
+    document.addEventListener("keydown", handleKey)
+    document.body.style.overflow = "hidden"
+
+    // 15s fail-safe: attempt iframe before final fallback (preserves cascade)
+    clearTimer()
+    timeoutRef.current = setTimeout(() => {
+      if (isLoadingRef.current) {
+        handleObjectError()
+      }
+    }, 15000)
+
+    return () => {
+      document.removeEventListener("keydown", handleKey)
+      document.body.style.overflow = ""
+      clearTimer()
+      // Restore focus to the element that triggered the modal
+      triggerRef.current?.focus()
+    }
+  }, [open, closeModal, clearTimer, handleObjectError])
+
+  const handleLoad = useCallback(() => {
+    isLoadingRef.current = false
+    clearTimer()
+    setIsLoading(false)
+  }, [clearTimer])
+
   const handleIframeLoad = useCallback(() => {
     isLoadingRef.current = false
     clearTimer()
@@ -113,12 +167,10 @@ export function ModalPdfViewer({
     clearTimer()
     timeoutRef.current = setTimeout(() => {
       if (isLoadingRef.current) {
-        isLoadingRef.current = false
-        setIsLoading(false)
-        setRenderMethod("fallback")
+        handleObjectError()
       }
     }, 15000)
-  }, [clearTimer])
+  }, [clearTimer, handleObjectError])
 
   if (!pdfUrl) {
     return (
@@ -174,8 +226,9 @@ export function ModalPdfViewer({
             aria-hidden="true"
           />
 
-          {/* Modal panel — full height, near-fullscreen */}
+          {/* Modal panel */}
           <div
+            ref={panelRef}
             className="relative z-10 flex flex-col w-full h-full max-w-[1440px] md:h-[98vh] md:mt-[1vh] md:rounded-2xl overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.5)] border border-white/[0.08] bg-[#1a1a1a] animate-in fade-in zoom-in-[0.97] duration-200"
             onClick={(e) => e.stopPropagation()}
           >
@@ -211,7 +264,8 @@ export function ModalPdfViewer({
                     asChild
                     className="h-8 gap-1.5 rounded-lg text-xs font-semibold bg-primary/20 text-primary hover:bg-primary hover:text-white border border-primary/30 hover:border-primary transition-all"
                   >
-                    <a href={directUrl} download target="_blank" rel="noopener noreferrer">
+                    {/* No target="_blank": download attribute requires same-origin navigation */}
+                    <a href={directUrl} download rel="noopener noreferrer">
                       <Download className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">Download</span>
                     </a>
@@ -232,8 +286,8 @@ export function ModalPdfViewer({
 
             {/* ── PDF content area ── */}
             <div className="flex-1 relative overflow-hidden bg-[#525659]">
-              {/* Loading overlay */}
-              {isLoading && (
+              {/* Loading overlay — hidden once fallback is shown */}
+              {isLoading && renderMethod !== "fallback" && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-[#1a1a1a]">
                   <div className="relative">
                     <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -258,12 +312,12 @@ export function ModalPdfViewer({
                     onError={handleObjectError}
                     aria-label={`${articleTitle} PDF document`}
                   >
-                    {/* Trigger iframe fallback if object unsupported */}
+                    {/* Trigger iframe fallback when object tag is unsupported */}
                     <IframeFallback
                       pdfUrl={pdfUrl}
                       articleTitle={articleTitle}
                       onLoad={handleIframeLoad}
-                      onFallback={() => setRenderMethod("fallback")}
+                      onFallback={handleFallbackFromIframe}
                     />
                   </object>
                 </div>
@@ -276,7 +330,7 @@ export function ModalPdfViewer({
                     pdfUrl={pdfUrl}
                     articleTitle={articleTitle}
                     onLoad={handleIframeLoad}
-                    onFallback={() => setRenderMethod("fallback")}
+                    onFallback={handleFallbackFromIframe}
                   />
                 </div>
               )}
@@ -364,10 +418,10 @@ function FallbackView({ directUrl, onRetry }: FallbackViewProps) {
               <ExternalLink className="h-4 w-4" />
               Open in New Tab
             </a>
+            {/* No target="_blank": download attribute requires same-origin navigation */}
             <a
               href={directUrl}
               download
-              target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary/80 hover:bg-primary text-white border border-primary/50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             >

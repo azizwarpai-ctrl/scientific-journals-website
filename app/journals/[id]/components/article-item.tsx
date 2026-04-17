@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import {
@@ -194,15 +194,18 @@ interface AuthorListProps {
 }
 
 function AuthorList({ authors }: AuthorListProps) {
-  const named = authors.filter((a) => {
-    const name = `${a.givenName || ""} ${a.familyName || ""}`.trim()
-    return name.length > 0
-  })
+  const named = useMemo(
+    () =>
+      authors.filter((a) => {
+        const name = `${a.givenName || ""} ${a.familyName || ""}`.trim()
+        return name.length > 0
+      }),
+    [authors]
+  )
+
+  const useGrid = useMemo(() => named.length >= 3, [named])
 
   if (named.length === 0) return null
-
-  // Two-column compact grid for 3+ authors, single column otherwise
-  const useGrid = named.length >= 3
 
   return (
     <div className="flex items-start gap-2.5">
@@ -216,8 +219,9 @@ function AuthorList({ authors }: AuthorListProps) {
       >
         {named.map((author, idx) => {
           const name = `${author.givenName || ""} ${author.familyName || ""}`.trim()
+          const key = `${author.givenName ?? ""}-${author.familyName ?? ""}-${idx}`
           return (
-            <div key={idx} className="flex flex-col min-w-0">
+            <div key={key} className="flex flex-col min-w-0">
               <span className="text-sm font-semibold text-foreground/80 leading-snug truncate">
                 {name}
               </span>
