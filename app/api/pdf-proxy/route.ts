@@ -57,7 +57,7 @@ function looksLikeHtml(chunk: Uint8Array): boolean {
   return (
     text.startsWith("<!doctype html") ||
     text.startsWith("<html") ||
-    text.startsWith("<?xml") && text.includes("<html") ||
+    (text.startsWith("<?xml") && text.includes("<html")) ||
     text.includes("<head>") ||
     text.includes("user_login")
   )
@@ -65,7 +65,8 @@ function looksLikeHtml(chunk: Uint8Array): boolean {
 
 function buildStreamFromChunks(
   first: Uint8Array,
-  reader: ReadableStreamDefaultReader<Uint8Array>
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  timeoutMs: number = FETCH_TIMEOUT_MS
 ): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
     start(controller) {
@@ -73,7 +74,11 @@ function buildStreamFromChunks(
     },
     async pull(controller) {
       try {
-        const { done, value } = await reader.read()
+        const readPromise = reader.read()
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Body read timeout")), timeoutMs)
+        )
+        const { done, value } = await Promise.race([readPromise, timeoutPromise])
         if (done) {
           controller.close()
           return
@@ -291,21 +296,24 @@ export async function GET(request: Request) {
       )
     }
 
-    // Peek first chunk, validate magic bytes, then rebuild the stream.
+    // Accumulate initial chunks until we have enough bytes to validate PDF magic.
+    // If the first read is < 4 bytes, read again; stop once we have the magic bytes
+    // or EOF, then validate and rebuild the full stream.
     const reader = res.body.getReader()
-    let first: Uint8Array
+    const chunks: Uint8Array[] = []
+    let totalBytes = 0
+    const MAGIC_SIZE = PDF_MAGIC.length
+    const PEEK_LIMIT = 2048 // Limit peeking to prevent memory bloat
+
     try {
-      const initial = await reader.read()
-      if (initial.done || !initial.value || initial.value.length === 0) {
-        reader.releaseLock()
-        return jsonError(
-          "INVALID_RESPONSE",
-          "Source server returned an empty PDF body.",
-          502,
-          sourceUrl
-        )
+      while (totalBytes < MAGIC_SIZE && totalBytes < PEEK_LIMIT) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (value && value.length > 0) {
+          chunks.push(value)
+          totalBytes += value.length
+        }
       }
-      first = initial.value
     } catch (err) {
       try { reader.releaseLock() } catch { /* ignore */ }
       console.error(`[PDF Proxy] Error reading upstream body for ${sourceUrl}:`, err)
@@ -317,9 +325,26 @@ export async function GET(request: Request) {
       )
     }
 
-    if (!startsWithPdfMagic(first)) {
+    if (totalBytes === 0) {
       try { reader.releaseLock() } catch { /* ignore */ }
-      if (looksLikeHtml(first)) {
+      return jsonError(
+        "INVALID_RESPONSE",
+        "Source server returned an empty PDF body.",
+        502,
+        sourceUrl
+      )
+    }
+
+    const buffer = new Uint8Array(totalBytes)
+    let offset = 0
+    for (const chunk of chunks) {
+      buffer.set(chunk, offset)
+      offset += chunk.length
+    }
+
+    if (!startsWithPdfMagic(buffer)) {
+      try { reader.releaseLock() } catch { /* ignore */ }
+      if (looksLikeHtml(buffer)) {
         return jsonError(
           "AUTH_REQUIRED",
           "Source server returned an HTML page instead of a PDF (likely requires authentication).",
@@ -346,7 +371,7 @@ export async function GET(request: Request) {
       )
     }
 
-    const stream = buildStreamFromChunks(first, reader)
+    const stream = buildStreamFromChunks(buffer, reader)
 
     const outHeaders: Record<string, string> = {
       "Content-Type": "application/pdf",
@@ -395,7 +420,7 @@ export async function GET(request: Request) {
         Authorization: `Bearer ${apiKey}`,
       })
       if (apiResult.ok) return apiResult
-      const fallbackCodes = ["AUTH_REQUIRED", "UPSTREAM_ERROR", "INVALID_RESPONSE"]
+      const fallbackCodes = ["AUTH_REQUIRED", "UPSTREAM_ERROR", "INVALID_RESPONSE", "FILE_NOT_FOUND"]
       const errorHeader = apiResult.headers.get("X-Proxy-Error")
       if (!errorHeader || !fallbackCodes.includes(errorHeader)) {
         return apiResult

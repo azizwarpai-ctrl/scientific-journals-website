@@ -59,28 +59,40 @@ function mapStatusToCode(status: number): ProbeErrorCode {
   return "UNKNOWN"
 }
 
+function isValidProbeErrorCode(value: string): value is ProbeErrorCode {
+  return value in ERROR_MESSAGES
+}
+
 async function parseProxyError(res: Response): Promise<{ code: ProbeErrorCode; message: string }> {
-  const headerCode = res.headers.get("x-proxy-error") as ProbeErrorCode | null
+  const headerCode = res.headers.get("x-proxy-error")
   const contentType = res.headers.get("content-type") || ""
   if (contentType.includes("application/json")) {
     try {
       const body = await res.clone().json() as { error?: string; message?: string }
-      const code = (headerCode || body.error || mapStatusToCode(res.status)) as ProbeErrorCode
+      let code: ProbeErrorCode = mapStatusToCode(res.status)
+      if (headerCode && isValidProbeErrorCode(headerCode)) {
+        code = headerCode
+      } else if (body.error && isValidProbeErrorCode(body.error)) {
+        code = body.error
+      }
       const message = body.message || ERROR_MESSAGES[code] || ERROR_MESSAGES.UNKNOWN
       return { code, message }
     } catch {
       /* fall through */
     }
   }
-  const code = headerCode || mapStatusToCode(res.status)
+  const code: ProbeErrorCode = (headerCode && isValidProbeErrorCode(headerCode))
+    ? headerCode
+    : mapStatusToCode(res.status)
   return { code, message: ERROR_MESSAGES[code] || ERROR_MESSAGES.UNKNOWN }
 }
 
 /**
- * Probe the PDF URL with a ranged GET. The proxy returns structured JSON for
+ * Probe the PDF URL with a GET request. The proxy returns structured JSON for
  * errors (Content-Type: application/json + X-Proxy-Error header), which lets
  * us surface accurate reasons — auth walls, missing files, upstream issues —
- * instead of silently letting an iframe render an error page.
+ * instead of silently letting an iframe render an error page. The Range header
+ * is defensive and ignored by the proxy; the full body is streamed regardless.
  */
 async function probePdf(url: string, signal: AbortSignal): Promise<ProbeResult> {
   let res: Response
@@ -89,7 +101,7 @@ async function probePdf(url: string, signal: AbortSignal): Promise<ProbeResult> 
       method: "GET",
       signal,
       redirect: "follow",
-      headers: { Range: "bytes=0-1023", Accept: "application/pdf,application/json" },
+      headers: { Accept: "application/pdf,application/json" },
     })
   } catch (err) {
     if ((err as Error).name === "AbortError") throw err
@@ -384,7 +396,7 @@ const ERROR_HEADINGS: Record<ProbeErrorCode, string> = {
   UPSTREAM_ERROR: "Source server unavailable",
   TIMEOUT: "Source server timed out",
   NETWORK_ERROR: "Network error",
-  BAD_REQUEST: "Unable to display PDF",
+  BAD_REQUEST: "Invalid document link",
   UNKNOWN: "Unable to display PDF",
 }
 
