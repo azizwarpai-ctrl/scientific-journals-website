@@ -195,12 +195,16 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
 
   const tabs = policies?.tabs || []
   const hasDoiFeatures = policies?.doiEnabled || policies?.requireAuthorCompetingInterestsEnabled
+  // When OJS already provides a "DOIs & ORCID" tab, don't render the synthetic
+  // metadata panel on top of it — the OJS content takes precedence.
+  const hasOjsDoiTab = tabs.some((t) => t.slug === "dois-orcid")
+  const showSyntheticDoiTab = !!hasDoiFeatures && !hasOjsDoiTab
 
-  const defaultTabSlug = tabs.length > 0 ? tabs[0].slug : (hasDoiFeatures ? "_doiorcid" : null);
+  const defaultTabSlug = tabs.length > 0 ? tabs[0].slug : (showSyntheticDoiTab ? "_doiorcid" : null);
   const currentTabSlug = activeTabSlug || defaultTabSlug;
 
   // If completely empty without config
-  if (!isLoading && !isError && tabs.length === 0 && !hasDoiFeatures) {
+  if (!isLoading && !isError && tabs.length === 0 && !showSyntheticDoiTab) {
     return null; // Hide the entire section if absolutely no policies exist
   }
 
@@ -248,7 +252,7 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
               )
             })}
 
-            {hasDoiFeatures && (
+            {showSyntheticDoiTab && (
               <button
                 id="policy-tab-doi-orcid"
                 onClick={() => setActiveTabSlug("_doiorcid")}

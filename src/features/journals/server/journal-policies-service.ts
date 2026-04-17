@@ -1,18 +1,25 @@
 /**
  * Journal Policies Service
  *
- * Fetches dynamic policy tabs from multiple OJS sources:
+ * Emits a strictly-filtered, fixed-order set of policy tabs from OJS.
  *
- * 1. Navigation menu system — "Journal Policies" custom menu with ordered items
- * 2. journal_settings — standard policy fields (privacyStatement, copyrightNotice, …)
- * 3. static_pages — plugin-managed custom content pages
+ * Data is discovered across multiple OJS sources:
+ *   1. Navigation menu system — the "Journal Policies" custom menu
+ *   2. Standalone navigation_menu_items with content
+ *   3. journal_settings — standard policy fields
+ *   4. static_pages — plugin-managed content pages
  *
- * Built-in OJS menu item types (e.g. NMI_TYPE_PRIVACY) store their content in
- * journal_settings, NOT in navigation_menu_item_settings.  The service resolves
- * content from the correct source based on each item's `type` column.
+ * Every candidate is matched against an APPROVED_POLICIES whitelist by
+ * normalized title / slug / path. Only matching candidates are emitted, and
+ * the resulting tabs are returned in the canonical order defined below.
  *
- * When no "Journal Policies" navigation menu exists, the service falls back to
- * journal_settings + static_pages so policy tabs are always generated dynamically.
+ * Required tabs (exact order, nothing else):
+ *   1. Privacy Statement
+ *   2. Policies on Ethics
+ *   3. Copyright & Licensing Policies
+ *   4. Editorial Workflow
+ *   5. Indexing & Archiving
+ *   6. DOIs & ORCID
  */
 
 import sanitizeHtml from "sanitize-html"
@@ -69,33 +76,178 @@ interface StandaloneNavRow {
   locale: string
 }
 
-// ── OJS built-in type → journal_settings mapping ────────────────────────────
+// ── Approved policy whitelist ───────────────────────────────────────────────
 //
-// OJS built-in navigation menu item types resolve their display content from
-// journal_settings rather than navigation_menu_item_settings.
-//
-// This map intentionally covers only the built-in types that carry policy HTML
-// in journal_settings.  It is NOT exhaustive: types such as NMI_TYPE_ABOUT,
-// NMI_TYPE_SUBMISSIONS, and NMI_TYPE_EDITORIAL_TEAM point to other parts of
-// the OJS UI and have no standalone HTML content to display here.
-//
-// To add support for a new built-in type, insert an entry keyed by the OJS
-// PHP constant name (e.g. "NMI_TYPE_FOO") with the corresponding
-// journal_settings key and a default display title.
+// The ONLY tabs that may appear in the Policies section. Each entry lists the
+// aliases (normalized) that may appear in OJS as a title, slug, path, or
+// journal_settings key. Matching is deliberately permissive so different OJS
+// deployments can use their own wording, but nothing outside this list is
+// ever emitted.
 
-const BUILTIN_TYPE_TO_SETTING: Record<string, { settingName: string; defaultTitle: string }> = {
-  "NMI_TYPE_PRIVACY": { settingName: "privacyStatement", defaultTitle: "Privacy Statement" },
+interface ApprovedPolicy {
+  /** Canonical tab title shown to end-users */
+  title: string
+  /** Canonical slug used for tab identity */
+  slug: string
+  /** Aliases matched against normalized title/slug/path (OJS side) */
+  aliases: string[]
+  /** journal_settings keys whose value is the policy HTML */
+  settingNames: string[]
+  /**
+   * OJS built-in navigation_menu_item types that identify this policy. These
+   * point content at journal_settings rather than carrying their own HTML.
+   */
+  builtinTypes: string[]
 }
 
-// ── Standard policy settings in journal_settings (fallback source) ──────────
+const APPROVED_POLICIES: ApprovedPolicy[] = [
+  {
+    title: "Privacy Statement",
+    slug: "privacy-statement",
+    aliases: [
+      "privacy statement",
+      "privacy",
+      "privacy policy",
+    ],
+    settingNames: ["privacyStatement"],
+    builtinTypes: ["NMI_TYPE_PRIVACY"],
+  },
+  {
+    title: "Policies on Ethics",
+    slug: "policies-on-ethics",
+    aliases: [
+      "policies on ethics",
+      "ethics",
+      "ethics policy",
+      "ethical policy",
+      "publication ethics",
+      "ethical guidelines",
+      "ethics and malpractice",
+      "publication ethics and malpractice",
+    ],
+    settingNames: [],
+    builtinTypes: [],
+  },
+  {
+    title: "Copyright & Licensing Policies",
+    slug: "copyright-licensing",
+    aliases: [
+      "copyright and licensing policies",
+      "copyright licensing policies",
+      "copyright and licensing",
+      "copyright licensing",
+      "copyright",
+      "copyright notice",
+      "copyright policy",
+      "licensing",
+      "licensing policy",
+      "license",
+    ],
+    settingNames: ["copyrightNotice"],
+    builtinTypes: [],
+  },
+  {
+    title: "Editorial Workflow",
+    slug: "editorial-workflow",
+    aliases: [
+      "editorial workflow",
+      "workflow",
+      "editorial process",
+      "review policy",
+      "peer review",
+      "peer review policy",
+      "peer review process",
+      "editorial policy",
+    ],
+    settingNames: ["reviewPolicy"],
+    builtinTypes: [],
+  },
+  {
+    title: "Indexing & Archiving",
+    slug: "indexing-archiving",
+    aliases: [
+      "indexing and archiving",
+      "indexing archiving",
+      "indexing",
+      "archiving",
+      "archive policy",
+      "archiving policy",
+      "self archiving policy",
+      "self archiving",
+      "author self archive policy",
+      "author self archiving policy",
+    ],
+    settingNames: ["authorSelfArchivePolicy"],
+    builtinTypes: [],
+  },
+  {
+    title: "DOIs & ORCID",
+    slug: "dois-orcid",
+    aliases: [
+      "dois and orcid",
+      "doi and orcid",
+      "dois orcid",
+      "doi orcid",
+      "digital object identifier and orcid",
+      "orcid",
+      "dois",
+      "doi",
+      "digital object identifier",
+    ],
+    settingNames: [],
+    builtinTypes: [],
+  },
+]
 
-const STANDARD_POLICY_SETTINGS = [
-  { settingName: "privacyStatement",        defaultTitle: "Privacy Statement",    slug: "privacy" },
-  { settingName: "copyrightNotice",         defaultTitle: "Copyright",            slug: "copyright" },
-  { settingName: "openAccessPolicy",        defaultTitle: "Open Access Policy",   slug: "open-access" },
-  { settingName: "reviewPolicy",            defaultTitle: "Review Policy",        slug: "review-policy" },
-  { settingName: "authorSelfArchivePolicy", defaultTitle: "Self-Archiving Policy", slug: "self-archiving" },
-] as const
+// ── Normalization & matching ────────────────────────────────────────────────
+
+/**
+ * Canonical form for matching. Case-insensitive; `&` is treated as `and`;
+ * any non-alphanumeric run collapses to a single space; leading/trailing
+ * whitespace is stripped.
+ *
+ * Examples that resolve to "dois and orcid":
+ *   "DOIs & ORCID"
+ *   "dois-orcid"
+ *   "DOIs and ORCID"
+ */
+export function normalizePolicyKey(value: string | null | undefined): string {
+  if (!value) return ""
+  return value
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+/**
+ * Return the approved policy that matches any of the provided candidate
+ * strings (title / slug / path / setting name), or `null` if none match.
+ */
+export function matchApprovedPolicy(
+  candidates: ReadonlyArray<string | null | undefined>,
+): ApprovedPolicy | null {
+  const normalizedCandidates = candidates
+    .map(normalizePolicyKey)
+    .filter((v) => v.length > 0)
+
+  if (normalizedCandidates.length === 0) return null
+
+  for (const policy of APPROVED_POLICIES) {
+    const aliasSet = new Set(policy.aliases.map(normalizePolicyKey))
+    // Also treat the canonical title/slug as aliases
+    aliasSet.add(normalizePolicyKey(policy.title))
+    aliasSet.add(normalizePolicyKey(policy.slug))
+    for (const settingName of policy.settingNames) {
+      aliasSet.add(normalizePolicyKey(settingName))
+    }
+    for (const cand of normalizedCandidates) {
+      if (aliasSet.has(cand)) return policy
+    }
+  }
+  return null
+}
 
 // ── Sanitization config ─────────────────────────────────────────────────────
 
@@ -139,8 +291,22 @@ function pickBestLocale(
   return matching[0]?.setting_value ?? null
 }
 
-function makeSlug(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+// ── Candidate collection ────────────────────────────────────────────────────
+//
+// A candidate is a piece of content + identifying keys (title, slug, path,
+// type, settingName). Candidates are matched against APPROVED_POLICIES and
+// non-matches are discarded. When multiple candidates target the same
+// approved policy, the first one (in source priority order) wins.
+
+interface PolicyCandidate {
+  titleHint: string | null
+  slug: string | null
+  path: string | null
+  type: string | null
+  settingName: string | null
+  content: string
+  /** Lower = higher priority when multiple candidates match same policy */
+  priority: number
 }
 
 // ── Main entry point ────────────────────────────────────────────────────────
@@ -172,8 +338,11 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
 
   // ── Parallel data fetches from all OJS sources ──────────────────────────
 
-  const policySettingNames = STANDARD_POLICY_SETTINGS.map((s) => s.settingName)
-  const policyPlaceholders = policySettingNames.map(() => "?").join(", ")
+  // Pre-compute the union of all setting names referenced by approved policies
+  const allPolicySettingNames = Array.from(
+    new Set(APPROVED_POLICIES.flatMap((p) => p.settingNames)),
+  )
+  const policyPlaceholders = allPolicySettingNames.map(() => "?").join(", ")
 
   const [configRows, menuRows, policySettingRows, staticPageRows, standaloneNavRows] = await Promise.all([
     // 1. DOI / Competing-Interests toggles
@@ -216,17 +385,19 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
     }),
 
     // 3. Standard policy fields from journal_settings (content source + fallback)
-    ojsQuery<SettingRow>(
-      `SELECT setting_name, setting_value, locale
-       FROM journal_settings
-       WHERE journal_id = ?
-         AND setting_name IN (${policyPlaceholders})
-         AND (locale = ? OR locale = '')`,
-      [journalId, ...policySettingNames, primaryLocale],
-    ).catch((err): SettingRow[] => {
-      console.error(`[JournalPolicies] Failed to load standard policy settings for journal_id=${journalId}:`, err)
-      return []
-    }),
+    allPolicySettingNames.length > 0
+      ? ojsQuery<SettingRow>(
+          `SELECT setting_name, setting_value, locale
+           FROM journal_settings
+           WHERE journal_id = ?
+             AND setting_name IN (${policyPlaceholders})
+             AND (locale = ? OR locale = '')`,
+          [journalId, ...allPolicySettingNames, primaryLocale],
+        ).catch((err): SettingRow[] => {
+          console.error(`[JournalPolicies] Failed to load standard policy settings for journal_id=${journalId}:`, err)
+          return []
+        })
+      : Promise.resolve<SettingRow[]>([]),
 
     // 4. Static pages (plugin-managed content — table may not exist)
     ojsQuery<StaticPageRow>(
@@ -246,9 +417,7 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
       return []
     }),
 
-    // 5. ALL standalone navigation_menu_items with content for this journal.
-    //    This catches policy pages stored as CMS items (same pattern as
-    //    editorial-board) that are NOT assigned to the "Journal Policies" menu.
+    // 5. Standalone navigation_menu_items with content for this journal.
     ojsQuery<StandaloneNavRow>(
       `SELECT
           nmi.navigation_menu_item_id,
@@ -275,16 +444,12 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
   const doiRaw = pickBestLocale(configRows, "enableDois", primaryLocale)
   const competingInterestsRaw = pickBestLocale(configRows, "requireAuthorCompetingInterests", primaryLocale)
 
-  // ── SOURCE 1 — Navigation menu items ────────────────────────────────────
+  // ── Gather candidates from every source ─────────────────────────────────
 
-  const menuTabs: PolicyTab[] = []
-  const usedSettingNames = new Set<string>()
-  const usedStaticPageIds = new Set<number>()
-  const usedSlugs = new Set<string>()
-  const usedNavItemIds = new Set<number>()
+  const candidates: PolicyCandidate[] = []
 
+  // SOURCE 1 — "Journal Policies" navigation menu (highest priority)
   if (menuRows.length > 0) {
-    // Group flat EAV rows by navigation_menu_item_id
     const itemsMap = new Map<
       number,
       {
@@ -315,26 +480,22 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
       }
     }
 
-    const sortedItems = Array.from(itemsMap.values()).sort((a, b) => a.seq - b.seq)
+    for (const item of Array.from(itemsMap.values()).sort((a, b) => a.seq - b.seq)) {
+      const titleHint = pickBestLocale(item.settings, "title", primaryLocale)
+      let content = pickBestLocale(item.settings, "content", primaryLocale)
 
-    for (const item of sortedItems) {
-      let title = pickBestLocale(item.settings, "title", primaryLocale) || ""
-      let content: string | null = null
-
-      // Built-in types resolve content from journal_settings
-      const builtinMapping = BUILTIN_TYPE_TO_SETTING[item.type]
-      if (builtinMapping) {
-        content = pickBestLocale(policySettingRows, builtinMapping.settingName, primaryLocale)
-        usedSettingNames.add(builtinMapping.settingName)
-        if (!title) title = builtinMapping.defaultTitle
-      }
-
-      // Custom types / fallback: content from navigation_menu_item_settings
+      // Built-in types (e.g. NMI_TYPE_PRIVACY) resolve content from journal_settings
       if (!content) {
-        content = pickBestLocale(item.settings, "content", primaryLocale)
+        const policyByType = APPROVED_POLICIES.find((p) => p.builtinTypes.includes(item.type))
+        if (policyByType) {
+          for (const settingName of policyByType.settingNames) {
+            content = pickBestLocale(policySettingRows, settingName, primaryLocale)
+            if (content) break
+          }
+        }
       }
 
-      // If the slug references a static page, try to resolve from there
+      // Resolve via matching static page
       if (!content && item.slug) {
         const matching = staticPageRows.filter((r) => r.path === item.slug)
         if (matching.length > 0) {
@@ -347,45 +508,25 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
             "content",
             primaryLocale,
           )
-          for (const r of matching) usedStaticPageIds.add(r.static_page_id)
         }
       }
 
       const sanitized = sanitizePolicy(content)
       if (!sanitized.trim()) continue
 
-      if (!title) title = "Policy"
-
-      // Track this nav item as consumed so SOURCE 4 doesn't duplicate it
-      usedNavItemIds.add(item.id)
-
-      // Generate unique slug, appending numeric suffix if necessary
-      let baseSlug = item.slug || makeSlug(title)
-      let finalSlug = baseSlug
-      let counter = 2
-      while (usedSlugs.has(finalSlug)) {
-        finalSlug = `${baseSlug}-${counter}`
-        counter++
-      }
-      usedSlugs.add(finalSlug)
-
-      menuTabs.push({
-        title,
-        slug: finalSlug,
+      candidates.push({
+        titleHint,
+        slug: item.slug || null,
+        path: null,
+        type: item.type || null,
+        settingName: null,
         content: sanitized,
+        priority: 1,
       })
     }
   }
 
-  // ── SOURCE 4 — Standalone navigation menu items (not in any named menu) ──
-  //
-  // OJS stores custom CMS pages as navigation_menu_items with a path and
-  // content in navigation_menu_item_settings.  These may or may not be
-  // assigned to a navigation menu.  This source catches policy pages that
-  // exist as standalone items — the same pattern used by editorial-board.
-
-  const standaloneTabs: PolicyTab[] = []
-
+  // SOURCE 2 — Standalone navigation_menu_items
   if (standaloneNavRows.length > 0) {
     const standaloneMap = new Map<
       number,
@@ -397,9 +538,6 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
     >()
 
     for (const row of standaloneNavRows) {
-      // Skip items already collected via SOURCE 1 (menu-assigned items)
-      if (usedNavItemIds.has(row.navigation_menu_item_id)) continue
-
       if (!standaloneMap.has(row.navigation_menu_item_id)) {
         standaloneMap.set(row.navigation_menu_item_id, {
           path: row.path,
@@ -417,26 +555,19 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
     }
 
     for (const [, item] of standaloneMap) {
-      // Skip items whose slug is already covered by a menu tab
-      if (usedSlugs.has(item.path)) continue
+      const titleHint = pickBestLocale(item.settings, "title", primaryLocale)
+      let content = pickBestLocale(item.settings, "content", primaryLocale)
 
-      let title = pickBestLocale(item.settings, "title", primaryLocale) || ""
-      let content: string | null = null
-
-      // Built-in types resolve content from journal_settings
-      const builtinMapping = BUILTIN_TYPE_TO_SETTING[item.type]
-      if (builtinMapping) {
-        content = pickBestLocale(policySettingRows, builtinMapping.settingName, primaryLocale)
-        usedSettingNames.add(builtinMapping.settingName)
-        if (!title) title = builtinMapping.defaultTitle
-      }
-
-      // Content from navigation_menu_item_settings
       if (!content) {
-        content = pickBestLocale(item.settings, "content", primaryLocale)
+        const policyByType = APPROVED_POLICIES.find((p) => p.builtinTypes.includes(item.type))
+        if (policyByType) {
+          for (const settingName of policyByType.settingNames) {
+            content = pickBestLocale(policySettingRows, settingName, primaryLocale)
+            if (content) break
+          }
+        }
       }
 
-      // Try static page with same path
       if (!content && item.path) {
         const matching = staticPageRows.filter((r) => r.path === item.path)
         if (matching.length > 0) {
@@ -449,62 +580,48 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
             "content",
             primaryLocale,
           )
-          for (const r of matching) usedStaticPageIds.add(r.static_page_id)
         }
       }
 
       const sanitized = sanitizePolicy(content)
       if (!sanitized.trim()) continue
 
-      // Derive a human-readable title from the path if no title setting exists
-      if (!title) {
-        title = item.path
-          .replace(/[-_]/g, " ")
-          .replace(/\b\w/g, (c) => c.toUpperCase())
-      }
-
-      usedSlugs.add(item.path)
-      standaloneTabs.push({
-        title,
-        slug: item.path,
+      candidates.push({
+        titleHint,
+        slug: null,
+        path: item.path || null,
+        type: item.type || null,
+        settingName: null,
         content: sanitized,
+        priority: 2,
       })
     }
   }
 
-  // ── SOURCE 2 — journal_settings fallback ────────────────────────────────
-  // Add standard policy settings not already covered by the navigation menu.
-
-  const settingsTabs: PolicyTab[] = []
-
-  for (const spec of STANDARD_POLICY_SETTINGS) {
-    if (usedSettingNames.has(spec.settingName)) continue
-
-    // Also skip if a menu tab already covers this slug
-    if (usedSlugs.has(spec.slug)) continue
-
-    const raw = pickBestLocale(policySettingRows, spec.settingName, primaryLocale)
-    const sanitized = sanitizePolicy(raw)
-    if (!sanitized.trim()) continue
-
-    usedSlugs.add(spec.slug)
-    settingsTabs.push({
-      title: spec.defaultTitle,
-      slug: spec.slug,
-      content: sanitized,
-    })
+  // SOURCE 3 — journal_settings keys directly
+  for (const policy of APPROVED_POLICIES) {
+    for (const settingName of policy.settingNames) {
+      const raw = pickBestLocale(policySettingRows, settingName, primaryLocale)
+      const sanitized = sanitizePolicy(raw)
+      if (!sanitized.trim()) continue
+      candidates.push({
+        titleHint: null,
+        slug: null,
+        path: null,
+        type: null,
+        settingName,
+        content: sanitized,
+        priority: 3,
+      })
+    }
   }
 
-  // ── SOURCE 3 — Static pages not already linked via navigation menu ──────
-
-  const staticTabs: PolicyTab[] = []
+  // SOURCE 4 — static_pages
   const staticPagesMap = new Map<
     number,
     { path: string; settings: { setting_name: string; setting_value: string | null; locale: string }[] }
   >()
-
   for (const row of staticPageRows) {
-    if (usedStaticPageIds.has(row.static_page_id)) continue
     if (!staticPagesMap.has(row.static_page_id)) {
       staticPagesMap.set(row.static_page_id, { path: row.path, settings: [] })
     }
@@ -516,38 +633,67 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
       })
     }
   }
-
   for (const [, page] of staticPagesMap) {
-    const title = pickBestLocale(page.settings, "title", primaryLocale)
+    const titleHint = pickBestLocale(page.settings, "title", primaryLocale)
     const raw = pickBestLocale(page.settings, "content", primaryLocale)
     const sanitized = sanitizePolicy(raw)
     if (!sanitized.trim()) continue
-
-    let slug = page.path || makeSlug(title || "page")
-
-    // Deduplicate against already-collected tabs, appending suffix if needed
-    if (usedSlugs.has(slug)) {
-      let counter = 2
-      let finalSlug = `${slug}-${counter}`
-      while (usedSlugs.has(finalSlug)) {
-        counter++
-        finalSlug = `${slug}-${counter}`
-      }
-      slug = finalSlug
-    }
-    usedSlugs.add(slug)
-
-    staticTabs.push({
-      title: title || page.path || "Policy",
-      slug,
+    candidates.push({
+      titleHint,
+      slug: null,
+      path: page.path || null,
+      type: null,
+      settingName: null,
       content: sanitized,
+      priority: 4,
     })
   }
 
-  // ── Merge — menu tabs first (explicit ordering), then standalone nav items,
-  // then journal_settings fallback, then static pages
+  // ── Strict filter: map each candidate to an approved policy slot ────────
 
-  const tabs: PolicyTab[] = [...menuTabs, ...standaloneTabs, ...settingsTabs, ...staticTabs]
+  const slots = new Map<string, { policy: ApprovedPolicy; content: string; priority: number }>()
+
+  for (const candidate of candidates) {
+    const policy = matchApprovedPolicy([
+      candidate.titleHint,
+      candidate.slug,
+      candidate.path,
+      candidate.settingName,
+    ])
+    if (!policy) {
+      // Non-approved: skip silently (this is the whole point of the filter).
+      continue
+    }
+
+    const existing = slots.get(policy.slug)
+    if (!existing || candidate.priority < existing.priority) {
+      slots.set(policy.slug, {
+        policy,
+        content: candidate.content,
+        priority: candidate.priority,
+      })
+    }
+  }
+
+  // ── Emit in canonical order ─────────────────────────────────────────────
+
+  const tabs: PolicyTab[] = []
+  for (const policy of APPROVED_POLICIES) {
+    const slot = slots.get(policy.slug)
+    if (!slot) {
+      // Missing content — hide the tab and log a warning so operators can
+      // see which policies are unconfigured on the OJS side.
+      console.warn(
+        `[JournalPolicies] No OJS content found for approved policy "${policy.title}" (journal_id=${journalId}).`,
+      )
+      continue
+    }
+    tabs.push({
+      title: policy.title,
+      slug: policy.slug,
+      content: slot.content,
+    })
+  }
 
   return {
     tabs,
