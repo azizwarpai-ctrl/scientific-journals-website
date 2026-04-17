@@ -1,125 +1,465 @@
 import { NextResponse } from "next/server"
 import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 
+type ProxyErrorCode =
+  | "BAD_REQUEST"
+  | "AUTH_REQUIRED"
+  | "FILE_NOT_FOUND"
+  | "INVALID_RESPONSE"
+  | "UPSTREAM_ERROR"
+  | "TIMEOUT"
+  | "NETWORK_ERROR"
+
+interface ProxyErrorBody {
+  error: ProxyErrorCode
+  message: string
+  status: number
+  source?: string
+}
+
+const FETCH_TIMEOUT_MS = 15000
+const PDF_MAGIC = new Uint8Array([0x25, 0x50, 0x44, 0x46]) // "%PDF"
+const ACCEPTED_CONTENT_TYPES = /^(application\/pdf|application\/x-pdf|application\/octet-stream|binary\/octet-stream)/i
+
+function jsonError(
+  code: ProxyErrorCode,
+  message: string,
+  status: number,
+  sourceUrl?: string
+): NextResponse {
+  const body: ProxyErrorBody = { error: code, message, status }
+  if (sourceUrl && process.env.NODE_ENV !== "production") {
+    body.source = sourceUrl
+  }
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Proxy-Error": code,
+    },
+  })
+}
+
+function startsWithPdfMagic(chunk: Uint8Array): boolean {
+  if (chunk.length < PDF_MAGIC.length) return false
+  for (let i = 0; i < PDF_MAGIC.length; i++) {
+    if (chunk[i] !== PDF_MAGIC[i]) return false
+  }
+  return true
+}
+
+function looksLikeHtml(chunk: Uint8Array): boolean {
+  const text = new TextDecoder("utf-8", { fatal: false })
+    .decode(chunk.subarray(0, Math.min(chunk.length, 512)))
+    .trimStart()
+    .toLowerCase()
+  return (
+    text.startsWith("<!doctype html") ||
+    text.startsWith("<html") ||
+    (text.startsWith("<?xml") && text.includes("<html")) ||
+    text.includes("<head>") ||
+    text.includes("user_login")
+  )
+}
+
+function buildStreamFromChunks(
+  first: Uint8Array,
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  timeoutMs: number = FETCH_TIMEOUT_MS
+): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(first)
+    },
+    async pull(controller) {
+      try {
+        const readPromise = reader.read()
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Body read timeout")), timeoutMs)
+        )
+        const { done, value } = await Promise.race([readPromise, timeoutPromise])
+        if (done) {
+          controller.close()
+          return
+        }
+        if (value) controller.enqueue(value)
+      } catch (err) {
+        controller.error(err)
+      }
+    },
+    cancel(reason) {
+      reader.cancel(reason).catch(() => {})
+    },
+  })
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const journal = searchParams.get("journal")
   const submissionId = searchParams.get("submissionId")
-  // galleyId is the OJS galley_id — correct for /article/download/{sub}/{galley}
   const galleyId = searchParams.get("galleyId")
-  // fileId is submission_file_id — used only with OJS REST API + API key
   const fileId = searchParams.get("fileId")
 
   if (!journal || !submissionId || !galleyId) {
-    return new NextResponse("Missing required parameters (journal, submissionId, galleyId)", { status: 400 })
+    return jsonError(
+      "BAD_REQUEST",
+      "Missing required parameters (journal, submissionId, galleyId).",
+      400
+    )
   }
 
   const ID_PATTERN = /^\d+$/
   const JOURNAL_PATTERN = /^[A-Za-z0-9._-]+$/
-
   if (
     !ID_PATTERN.test(submissionId) ||
     !ID_PATTERN.test(galleyId) ||
     (fileId && !ID_PATTERN.test(fileId)) ||
     !JOURNAL_PATTERN.test(journal)
   ) {
-    return new NextResponse("Invalid parameter format", { status: 400 })
+    return jsonError("BAD_REQUEST", "Invalid parameter format.", 400)
   }
 
-  const baseUrl = getOjsBaseUrl()
+  let baseUrl: string
+  try {
+    baseUrl = getOjsBaseUrl()
+  } catch {
+    return jsonError(
+      "UPSTREAM_ERROR",
+      "OJS source is not configured on the server.",
+      502
+    )
+  }
+
+  const ojsHost = (() => {
+    try {
+      return new URL(baseUrl).host
+    } catch {
+      return null
+    }
+  })()
+  if (!ojsHost) {
+    return jsonError("UPSTREAM_ERROR", "OJS base URL is invalid.", 502)
+  }
+
   const apiKey = process.env.OJS_API_KEY
 
-  const FETCH_TIMEOUT = 15000
-
-  const fetchWithTimeout = async (url: string, headers: Record<string, string> = {}) => {
+  const fetchWithTimeout = async (
+    url: string,
+    headers: Record<string, string> = {}
+  ): Promise<Response> => {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
     try {
       return await fetch(url, {
-        headers: { "User-Agent": "DigitoPub-PDF-Proxy", ...headers },
+        headers: {
+          "User-Agent": "DigitoPub-PDF-Proxy",
+          Accept: "application/pdf,application/octet-stream;q=0.9,*/*;q=0.1",
+          ...headers,
+        },
         signal: controller.signal,
-        redirect: "manual", // Detect redirects to login pages instead of silently following them
+        redirect: "manual",
+        cache: "no-store",
       })
     } finally {
       clearTimeout(timer)
     }
   }
 
-  const webDownloadUrl = `${baseUrl}/index.php/${journal}/article/download/${submissionId}/${galleyId}?inline=1`
+  const followRedirects = async (
+    startUrl: string,
+    initHeaders: Record<string, string>,
+    maxHops = 5
+  ): Promise<{ res: Response; finalUrl: string } | NextResponse> => {
+    let currentUrl = startUrl
+    let headers = initHeaders
+    for (let hop = 0; hop <= maxHops; hop++) {
+      const res = await fetchWithTimeout(currentUrl, headers)
 
-  // Helper to validate and return the proxy response
-  const handleOjsResponse = async (res: Response, sourceUrl: string): Promise<NextResponse> => {
-    // 1. Detect redirects (OJS might redirect to a CDN or a canonical URL)
-    if (res.status >= 300 && res.status <= 399) {
+      if (res.status < 300 || res.status > 399) {
+        return { res, finalUrl: currentUrl }
+      }
+
       const location = res.headers.get("location")
-      if (location) {
-        const targetUrl = new URL(location, sourceUrl)
-        const ojsHost = new URL(baseUrl).host
-        
-        // Trusted if same host or trusted digitopub infrastructure
-        const isTrusted = targetUrl.host === ojsHost || 
-                          targetUrl.host.endsWith(".digitopub.com") ||
-                          targetUrl.host === "digitopub.com"
+      if (!location) {
+        console.warn(`[PDF Proxy] Redirect ${res.status} without Location header for ${currentUrl}`)
+        return jsonError(
+          "UPSTREAM_ERROR",
+          "Source server redirected without a target.",
+          502,
+          currentUrl
+        )
+      }
 
-        if (isTrusted) {
-          console.log(`[PDF Proxy] Following trusted redirect from ${sourceUrl} to ${location}`)
-          const redirectedRes = await fetchWithTimeout(targetUrl.toString())
-          return handleOjsResponse(redirectedRes, targetUrl.toString())
+      const target = new URL(location, currentUrl)
+
+      // Known OJS login/auth redirect patterns → auth wall.
+      const pathLower = target.pathname.toLowerCase()
+      if (
+        pathLower.includes("/login") ||
+        pathLower.includes("/user/login") ||
+        pathLower.includes("signin")
+      ) {
+        console.warn(`[PDF Proxy] Upstream redirected to auth page: ${target.toString()}`)
+        return jsonError(
+          "AUTH_REQUIRED",
+          "This file requires access permission on the source server.",
+          403,
+          currentUrl
+        )
+      }
+
+      // Only follow redirects to the same OJS host to avoid credential leaks.
+      if (target.host !== ojsHost) {
+        console.warn(
+          `[PDF Proxy] Blocked cross-host redirect: ${currentUrl} → ${target.toString()}`
+        )
+        return jsonError(
+          "UPSTREAM_ERROR",
+          "Source server redirected to an untrusted host.",
+          502,
+          currentUrl
+        )
+      }
+
+      // Drop Authorization when we move across URLs, even same-host, to be safe
+      // on redirect chains that leave the protected path.
+      headers = { ...headers }
+      delete headers.Authorization
+
+      currentUrl = target.toString()
+    }
+
+    console.warn(`[PDF Proxy] Too many redirects starting at ${startUrl}`)
+    return jsonError(
+      "UPSTREAM_ERROR",
+      "Source server produced too many redirects.",
+      502,
+      startUrl
+    )
+  }
+
+  const streamPdfResponse = async (
+    res: Response,
+    sourceUrl: string
+  ): Promise<NextResponse> => {
+    if (res.status === 401 || res.status === 403) {
+      return jsonError(
+        "AUTH_REQUIRED",
+        "This file requires access permission on the source server.",
+        403,
+        sourceUrl
+      )
+    }
+    if (res.status === 404 || res.status === 410) {
+      return jsonError(
+        "FILE_NOT_FOUND",
+        "PDF file was not found on the source server.",
+        404,
+        sourceUrl
+      )
+    }
+    if (res.status >= 500) {
+      return jsonError(
+        "UPSTREAM_ERROR",
+        "Source server is temporarily unavailable.",
+        502,
+        sourceUrl
+      )
+    }
+    if (!res.ok) {
+      return jsonError(
+        "UPSTREAM_ERROR",
+        `Source server returned status ${res.status}.`,
+        502,
+        sourceUrl
+      )
+    }
+
+    const contentType = (res.headers.get("content-type") || "").toLowerCase()
+
+    if (contentType.includes("text/html") || contentType.includes("application/xhtml")) {
+      return jsonError(
+        "AUTH_REQUIRED",
+        "Source server returned an HTML page (likely requires authentication).",
+        403,
+        sourceUrl
+      )
+    }
+
+    if (!res.body) {
+      return jsonError(
+        "INVALID_RESPONSE",
+        "Source server returned an empty response.",
+        502,
+        sourceUrl
+      )
+    }
+
+    // Accumulate initial chunks until we have enough bytes to validate PDF magic.
+    // If the first read is < 4 bytes, read again; stop once we have the magic bytes
+    // or EOF, then validate and rebuild the full stream.
+    const reader = res.body.getReader()
+    const chunks: Uint8Array[] = []
+    let totalBytes = 0
+    const MAGIC_SIZE = PDF_MAGIC.length
+    const PEEK_LIMIT = 2048 // Limit peeking to prevent memory bloat
+
+    try {
+      while (totalBytes < MAGIC_SIZE && totalBytes < PEEK_LIMIT) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (value && value.length > 0) {
+          chunks.push(value)
+          totalBytes += value.length
         }
       }
-
-      console.warn(`[PDF Proxy] Blocked untrusted redirect for ${sourceUrl}. Likely auth wall or external link.`);
-      return new NextResponse("Access Denied: PDF requires authentication or is not published.", { status: 403 });
+    } catch (err) {
+      try { reader.releaseLock() } catch { /* ignore */ }
+      console.error(`[PDF Proxy] Error reading upstream body for ${sourceUrl}:`, err)
+      return jsonError(
+        "UPSTREAM_ERROR",
+        "Source server closed the connection while sending the file.",
+        502,
+        sourceUrl
+      )
     }
 
-    if (!res.ok) {
-        console.error(`[PDF Proxy] Request failed: ${res.status} for ${sourceUrl}`);
-        return new NextResponse(`OJS returned ${res.status}`, { status: res.status });
+    if (totalBytes === 0) {
+      try { reader.releaseLock() } catch { /* ignore */ }
+      return jsonError(
+        "INVALID_RESPONSE",
+        "Source server returned an empty PDF body.",
+        502,
+        sourceUrl
+      )
     }
 
-    // 2. Validate Content-Type
-    const contentType = res.headers.get("content-type") || "";
-    if (contentType.includes("text/html")) {
-      console.error(`[PDF Proxy] Failed: Upstream returned HTML instead of PDF for ${sourceUrl}`);
-      return new NextResponse("Failed to load PDF. Upstream returned an HTML page.", { status: 502 });
+    const buffer = new Uint8Array(totalBytes)
+    let offset = 0
+    for (const chunk of chunks) {
+      buffer.set(chunk, offset)
+      offset += chunk.length
     }
 
-    // 3. Optional: Read first few bytes to literally check for PDF magics could be done if contentType is unreliable,
-    //    but OJS usually correctly sets text/html for login pages and application/pdf for galleys.
+    if (!startsWithPdfMagic(buffer)) {
+      try { reader.releaseLock() } catch { /* ignore */ }
+      if (looksLikeHtml(buffer)) {
+        return jsonError(
+          "AUTH_REQUIRED",
+          "Source server returned an HTML page instead of a PDF (likely requires authentication).",
+          403,
+          sourceUrl
+        )
+      }
+      return jsonError(
+        "INVALID_RESPONSE",
+        "Source server returned an invalid file (expected a PDF).",
+        502,
+        sourceUrl
+      )
+    }
 
-    return new NextResponse(res.body, {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="article-${submissionId}.pdf"`,
-        "X-Frame-Options": "SAMEORIGIN",
-        "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
-        ...(process.env.NODE_ENV === "development" ? { "X-PDF-Proxy-Source": sourceUrl } : {})
-      },
-    });
-  };
+    // Only accept explicit PDF/binary content types; reject everything else.
+    if (contentType && !ACCEPTED_CONTENT_TYPES.test(contentType)) {
+      try { reader.releaseLock() } catch { /* ignore */ }
+      return jsonError(
+        "INVALID_RESPONSE",
+        `Source server returned unexpected content type: ${contentType}.`,
+        502,
+        sourceUrl
+      )
+    }
+
+    const stream = buildStreamFromChunks(buffer, reader)
+
+    const outHeaders: Record<string, string> = {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="article-${submissionId}.pdf"`,
+      "X-Frame-Options": "SAMEORIGIN",
+      "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+      "Accept-Ranges": "none",
+    }
+
+    const contentLength = res.headers.get("content-length")
+    if (contentLength && /^\d+$/.test(contentLength)) {
+      outHeaders["Content-Length"] = contentLength
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      outHeaders["X-PDF-Proxy-Source"] = sourceUrl
+    }
+
+    return new NextResponse(stream, { status: 200, headers: outHeaders })
+  }
+
+  const attempt = async (
+    url: string,
+    extraHeaders: Record<string, string> = {}
+  ): Promise<NextResponse> => {
+    const followed = await followRedirects(url, extraHeaders)
+    if (followed instanceof NextResponse) return followed
+    return streamPdfResponse(followed.res, followed.finalUrl)
+  }
+
+  const apiUrl =
+    apiKey && fileId
+      ? `${baseUrl}/index.php/${journal}/api/v1/submissions/${submissionId}/files/${fileId}/download`
+      : null
+
+  // Drop `?inline=1` — on several OJS versions this triggers an HTML inline
+  // viewer instead of streaming the raw file.
+  const webDownloadUrl = `${baseUrl}/index.php/${journal}/article/download/${submissionId}/${galleyId}`
+  const webDownloadUrlWithFile = fileId
+    ? `${baseUrl}/index.php/${journal}/article/download/${submissionId}/${galleyId}/${fileId}`
+    : null
 
   try {
-    // Strategy 1: REST API with API key (only if key + fileId available)
-    if (apiKey && fileId) {
-      const apiUrl = `${baseUrl}/index.php/${journal}/api/v1/submissions/${submissionId}/files/${fileId}/download`
-      const apiRes = await fetchWithTimeout(apiUrl, { Authorization: `Bearer ${apiKey}` })
-
-      if (apiRes.ok && apiRes.status === 200 && (apiRes.headers.get('content-type') || '').includes('pdf')) {
-        return handleOjsResponse(apiRes, apiUrl)
+    if (apiUrl) {
+      const apiResult = await attempt(apiUrl, {
+        Authorization: `Bearer ${apiKey}`,
+      })
+      if (apiResult.ok) return apiResult
+      const fallbackCodes = ["AUTH_REQUIRED", "UPSTREAM_ERROR", "INVALID_RESPONSE", "FILE_NOT_FOUND"]
+      const errorHeader = apiResult.headers.get("X-Proxy-Error")
+      if (!errorHeader || !fallbackCodes.includes(errorHeader)) {
+        return apiResult
       }
-      console.warn(`[PDF Proxy] REST API failed or not PDF (${apiRes.status}), falling back to web download URL`)
+      console.warn(
+        `[PDF Proxy] REST API attempt failed (${errorHeader}), falling back to web download URL`
+      )
     }
 
-    // Strategy 2: Standard web download URL (galleyId)
-    const webRes = await fetchWithTimeout(webDownloadUrl)
-    return handleOjsResponse(webRes, webDownloadUrl)
+    const webResult = await attempt(webDownloadUrl)
+    if (webResult.ok) return webResult
 
+    if (webDownloadUrlWithFile) {
+      const webErrorCode = webResult.headers.get("X-Proxy-Error")
+      if (webErrorCode === "FILE_NOT_FOUND" || webErrorCode === "AUTH_REQUIRED") {
+        console.warn(
+          `[PDF Proxy] Standard download failed (${webErrorCode}), retrying with fileId-qualified URL`
+        )
+        const withFile = await attempt(webDownloadUrlWithFile)
+        if (withFile.ok) return withFile
+      }
+    }
+
+    return webResult
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "AbortError") {
       console.error("[PDF Proxy] Request timed out")
-      return new NextResponse("OJS server did not respond in time", { status: 504 })
+      return jsonError(
+        "TIMEOUT",
+        "Source server did not respond in time.",
+        504
+      )
     }
     console.error("[PDF Proxy] Network error:", error)
-    return new NextResponse("Internal Server Error while proxying PDF", { status: 500 })
+    return jsonError(
+      "NETWORK_ERROR",
+      "Network error while contacting the source server.",
+      502
+    )
   }
 }
+
