@@ -1,16 +1,13 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState } from "react"
 import DOMPurify, { type Config } from "dompurify"
 import {
   Shield,
-  Fingerprint,
   ChevronDown,
   ChevronUp,
   AlertCircle,
   FileText,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react"
 import { useGetJournalPolicies } from "@/src/features/journals/api/use-get-journal-policies"
 
@@ -83,47 +80,6 @@ function PolicyContent({ html, plainDescription }: { html: string | null; plainD
   )
 }
 
-function DoiOrcidPanel({ doiEnabled, requireAuthorCompetingInterestsEnabled }: { doiEnabled: boolean; requireAuthorCompetingInterestsEnabled: boolean }) {
-  return (
-    <div className="space-y-5 animate-in fade-in duration-300">
-      <div className={`rounded-xl border p-4 ${doiEnabled ? "border-primary/20 bg-primary/5" : "border-border/40 bg-muted/30"}`}>
-        <div className="flex items-center gap-3 mb-2">
-          <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg text-xs font-black ${doiEnabled ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-            DOI
-          </span>
-          <h4 className="text-sm font-bold">Digital Object Identifier (DOI)</h4>
-          <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${doiEnabled ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
-            {doiEnabled ? "Enabled" : "Not configured"}
-          </span>
-        </div>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          {doiEnabled
-            ? "This journal assigns DOIs to all published articles via Crossref, enabling permanent, citable references."
-            : "DOI assignment has not been configured for this journal yet."}
-        </p>
-      </div>
-
-      <div className={`rounded-xl border p-4 ${requireAuthorCompetingInterestsEnabled ? "border-amber-400/40 bg-amber-50/50 dark:bg-amber-950/20" : "border-border/40 bg-muted/30"}`}>
-        <div className="flex items-center gap-3 mb-2">
-          <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg text-xs font-black ${requireAuthorCompetingInterestsEnabled ? "bg-amber-500 text-white" : "bg-muted text-muted-foreground"}`}>
-            CI
-          </span>
-          <h4 className="text-sm font-bold">Competing Interests</h4>
-          <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${requireAuthorCompetingInterestsEnabled ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
-            {requireAuthorCompetingInterestsEnabled ? "Required" : "Not required"}
-          </span>
-        </div>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          {requireAuthorCompetingInterestsEnabled
-            ? "Authors are required to declare any competing interests at the time of submission."
-            : "A competing interests declaration is not currently required by this journal."}
-        </p>
-      </div>
-    </div>
-  )
-}
-
-
 // ── Main component ──────────────────────────────────────────────────────────
 
 export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProps) {
@@ -132,20 +88,18 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
   const { data: policies, isLoading, isError } = useGetJournalPolicies(journalId)
 
   const tabs = policies?.tabs || []
-  const hasDoiFeatures = policies?.doiEnabled || policies?.requireAuthorCompetingInterestsEnabled
 
-  const defaultTabSlug = tabs.length > 0 ? tabs[0].slug : (hasDoiFeatures ? "_doiorcid" : null);
+  const defaultTabSlug = tabs.length > 0 ? tabs[0].slug : null;
   const currentTabSlug = activeTabSlug || defaultTabSlug;
 
   // If completely empty without config
-  if (!isLoading && !isError && tabs.length === 0 && !hasDoiFeatures) {
+  if (!isLoading && !isError && tabs.length === 0) {
     return null; // Hide the entire section if absolutely no policies exist
   }
 
   // Combine items to a single array so we can render them cleanly
   const navItems = [
-    ...tabs.map(t => ({ id: t.slug, title: t.title, type: "policy" as const, content: t.content })),
-    ...(hasDoiFeatures ? [{ id: "_doiorcid", title: "DOI & ORCID", type: "doi" as const }] : [])
+    ...tabs.map(t => ({ id: t.slug, title: t.title, type: "policy" as const, content: t.content }))
   ]
 
   const activeItem = navItems.find(t => t.id === currentTabSlug)
@@ -186,21 +140,14 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
                     className={`flex items-center justify-between px-6 py-4 transition-colors ${isActive ? "bg-primary/5 text-primary" : "text-foreground hover:bg-muted/40"}`}
                   >
                     <div className="flex items-center gap-3">
-                       {item.type === "doi" ? <Fingerprint className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                       <FileText className="h-4 w-4" />
                        <span className="text-sm font-bold">{item.title}</span>
                     </div>
                     {isActive ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4 opacity-50" />}
                   </button>
                   {isActive && (
                     <div className="p-6 bg-card border-t border-border/40 animate-in slide-in-from-top-2 duration-300 shadow-inner">
-                      {item.type === "doi" ? (
-                         <DoiOrcidPanel
-                          doiEnabled={policies?.doiEnabled ?? false}
-                          requireAuthorCompetingInterestsEnabled={policies?.requireAuthorCompetingInterestsEnabled ?? false}
-                        />
-                      ) : (
-                         <PolicyContent key={item.id} html={item.content || null} plainDescription="This policy has no detailed description configured." />
-                      )}
+                      <PolicyContent key={item.id} html={item.content || null} plainDescription="This policy has no detailed description configured." />
                     </div>
                   )}
                 </div>
@@ -245,7 +192,7 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
                     ].join(" ")}
                   >
                     <div className={`p-1.5 rounded-md transition-colors ${isActive ? "bg-primary/20 text-primary" : "bg-transparent text-muted-foreground group-hover:text-foreground"}`}>
-                      {item.type === "doi" ? <Fingerprint className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                      <FileText className="h-4 w-4" />
                     </div>
                     <span className="text-sm tracking-tight">{item.title}</span>
                   </button>
@@ -261,11 +208,7 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
              <div className="animate-in fade-in duration-500 max-w-4xl p-8 lg:p-10">
                 <div className="flex items-center gap-4 mb-8 pb-5 border-b border-border/40">
                   <div className="p-3 rounded-xl bg-primary/10 shadow-sm ring-1 ring-primary/20">
-                    {activeItem.type === "doi" ? (
-                      <Fingerprint className="h-5 w-5 text-primary" />
-                    ) : (
-                      <FileText className="h-5 w-5 text-primary" />
-                    )}
+                    <FileText className="h-5 w-5 text-primary" />
                   </div>
                   <h3 className="text-2xl font-extrabold text-foreground tracking-tight">
                     {activeItem.title}
@@ -273,18 +216,11 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
                 </div>
 
                 <div className="pl-1">
-                  {activeItem.type === "doi" ? (
-                    <DoiOrcidPanel
-                      doiEnabled={policies?.doiEnabled ?? false}
-                      requireAuthorCompetingInterestsEnabled={policies?.requireAuthorCompetingInterestsEnabled ?? false}
-                    />
-                  ) : (
-                    <PolicyContent
-                      key={activeItem.id}
-                      html={activeItem.content || null}
-                      plainDescription="This policy has no detailed description configured."
-                    />
-                  )}
+                  <PolicyContent
+                    key={activeItem.id}
+                    html={activeItem.content || null}
+                    plainDescription="This policy has no detailed description configured."
+                  />
                 </div>
              </div>
            ) : null}
