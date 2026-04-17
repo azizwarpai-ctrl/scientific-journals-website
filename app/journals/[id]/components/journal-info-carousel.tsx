@@ -98,19 +98,18 @@ const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightIte
 
   const safeLink = linkInfo?.href
   const isExternal = linkInfo?.isExternal
+  const isLogo = !!data.image?.match(/logo|icon|orcid|plagiarism/i)
 
   return (
     <div className="flex flex-col h-full p-5 select-none">
       {data.image && (
-        <div
-          className="relative w-full rounded-xl overflow-hidden border border-border/40 bg-muted/20 mb-4 shadow-inner flex-shrink-0"
-          style={{ aspectRatio: "16/9" }}
-        >
+        <div className="relative w-full h-[220px] rounded-xl overflow-hidden border border-border/40 bg-muted/20 mb-4 shadow-inner flex-shrink-0 flex items-center justify-center p-5 outline-none">
           <Image
             src={data.image}
             alt={data.title}
-            fill
-            className="object-cover"
+            width={400}
+            height={220}
+            className={`max-w-full object-contain object-center ${isLogo ? "max-h-[70%]" : "max-h-[85%]"}`}
             sizes="(max-width: 768px) 100vw, 400px"
             draggable={false}
           />
@@ -216,11 +215,11 @@ function CarouselSkeleton() {
       <div className="px-5 py-4 border-b border-border/40 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent flex-shrink-0">
         <div className="h-5 w-40 bg-muted animate-pulse rounded-md" />
       </div>
-      <div className="p-5 h-[380px] space-y-4">
-        <div className="h-40 w-full bg-muted animate-pulse rounded-xl" />
-        <div className="h-6 w-3/4 bg-muted animate-pulse rounded-md" />
-        <div className="h-4 w-full bg-muted animate-pulse rounded-md" />
-        <div className="h-4 w-5/6 bg-muted animate-pulse rounded-md" />
+      <div className="p-5 h-[460px] space-y-4">
+        <div className="h-[220px] w-full bg-muted animate-pulse rounded-xl" />
+        <div className="h-6 w-3/4 bg-muted animate-pulse rounded-md mt-2" />
+        <div className="h-4 w-full bg-muted animate-pulse rounded-md mt-2" />
+        <div className="h-4 w-5/6 bg-muted animate-pulse rounded-md mt-1.5" />
       </div>
       <div className="h-[40px] border-t border-border/20 flex justify-center items-center gap-1.5 bg-muted/10">
         <div className="h-1.5 w-6 bg-muted/20 animate-pulse rounded-full" />
@@ -436,17 +435,17 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
 
           {/* ── Carousel body ──────────────────────────────────────────────────────
           Single item: skip Embla entirely (no wasted JS, no layout thrash).
-          Multi item:  emblaRef container has `overflow-hidden h-[380px]` —
+          Multi item:  emblaRef container has `overflow-hidden h-[460px]` —
                        both are required for clipping to work.
       ─────────────────────────────────────────────────────────────────────── */}
           {isSingle ? (
-            <div className="h-[380px]">
+            <div className="h-[460px]">
               <HighlightCard data={items[0]} />
             </div>
           ) : (
             <>
               {/* Embla viewport — MUST be overflow-hidden + fixed height */}
-              <div ref={emblaRef} className="overflow-hidden h-[380px] flex-shrink-0">
+              <div ref={emblaRef} className="overflow-hidden h-[460px] flex-shrink-0">
                 {/* Embla container — translated by Embla to scroll */}
                 <div className="flex h-full">
                   {items.map((item: HighlightItem, index: number) => (
