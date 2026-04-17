@@ -9,8 +9,6 @@ import {
   X,
   AlertCircle,
   RefreshCcw,
-  ZoomIn,
-  ZoomOut,
   Maximize2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -32,10 +30,8 @@ export function ModalPdfViewer({
 }: ModalPdfViewerProps) {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [hasError, setHasError] = useState(false)
   const [renderMethod, setRenderMethod] = useState<RenderMethod>("object")
-  const [zoom, setZoom] = useState(100)
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isLoadingRef = useRef(true)
 
   const directUrl = pdfDirectUrl || pdfUrl
@@ -49,18 +45,16 @@ export function ModalPdfViewer({
 
   const closeModal = useCallback(() => {
     setOpen(false)
-  }, [])
+    clearTimer()
+  }, [clearTimer])
 
   const openModal = useCallback(() => {
     setOpen(true)
     setIsLoading(true)
-    setHasError(false)
     setRenderMethod("object")
-    setZoom(100)
     isLoadingRef.current = true
   }, [])
 
-  // ESC key + body scroll lock
   useEffect(() => {
     if (!open) return
 
@@ -70,13 +64,12 @@ export function ModalPdfViewer({
     document.addEventListener("keydown", handleKey)
     document.body.style.overflow = "hidden"
 
-    // 15-second fail-safe
     clearTimer()
     timeoutRef.current = setTimeout(() => {
       if (isLoadingRef.current) {
         isLoadingRef.current = false
         setIsLoading(false)
-        setHasError(true)
+        setRenderMethod("fallback")
       }
     }, 15000)
 
@@ -89,33 +82,31 @@ export function ModalPdfViewer({
 
   const handleLoad = useCallback(() => {
     isLoadingRef.current = false
-    setIsLoading(false)
-    setHasError(false)
     clearTimer()
+    setIsLoading(false)
   }, [clearTimer])
 
-  const handleError = useCallback(() => {
+  const handleObjectError = useCallback(() => {
     clearTimer()
-    if (renderMethod === "object") {
-      setRenderMethod("iframe")
-      setIsLoading(true)
-      isLoadingRef.current = true
-      timeoutRef.current = setTimeout(() => {
-        if (isLoadingRef.current) {
-          isLoadingRef.current = false
-          setIsLoading(false)
-          setRenderMethod("fallback")
-        }
-      }, 10000)
-    } else {
-      isLoadingRef.current = false
-      setIsLoading(false)
-      setRenderMethod("fallback")
-    }
-  }, [renderMethod, clearTimer])
+    setRenderMethod("iframe")
+    setIsLoading(true)
+    isLoadingRef.current = true
+    timeoutRef.current = setTimeout(() => {
+      if (isLoadingRef.current) {
+        isLoadingRef.current = false
+        setIsLoading(false)
+        setRenderMethod("fallback")
+      }
+    }, 10000)
+  }, [clearTimer])
+
+  const handleIframeLoad = useCallback(() => {
+    isLoadingRef.current = false
+    clearTimer()
+    setIsLoading(false)
+  }, [clearTimer])
 
   const handleRetry = useCallback(() => {
-    setHasError(false)
     setRenderMethod("object")
     setIsLoading(true)
     isLoadingRef.current = true
@@ -124,7 +115,7 @@ export function ModalPdfViewer({
       if (isLoadingRef.current) {
         isLoadingRef.current = false
         setIsLoading(false)
-        setHasError(true)
+        setRenderMethod("fallback")
       }
     }, 15000)
   }, [clearTimer])
@@ -171,187 +162,221 @@ export function ModalPdfViewer({
 
       {open && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4"
+          className="fixed inset-0 z-[9999] flex items-start justify-center"
           role="dialog"
           aria-modal="true"
           aria-label={`PDF viewer: ${articleTitle}`}
         >
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-md"
+            className="absolute inset-0 bg-black/80 backdrop-blur-xl"
             onClick={closeModal}
             aria-hidden="true"
           />
 
-          {/* Modal container */}
+          {/* Modal panel — full height, near-fullscreen */}
           <div
-            className="relative z-10 flex flex-col w-full max-w-[1400px] h-[96vh] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-background animate-in fade-in zoom-in-95 duration-200"
+            className="relative z-10 flex flex-col w-full h-full max-w-[1440px] md:h-[98vh] md:mt-[1vh] md:rounded-2xl overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.5)] border border-white/[0.08] bg-[#1a1a1a] animate-in fade-in zoom-in-[0.97] duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* ── Sticky toolbar ── */}
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 bg-card/80 backdrop-blur-sm shrink-0">
-              <FileText className="h-4 w-4 text-primary shrink-0 opacity-80" />
-              <span className="flex-1 truncate text-sm font-semibold text-foreground mr-2">
-                {articleTitle}
-              </span>
-
-              {/* Zoom controls */}
-              <div className="hidden sm:flex items-center gap-1 mr-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
-                  onClick={() => setZoom((z) => Math.max(50, z - 10))}
-                  aria-label="Zoom out"
-                >
-                  <ZoomOut className="h-3.5 w-3.5" />
-                </Button>
-                <span className="text-xs font-mono text-muted-foreground w-10 text-center select-none">
-                  {zoom}%
+            {/* ── Toolbar ── */}
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/[0.08] bg-[#111111] shrink-0">
+              {/* File icon + title */}
+              <div className="flex items-center gap-2 flex-1 min-w-0 mr-2">
+                <div className="p-1.5 rounded-md bg-primary/15 shrink-0">
+                  <FileText className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <span className="truncate text-sm font-semibold text-white/90 leading-tight">
+                  {articleTitle}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
-                  onClick={() => setZoom((z) => Math.min(200, z + 10))}
-                  aria-label="Zoom in"
-                >
-                  <ZoomIn className="h-3.5 w-3.5" />
-                </Button>
               </div>
 
               {/* Action buttons */}
               {directUrl && (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     asChild
-                    className="h-8 gap-1.5 rounded-full text-xs font-semibold border-border/60"
+                    className="h-8 gap-1.5 rounded-lg text-xs font-semibold text-white/70 hover:text-white hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all"
                   >
                     <a href={directUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-3 w-3" />
+                      <ExternalLink className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">New Tab</span>
                     </a>
                   </Button>
                   <Button
-                    variant="default"
+                    variant="ghost"
                     size="sm"
                     asChild
-                    className="h-8 gap-1.5 rounded-full text-xs font-semibold"
+                    className="h-8 gap-1.5 rounded-lg text-xs font-semibold bg-primary/20 text-primary hover:bg-primary hover:text-white border border-primary/30 hover:border-primary transition-all"
                   >
-                    <a href={directUrl} target="_blank" rel="noopener noreferrer" download>
-                      <Download className="h-3 w-3" />
+                    <a href={directUrl} download target="_blank" rel="noopener noreferrer">
+                      <Download className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">Download</span>
                     </a>
                   </Button>
                 </div>
               )}
 
-              {/* Close button */}
-              <Button
-                variant="ghost"
-                size="icon"
+              {/* Close */}
+              <button
+                type="button"
                 onClick={closeModal}
-                className="h-8 w-8 rounded-full ml-1 text-muted-foreground hover:text-foreground hover:bg-destructive/10 shrink-0"
                 aria-label="Close PDF viewer"
+                className="ml-1 h-8 w-8 rounded-lg flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
               >
                 <X className="h-4 w-4" />
-              </Button>
+              </button>
             </div>
 
             {/* ── PDF content area ── */}
-            <div className="flex-1 relative overflow-hidden bg-zinc-100 dark:bg-zinc-900">
+            <div className="flex-1 relative overflow-hidden bg-[#525659]">
               {/* Loading overlay */}
               {isLoading && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10 bg-background/70 backdrop-blur-sm">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-[#1a1a1a]">
                   <div className="relative">
-                    <Loader2 className="h-10 w-10 text-primary animate-spin" />
-                    <FileText className="h-4 w-4 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-70" />
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                      <Loader2 className="h-7 w-7 text-primary animate-spin" />
+                    </div>
                   </div>
-                  <p className="text-sm font-bold tracking-wide uppercase text-muted-foreground animate-pulse">
-                    Loading Document…
-                  </p>
+                  <div className="text-center space-y-1">
+                    <p className="text-sm font-semibold text-white/80">Loading document…</p>
+                    <p className="text-xs text-white/40">This may take a moment</p>
+                  </div>
                 </div>
               )}
 
-              {/* object renderer */}
-              {renderMethod === "object" && !hasError && (
-                <div
-                  className="w-full h-full transition-opacity duration-500"
-                  style={{ opacity: isLoading ? 0 : 1 }}
-                >
+              {/* object renderer — most compatible, native PDF plugin */}
+              {renderMethod === "object" && (
+                <div className="w-full h-full" style={{ opacity: isLoading ? 0 : 1 }}>
                   <object
                     data={pdfUrl}
                     type="application/pdf"
                     className="w-full h-full border-none"
-                    style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
                     onLoad={handleLoad}
-                    onError={handleError}
+                    onError={handleObjectError}
+                    aria-label={`${articleTitle} PDF document`}
                   >
-                    <span />
+                    {/* Trigger iframe fallback if object unsupported */}
+                    <IframeFallback
+                      pdfUrl={pdfUrl}
+                      articleTitle={articleTitle}
+                      onLoad={handleIframeLoad}
+                      onFallback={() => setRenderMethod("fallback")}
+                    />
                   </object>
                 </div>
               )}
 
-              {/* iframe renderer */}
-              {renderMethod === "iframe" && !hasError && (
-                <div
-                  className="w-full h-full transition-opacity duration-500"
-                  style={{ opacity: isLoading ? 0 : 1 }}
-                >
-                  <iframe
-                    src={`${pdfUrl}#toolbar=1&navpanes=1&scrollbar=1`}
-                    className="w-full h-full border-none bg-white"
-                    title={`${articleTitle} PDF`}
-                    style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
-                    onLoad={handleLoad}
-                    onError={handleError}
+              {/* iframe renderer — explicit fallback */}
+              {renderMethod === "iframe" && (
+                <div className="w-full h-full" style={{ opacity: isLoading ? 0 : 1 }}>
+                  <IframeFallback
+                    pdfUrl={pdfUrl}
+                    articleTitle={articleTitle}
+                    onLoad={handleIframeLoad}
+                    onFallback={() => setRenderMethod("fallback")}
                   />
                 </div>
               )}
 
               {/* Final fallback */}
-              {(renderMethod === "fallback" || hasError) && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 p-8 text-center animate-in fade-in zoom-in-95 duration-300">
-                  <div className="w-20 h-20 rounded-2xl bg-destructive/10 flex items-center justify-center">
-                    <AlertCircle className="h-10 w-10 text-destructive/70" />
-                  </div>
-                  <div className="space-y-2 max-w-sm">
-                    <h3 className="text-xl font-bold text-foreground">Unable to Display PDF</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      The document may require authentication or is blocked by the upstream
-                      server. Try opening it in a new tab or downloading directly.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-3 justify-center">
-                    <Button onClick={handleRetry} variant="outline" className="gap-2 rounded-full">
-                      <RefreshCcw className="h-4 w-4" />
-                      Try Again
-                    </Button>
-                    {directUrl && (
-                      <>
-                        <Button asChild variant="outline" className="gap-2 rounded-full">
-                          <a href={directUrl} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-4 w-4" />
-                            Open in New Tab
-                          </a>
-                        </Button>
-                        <Button asChild variant="default" className="gap-2 rounded-full">
-                          <a href={directUrl} target="_blank" rel="noopener noreferrer" download>
-                            <Download className="h-4 w-4" />
-                            Download PDF
-                          </a>
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
+              {renderMethod === "fallback" && (
+                <FallbackView
+                  directUrl={directUrl}
+                  onRetry={handleRetry}
+                />
               )}
             </div>
           </div>
         </div>
       )}
     </>
+  )
+}
+
+// ── Iframe sub-component ─────────────────────────────────────────────
+
+interface IframeFallbackProps {
+  pdfUrl: string
+  articleTitle: string
+  onLoad: () => void
+  onFallback: () => void
+}
+
+function IframeFallback({ pdfUrl, articleTitle, onLoad, onFallback }: IframeFallbackProps) {
+  const src = `${pdfUrl}#toolbar=1&navpanes=1&scrollbar=1&view=FitH`
+  return (
+    <iframe
+      src={src}
+      className="w-full h-full border-none bg-[#525659]"
+      title={`${articleTitle} PDF`}
+      onLoad={onLoad}
+      onError={onFallback}
+      allow="fullscreen"
+    />
+  )
+}
+
+// ── Fallback view ────────────────────────────────────────────────────
+
+interface FallbackViewProps {
+  directUrl: string | null | undefined
+  onRetry: () => void
+}
+
+function FallbackView({ directUrl, onRetry }: FallbackViewProps) {
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-8 text-center animate-in fade-in duration-300">
+      {/* Icon */}
+      <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+        <AlertCircle className="h-9 w-9 text-white/30" />
+      </div>
+
+      {/* Copy */}
+      <div className="space-y-2 max-w-sm">
+        <h3 className="text-lg font-bold text-white/90">Unable to Display PDF</h3>
+        <p className="text-sm text-white/50 leading-relaxed">
+          The document may require authentication or is blocked by the upstream server.
+          Try opening it in a new tab or downloading directly.
+        </p>
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-wrap gap-3 justify-center">
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+        >
+          <RefreshCcw className="h-4 w-4" />
+          Try Again
+        </button>
+        {directUrl && (
+          <>
+            <a
+              href={directUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Open in New Tab
+            </a>
+            <a
+              href={directUrl}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary/80 hover:bg-primary text-white border border-primary/50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            >
+              <Download className="h-4 w-4" />
+              Download PDF
+            </a>
+          </>
+        )}
+      </div>
+    </div>
   )
 }

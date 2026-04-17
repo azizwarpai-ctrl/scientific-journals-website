@@ -12,7 +12,7 @@ import {
 import { useParams } from "next/navigation"
 import DOMPurify from "dompurify"
 
-import type { CurrentIssueArticle } from "@/src/features/journals"
+import type { CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/journals"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ModalPdfViewer } from "../articles/[publicationId]/components/modal-pdf-viewer"
@@ -85,26 +85,7 @@ export function ArticleItem({ article }: ArticleItemProps) {
 
           {/* Authors */}
           {article.authors && article.authors.length > 0 && (
-            <div className="flex items-start gap-2.5 text-sm text-foreground/70">
-              <User className="h-4 w-4 shrink-0 mt-0.5 text-primary/60" />
-              <div className="flex flex-col gap-2 w-full">
-                {article.authors.map((author, idx) => {
-                  const name = `${author.givenName || ''} ${author.familyName || ''}`.trim()
-                  if (!name) return null
-                  
-                  return (
-                    <div key={idx} className="flex flex-col">
-                      <span className="font-medium">{name}</span>
-                      {author.affiliation && (
-                        <span className="text-[11px] text-muted-foreground leading-tight">
-                          {author.affiliation}
-                        </span>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+            <AuthorList authors={article.authors} />
           )}
 
           {/* DOI */}
@@ -201,6 +182,53 @@ export function ArticleItem({ article }: ArticleItemProps) {
             )}
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Author list ──────────────────────────────────────────────────────
+
+interface AuthorListProps {
+  authors: CurrentIssueAuthor[]
+}
+
+function AuthorList({ authors }: AuthorListProps) {
+  const named = authors.filter((a) => {
+    const name = `${a.givenName || ""} ${a.familyName || ""}`.trim()
+    return name.length > 0
+  })
+
+  if (named.length === 0) return null
+
+  // Two-column compact grid for 3+ authors, single column otherwise
+  const useGrid = named.length >= 3
+
+  return (
+    <div className="flex items-start gap-2.5">
+      <User className="h-4 w-4 shrink-0 mt-0.5 text-primary/60" />
+      <div
+        className={
+          useGrid
+            ? "grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 w-full"
+            : "flex flex-col gap-2 w-full"
+        }
+      >
+        {named.map((author, idx) => {
+          const name = `${author.givenName || ""} ${author.familyName || ""}`.trim()
+          return (
+            <div key={idx} className="flex flex-col min-w-0">
+              <span className="text-sm font-semibold text-foreground/80 leading-snug truncate">
+                {name}
+              </span>
+              {author.affiliation && (
+                <span className="text-[11px] text-muted-foreground leading-tight line-clamp-1">
+                  {author.affiliation}
+                </span>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
