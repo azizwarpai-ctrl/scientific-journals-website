@@ -9,11 +9,10 @@ import { BookOpen, Zap, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { JournalCard } from "@/src/features/journals/components/journal-card"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
-import { AnimatedCounter } from "@/components/animated-counter"
+import { PlatformStats } from "@/components/platform-stats"
 import { useGetJournals } from "@/src/features/journals"
 import type { Journal } from "@/src/features/journals"
 import { useGetPlatformStatistics } from "@/src/features/statistics/api/use-get-statistics"
-import { HomeStatsSkeleton } from "@/components/skeletons/home-stats-skeleton"
 import { JournalCardSkeleton } from "@/components/skeletons/journal-card-skeleton"
 import { CtaSection } from "@/components/cta-section"
 
@@ -29,12 +28,7 @@ export default function HomePage() {
     scrollRef.current.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" })
   }
 
-  const statConfigs = [
-    { label: "Active Journals", value: stats?.totalJournals, color: "text-blue-500 dark:text-blue-400" },
-    { label: "Published Articles", value: stats?.totalArticles, color: "text-sky-500 dark:text-sky-400" },
-    { label: "Researchers", value: stats?.totalUsers, color: "text-indigo-500 dark:text-indigo-400" },
-    { label: "Countries (Estimated)", value: stats?.countriesCount, color: "text-cyan-500 dark:text-cyan-400" },
-  ]
+
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -92,30 +86,12 @@ export default function HomePage() {
         <div className="relative z-[3] bg-background border-t border-border/50 shadow-[0_-20px_40px_-20px_rgba(0,0,0,0.1)]">
         
         {/* Stats Section */}
-        <GSAPWrapper animation="slideUp" delay={0.2}>
-          <section className="border-y border-border/50 py-12">
-            <div className="container mx-auto px-4 md:px-6">
-              {isLoadingStats ? (
-                <HomeStatsSkeleton />
-              ) : isErrorStats ? (
-                <div className="text-center py-4 text-destructive font-medium">
-                  Failed to load statistics. Please try again later.
-                </div>
-              ) : (
-                <div className="grid gap-8 md:grid-cols-4">
-                  {statConfigs.map((item) => (
-                    <div key={item.label} className="text-center">
-                      <div className={`mb-2 ${item.color}`}>
-                        <AnimatedCounter end={item.value ?? 0} suffix="+" duration={2500} />
-                      </div>
-                      <div className="text-sm text-muted-foreground">{item.label}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-        </GSAPWrapper>
+        <PlatformStats 
+          stats={stats} 
+          isLoading={isLoadingStats} 
+          isError={isErrorStats} 
+          variant="home" 
+        />
 
         {/* Featured Journals */}
         <GSAPWrapper animation="fadeIn" delay={0.3}>

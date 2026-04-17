@@ -1,16 +1,11 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import Link from "next/link"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import {
-  Target, Eye, Award, Globe, BookOpen, Users, FileText, BarChart3,
-  Shield, Cpu, Zap, Activity, LayoutTemplate, Sparkles, Building2, Workflow,
-  ShieldCheck, Scale, HeartHandshake, ArrowRight, CheckCircle2
+  Target, Eye, Globe, Sparkles, Building2,
+  ShieldCheck, Scale, HeartHandshake, CheckCircle2
 } from "lucide-react"
 import { cn } from "@/src/lib/utils"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
@@ -19,12 +14,12 @@ import { useGetAboutSections, type AboutSection } from "@/src/features/about"
 import { useGetPlatformStatistics } from "@/src/features/statistics"
 
 import { DynamicIcon } from "./components/dynamic-icon"
-import { MetricTile } from "./components/metric-tile"
 import { CredibilityStrip } from "./components/credibility-strip"
 import { PillarCard } from "./components/pillar-card"
 import { SectionEyebrow } from "@/components/section-eyebrow"
 import { CtaSection } from "@/components/cta-section"
 import { AboutSkeleton } from "./components/about-skeleton"
+import { PlatformStats } from "@/components/platform-stats"
 
 
 export default function AboutPage() {
@@ -212,8 +207,8 @@ export default function AboutPage() {
                           section.block_type === "GRID"
                             ? "md:grid-cols-2 lg:grid-cols-4"
                             : section.items?.length === 3
-                            ? "md:grid-cols-3"
-                            : "md:grid-cols-2"
+                              ? "md:grid-cols-3"
+                              : "md:grid-cols-2"
                         )}
                       >
                         {section.items?.map((item, i) => (
@@ -253,85 +248,12 @@ export default function AboutPage() {
         )}
 
         {/* ============== GLOBAL IMPACT — ANIMATED METRIC WALL ============== */}
-        {hasStats && (
-          <GSAPWrapper animation="fadeIn">
-            <section className="relative py-24 md:py-32 overflow-hidden">
-              <div
-                className="absolute inset-0 pointer-events-none"
-                aria-hidden
-                style={{
-                  backgroundImage:
-                    "radial-gradient(circle at 85% 10%, color-mix(in oklab, var(--color-primary) 10%, transparent), transparent 50%)",
-                }}
-              />
-              <div className="container mx-auto px-4 md:px-6 relative">
-                <div className="max-w-2xl mb-14">
-                  <SectionEyebrow icon={BarChart3}>Platform Analytics</SectionEyebrow>
-                  <h2 className="mt-5 text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-balance">
-                    {adminStatsBlock?.title || "Our Global Impact"}
-                  </h2>
-                  <p className="mt-4 text-lg text-muted-foreground leading-relaxed text-balance">
-                    {adminStatsBlock?.subtitle ||
-                      "Live measurements from the DigitoPub platform — journals onboarded, articles published, and researchers served across the scientific community."}
-                  </p>
-                </div>
-
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                  <MetricTile
-                    icon={BookOpen}
-                    value={stats.totalJournals}
-                    label="Active Journals"
-                    caption="Peer-reviewed and indexed"
-                    accent="primary"
-                  />
-                  <MetricTile
-                    icon={FileText}
-                    value={stats.totalArticles}
-                    label="Published Articles"
-                    caption="Openly discoverable"
-                    accent="secondary"
-                  />
-                  <MetricTile
-                    icon={Users}
-                    value={stats.totalUsers}
-                    label="Researchers"
-                    caption="Authors, editors & reviewers"
-                    accent="primary"
-                  />
-                  <MetricTile
-                    icon={Globe}
-                    value={stats.countriesCount}
-                    label="Countries Reached"
-                    caption="Truly global reach"
-                    accent="secondary"
-                  />
-                </div>
-
-                {/* Standards & Integrations strip — honest, real capabilities */}
-                <div className="mt-14 rounded-2xl border border-border/40 bg-background p-6 md:p-8">
-                  <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-10">
-                    <div className="md:w-64 shrink-0">
-                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-                        Open Standards
-                      </div>
-                      <div className="mt-1 text-lg font-semibold">Built on the infrastructure of trust</div>
-                    </div>
-                    <div className="flex-1 flex flex-wrap gap-x-8 gap-y-3 items-center text-sm text-muted-foreground">
-                      {["CrossRef", "DOI", "ORCID", "Crossmark", "Similarity Check", "Portico", "CLOCKSS"].map(
-                        (label) => (
-                          <span key={label} className="inline-flex items-center gap-2">
-                            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                            <span className="font-medium text-foreground/80">{label}</span>
-                          </span>
-                        )
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </GSAPWrapper>
-        )}
+        <PlatformStats
+          stats={stats}
+          variant="about"
+          adminStatsBlockTitle={adminStatsBlock?.title ?? undefined}
+          adminStatsBlockSubtitle={adminStatsBlock?.subtitle ?? undefined}
+        />
 
         {/* ============== TRUST & VALUES ============== */}
         <GSAPWrapper animation="slideUp">
