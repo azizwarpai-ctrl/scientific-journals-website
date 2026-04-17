@@ -29,43 +29,44 @@ export function MemberCard({ member }: MemberCardProps) {
   const hasLinks = orcidUrl || scholarUrl || scopusUrl
 
   return (
-    <article className="group flex flex-col rounded-xl border border-border/50 bg-card transition-all duration-200 hover:border-border hover:shadow-md overflow-hidden">
-      {/* Top row: avatar + info */}
-      <div className="flex items-start gap-3 p-3.5">
-        {/* Compact square avatar */}
+    <article className="group flex flex-col rounded-xl border border-border/50 bg-card transition-all duration-200 hover:border-border hover:shadow-md overflow-hidden h-full">
+      {/* Portrait photo */}
+      <div className="relative overflow-hidden bg-muted/30 shrink-0">
         <MemberPhoto
           name={member.name}
           imageUrl={member.profileImage}
-          className="w-12 h-12 rounded-lg shrink-0"
+          className="aspect-[3/4] w-full"
         />
-
-        {/* Identity */}
-        <div className="flex-1 min-w-0 space-y-1">
-          <h3 className="text-sm font-bold leading-snug text-foreground line-clamp-2">
-            {member.name}
-          </h3>
-
+        {/* Role badge overlaid on photo */}
+        <div className="absolute bottom-2 left-2 right-2 flex justify-start">
           <span
             className={
               isChief
-                ? "inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
-                : "inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                ? "inline-flex items-center rounded-md bg-primary/90 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground shadow-sm"
+                : "inline-flex items-center rounded-md bg-background/80 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground shadow-sm border border-border/30"
             }
           >
             {roleLabel}
           </span>
-
-          {member.affiliation && (
-            <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-2">
-              {member.affiliation}
-            </p>
-          )}
         </div>
+      </div>
+
+      {/* Identity */}
+      <div className="flex flex-col flex-1 p-3 gap-1">
+        <h3 className="text-sm font-bold leading-snug text-foreground line-clamp-2">
+          {member.name}
+        </h3>
+
+        {member.affiliation && (
+          <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-2">
+            {member.affiliation}
+          </p>
+        )}
       </div>
 
       {/* Profile links */}
       {hasLinks && (
-        <div className="flex items-center gap-1.5 px-3.5 pb-3 border-t border-border/30 pt-2.5 mt-auto">
+        <div className="flex items-center gap-1.5 px-3 pb-3 border-t border-border/30 pt-2.5">
           {orcidUrl && (
             <a
               href={orcidUrl}

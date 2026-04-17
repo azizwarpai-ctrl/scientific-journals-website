@@ -18,7 +18,7 @@ export function FeaturedChief({ members, totalCount }: FeaturedChiefProps) {
         <div className="mt-2 h-px bg-border" />
       </div>
 
-      <div className="grid max-w-2xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid max-w-3xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {members.map((member) => (
           <MemberCard key={member.userId} member={member} />
         ))}
