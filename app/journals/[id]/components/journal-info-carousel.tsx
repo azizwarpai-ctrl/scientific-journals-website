@@ -98,26 +98,23 @@ const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightIte
 
   const safeLink = linkInfo?.href
   const isExternal = linkInfo?.isExternal
+  const isLogo = !!data.image?.match(/logo|icon|orcid|plagiarism/i)
 
   return (
     <div className="flex flex-col h-full p-5 select-none">
-      {data.image ? (() => {
-        const isLogo = !!data.image.match(/logo|icon|orcid|plagiarism/i)
-        return (
-          <div className="relative w-full h-[220px] rounded-xl overflow-hidden border border-border/40 bg-muted/20 mb-4 shadow-inner flex-shrink-0 flex items-center justify-center p-5 outline-none">
-            <Image
-              src={data.image}
-              alt={data.title}
-              width={400}
-              height={220}
-              className={`max-w-full object-contain ${isLogo ? "max-h-[70%]" : "max-h-[85%]"}`}
-              sizes="(max-width: 768px) 100vw, 400px"
-              draggable={false}
-              style={{ objectFit: "contain", objectPosition: "center" }}
-            />
-          </div>
-        )
-      })() : null}
+      {data.image && (
+        <div className="relative w-full h-[220px] rounded-xl overflow-hidden border border-border/40 bg-muted/20 mb-4 shadow-inner flex-shrink-0 flex items-center justify-center p-5 outline-none">
+          <Image
+            src={data.image}
+            alt={data.title}
+            width={400}
+            height={220}
+            className={`max-w-full object-contain object-center ${isLogo ? "max-h-[70%]" : "max-h-[85%]"}`}
+            sizes="(max-width: 768px) 100vw, 400px"
+            draggable={false}
+          />
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col min-h-0">
         <h4 className="text-[15px] font-bold text-foreground leading-snug mb-2 tracking-tight line-clamp-2">
@@ -438,7 +435,7 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
 
           {/* ── Carousel body ──────────────────────────────────────────────────────
           Single item: skip Embla entirely (no wasted JS, no layout thrash).
-          Multi item:  emblaRef container has `overflow-hidden h-[380px]` —
+          Multi item:  emblaRef container has `overflow-hidden h-[460px]` —
                        both are required for clipping to work.
       ─────────────────────────────────────────────────────────────────────── */}
           {isSingle ? (

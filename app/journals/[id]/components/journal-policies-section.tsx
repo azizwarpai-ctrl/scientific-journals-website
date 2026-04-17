@@ -128,6 +128,7 @@ function DoiOrcidPanel({ doiEnabled, requireAuthorCompetingInterestsEnabled }: {
 
 export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProps) {
   const [activeTabSlug, setActiveTabSlug] = useState<string | null>(null)
+  const [expandedAccordionId, setExpandedAccordionId] = useState<string | null | undefined>(undefined)
   const { data: policies, isLoading, isError } = useGetJournalPolicies(journalId)
 
   const tabs = policies?.tabs || []
@@ -177,11 +178,11 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
         ) : (
           <div className="divide-y divide-border/40">
             {navItems.map(item => {
-              const isActive = currentTabSlug === item.id;
+              const isActive = (expandedAccordionId === undefined ? defaultTabSlug : expandedAccordionId) === item.id;
               return (
                 <div key={item.id} className="flex flex-col bg-card relative">
                   <button
-                    onClick={() => setActiveTabSlug(isActive ? null : item.id)}
+                    onClick={() => setExpandedAccordionId(isActive ? null : item.id)}
                     className={`flex items-center justify-between px-6 py-4 transition-colors ${isActive ? "bg-primary/5 text-primary" : "text-foreground hover:bg-muted/40"}`}
                   >
                     <div className="flex items-center gap-3">
