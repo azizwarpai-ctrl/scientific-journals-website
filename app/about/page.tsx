@@ -60,6 +60,14 @@ function useCountUp(target: number, { duration = 1400, enabled = true }: { durat
     return () => obs.disconnect()
   }, [target, duration, enabled])
 
+  // If animation has started but target changes (rare: stats update), snap to new value
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (started.current && value !== target) {
+      setValue(target)
+    }
+  }, [target])
+
   return { value, ref }
 }
 
@@ -213,9 +221,9 @@ export default function AboutPage() {
   const vision = activeSections.find((s) => s.section_key === "vision")
   const mission = activeSections.find((s) => s.section_key === "goals")
 
-  // Admin overrides for hero / stats copy
+  // Admin overrides for hero / stats copy — exclude canonical rows (those with section_key)
   const adminHero = activeSections.find((s) => s.block_type === "HERO" && !s.section_key)
-  const adminStatsBlock = activeSections.find((s) => s.block_type === "STATS")
+  const adminStatsBlock = activeSections.find((s) => s.block_type === "STATS" && !s.section_key)
 
   // Custom admin-defined extra blocks (not canonical, not hero, not stats)
   const customExtras = activeSections.filter(

@@ -268,6 +268,9 @@ export async function initializeDatabase() {
           display_order: 20,
         },
         {
+          // Note: section_key "goals" is the canonical identifier (used in app/about/page.tsx lookup
+          // and app/admin/about/page.tsx dropdown), but the title and content describe "Our Mission".
+          // This alias is intentional for backward compatibility with the admin UI contract.
           section_key: 'goals',
           block_type: 'TEXT',
           title: 'Our Mission',

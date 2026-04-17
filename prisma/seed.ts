@@ -127,11 +127,15 @@ async function main() {
 
     // One-time cleanup of deprecated seed keys. Prior versions created
     // mission_vision / our_mission / our_vision, which do not match the page.
-    const removed = await prisma.aboutSection.deleteMany({
-      where: { section_key: { in: ['mission_vision', 'our_mission', 'our_vision'] } }
-    })
-    if (removed.count > 0) {
-      console.log(`🧹 Removed ${removed.count} legacy About rows.`)
+    try {
+      const removed = await prisma.aboutSection.deleteMany({
+        where: { section_key: { in: ['mission_vision', 'our_mission', 'our_vision'] } }
+      })
+      if (removed.count > 0) {
+        console.log(`🧹 Removed ${removed.count} legacy About rows.`)
+      }
+    } catch (e) {
+      console.error('⚠️ Legacy About cleanup failed (continuing):', e instanceof Error ? e.message : String(e))
     }
 
     const aboutContent: Array<{
@@ -159,6 +163,9 @@ async function main() {
         display_order: 20,
       },
       {
+        // Note: section_key "goals" is the canonical identifier (used in app/about/page.tsx lookup
+        // and app/admin/about/page.tsx dropdown), but the title and content describe "Our Mission".
+        // This alias is intentional for backward compatibility with the admin UI contract.
         section_key: 'goals',
         block_type: 'TEXT',
         title: 'Our Mission',
