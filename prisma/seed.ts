@@ -121,10 +121,31 @@ async function main() {
     }
 
     // 3. Foundation CMS Content: About Page (Idempotent)
+    // Canonical contract — keys MUST match app/about/page.tsx and app/admin/about/page.tsx:
+    //   who_we_are, vision, goals
     console.log('📝 Initializing About Page baseline structure...')
-    
-    // Database mapping derived from structural CMS needs
-    const aboutContent = [
+
+    // One-time cleanup of deprecated seed keys. Prior versions created
+    // mission_vision / our_mission / our_vision, which do not match the page.
+    try {
+      const removed = await prisma.aboutSection.deleteMany({
+        where: { section_key: { in: ['mission_vision', 'our_mission', 'our_vision'] } }
+      })
+      if (removed.count > 0) {
+        console.log(`🧹 Removed ${removed.count} legacy About rows.`)
+      }
+    } catch (e) {
+      console.error('⚠️ Legacy About cleanup failed (continuing):', e instanceof Error ? e.message : String(e))
+    }
+
+    const aboutContent: Array<{
+      section_key: string
+      block_type: string
+      title: string
+      subtitle: string | null
+      content: string | null
+      display_order: number
+    }> = [
       {
         section_key: 'who_we_are',
         block_type: 'TEXT',
@@ -132,32 +153,26 @@ async function main() {
         subtitle: null,
         content: 'DigitoPub is the official publishing house and platform of Digitodontics International Academy. At DigitoPub, we redefine the future of academic publishing through seamless digital integration and innovation. As a forward-thinking scientific publisher, we provide a comprehensive suite of digital publishing and management solutions designed to empower journals, editors, and researchers worldwide.\n\nOur services include e-journal platform solutions for journal creation, hosting, and management; SubmitManager, our intuitive e-submission platform; and end-to-end e-editorial and e-review systems that streamline every stage of scholarly communication.\n\nBeyond these core services, we offer CrossRef integration (DOI, Crossmark, Similarity Check), XML, PDF, and LaTeX production, ORCID author identification, citation metrics, indexing, and archiving solutions through Portico and CLOCKSS, ensuring every publication meets the highest international standards of accessibility and integrity.',
         display_order: 10,
-        items: []
       },
       {
-        section_key: 'mission_vision',
-        block_type: 'CARDS',
-        title: 'Our Mission & Vision',
+        section_key: 'vision',
+        block_type: 'TEXT',
+        title: 'Our Vision',
         subtitle: null,
-        content: null,
+        content: 'To create a vibrant ecosystem where science and technology evolve in harmony, fostering a trusted environment where scholarly work can thrive. We envision a future where every researcher has access to world-class publishing tools, transparent peer review, and global reach — regardless of geography, institution, or discipline.',
         display_order: 20,
-        items: [
-          {
-            title: 'Our Mission',
-            description: 'To empower journals, editors, and researchers worldwide with comprehensive digital publishing solutions that uphold the highest standards of transparency, quality, and ethical scholarly communication. We bridge the gap between research creation, dissemination, and long-term preservation.',
-            icon: 'Target',
-            color_theme: 'primary',
-            display_order: 0,
-          },
-          {
-            title: 'Our Vision',
-            description: 'To create a vibrant ecosystem where science and technology evolve in harmony, fostering a trusted environment where scholarly work can thrive. We envision a future where every researcher has access to world-class publishing tools and global reach.',
-            icon: 'Eye',
-            color_theme: 'secondary',
-            display_order: 1,
-          }
-        ]
-      }
+      },
+      {
+        // Note: section_key "goals" is the canonical identifier (used in app/about/page.tsx lookup
+        // and app/admin/about/page.tsx dropdown), but the title and content describe "Our Mission".
+        // This alias is intentional for backward compatibility with the admin UI contract.
+        section_key: 'goals',
+        block_type: 'TEXT',
+        title: 'Our Mission',
+        subtitle: null,
+        content: 'To empower journals, editors, and researchers worldwide with comprehensive digital publishing solutions that uphold the highest standards of transparency, quality, and ethical scholarly communication. We bridge the gap between research creation, dissemination, and long-term preservation — so that every discovery reaches the people who need it.',
+        display_order: 30,
+      },
     ]
 
     for (const section of aboutContent) {
@@ -172,44 +187,9 @@ async function main() {
           content: section.content,
           display_order: section.display_order,
           is_active: true,
-          ...(section.items && section.items.length > 0
-            ? {
-                items: {
-                  create: section.items,
-                },
-              }
-            : {}),
         }
       })
     }
-
-    // 4. Initialize About page core sections (idempotent)
-    console.log('📖 Upserting About page sections...')
-    await prisma.aboutSection.upsert({
-      where: { section_key: 'our_mission' },
-      update: {},
-      create: {
-        section_key: 'our_mission',
-        block_type: 'TEXT',
-        title: 'Our Mission',
-        content: 'To empower journals, editors, and researchers worldwide with comprehensive digital publishing solutions that uphold the highest standards of transparency, quality, and ethical scholarly communication. We bridge the gap between research creation, dissemination, and long-term preservation.',
-        is_active: true,
-        display_order: 1
-      }
-    })
-
-    await prisma.aboutSection.upsert({
-      where: { section_key: 'our_vision' },
-      update: {},
-      create: {
-        section_key: 'our_vision',
-        block_type: 'TEXT',
-        title: 'Our Vision',
-        content: 'To create a vibrant ecosystem where science and technology evolve in harmony, fostering a trusted environment where scholarly work can thrive. We envision a future where every researcher has access to world-class publishing tools and global reach.',
-        is_active: true,
-        display_order: 2
-      }
-    })
 
     console.log('\n✅ System initialized successfully with 2 core users.')
     console.log('──────────────────────────────────────────────────')
