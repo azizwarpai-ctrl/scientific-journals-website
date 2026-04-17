@@ -123,69 +123,6 @@ function DoiOrcidPanel({ doiEnabled, requireAuthorCompetingInterestsEnabled }: {
   )
 }
 
-// ── Scroll indicator arrows for mobile tab overflow ──────────────────────────
-
-function TabScrollContainer({ children }: { children: React.ReactNode }) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(false)
-
-  const checkScroll = useCallback(() => {
-    const el = scrollRef.current
-    if (!el) return
-    setCanScrollLeft(el.scrollLeft > 4)
-    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4)
-  }, [])
-
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    checkScroll()
-    el.addEventListener("scroll", checkScroll, { passive: true })
-    const ro = new ResizeObserver(checkScroll)
-    ro.observe(el)
-    return () => {
-      el.removeEventListener("scroll", checkScroll)
-      ro.disconnect()
-    }
-  }, [checkScroll])
-
-  const scroll = (dir: "left" | "right") => {
-    scrollRef.current?.scrollBy({ left: dir === "left" ? -160 : 160, behavior: "smooth" })
-  }
-
-  return (
-    <div className="relative group/tabs">
-      {/* Left fade + arrow */}
-      {canScrollLeft && (
-        <button
-          onClick={() => scroll("left")}
-          aria-label="Scroll tabs left"
-          className="absolute left-0 top-0 bottom-0 z-10 w-8 flex items-center justify-center bg-gradient-to-r from-muted/90 to-transparent transition-opacity"
-        >
-          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-        </button>
-      )}
-
-      <div ref={scrollRef} className="overflow-x-auto scrollbar-none">
-        <div className="flex min-w-max px-2">
-          {children}
-        </div>
-      </div>
-
-      {/* Right fade + arrow */}
-      {canScrollRight && (
-        <button
-          onClick={() => scroll("right")}
-          aria-label="Scroll tabs right"
-          className="absolute right-0 top-0 bottom-0 z-10 w-8 flex items-center justify-center bg-gradient-to-l from-muted/90 to-transparent transition-opacity"
-        >
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        </button>
-      )}
-    </div>
-  )
-}
 
 // ── Main component ──────────────────────────────────────────────────────────
 
@@ -195,133 +132,164 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
 
   const tabs = policies?.tabs || []
   const hasDoiFeatures = policies?.doiEnabled || policies?.requireAuthorCompetingInterestsEnabled
-  // When OJS already provides a "DOIs & ORCID" tab, don't render the synthetic
-  // metadata panel on top of it — the OJS content takes precedence.
-  const hasOjsDoiTab = tabs.some((t) => t.slug === "dois-orcid")
-  const showSyntheticDoiTab = !!hasDoiFeatures && !hasOjsDoiTab
 
-  const defaultTabSlug = tabs.length > 0 ? tabs[0].slug : (showSyntheticDoiTab ? "_doiorcid" : null);
+  const defaultTabSlug = tabs.length > 0 ? tabs[0].slug : (hasDoiFeatures ? "_doiorcid" : null);
   const currentTabSlug = activeTabSlug || defaultTabSlug;
 
   // If completely empty without config
-  if (!isLoading && !isError && tabs.length === 0 && !showSyntheticDoiTab) {
+  if (!isLoading && !isError && tabs.length === 0 && !hasDoiFeatures) {
     return null; // Hide the entire section if absolutely no policies exist
   }
 
-  const activeTabContent = tabs.find(t => t.slug === currentTabSlug)
-  const isDoiTabActive = currentTabSlug === "_doiorcid"
+  // Combine items to a single array so we can render them cleanly
+  const navItems = [
+    ...tabs.map(t => ({ id: t.slug, title: t.title, type: "policy" as const, content: t.content })),
+    ...(hasDoiFeatures ? [{ id: "_doiorcid", title: "DOI & ORCID", type: "doi" as const }] : [])
+  ]
+
+  const activeItem = navItems.find(t => t.id === currentTabSlug)
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-card shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-6 pt-6 pb-4 border-b border-border/40">
-        <div className="p-2.5 rounded-lg bg-primary/10">
-          <Shield className="h-5 w-5 text-primary" />
-        </div>
-        <h2 className="text-xl font-bold">Journal Policies</h2>
-      </div>
-
-      {/* Tab navigation — scrollable on mobile with arrow indicators */}
-      <div className="border-b border-border/40 bg-muted/20 sticky top-0 z-10">
-        {isLoading ? (
-          <div className="flex gap-4 p-4 animate-pulse px-4">
-            <div className="h-4 bg-muted rounded w-16" />
-            <div className="h-4 bg-muted rounded w-20" />
-            <div className="h-4 bg-muted rounded w-16" />
-            <div className="h-4 bg-muted rounded w-24" />
+    <div className="rounded-2xl border border-border/60 bg-card shadow-sm overflow-hidden flex flex-col md:flex-row">
+      
+      {/* ── Mobile/Tablet Accordion List (Hidden on Desktop) ── */}
+      <div className="md:hidden flex flex-col w-full">
+        <div className="flex items-center gap-3 px-6 py-5 border-b border-border/40 bg-muted/10">
+          <div className="p-2.5 rounded-lg bg-primary/10">
+            <Shield className="h-5 w-5 text-primary" />
           </div>
-        ) : (
-          <TabScrollContainer>
-            {tabs.map((tab) => {
-              const isActive = currentTabSlug === tab.slug
-              return (
-                <button
-                  key={tab.slug}
-                  id={`policy-tab-${tab.slug}`}
-                  onClick={() => setActiveTabSlug(tab.slug)}
-                  className={[
-                    "flex items-center gap-2 px-4 py-3.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all duration-200 whitespace-nowrap",
-                    isActive
-                      ? "border-primary text-primary bg-primary/5"
-                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40",
-                  ].join(" ")}
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                  {tab.title}
-                </button>
-              )
-            })}
+          <h2 className="text-xl font-bold">Journal Policies</h2>
+        </div>
 
-            {showSyntheticDoiTab && (
-              <button
-                id="policy-tab-doi-orcid"
-                onClick={() => setActiveTabSlug("_doiorcid")}
-                className={[
-                  "flex items-center gap-2 px-4 py-3.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all duration-200 whitespace-nowrap",
-                  isDoiTabActive
-                    ? "border-primary text-primary bg-primary/5"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40",
-                ].join(" ")}
-              >
-                <Fingerprint className="h-3.5 w-3.5" />
-                DOI &amp; ORCID
-              </button>
-            )}
-          </TabScrollContainer>
-        )}
-      </div>
-
-      {/* Active tab content */}
-      <div className="p-6">
         {isLoading ? (
-          <div className="space-y-3 animate-pulse">
-            <div className="h-4 bg-muted rounded w-3/4" />
-            <div className="h-4 bg-muted rounded w-full" />
-            <div className="h-4 bg-muted rounded w-5/6" />
-            <div className="h-4 bg-muted rounded w-2/3" />
+          <div className="p-4 space-y-3">
+             <div className="h-14 bg-muted rounded-xl animate-pulse" />
+             <div className="h-14 bg-muted rounded-xl animate-pulse" />
+             <div className="h-14 bg-muted rounded-xl animate-pulse" />
           </div>
         ) : isError ? (
-          <div className="flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-4">
-            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5 text-destructive" />
-            <div>
-              <p className="text-sm font-semibold text-destructive">Failed to load policies</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Journal policy information could not be retrieved. Please try again later.
-              </p>
-            </div>
-          </div>
+           <div className="p-4">
+             <div className="p-4 rounded-xl border border-destructive/20 bg-destructive/5 text-destructive text-sm font-semibold flex flex-col gap-1">
+               Failed to load policies.
+               <span className="text-xs opacity-80 font-medium">Please try again later.</span>
+             </div>
+           </div>
         ) : (
-          <>
-            {/* Active tab descriptor */}
-            <div className="flex items-center gap-2.5 mb-5">
-              <div className="p-2 rounded-lg bg-primary/10">
-                {isDoiTabActive ? (
-                  <Fingerprint className="h-4 w-4 text-primary" />
-                ) : (
-                  <FileText className="h-4 w-4 text-primary" />
-                )}
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-foreground">
-                  {isDoiTabActive ? "DOI & ORCID Policy" : activeTabContent?.title}
-                </h3>
-              </div>
-            </div>
-
-            {isDoiTabActive ? (
-              <DoiOrcidPanel
-                doiEnabled={policies?.doiEnabled ?? false}
-                requireAuthorCompetingInterestsEnabled={policies?.requireAuthorCompetingInterestsEnabled ?? false}
-              />
-            ) : (
-              <PolicyContent
-                key={currentTabSlug || "unselected"}
-                html={activeTabContent?.content || null}
-              />
-            )}
-          </>
+          <div className="divide-y divide-border/40">
+            {navItems.map(item => {
+              const isActive = currentTabSlug === item.id;
+              return (
+                <div key={item.id} className="flex flex-col bg-card relative">
+                  <button
+                    onClick={() => setActiveTabSlug(isActive ? null : item.id)}
+                    className={`flex items-center justify-between px-6 py-4 transition-colors ${isActive ? "bg-primary/5 text-primary" : "text-foreground hover:bg-muted/40"}`}
+                  >
+                    <div className="flex items-center gap-3">
+                       {item.type === "doi" ? <Fingerprint className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                       <span className="text-sm font-bold">{item.title}</span>
+                    </div>
+                    {isActive ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4 opacity-50" />}
+                  </button>
+                  {isActive && (
+                    <div className="p-6 bg-card border-t border-border/40 animate-in slide-in-from-top-2 duration-300 shadow-inner">
+                      {item.type === "doi" ? (
+                         <DoiOrcidPanel
+                          doiEnabled={policies?.doiEnabled ?? false}
+                          requireAuthorCompetingInterestsEnabled={policies?.requireAuthorCompetingInterestsEnabled ?? false}
+                        />
+                      ) : (
+                         <PolicyContent key={item.id} html={item.content || null} plainDescription="This policy has no detailed description configured." />
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
+
+      {/* ── Desktop Sidebar Layout (Hidden on Mobile) ── */}
+      <div className="hidden md:flex flex-row w-full min-h-[450px]">
+        {/* Sidebar */}
+        <div className="w-1/3 md:w-[280px] lg:w-[320px] shrink-0 bg-muted/20 border-r border-border/40 flex flex-col z-10 shadow-[2px_0_10px_-4px_rgba(0,0,0,0.05)]">
+          <div className="flex items-center gap-3 px-6 py-6 border-b border-border/40">
+            <div className="p-2.5 rounded-lg bg-primary/10">
+              <Shield className="h-5 w-5 text-primary" />
+            </div>
+            <h2 className="text-lg font-bold">Journal Policies</h2>
+          </div>
+          
+          <div className="p-4 space-y-1.5 flex-1 overflow-y-auto">
+            {isLoading ? (
+               <div className="space-y-3 animate-pulse">
+                <div className="h-11 bg-muted rounded-xl w-full" />
+                <div className="h-11 bg-muted rounded-xl w-full" />
+                <div className="h-11 bg-muted rounded-xl w-3/4" />
+               </div>
+            ) : isError ? (
+               <div className="text-sm text-destructive p-4 bg-destructive/10 rounded-xl font-medium">Error loading policies.</div>
+            ) : (
+              navItems.map(item => {
+                const isActive = currentTabSlug === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTabSlug(item.id)}
+                    className={[
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left group",
+                      isActive 
+                        ? "bg-primary/10 text-primary shadow-sm font-semibold" 
+                        : "text-muted-foreground hover:bg-muted/80 hover:text-foreground font-medium"
+                    ].join(" ")}
+                  >
+                    <div className={`p-1.5 rounded-md transition-colors ${isActive ? "bg-primary/20 text-primary" : "bg-transparent text-muted-foreground group-hover:text-foreground"}`}>
+                      {item.type === "doi" ? <Fingerprint className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                    </div>
+                    <span className="text-sm tracking-tight">{item.title}</span>
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 flex flex-col bg-card max-h-[800px] overflow-y-auto min-w-0">
+           {!isLoading && !isError && activeItem ? (
+             <div className="animate-in fade-in duration-500 max-w-4xl p-8 lg:p-10">
+                <div className="flex items-center gap-4 mb-8 pb-5 border-b border-border/40">
+                  <div className="p-3 rounded-xl bg-primary/10 shadow-sm ring-1 ring-primary/20">
+                    {activeItem.type === "doi" ? (
+                      <Fingerprint className="h-5 w-5 text-primary" />
+                    ) : (
+                      <FileText className="h-5 w-5 text-primary" />
+                    )}
+                  </div>
+                  <h3 className="text-2xl font-extrabold text-foreground tracking-tight">
+                    {activeItem.title}
+                  </h3>
+                </div>
+
+                <div className="pl-1">
+                  {activeItem.type === "doi" ? (
+                    <DoiOrcidPanel
+                      doiEnabled={policies?.doiEnabled ?? false}
+                      requireAuthorCompetingInterestsEnabled={policies?.requireAuthorCompetingInterestsEnabled ?? false}
+                    />
+                  ) : (
+                    <PolicyContent
+                      key={activeItem.id}
+                      html={activeItem.content || null}
+                      plainDescription="This policy has no detailed description configured."
+                    />
+                  )}
+                </div>
+             </div>
+           ) : null}
+        </div>
+      </div>
+
     </div>
   )
 }
