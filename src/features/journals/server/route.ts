@@ -537,6 +537,43 @@ app.get("/:id/policies", zValidator("param", journalSlugParamSchema), async (c) 
   }
 })
 
+// ─── GET /journals/:id/fees — Publication Fees content sourced from OJS ──
+
+app.get("/:id/fees", zValidator("param", journalSlugParamSchema), async (c) => {
+  try {
+    const { id } = c.req.valid("param")
+
+    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
+    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
+    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+
+    if (!journal) {
+      return c.json({ success: false, error: "Journal not found" }, 404)
+    }
+
+    if (!journal.ojs_id) {
+      return c.json({ success: true, data: null, message: "No OJS data" }, 200)
+    }
+
+    const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
+    if (!isOjsConfigured()) {
+      return c.json({ success: true, data: null, message: "OJS not configured" }, 200)
+    }
+
+    try {
+      const { fetchJournalPublicationFees } = await import("@/src/features/journals/server/publication-fees-service")
+      const fees = await fetchJournalPublicationFees(journal.ojs_id)
+      return c.json({ success: true, data: fees }, 200)
+    } catch (queryError) {
+      console.error("[Fees API] OJS Query Error:", queryError)
+      return c.json({ success: false, error: "Failed to fetch publication fees from OJS" }, 502)
+    }
+  } catch (error) {
+    console.error("Error fetching publication fees:", error)
+    return c.json({ success: false, error: "Failed to fetch publication fees" }, 500)
+  }
+})
+
 const journalIssueParamSchema = z.object({
   id: z.string().min(1),
   issueId: z.string().regex(/^\d+$/, "Issue ID must be numeric")

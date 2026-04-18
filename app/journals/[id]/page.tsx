@@ -60,6 +60,21 @@ export default function JournalDetailPage() {
     })
   }
 
+  // Richer sanitizer for OJS-sourced fee content, which may include tables,
+  // links and inline formatting. The server already runs a strict sanitize
+  // pass — this is defense in depth for the browser-side render.
+  const sanitizeRichContent = (html: string | null | undefined): string => {
+    if (!html) return ""
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: [
+        'p', 'br', 'strong', 'em', 'b', 'i', 'u', 'ul', 'ol', 'li', 'a',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'blockquote', 'span', 'div',
+        'table', 'tbody', 'tr', 'td', 'th', 'thead', 'hr',
+      ],
+      ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+    })
+  }
+
 
   if (isLoading) {
     return (
