@@ -30,8 +30,11 @@ next-env.d.ts
 
 /lib/generated/prisma
 
-# PHP API proxy (contains credentials — deployed separately to SiteGround)
+# (contains credentials — deployed separately to SiteGround)
 submit-manager-database-schema-ojs
+
+# PHP API proxy 
+scripts/ojs-bridges
 
 # Scripts for debugging
 check-sync.ts
