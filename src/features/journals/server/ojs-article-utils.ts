@@ -1,7 +1,11 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
 import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
-import { fetchNewAuthorAffiliations, resolveAuthorAffiliation } from "./author-affiliation"
+import {
+  fetchNewAuthorAffiliations,
+  resolveAuthorAffiliation,
+  pickLocalized,
+} from "./author-affiliation"
 import type { CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/journals/types/current-issue-types"
 
 export interface ArticleRow {
@@ -110,41 +114,39 @@ export async function fetchArticlesWithAuthors(
   const authorsByPub = new Map<number, CurrentIssueAuthor[]>()
 
   if (authorRows.length > 0) {
-    const authorIds = authorRows.map(r => r.author_id)
+    const authorIds = authorRows.map((r) => r.author_id)
 
-    // Fetch author_settings (names + legacy affiliation field)
-    const authorSettingsRows = await ojsQuery<{
-      author_id: number
-      locale: string
-      setting_name: string
-      setting_value: string
-    }>(
-      `SELECT author_id, locale, setting_name, setting_value
-       FROM author_settings
-       WHERE author_id IN (${authorIds.join(',')})`
-    )
-
-    const newAffiliationRows = await fetchNewAuthorAffiliations(authorIds)
+    // Fetch author_settings and new affiliations in parallel.
+    const [authorSettingsRows, newAffiliationRows] = await Promise.all([
+      ojsQuery<{
+        author_id: number
+        locale: string
+        setting_name: string
+        setting_value: string
+      }>(
+        `SELECT author_id, locale, setting_name, setting_value
+         FROM author_settings
+         WHERE author_id IN (${authorIds.join(",")})`
+      ),
+      fetchNewAuthorAffiliations(authorIds),
+    ])
 
     for (const row of authorRows) {
-      const settings = authorSettingsRows.filter(s => s.author_id === row.author_id)
+      const settings = authorSettingsRows.filter((s) => s.author_id === row.author_id)
 
-      const getBestSetting = (name: string): string | null => {
-        const matches = settings.filter(s => s.setting_name === name)
-        if (matches.length === 0) return null
-        const primaryMatch = matches.find(s => s.locale === primaryLocale)
-        if (primaryMatch?.setting_value) return primaryMatch.setting_value
-        const enMatch = matches.find(s => s.locale === 'en_US' || s.locale === 'en')
-        if (enMatch?.setting_value) return enMatch.setting_value
-        const emptyMatch = matches.find(s => s.locale === '')
-        if (emptyMatch?.setting_value) return emptyMatch.setting_value
-        return matches[0].setting_value || null
-      }
+      const givenName = pickLocalized(
+        settings.filter((s) => s.setting_name === "givenName"),
+        primaryLocale
+      )
+      const familyName = pickLocalized(
+        settings.filter((s) => s.setting_name === "familyName"),
+        primaryLocale
+      )
 
       const existing = authorsByPub.get(row.publication_id) || []
       existing.push({
-        givenName: getBestSetting('givenName'),
-        familyName: getBestSetting('familyName'),
+        givenName,
+        familyName,
         affiliation: resolveAuthorAffiliation({
           authorId: row.author_id,
           primaryLocale,

@@ -60,16 +60,23 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
 
   const tabStripRef = useRef<HTMLDivElement | null>(null)
   const activeButtonRef = useRef<HTMLButtonElement | null>(null)
+  const hasInitializedRef = useRef(false)
+  const tabButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
 
   const tabs = policies?.tabs || []
 
   const defaultTabSlug = tabs.length > 0 ? tabs[0].slug : null
   const currentTabSlug = activeTabSlug || defaultTabSlug
+  const navItems = tabs.map((t) => ({ id: t.slug, title: t.title, content: t.content }))
 
-  // Keep the active tab in view on narrow viewports when switching via keyboard
-  // or when the selected tab lives off-screen in the horizontal strip.
+  // Keep the active tab in view on narrow viewports ONLY on user-initiated changes
+  // (not on initial load). This prevents unwanted scrolling when the page first renders.
   useEffect(() => {
-    if (!activeButtonRef.current || !tabStripRef.current) return
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true
+      return
+    }
+    if (!activeButtonRef.current) return
     activeButtonRef.current.scrollIntoView({
       behavior: "smooth",
       block: "nearest",
@@ -77,11 +84,40 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
     })
   }, [currentTabSlug])
 
+  // Keyboard navigation: ArrowRight/Down → next, ArrowLeft/Up → prev, Home → first, End → last.
+  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, itemId: string) => {
+    const items = navItems
+    const index = items.findIndex((t) => t.id === itemId)
+    if (index === -1) return
+
+    let targetIndex: number | null = null
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      targetIndex = index + 1 < items.length ? index + 1 : 0
+      e.preventDefault()
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      targetIndex = index - 1 >= 0 ? index - 1 : items.length - 1
+      e.preventDefault()
+    } else if (e.key === "Home") {
+      targetIndex = 0
+      e.preventDefault()
+    } else if (e.key === "End") {
+      targetIndex = items.length - 1
+      e.preventDefault()
+    }
+
+    if (targetIndex !== null) {
+      const target = items[targetIndex]
+      setActiveTabSlug(target.id)
+      setTimeout(() => {
+        tabButtonRefs.current.get(target.id)?.focus()
+      }, 0)
+    }
+  }
+
   if (!isLoading && !isError && tabs.length === 0) {
     return null
   }
 
-  const navItems = tabs.map((t) => ({ id: t.slug, title: t.title, content: t.content }))
   const activeItem = navItems.find((t) => t.id === currentTabSlug) ?? navItems[0]
 
   return (
@@ -127,10 +163,19 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
               return (
                 <button
                   key={item.id}
-                  ref={isActive ? activeButtonRef : null}
+                  id={`tab-${item.id}`}
+                  ref={(el) => {
+                    if (el) {
+                      tabButtonRefs.current.set(item.id, el)
+                      if (isActive) activeButtonRef.current = el
+                    }
+                  }}
                   role="tab"
                   aria-selected={isActive}
+                  aria-controls={`tabpanel-${item.id}`}
+                  tabIndex={isActive ? 0 : -1}
                   onClick={() => setActiveTabSlug(item.id)}
+                  onKeyDown={(e) => handleTabKeyDown(e, item.id)}
                   className={[
                     "inline-flex items-center gap-2 whitespace-nowrap px-3.5 py-2 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                     isActive
@@ -174,9 +219,19 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
                 return (
                   <button
                     key={item.id}
+                    id={`tab-${item.id}`}
+                    ref={(el) => {
+                      if (el) {
+                        tabButtonRefs.current.set(item.id, el)
+                        if (isActive) activeButtonRef.current = el
+                      }
+                    }}
                     role="tab"
                     aria-selected={isActive}
+                    aria-controls={`tabpanel-${item.id}`}
+                    tabIndex={isActive ? 0 : -1}
                     onClick={() => setActiveTabSlug(item.id)}
+                    onKeyDown={(e) => handleTabKeyDown(e, item.id)}
                     className={[
                       "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                       isActive
@@ -203,7 +258,8 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
            `max-w` that wastes space on wide screens. */}
         <article
           role="tabpanel"
-          aria-labelledby={activeItem?.id}
+          id={`tabpanel-${activeItem?.id}`}
+          aria-labelledby={`tab-${activeItem?.id}`}
           className="flex-1 min-w-0 px-5 sm:px-8 lg:px-10 py-6 sm:py-8 lg:py-10"
         >
           {isLoading ? (
@@ -227,10 +283,7 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
                 <div className="p-2.5 rounded-lg bg-primary/10 ring-1 ring-primary/15 shrink-0">
                   <FileText className="h-4 w-4 text-primary" />
                 </div>
-                <h3
-                  id={activeItem.id}
-                  className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight leading-tight"
-                >
+                <h3 className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight leading-tight">
                   {activeItem.title}
                 </h3>
               </header>

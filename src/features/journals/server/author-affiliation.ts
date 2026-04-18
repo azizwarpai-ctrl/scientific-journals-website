@@ -3,12 +3,20 @@ import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 /**
  * Fetch affiliations from OJS 3.4+ `author_affiliations` / `author_affiliation_settings`
  * tables for a batch of author IDs. Silently returns `[]` if the tables don't
- * exist (older OJS instances).
+ * exist (older OJS instances). Coerces and validates input IDs to prevent SQL injection.
  */
 export async function fetchNewAuthorAffiliations(
   authorIds: number[]
 ): Promise<Array<{ author_id: number; locale: string; setting_value: string }>> {
   if (authorIds.length === 0) return []
+
+  // Coerce and validate IDs to prevent SQL injection (though parameterized
+  // queries would be ideal; ojsQuery doesn't support array placeholders).
+  const safeIds = authorIds
+    .map((id) => Number(id))
+    .filter((n) => Number.isInteger(n) && n > 0)
+  if (safeIds.length === 0) return []
+
   try {
     return await ojsQuery<{
       author_id: number
@@ -20,19 +28,31 @@ export async function fetchNewAuthorAffiliations(
        JOIN author_affiliation_settings aas
          ON aas.author_affiliation_id = aa.author_affiliation_id
         AND aas.setting_name = 'name'
-       WHERE aa.author_id IN (${authorIds.join(",")})`
+       WHERE aa.author_id IN (${safeIds.join(",")})`
     )
-  } catch {
-    // Older OJS versions don't have these tables
-    return []
+  } catch (error: unknown) {
+    // Silently return [] only if the tables don't exist (older OJS versions).
+    // For other errors (network, permission, etc.) log and re-throw so they
+    // bubble up and get caught by higher-level error handling.
+    if (error instanceof Error) {
+      const msg = error.message || ""
+      if (msg.includes("ER_NO_SUCH_TABLE") || msg.includes("1146")) {
+        return []
+      }
+      console.warn(
+        "[Author Affiliations] Unexpected query error (not a missing-table error):",
+        error
+      )
+    }
+    throw error
   }
 }
 
 /**
- * Pick the best localized value for an author: primary locale → en_US/en →
- * empty locale → first non-empty.
+ * Pick the best localized value: primary locale → en_US/en →
+ * empty locale → first non-empty. Exported for reuse across modules.
  */
-function pickLocalized<T extends { locale: string; setting_value: string }>(
+export function pickLocalized<T extends { locale: string; setting_value: string }>(
   rows: T[],
   primaryLocale: string
 ): string | null {

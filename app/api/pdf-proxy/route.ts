@@ -419,6 +419,28 @@ export async function GET(request: Request) {
     return streamPdfResponse(followed.res, followed.finalUrl)
   }
 
+  // Wrap attempt() so thrown errors (AbortError, network) are safely converted
+  // to a NextResponse with X-Proxy-Error set. This ensures the loop continues
+  // to the next candidate instead of breaking the whole try block.
+  const safeAttempt = async (
+    url: string,
+    extraHeaders: Record<string, string> = {}
+  ): Promise<NextResponse> => {
+    try {
+      return await attempt(url, extraHeaders)
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return jsonError("TIMEOUT", "Source server did not respond in time.", 504, url)
+      }
+      return jsonError(
+        "UPSTREAM_ERROR",
+        "Network error while contacting the source server.",
+        502,
+        url
+      )
+    }
+  }
+
   // OJS 3.x REST API — preferred when an API key is configured. Bypasses the
   // public galley hotlink/permission wall entirely because it authenticates as
   // a publisher-level client.
@@ -457,11 +479,12 @@ export async function GET(request: Request) {
     "UPSTREAM_ERROR",
     "INVALID_RESPONSE",
     "FILE_NOT_FOUND",
+    "TIMEOUT",
   ])
 
   try {
     if (apiUrl) {
-      const apiResult = await attempt(apiUrl, {
+      const apiResult = await safeAttempt(apiUrl, {
         Authorization: `Bearer ${apiKey}`,
       })
       if (apiResult.ok) return apiResult
@@ -476,7 +499,7 @@ export async function GET(request: Request) {
 
     let lastResult: NextResponse | null = null
     for (const url of webCandidates) {
-      const result = await attempt(url)
+      const result = await safeAttempt(url)
       if (result.ok) return result
       lastResult = result
       const code = result.headers.get("X-Proxy-Error")

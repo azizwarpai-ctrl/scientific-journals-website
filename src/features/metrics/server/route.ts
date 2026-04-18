@@ -110,14 +110,14 @@ app.get("/", async (c) => {
             } else if (journalCountriesCount > 0) {
                 countriesCount = journalCountriesCount
             } else {
-                // Minimum floor: assume at least 1 country per active journal
+                // Minimum floor: assume at least 1 country per synced journal (visible to users)
                 countriesCount = journalsCount
             }
 
             return c.json({
                 success: true,
                 data: {
-                    activeJournals: journalsCount,
+                    activeJournals: journalsCount, // Counts all journals synced to DigitoPub (visible to users)
                     publishedArticles: articlesCount,
                     researchers: researchersCount,
                     countriesEstimated: countriesCount,

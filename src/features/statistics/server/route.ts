@@ -40,6 +40,13 @@ app.get("/", async (c) => {
 
     const results = await Promise.allSettled(queries);
 
+    // Only cache if all queries succeeded; transient failures (network, DB
+    // downtime) should not be cached as zeros, and we want to retry on next request.
+    const allFulfilled = results.every((r) => r.status === "fulfilled")
+    if (!allFulfilled) {
+      console.warn("[STATISTICS_GET] Some queries failed; not caching results")
+    }
+
     interface CountRow { count: number }
     const extractOjsCount = (result: PromiseSettledResult<CountRow[]>) =>
       result.status === "fulfilled" ? (result.value[0]?.count || 0) : 0;
@@ -51,15 +58,20 @@ app.get("/", async (c) => {
     const usersData = extractOjsCount(results[2] as PromiseSettledResult<CountRow[]>);
     const countriesData = extractOjsCount(results[3] as PromiseSettledResult<CountRow[]>);
 
-    statsCache = {
+    const data: StatsData = {
       totalJournals: journalsData,
       totalArticles: articlesData,
       totalUsers: usersData,
       countriesCount: countriesData,
     }
-    lastFetchTime = now
 
-    return c.json({ success: true, data: statsCache })
+    // Only persist to cache if all queries succeeded.
+    if (allFulfilled) {
+      statsCache = data
+      lastFetchTime = now
+    }
+
+    return c.json({ success: true, data })
   } catch (error) {
     console.error("[STATISTICS_GET_ERROR]", error)
     const errorMessage = error instanceof Error ? error.message : "Failed to fetch statistics"
