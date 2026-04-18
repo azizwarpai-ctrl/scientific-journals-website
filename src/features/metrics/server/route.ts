@@ -99,7 +99,13 @@ app.get("/", async (c) => {
 
             const queryErrors = results
                 .filter((r) => r.status === "rejected")
-                .map((r) => (r as PromiseRejectedResult).reason?.message || String((r as PromiseRejectedResult).reason))
+                .map(() => "Query failed")  // Sanitize errors before sending to client
+
+            if (queryErrors.length > 0) {
+                console.warn("[METRICS_GET] Some queries failed:", results
+                    .filter((r) => r.status === "rejected")
+                    .map((r) => (r as PromiseRejectedResult).reason?.message || String((r as PromiseRejectedResult).reason)))
+            }
 
             // Cascading fallback: geo metrics → user countries → journal settings → active journals
             let countriesCount = 0

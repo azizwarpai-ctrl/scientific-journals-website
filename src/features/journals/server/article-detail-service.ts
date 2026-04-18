@@ -237,7 +237,9 @@ export async function fetchArticleDetail(
       }>(
         `SELECT author_id, locale, setting_name, setting_value
          FROM author_settings
-         WHERE author_id IN (${authorIds.join(',')})`
+         WHERE author_id IN (${authorIds.map(() => '?').join(',')})`
+        ,
+        authorIds
       ),
       fetchNewAuthorAffiliations(authorIds),
     ])
