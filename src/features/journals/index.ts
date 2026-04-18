@@ -16,6 +16,7 @@ export { useGetArticleDetail } from "./api/use-get-article-detail"
 export { useGetEditorialBoard } from "./api/use-get-editorial-board"
 export { useGetCustomBlocks } from "./api/use-get-custom-blocks"
 export { useGetJournalFees } from "./api/use-get-journal-fees"
+export { useGetJournalAboutContent } from "./api/use-get-journal-about-content"
 // Journal Registration Multi-Step Wizard
 export { 
   journalRegistrationPayloadSchema,

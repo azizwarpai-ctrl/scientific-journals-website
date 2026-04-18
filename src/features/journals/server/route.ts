@@ -499,6 +499,43 @@ app.get("/:id/policies", zValidator("param", journalSlugParamSchema), async (c) 
   }
 })
 
+// ─── GET /journals/:id/about-content — Aims/Scope extracted from OJS About page ──
+
+app.get("/:id/about-content", zValidator("param", journalSlugParamSchema), async (c) => {
+  try {
+    const { id } = c.req.valid("param")
+
+    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
+    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
+    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+
+    if (!journal) {
+      return c.json({ success: false, error: "Journal not found" }, 404)
+    }
+
+    if (!journal.ojs_id) {
+      return c.json({ success: true, data: null, message: "No OJS data" }, 200)
+    }
+
+    const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
+    if (!isOjsConfigured()) {
+      return c.json({ success: true, data: null, message: "OJS not configured" }, 200)
+    }
+
+    try {
+      const { fetchJournalAboutContent } = await import("@/src/features/journals/server/about-content-service")
+      const about = await fetchJournalAboutContent(journal.ojs_id)
+      return c.json({ success: true, data: about }, 200)
+    } catch (queryError) {
+      console.error("[AboutContent API] OJS Query Error:", queryError)
+      return c.json({ success: false, error: "Failed to fetch about content from OJS" }, 502)
+    }
+  } catch (error) {
+    console.error("Error fetching about content:", error)
+    return c.json({ success: false, error: "Failed to fetch about content" }, 500)
+  }
+})
+
 // ─── GET /journals/:id/fees — Publication Fees content sourced from OJS ──
 
 app.get("/:id/fees", zValidator("param", journalSlugParamSchema), async (c) => {

@@ -441,6 +441,21 @@ export async function GET(request: Request) {
     }
   }
 
+  // PHP bridge on the OJS host — if deployed and `OJS_PDF_BRIDGE_URL` is set,
+  // this is tried first. The bridge reads the file straight from the OJS
+  // files_dir on the server's local disk, bypassing every web-side permission
+  // check (payments plugin, Referer/hotlink rules, session interstitials).
+  // Configuring the bridge's URL + `OJS_API_KEY` effectively eliminates the
+  // "Access permission required" class of errors.
+  const bridgeBase = process.env.OJS_PDF_BRIDGE_URL?.replace(/\/$/, "") || null
+  const bridgeUrl =
+    bridgeBase && apiKey
+      ? `${bridgeBase}?journal=${encodeURIComponent(journal)}` +
+        `&submissionId=${encodeURIComponent(submissionId)}` +
+        `&galleyId=${encodeURIComponent(galleyId)}` +
+        (fileId ? `&fileId=${encodeURIComponent(fileId)}` : "")
+      : null
+
   // OJS 3.x REST API — preferred when an API key is configured. Bypasses the
   // public galley hotlink/permission wall entirely because it authenticates as
   // a publisher-level client.
@@ -483,6 +498,20 @@ export async function GET(request: Request) {
   ])
 
   try {
+    if (bridgeUrl) {
+      const bridgeResult = await safeAttempt(bridgeUrl, {
+        Authorization: `Bearer ${apiKey}`,
+      })
+      if (bridgeResult.ok) return bridgeResult
+      const errorHeader = bridgeResult.headers.get("X-Proxy-Error")
+      if (!errorHeader || !RETRIABLE_CODES.has(errorHeader)) {
+        return bridgeResult
+      }
+      console.warn(
+        `[PDF Proxy] PHP bridge attempt failed (${errorHeader}), falling back to REST API / public galley URLs`
+      )
+    }
+
     if (apiUrl) {
       const apiResult = await safeAttempt(apiUrl, {
         Authorization: `Bearer ${apiKey}`,

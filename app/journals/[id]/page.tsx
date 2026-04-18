@@ -25,7 +25,7 @@ import {
 
 import DOMPurify from "dompurify"
 
-import { useGetJournal, useGetJournalStats, useJournalId, useGetJournalFees } from "@/src/features/journals"
+import { useGetJournal, useGetJournalStats, useJournalId, useGetJournalFees, useGetJournalAboutContent } from "@/src/features/journals"
 import { parseAimsAndScope } from "@/src/features/journals/utils/aims-scope-parser"
 
 import { Navbar } from "@/components/navbar"
@@ -51,6 +51,7 @@ export default function JournalDetailPage() {
   const { data: journal, isLoading, error } = useGetJournal(id)
   const { data: stats } = useGetJournalStats(id)
   const { data: ojsFees } = useGetJournalFees(id)
+  const { data: ojsAbout } = useGetJournalAboutContent(id)
 
   const sanitizeContent = (html: string | null | undefined): string => {
     if (!html) return ""
@@ -112,10 +113,32 @@ export default function JournalDetailPage() {
     )
   }
 
-  const aimsScopeParts = parseAimsAndScope(journal.aims_and_scope)
-  const safeAims = aimsScopeParts.aims ? sanitizeContent(aimsScopeParts.aims) : null
-  const safeScope = aimsScopeParts.scope ? sanitizeContent(aimsScopeParts.scope) : null
-  const safeAimsAndScopeCombined = aimsScopeParts.combined ? sanitizeContent(aimsScopeParts.combined) : null
+  // Aims & Scope: prefer OJS About-page content (navigation_menu or static_pages)
+  // when it provides a clean Aims/Scope split, otherwise fall back to the
+  // structured `journal_settings.aimsAndScope` field parsed locally. OJS About
+  // content can include headings/lists/tables, so use the richer sanitizer.
+  const localParts = parseAimsAndScope(journal.aims_and_scope)
+  const preferOjs = !!(ojsAbout && (ojsAbout.aims || ojsAbout.scope || ojsAbout.combined))
+  const preferOjsSplit = !!(ojsAbout && ojsAbout.aims && ojsAbout.scope)
+  const hasLocalSplit = !!(localParts.aims && localParts.scope)
+
+  const chosenAims = preferOjsSplit
+    ? ojsAbout?.aims ?? null
+    : hasLocalSplit
+      ? localParts.aims
+      : ojsAbout?.aims ?? null
+  const chosenScope = preferOjsSplit
+    ? ojsAbout?.scope ?? null
+    : hasLocalSplit
+      ? localParts.scope
+      : ojsAbout?.scope ?? null
+  const chosenCombined = preferOjsSplit || hasLocalSplit
+    ? null
+    : (preferOjs ? ojsAbout?.combined ?? null : localParts.combined)
+
+  const safeAims = chosenAims ? sanitizeRichContent(chosenAims) : null
+  const safeScope = chosenScope ? sanitizeRichContent(chosenScope) : null
+  const safeAimsAndScopeCombined = chosenCombined ? sanitizeRichContent(chosenCombined) : null
   const safeAuthorGuidelines = sanitizeContent(journal.author_guidelines)
 
   const ojsBaseUrl = process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"
