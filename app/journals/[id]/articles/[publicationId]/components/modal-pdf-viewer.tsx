@@ -47,6 +47,29 @@ type Phase = "loading" | "ready" | "timeout"
  * Therefore: we skip all server-side probing and load the DIRECT OJS URL
  * (pdfDirectUrl) straight into an iframe. The browser handles everything.
  */
+/**
+ * If pdfDirectUrl is not provided, derive a direct OJS download URL from
+ * the proxy URL's query parameters. This guarantees the iframe always loads
+ * the OJS URL directly (browser handles SiteGround WAF) and never our
+ * server-side proxy (which SiteGround blocks with a JS challenge).
+ */
+function deriveDirectUrl(proxyUrl: string | null): string | null {
+  if (!proxyUrl || !proxyUrl.startsWith("/api/pdf-proxy")) return null
+  const ojsBase = process.env.NEXT_PUBLIC_OJS_BASE_URL
+  if (!ojsBase) return null
+  try {
+    const params = new URL(proxyUrl, "http://localhost").searchParams
+    const journal = params.get("journal")
+    const submissionId = params.get("submissionId")
+    const galleyId = params.get("galleyId")
+    if (!journal || !submissionId || !galleyId) return null
+    const base = ojsBase.endsWith("/") ? ojsBase.slice(0, -1) : ojsBase
+    return `${base}/index.php/${journal}/article/download/${submissionId}/${galleyId}?inline=1`
+  } catch {
+    return null
+  }
+}
+
 export function ModalPdfViewer({
   pdfUrl,
   pdfDirectUrl,
@@ -60,10 +83,12 @@ export function ModalPdfViewer({
   const panelRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
-  // Prefer the direct OJS URL; fall back to proxy URL if unavailable.
-  // The direct URL lets the browser handle SiteGround's JS challenge.
-  const viewUrl = pdfDirectUrl || pdfUrl
-  const downloadUrl = pdfDirectUrl || pdfUrl
+  // Always prefer the direct OJS URL so the browser handles SiteGround's WAF.
+  // If pdfDirectUrl isn't provided (e.g. from article listings), derive it
+  // from the proxy URL's query parameters + NEXT_PUBLIC_OJS_BASE_URL.
+  const directOjsUrl = pdfDirectUrl || deriveDirectUrl(pdfUrl)
+  const viewUrl = directOjsUrl || pdfUrl
+  const downloadUrl = directOjsUrl || pdfUrl
 
   const [isMobile, setIsMobile] = useState(false)
 
