@@ -19,18 +19,20 @@ import {
   Database,
   Calendar,
   Scale,
+  Target,
+  Telescope,
 } from "lucide-react"
 
 import DOMPurify from "dompurify"
 
 import { useGetJournal, useGetJournalStats, useJournalId } from "@/src/features/journals"
+import { parseAimsAndScope } from "@/src/features/journals/utils/aims-scope-parser"
 
 import { Navbar } from "@/components/navbar"
 import CollapsibleContent from "@/components/ui/collapsible-content"
 import { Footer } from "@/components/footer"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { JournalError } from "@/components/errors/error-states"
 import { JournalNotFound } from "@/components/states/not-found-states"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -94,7 +96,10 @@ export default function JournalDetailPage() {
     )
   }
 
-  const safeAimsAndScope = sanitizeContent(journal.aims_and_scope)
+  const aimsScopeParts = parseAimsAndScope(journal.aims_and_scope)
+  const safeAims = aimsScopeParts.aims ? sanitizeContent(aimsScopeParts.aims) : null
+  const safeScope = aimsScopeParts.scope ? sanitizeContent(aimsScopeParts.scope) : null
+  const safeAimsAndScopeCombined = aimsScopeParts.combined ? sanitizeContent(aimsScopeParts.combined) : null
   const safeAuthorGuidelines = sanitizeContent(journal.author_guidelines)
 
   const ojsBaseUrl = process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"
@@ -337,8 +342,49 @@ export default function JournalDetailPage() {
                         )}
                       </div>
 
-                      {/* Aims & Scope — inline, only if data exists in DB */}
-                      {journal.aims_and_scope && (
+                      {/* Aims & Scope — split into two branded cards when OJS content has
+                          distinct headings; fall back to a single combined card otherwise. */}
+                      {safeAims && safeScope ? (
+                        <div className="grid gap-5 md:grid-cols-2">
+                          <div className="group relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-primary/[0.03] p-6 sm:p-7 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
+                            <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/5 blur-2xl transition-all group-hover:bg-primary/10" />
+                            <div className="relative flex items-center gap-3 mb-5">
+                              <div className="p-2.5 rounded-xl bg-primary/10 ring-1 ring-primary/20">
+                                <Target className="h-5 w-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80">Purpose</p>
+                                <h2 className="text-lg font-bold leading-tight">Aims of the Journal</h2>
+                              </div>
+                            </div>
+                            <CollapsibleContent maxHeight={260} className="prose prose-slate max-w-none dark:prose-invert relative">
+                              <div
+                                className="text-[15px] leading-relaxed text-muted-foreground"
+                                dangerouslySetInnerHTML={{ __html: safeAims }}
+                              />
+                            </CollapsibleContent>
+                          </div>
+
+                          <div className="group relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-primary/[0.03] p-6 sm:p-7 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
+                            <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/5 blur-2xl transition-all group-hover:bg-primary/10" />
+                            <div className="relative flex items-center gap-3 mb-5">
+                              <div className="p-2.5 rounded-xl bg-primary/10 ring-1 ring-primary/20">
+                                <Telescope className="h-5 w-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80">Coverage</p>
+                                <h2 className="text-lg font-bold leading-tight">Scope of the Journal</h2>
+                              </div>
+                            </div>
+                            <CollapsibleContent maxHeight={260} className="prose prose-slate max-w-none dark:prose-invert relative">
+                              <div
+                                className="text-[15px] leading-relaxed text-muted-foreground"
+                                dangerouslySetInnerHTML={{ __html: safeScope }}
+                              />
+                            </CollapsibleContent>
+                          </div>
+                        </div>
+                      ) : safeAimsAndScopeCombined ? (
                         <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
                           <div className="flex items-center gap-3 mb-6">
                             <div className="p-2.5 rounded-lg bg-primary/10">
@@ -349,11 +395,11 @@ export default function JournalDetailPage() {
                           <CollapsibleContent maxHeight={300} className="prose prose-slate max-w-none dark:prose-invert">
                             <div
                               className="text-base leading-relaxed text-muted-foreground"
-                              dangerouslySetInnerHTML={{ __html: safeAimsAndScope }}
+                              dangerouslySetInnerHTML={{ __html: safeAimsAndScopeCombined }}
                             />
                           </CollapsibleContent>
                         </div>
-                      )}
+                      ) : null}
                     </div>
 
                     {/* 2. Editorial Board */}
@@ -402,6 +448,76 @@ export default function JournalDetailPage() {
                   </TabsContent>
 
                   <TabsContent value="author" className="mt-8 space-y-6">
+                    {/* Publication Fees — sourced from OJS journal_settings.publicationFee / submissionFee */}
+                    {(() => {
+                      const publicationFee = Number(journal.publication_fee ?? 0)
+                      const submissionFee = Number(journal.submission_fee ?? 0)
+                      const anyFee = publicationFee > 0 || submissionFee > 0
+                      const fmt = (n: number) =>
+                        new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: "USD",
+                          minimumFractionDigits: n % 1 === 0 ? 0 : 2,
+                          maximumFractionDigits: 2,
+                        }).format(n)
+
+                      return (
+                        <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
+                          <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2.5 rounded-lg bg-primary/10">
+                              <CreditCard className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <h2 className="text-xl font-bold">Publication Fees</h2>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Sourced directly from the journal settings on SubmitManager
+                              </p>
+                            </div>
+                          </div>
+
+                          {anyFee ? (
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              {publicationFee > 0 && (
+                                <div className="rounded-xl border border-border/60 bg-muted/30 p-5">
+                                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80 mb-2">
+                                    Publication Fee
+                                  </p>
+                                  <p className="text-3xl font-extrabold tracking-tight">{fmt(publicationFee)}</p>
+                                  <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                                    Charged on acceptance. Covers peer-review, copyediting, typesetting, DOI, and long-term open-access hosting.
+                                  </p>
+                                </div>
+                              )}
+                              {submissionFee > 0 && (
+                                <div className="rounded-xl border border-border/60 bg-muted/30 p-5">
+                                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80 mb-2">
+                                    Submission Fee
+                                  </p>
+                                  <p className="text-3xl font-extrabold tracking-tight">{fmt(submissionFee)}</p>
+                                  <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                                    Charged at submission. Covers initial editorial handling and plagiarism screening.
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+                              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300 mb-1.5">
+                                No Charges
+                              </p>
+                              <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                                This journal does not currently collect submission or publication fees.
+                              </p>
+                              <p className="text-xs text-emerald-800/80 dark:text-emerald-200/70 leading-relaxed mt-1">
+                                Authors can submit and publish at no cost. Final fee policy is always shown on the journal&rsquo;s SubmitManager page.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
+
+                    {/* Author Guidelines — from OJS journal_settings.authorGuidelines */}
                     <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
                       <div className="flex items-center gap-3 mb-6">
                         <div className="p-2.5 rounded-lg bg-primary/10">
@@ -409,48 +525,29 @@ export default function JournalDetailPage() {
                         </div>
                         <h2 className="text-xl font-bold">Author Guidelines</h2>
                       </div>
-                      <div className="space-y-6">
-                        <Card className="border-border/60 bg-muted/30 shadow-none">
-                          <CardContent className="p-5">
-                            <div className="flex items-start gap-4">
-                              <div className="p-2.5 rounded-lg bg-primary/10">
-                                <CreditCard className="h-5 w-5 text-primary" />
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-bold text-base mb-2">Article Processing Charge (APC)</h4>
-                                <p className="text-muted-foreground text-sm leading-relaxed">
-                                  Upon acceptance, authors are required to pay an APC of ${journal.publication_fee || journal.submission_fee || 0} USD.
-                                  This covers the cost of open access publishing, peer review, and article maintenance.
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                      <CollapsibleContent maxHeight={420} className="prose prose-slate max-w-none dark:prose-invert text-sm leading-relaxed">
+                        {journal.author_guidelines ? (
+                          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed overflow-hidden">
+                            <div dangerouslySetInnerHTML={{ __html: safeAuthorGuidelines }} />
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <FileText className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
+                            <p className="text-muted-foreground">Detailed author guidelines are being prepared for this journal.</p>
+                          </div>
+                        )}
+                      </CollapsibleContent>
 
-                        <CollapsibleContent maxHeight={300} className="prose prose-slate max-w-none dark:prose-invert text-sm leading-relaxed">
-                          {journal.author_guidelines ? (
-                            <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed overflow-hidden">
-                              <div dangerouslySetInnerHTML={{ __html: safeAuthorGuidelines }} />
-
-                              {directUrl && (
-                                <div className="mt-8 pt-6 border-t border-border/60">
-                                  <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full font-semibold px-8 h-12 shadow-sm" asChild>
-                                    <Link href={directUrl}>
-                                      Submit Manuscript
-                                      <ExternalLink className="ml-2 h-3.5 w-3.5" />
-                                    </Link>
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="text-center py-8">
-                              <FileText className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
-                              <p className="text-muted-foreground">Detailed author guidelines are being prepared for this journal.</p>
-                            </div>
-                          )}
-                        </CollapsibleContent>
-                      </div>
+                      {directUrl && (
+                        <div className="mt-8 pt-6 border-t border-border/60">
+                          <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full font-semibold px-8 h-12 shadow-sm" asChild>
+                            <Link href={directUrl}>
+                              Submit Manuscript
+                              <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </TabsContent>
                 </Tabs>
