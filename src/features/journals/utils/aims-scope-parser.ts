@@ -13,11 +13,30 @@ export interface AimsScopeParts {
   combined: string | null
 }
 
-const AIMS_PATTERNS = [/^aims?$/i, /^aims?\s+of/i, /^journal\s+aims?/i, /^editorial\s+aims?/i]
-const SCOPE_PATTERNS = [/^scope$/i, /^scope\s+of/i, /^journal\s+scope/i, /^topics?\s+covered/i, /^subject\s+scope/i]
+const AIMS_PATTERNS = [
+  /^aims?$/i,
+  /^aims?\s+of/i,
+  /^journal\s+aims?/i,
+  /^editorial\s+aims?/i,
+  /^aims?\s*&\s*objectives?/i,
+  /^objectives?$/i,
+  /^mission$/i,
+]
+const SCOPE_PATTERNS = [
+  /^scope$/i,
+  /^scope\s+of/i,
+  /^journal\s+scope/i,
+  /^topics?\s+covered/i,
+  /^subject\s+scope/i,
+  /^areas?\s+of\s+interest/i,
+  /^coverage$/i,
+]
 
 function matchesAny(text: string, patterns: RegExp[]): boolean {
-  const trimmed = text.trim().replace(/[:：]$/, "").trim()
+  const trimmed = text
+    .trim()
+    .replace(/[:：.]+$/g, "")
+    .trim()
   return patterns.some((p) => p.test(trimmed))
 }
 
@@ -63,6 +82,39 @@ export function parseAimsAndScope(html: string | null | undefined): AimsScopePar
 
   // Strategy 2: keyword-labeled paragraphs — "<p><strong>Aims:</strong> …"
   // handled by the heading path above via the <strong> match.
+
+  // Strategy 3: plain-text markers on their own line — "Aims\n…\nScope\n…".
+  // OJS's rich-text editor sometimes flattens pasted content into paragraphs
+  // without explicit heading tags; try to detect those boundaries too.
+  const stripped = combined.replace(/<br\s*\/?>/gi, "\n")
+  const plainLines = stripped
+    .split(/<\/?p[^>]*>|\n+/i)
+    .map((s) => s.replace(/<[^>]*>/g, "").trim())
+    .filter(Boolean)
+
+  let aimsLineIdx = -1
+  let scopeLineIdx = -1
+  for (let i = 0; i < plainLines.length; i++) {
+    const line = plainLines[i]
+    if (aimsLineIdx === -1 && matchesAny(line, AIMS_PATTERNS)) aimsLineIdx = i
+    if (scopeLineIdx === -1 && matchesAny(line, SCOPE_PATTERNS)) scopeLineIdx = i
+  }
+
+  if (aimsLineIdx !== -1 && scopeLineIdx !== -1 && aimsLineIdx !== scopeLineIdx) {
+    const first = Math.min(aimsLineIdx, scopeLineIdx)
+    const second = Math.max(aimsLineIdx, scopeLineIdx)
+    const firstBody = plainLines.slice(first + 1, second).join(" ").trim()
+    const secondBody = plainLines.slice(second + 1).join(" ").trim()
+    const aimsBody = aimsLineIdx < scopeLineIdx ? firstBody : secondBody
+    const scopeBody = aimsLineIdx < scopeLineIdx ? secondBody : firstBody
+    if (aimsBody && scopeBody) {
+      return {
+        aims: `<p>${aimsBody}</p>`,
+        scope: `<p>${scopeBody}</p>`,
+        combined: null,
+      }
+    }
+  }
 
   return { aims: null, scope: null, combined }
 }

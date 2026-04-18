@@ -15,6 +15,7 @@ export { useJournalId } from "./hooks/use-journal-id"
 export { useGetArticleDetail } from "./api/use-get-article-detail"
 export { useGetEditorialBoard } from "./api/use-get-editorial-board"
 export { useGetCustomBlocks } from "./api/use-get-custom-blocks"
+export { useGetPublicationFees } from "./api/use-get-publication-fees"
 // Journal Registration Multi-Step Wizard
 export { 
   journalRegistrationPayloadSchema,

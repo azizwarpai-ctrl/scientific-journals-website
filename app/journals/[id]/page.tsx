@@ -25,7 +25,7 @@ import {
 
 import DOMPurify from "dompurify"
 
-import { useGetJournal, useGetJournalStats, useJournalId } from "@/src/features/journals"
+import { useGetJournal, useGetJournalStats, useJournalId, useGetPublicationFees } from "@/src/features/journals"
 import { parseAimsAndScope } from "@/src/features/journals/utils/aims-scope-parser"
 
 import { Navbar } from "@/components/navbar"
@@ -50,12 +50,13 @@ export default function JournalDetailPage() {
 
   const { data: journal, isLoading, error } = useGetJournal(id)
   const { data: stats } = useGetJournalStats(id)
+  const { data: publicationFees } = useGetPublicationFees(id)
 
   const sanitizeContent = (html: string | null | undefined): string => {
     if (!html) return ""
     return DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
-      ALLOWED_ATTR: [],
+      ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a'],
+      ALLOWED_ATTR: ['href', 'target', 'rel'],
     })
   }
 
@@ -448,18 +449,19 @@ export default function JournalDetailPage() {
                   </TabsContent>
 
                   <TabsContent value="author" className="mt-8 space-y-6">
-                    {/* Publication Fees — sourced from OJS journal_settings.publicationFee / submissionFee */}
+                    {/* Publication Fees — sourced from the OJS "Publication Fees"
+                        page (navigation menu item or static page). We deliberately
+                        do NOT render the numeric `publication_fee` / `submission_fee`
+                        journal_settings scalars here: those are driven by the
+                        Payments plugin which is often disabled, and showing them
+                        produced a misleading "No Charges" banner even when the
+                        journal publishes a fees page. When no page is found, we
+                        hide the card instead of inventing content. */}
                     {(() => {
-                      const publicationFee = Number(journal.publication_fee ?? 0)
-                      const submissionFee = Number(journal.submission_fee ?? 0)
-                      const anyFee = publicationFee > 0 || submissionFee > 0
-                      const fmt = (n: number) =>
-                        new Intl.NumberFormat("en-US", {
-                          style: "currency",
-                          currency: "USD",
-                          minimumFractionDigits: n % 1 === 0 ? 0 : 2,
-                          maximumFractionDigits: 2,
-                        }).format(n)
+                      const pageHtml = publicationFees?.content
+                        ? sanitizeContent(publicationFees.content)
+                        : null
+                      if (!pageHtml) return null
 
                       return (
                         <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
@@ -468,51 +470,24 @@ export default function JournalDetailPage() {
                               <CreditCard className="h-5 w-5 text-primary" />
                             </div>
                             <div>
-                              <h2 className="text-xl font-bold">Publication Fees</h2>
+                              <h2 className="text-xl font-bold">
+                                {publicationFees?.title || "Publication Fees"}
+                              </h2>
                               <p className="text-xs text-muted-foreground mt-0.5">
-                                Sourced directly from the journal settings on SubmitManager
+                                Sourced directly from the journal&rsquo;s Publication Fees page on SubmitManager
                               </p>
                             </div>
                           </div>
 
-                          {anyFee ? (
-                            <div className="grid gap-4 sm:grid-cols-2">
-                              {publicationFee > 0 && (
-                                <div className="rounded-xl border border-border/60 bg-muted/30 p-5">
-                                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80 mb-2">
-                                    Publication Fee
-                                  </p>
-                                  <p className="text-3xl font-extrabold tracking-tight">{fmt(publicationFee)}</p>
-                                  <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                                    Charged on acceptance. Covers peer-review, copyediting, typesetting, DOI, and long-term open-access hosting.
-                                  </p>
-                                </div>
-                              )}
-                              {submissionFee > 0 && (
-                                <div className="rounded-xl border border-border/60 bg-muted/30 p-5">
-                                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80 mb-2">
-                                    Submission Fee
-                                  </p>
-                                  <p className="text-3xl font-extrabold tracking-tight">{fmt(submissionFee)}</p>
-                                  <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                                    Charged at submission. Covers initial editorial handling and plagiarism screening.
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/30">
-                              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300 mb-1.5">
-                                No Charges
-                              </p>
-                              <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
-                                This journal does not currently collect submission or publication fees.
-                              </p>
-                              <p className="text-xs text-emerald-800/80 dark:text-emerald-200/70 leading-relaxed mt-1">
-                                Authors can submit and publish at no cost. Final fee policy is always shown on the journal&rsquo;s SubmitManager page.
-                              </p>
-                            </div>
-                          )}
+                          <CollapsibleContent
+                            maxHeight={420}
+                            className="prose prose-slate max-w-none dark:prose-invert text-sm leading-relaxed"
+                          >
+                            <div
+                              className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed overflow-hidden"
+                              dangerouslySetInnerHTML={{ __html: pageHtml }}
+                            />
+                          </CollapsibleContent>
                         </div>
                       )
                     })()}

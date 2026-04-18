@@ -183,6 +183,66 @@ export async function GET(request: Request) {
     }
   }
 
+  /**
+   * Bootstrap a PKP/OJS session by GET-ing the article view page and
+   * harvesting any Set-Cookie values (PHPSESSID, OJSSID, etc.). Many OJS
+   * deployments tie `/article/download/` hotlink protection to a live
+   * session cookie — a cold fetch with only UA+Referer gets a 403 login
+   * page, but replaying those cookies makes the download succeed exactly
+   * as it would when a user clicks the in-page "Download" link.
+   *
+   * Returns a `Cookie` header value (or `null` if no cookies were set).
+   * Failures are swallowed — the caller keeps the ladder behaviour and
+   * downgrades to anonymous retries.
+   */
+  const bootstrapSessionCookie = async (): Promise<string | null> => {
+    try {
+      const res = await fetchWithTimeout(articlePageReferer)
+      // Follow HEAD through a single redirect hop to collect cookies set
+      // on the canonicalised path (OJS often redirects from .../view/N
+      // to .../view/N/ with Set-Cookie on the 302).
+      const setCookies: string[] = []
+      const collect = (r: Response) => {
+        // Node ≥18 returns multiple set-cookie via getSetCookie(); fall
+        // back to the concatenated header string for older runtimes.
+        type HeadersWithGetSetCookie = Headers & { getSetCookie?: () => string[] }
+        const h = r.headers as HeadersWithGetSetCookie
+        if (typeof h.getSetCookie === "function") {
+          for (const v of h.getSetCookie()) setCookies.push(v)
+        } else {
+          const raw = r.headers.get("set-cookie")
+          if (raw) setCookies.push(raw)
+        }
+      }
+      collect(res)
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get("location")
+        if (location) {
+          try {
+            const target = new URL(location, articlePageReferer)
+            if (target.host === ojsHost) {
+              const hop = await fetchWithTimeout(target.toString())
+              collect(hop)
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+      if (setCookies.length === 0) return null
+
+      // Keep only the "name=value" of each cookie, join with "; " to form a
+      // standard Cookie request header. Session-scoped cookies don't need
+      // domain/path — we're replaying against the same host.
+      const pairs = setCookies
+        .map((c) => c.split(";")[0]?.trim())
+        .filter((p): p is string => Boolean(p && p.includes("=")))
+      return pairs.length > 0 ? pairs.join("; ") : null
+    } catch {
+      return null
+    }
+  }
+
   const followRedirects = async (
     startUrl: string,
     initHeaders: Record<string, string>,
@@ -498,14 +558,33 @@ export async function GET(request: Request) {
     }
 
     let lastResult: NextResponse | null = null
+    let sessionCookie: string | null = null
     for (const url of webCandidates) {
-      const result = await safeAttempt(url)
+      const headers: Record<string, string> = sessionCookie ? { Cookie: sessionCookie } : {}
+      const result = await safeAttempt(url, headers)
       if (result.ok) return result
       lastResult = result
       const code = result.headers.get("X-Proxy-Error")
       if (code && !RETRIABLE_CODES.has(code)) break
       if (code) {
         console.warn(`[PDF Proxy] Candidate "${url}" failed (${code}); trying next URL shape`)
+      }
+
+      // If the first anonymous attempt hit an OJS hotlink / session wall,
+      // bootstrap a real browsing session and retry the same URL with the
+      // captured cookies before moving on to the next URL shape.
+      if (!sessionCookie && code === "AUTH_REQUIRED") {
+        sessionCookie = await bootstrapSessionCookie()
+        if (sessionCookie) {
+          console.warn(
+            `[PDF Proxy] AUTH_REQUIRED on "${url}"; retrying with session cookie bootstrapped from article page`
+          )
+          const retry = await safeAttempt(url, { Cookie: sessionCookie })
+          if (retry.ok) return retry
+          lastResult = retry
+          const retryCode = retry.headers.get("X-Proxy-Error")
+          if (retryCode && !RETRIABLE_CODES.has(retryCode)) break
+        }
       }
     }
 

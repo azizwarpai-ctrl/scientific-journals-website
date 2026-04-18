@@ -29,20 +29,22 @@ export function MemberCard({ member }: MemberCardProps) {
   const hasLinks = orcidUrl || scholarUrl || scopusUrl
 
   return (
-    <article className="group flex items-start gap-3 rounded-xl border border-border/50 bg-card p-3 sm:p-3.5 transition-all duration-200 hover:border-primary/40 hover:shadow-sm h-full">
-      {/* Compact circular avatar */}
+    <article className="group flex items-start gap-3.5 rounded-xl border border-border/50 bg-card p-3.5 sm:p-4 transition-all duration-200 hover:border-primary/40 hover:shadow-sm h-full">
+      {/* Square portrait with rounded edges — larger than the legacy circular
+          avatar so the face is recognisable at a glance while keeping cards
+          compact enough for a 3-up grid. */}
       <div className="shrink-0">
         <MemberPhoto
           name={member.name}
           imageUrl={member.profileImage}
-          className="h-14 w-14 sm:h-16 sm:w-16 rounded-full ring-1 ring-border/60"
+          className="h-20 w-20 sm:h-24 sm:w-24 rounded-lg ring-1 ring-border/60"
         />
       </div>
 
       {/* Identity + role + links */}
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-semibold leading-snug text-foreground line-clamp-2 min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
+          <h3 className="text-sm font-semibold leading-snug text-foreground min-w-0 flex-1 break-words">
             {member.name}
           </h3>
           <span
@@ -57,7 +59,7 @@ export function MemberCard({ member }: MemberCardProps) {
         </div>
 
         {member.affiliation && (
-          <p className="text-[11px] leading-snug text-muted-foreground line-clamp-2">
+          <p className="text-[11px] leading-snug text-muted-foreground line-clamp-3">
             {member.affiliation}
           </p>
         )}

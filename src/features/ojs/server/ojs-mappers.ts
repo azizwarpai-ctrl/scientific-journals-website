@@ -57,15 +57,18 @@ export function mapOjsJournalRow(row: OjsJournalRow, baseUrl: string): OjsJourna
         contact_name: row.contact_name || null,
         country: row.country || null,
         // Sanitize OJS HTML content — keep basic block elements, strip scripts/styles
+        // Preserve every heading level + inline emphasis tags — the aims/scope
+        // parser uses them to split a combined block into distinct cards, and
+        // stripping them would collapse the structure into flat text.
         aims_and_scope: row.aims_and_scope
             ? sanitizeHtml(row.aims_and_scope, {
-                allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
+                allowedTags: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
                 allowedAttributes: {},
               }).trim() || null
             : null,
         author_guidelines: row.author_guidelines
             ? sanitizeHtml(row.author_guidelines, {
-                allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
+                allowedTags: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
                 allowedAttributes: {},
               }).trim() || null
             : null,
