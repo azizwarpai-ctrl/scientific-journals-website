@@ -20,7 +20,7 @@ export function useGetJournalFees(journalId: string | null | undefined) {
       return (payload as { success: true; data: PublicationFees | null }).data ?? null
     },
     enabled: !!journalId,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     retry: 1,
   })
 }

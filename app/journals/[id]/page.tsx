@@ -71,7 +71,7 @@ export default function JournalDetailPage() {
         'h1', 'h2', 'h3', 'h4', 'h5', 'blockquote', 'span', 'div',
         'table', 'tbody', 'tr', 'td', 'th', 'thead', 'hr',
       ],
-      ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style'],
+      ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
     })
   }
 
@@ -469,9 +469,9 @@ export default function JournalDetailPage() {
                       const ojsHtml = ojsFees?.html ?? null
                       const ojsPubFee = ojsFees?.publicationFee ?? null
                       const ojsSubFee = ojsFees?.submissionFee ?? null
-                      // Structured fees come from OJS when present, otherwise from the local Prisma cache.
-                      const publicationFee = ojsPubFee ?? Number(journal.publication_fee ?? 0)
-                      const submissionFee = ojsSubFee ?? Number(journal.submission_fee ?? 0)
+                      // Prefer positive OJS values, otherwise use local Prisma cache.
+                      const publicationFee = (ojsPubFee && ojsPubFee > 0) ? ojsPubFee : Number(journal.publication_fee ?? 0)
+                      const submissionFee = (ojsSubFee && ojsSubFee > 0) ? ojsSubFee : Number(journal.submission_fee ?? 0)
                       const currency = (ojsFees?.currencyCode || "USD").toUpperCase()
                       const safeOjsHtml = ojsHtml ? sanitizeRichContent(ojsHtml) : ""
                       const hasRichContent = safeOjsHtml.length > 0

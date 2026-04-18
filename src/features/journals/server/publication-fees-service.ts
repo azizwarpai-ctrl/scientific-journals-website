@@ -62,8 +62,8 @@ function isFeeAlias(value: string | null | undefined): boolean {
   const norm = normalizeKey(value)
   if (!norm) return false
   if (FEE_PAGE_ALIASES.has(norm)) return true
-  // Also treat "publication fees" embedded in a longer title as a match.
-  return /\bpublication (?:fees?|charges?)\b/.test(norm) || norm === "apc"
+  // Also match variations of publication fees/charges or APC embedded in longer titles.
+  return /\b(?:publication|article\s+processing)\s+(?:fees?|charges?|apc|apcs)\b/.test(norm)
 }
 
 // ── Sanitization ───────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ const SANITIZE_OPTIONS = {
   ],
   allowedAttributes: {
     a: ["href", "target", "rel"],
-    "*": ["class", "style"],
+    "*": ["class"],
   },
   transformTags: {
     a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer", target: "_blank" }),
@@ -107,7 +107,28 @@ function pickBestLocale(
 
 function parseFeeAmount(value: string | null | undefined): number | null {
   if (value == null) return null
-  const n = parseFloat(String(value).replace(/[^0-9.\-]/g, ""))
+  let normalized = String(value).replace(/[^0-9.,\-]/g, "").trim()
+  if (!normalized) return null
+
+  // Handle thousands/decimal separators: if both . and , exist, the last one is the decimal marker.
+  // e.g. "1.500,00" → "1500.00" (EU format), "1,234.56" → "1234.56" (US format)
+  const lastDot = normalized.lastIndexOf(".")
+  const lastComma = normalized.lastIndexOf(",")
+
+  if (lastDot > -1 && lastComma > -1) {
+    // Both exist: last one is decimal, remove the other
+    if (lastComma > lastDot) {
+      normalized = normalized.replace(/\./g, "").replace(",", ".")
+    } else {
+      normalized = normalized.replace(/,/g, "")
+    }
+  } else if (lastComma > -1) {
+    // Only comma: EU-style, convert to decimal point
+    normalized = normalized.replace(",", ".")
+  }
+  // If only dot, or neither, proceed as-is
+
+  const n = parseFloat(normalized)
   return Number.isFinite(n) && n >= 0 ? n : null
 }
 
