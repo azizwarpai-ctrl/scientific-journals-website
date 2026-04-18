@@ -25,7 +25,7 @@ import {
 
 import DOMPurify from "dompurify"
 
-import { useGetJournal, useGetJournalStats, useJournalId } from "@/src/features/journals"
+import { useGetJournal, useGetJournalStats, useJournalId, useGetJournalFees } from "@/src/features/journals"
 import { parseAimsAndScope } from "@/src/features/journals/utils/aims-scope-parser"
 
 import { Navbar } from "@/components/navbar"
@@ -50,12 +50,28 @@ export default function JournalDetailPage() {
 
   const { data: journal, isLoading, error } = useGetJournal(id)
   const { data: stats } = useGetJournalStats(id)
+  const { data: ojsFees } = useGetJournalFees(id)
 
   const sanitizeContent = (html: string | null | undefined): string => {
     if (!html) return ""
     return DOMPurify.sanitize(html, {
       ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
       ALLOWED_ATTR: [],
+    })
+  }
+
+  // Richer sanitizer for OJS-sourced fee content, which may include tables,
+  // links and inline formatting. The server already runs a strict sanitize
+  // pass — this is defense in depth for the browser-side render.
+  const sanitizeRichContent = (html: string | null | undefined): string => {
+    if (!html) return ""
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: [
+        'p', 'br', 'strong', 'em', 'b', 'i', 'u', 'ul', 'ol', 'li', 'a',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'blockquote', 'span', 'div',
+        'table', 'tbody', 'tr', 'td', 'th', 'thead', 'hr',
+      ],
+      ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
     })
   }
 
@@ -448,18 +464,31 @@ export default function JournalDetailPage() {
                   </TabsContent>
 
                   <TabsContent value="author" className="mt-8 space-y-6">
-                    {/* Publication Fees — sourced from OJS journal_settings.publicationFee / submissionFee */}
+                    {/* Publication Fees — prefer OJS custom page content, fall back to structured fees */}
                     {(() => {
-                      const publicationFee = Number(journal.publication_fee ?? 0)
-                      const submissionFee = Number(journal.submission_fee ?? 0)
-                      const anyFee = publicationFee > 0 || submissionFee > 0
-                      const fmt = (n: number) =>
-                        new Intl.NumberFormat("en-US", {
-                          style: "currency",
-                          currency: "USD",
-                          minimumFractionDigits: n % 1 === 0 ? 0 : 2,
-                          maximumFractionDigits: 2,
-                        }).format(n)
+                      const ojsHtml = ojsFees?.html ?? null
+                      const ojsPubFee = ojsFees?.publicationFee ?? null
+                      const ojsSubFee = ojsFees?.submissionFee ?? null
+                      // Prefer positive OJS values, otherwise use local Prisma cache.
+                      const publicationFee = (ojsPubFee && ojsPubFee > 0) ? ojsPubFee : Number(journal.publication_fee ?? 0)
+                      const submissionFee = (ojsSubFee && ojsSubFee > 0) ? ojsSubFee : Number(journal.submission_fee ?? 0)
+                      const currency = (ojsFees?.currencyCode || "USD").toUpperCase()
+                      const safeOjsHtml = ojsHtml ? sanitizeRichContent(ojsHtml) : ""
+                      const hasRichContent = safeOjsHtml.length > 0
+                      const anyStructuredFee = publicationFee > 0 || submissionFee > 0
+                      const fmt = (n: number) => {
+                        try {
+                          return new Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency,
+                            minimumFractionDigits: n % 1 === 0 ? 0 : 2,
+                            maximumFractionDigits: 2,
+                          }).format(n)
+                        } catch {
+                          // Fallback if currency code is invalid/unknown
+                          return `${n.toFixed(n % 1 === 0 ? 0 : 2)} ${currency}`
+                        }
+                      }
 
                       return (
                         <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
@@ -475,7 +504,12 @@ export default function JournalDetailPage() {
                             </div>
                           </div>
 
-                          {anyFee ? (
+                          {hasRichContent ? (
+                            <div
+                              className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:font-bold prose-a:text-primary prose-table:text-sm"
+                              dangerouslySetInnerHTML={{ __html: safeOjsHtml }}
+                            />
+                          ) : anyStructuredFee ? (
                             <div className="grid gap-4 sm:grid-cols-2">
                               {publicationFee > 0 && (
                                 <div className="rounded-xl border border-border/60 bg-muted/30 p-5">
@@ -501,16 +535,20 @@ export default function JournalDetailPage() {
                               )}
                             </div>
                           ) : (
-                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/30">
-                              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300 mb-1.5">
-                                No Charges
+                            <div className="rounded-xl border border-border/60 bg-muted/30 p-5">
+                              <p className="text-sm font-semibold">Fee details are published on SubmitManager.</p>
+                              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                                The authoritative fee schedule lives on the journal&rsquo;s SubmitManager page. Open the
+                                journal website to view current charges.
                               </p>
-                              <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
-                                This journal does not currently collect submission or publication fees.
-                              </p>
-                              <p className="text-xs text-emerald-800/80 dark:text-emerald-200/70 leading-relaxed mt-1">
-                                Authors can submit and publish at no cost. Final fee policy is always shown on the journal&rsquo;s SubmitManager page.
-                              </p>
+                              {directUrl && (
+                                <Button asChild size="sm" variant="outline" className="mt-3 rounded-full">
+                                  <Link href={directUrl}>
+                                    Open SubmitManager
+                                    <ExternalLink className="ml-1.5 h-3 w-3" />
+                                  </Link>
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
