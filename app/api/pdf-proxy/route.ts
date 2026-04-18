@@ -21,16 +21,6 @@ const FETCH_TIMEOUT_MS = 15000
 const PDF_MAGIC = new Uint8Array([0x25, 0x50, 0x44, 0x46]) // "%PDF"
 const ACCEPTED_CONTENT_TYPES = /^(application\/pdf|application\/x-pdf|application\/octet-stream|binary\/octet-stream)/i
 
-/**
- * Real-browser User-Agent. Several OJS deployments have WAFs or hotlink rules
- * that silently reject "bot-like" User-Agents (including the previous
- * "DigitoPub-PDF-Proxy") with 403/HTML login pages. Presenting as a browser
- * ensures OJS hands back the raw PDF for the same public galley URLs the
- * browser would fetch.
- */
-const BROWSER_USER_AGENT =
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
-
 function jsonError(
   code: ProxyErrorCode,
   message: string,
@@ -154,11 +144,6 @@ export async function GET(request: Request) {
 
   const apiKey = process.env.OJS_API_KEY
 
-  // Build a Referer that matches the OJS article page. Several OJS/nginx setups
-  // validate Referer to block hotlinking; sending the article view URL makes
-  // the proxy indistinguishable from a user clicking "Download" in-page.
-  const articlePageReferer = `${baseUrl}/index.php/${journal}/article/view/${submissionId}`
-
   const fetchWithTimeout = async (
     url: string,
     headers: Record<string, string> = {}
@@ -168,10 +153,8 @@ export async function GET(request: Request) {
     try {
       return await fetch(url, {
         headers: {
-          "User-Agent": BROWSER_USER_AGENT,
+          "User-Agent": "DigitoPub-PDF-Proxy",
           Accept: "application/pdf,application/octet-stream;q=0.9,*/*;q=0.1",
-          "Accept-Language": "en-US,en;q=0.9",
-          Referer: articlePageReferer,
           ...headers,
         },
         signal: controller.signal,
@@ -419,97 +402,49 @@ export async function GET(request: Request) {
     return streamPdfResponse(followed.res, followed.finalUrl)
   }
 
-  // Wrap attempt() so thrown errors (AbortError, network) are safely converted
-  // to a NextResponse with X-Proxy-Error set. This ensures the loop continues
-  // to the next candidate instead of breaking the whole try block.
-  const safeAttempt = async (
-    url: string,
-    extraHeaders: Record<string, string> = {}
-  ): Promise<NextResponse> => {
-    try {
-      return await attempt(url, extraHeaders)
-    } catch (error: unknown) {
-      if (error instanceof Error && error.name === "AbortError") {
-        return jsonError("TIMEOUT", "Source server did not respond in time.", 504, url)
-      }
-      return jsonError(
-        "UPSTREAM_ERROR",
-        "Network error while contacting the source server.",
-        502,
-        url
-      )
-    }
-  }
-
-  // OJS 3.x REST API — preferred when an API key is configured. Bypasses the
-  // public galley hotlink/permission wall entirely because it authenticates as
-  // a publisher-level client.
   const apiUrl =
     apiKey && fileId
       ? `${baseUrl}/index.php/${journal}/api/v1/submissions/${submissionId}/files/${fileId}/download`
       : null
 
-  // Full ladder of public galley URL shapes OJS has exposed over versions.
-  // We try every variant before surfacing a hard permission error so that an
-  // auth wall on one route doesn't sink the whole request when another route
-  // (e.g. legacy viewFile, or the fileId-qualified form) still serves the PDF.
-  const webCandidates: string[] = []
+  // Drop `?inline=1` — on several OJS versions this triggers an HTML inline
+  // viewer instead of streaming the raw file.
   const webDownloadUrl = `${baseUrl}/index.php/${journal}/article/download/${submissionId}/${galleyId}`
-  webCandidates.push(webDownloadUrl)
-  if (fileId) {
-    webCandidates.push(
-      `${baseUrl}/index.php/${journal}/article/download/${submissionId}/${galleyId}/${fileId}`
-    )
-  }
-  // Legacy OJS 2.x / some hybrid deployments still route through viewFile.
-  webCandidates.push(
-    `${baseUrl}/index.php/${journal}/article/viewFile/${submissionId}/${galleyId}`
-  )
-  if (fileId) {
-    webCandidates.push(
-      `${baseUrl}/index.php/${journal}/article/viewFile/${submissionId}/${galleyId}/${fileId}`
-    )
-  }
-
-  // Error codes that warrant trying the next candidate URL. We intentionally
-  // retry on AUTH_REQUIRED because one route may 403 while another still streams
-  // the raw file (different hotlink/permission checks per endpoint).
-  const RETRIABLE_CODES = new Set([
-    "AUTH_REQUIRED",
-    "UPSTREAM_ERROR",
-    "INVALID_RESPONSE",
-    "FILE_NOT_FOUND",
-    "TIMEOUT",
-  ])
+  const webDownloadUrlWithFile = fileId
+    ? `${baseUrl}/index.php/${journal}/article/download/${submissionId}/${galleyId}/${fileId}`
+    : null
 
   try {
     if (apiUrl) {
-      const apiResult = await safeAttempt(apiUrl, {
+      const apiResult = await attempt(apiUrl, {
         Authorization: `Bearer ${apiKey}`,
       })
       if (apiResult.ok) return apiResult
+      const fallbackCodes = ["AUTH_REQUIRED", "UPSTREAM_ERROR", "INVALID_RESPONSE", "FILE_NOT_FOUND"]
       const errorHeader = apiResult.headers.get("X-Proxy-Error")
-      if (!errorHeader || !RETRIABLE_CODES.has(errorHeader)) {
+      if (!errorHeader || !fallbackCodes.includes(errorHeader)) {
         return apiResult
       }
       console.warn(
-        `[PDF Proxy] REST API attempt failed (${errorHeader}), falling back to public galley URLs`
+        `[PDF Proxy] REST API attempt failed (${errorHeader}), falling back to web download URL`
       )
     }
 
-    let lastResult: NextResponse | null = null
-    for (const url of webCandidates) {
-      const result = await safeAttempt(url)
-      if (result.ok) return result
-      lastResult = result
-      const code = result.headers.get("X-Proxy-Error")
-      if (code && !RETRIABLE_CODES.has(code)) break
-      if (code) {
-        console.warn(`[PDF Proxy] Candidate "${url}" failed (${code}); trying next URL shape`)
+    const webResult = await attempt(webDownloadUrl)
+    if (webResult.ok) return webResult
+
+    if (webDownloadUrlWithFile) {
+      const webErrorCode = webResult.headers.get("X-Proxy-Error")
+      if (webErrorCode === "FILE_NOT_FOUND" || webErrorCode === "AUTH_REQUIRED") {
+        console.warn(
+          `[PDF Proxy] Standard download failed (${webErrorCode}), retrying with fileId-qualified URL`
+        )
+        const withFile = await attempt(webDownloadUrlWithFile)
+        if (withFile.ok) return withFile
       }
     }
 
-    return lastResult ?? jsonError("UPSTREAM_ERROR", "No candidate URLs available.", 502)
+    return webResult
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "AbortError") {
       console.error("[PDF Proxy] Request timed out")

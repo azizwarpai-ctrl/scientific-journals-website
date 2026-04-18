@@ -28,11 +28,7 @@ export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJou
             js_contact.setting_value AS contact_name,
             js_country.setting_value AS country,
             js_aims.setting_value AS aims_and_scope,
-            js_guidelines.setting_value AS author_guidelines,
-            js_pub_fee.setting_value AS publication_fee,
-            js_sub_fee.setting_value AS submission_fee,
-            js_fee_desc.setting_value AS publication_fee_description,
-            js_currency.setting_value AS currency_code
+            js_guidelines.setting_value AS author_guidelines
         FROM journals j
         LEFT JOIN journal_settings js_name
             ON js_name.journal_id = j.journal_id
@@ -103,23 +99,6 @@ export async function fetchFromDatabase(includeDisabled = false): Promise<OjsJou
             ON js_guidelines.journal_id = j.journal_id
             AND js_guidelines.setting_name = 'authorGuidelines'
             AND js_guidelines.locale = j.primary_locale
-        -- Publication/submission fees: stored under the payments plugin at journal level
-        LEFT JOIN journal_settings js_pub_fee
-            ON js_pub_fee.journal_id = j.journal_id
-            AND js_pub_fee.setting_name = 'publicationFee'
-            AND js_pub_fee.locale = ''
-        LEFT JOIN journal_settings js_sub_fee
-            ON js_sub_fee.journal_id = j.journal_id
-            AND js_sub_fee.setting_name = 'submissionFee'
-            AND js_sub_fee.locale = ''
-        LEFT JOIN journal_settings js_fee_desc
-            ON js_fee_desc.journal_id = j.journal_id
-            AND js_fee_desc.setting_name = 'publicationFeeDescription'
-            AND js_fee_desc.locale = j.primary_locale
-        LEFT JOIN journal_settings js_currency
-            ON js_currency.journal_id = j.journal_id
-            AND js_currency.setting_name = 'currency'
-            AND js_currency.locale = ''
         ${enabledFilter}
         ORDER BY j.seq ASC
     `)

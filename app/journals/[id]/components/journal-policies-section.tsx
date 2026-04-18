@@ -1,8 +1,14 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import DOMPurify, { type Config } from "dompurify"
-import { Shield, AlertCircle, FileText } from "lucide-react"
+import {
+  Shield,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  FileText,
+} from "lucide-react"
 import { useGetJournalPolicies } from "@/src/features/journals/api/use-get-journal-policies"
 
 interface JournalPoliciesSectionProps {
@@ -26,13 +32,10 @@ function sanitize(html: string | null | undefined): string {
   return DOMPurify.sanitize(html, SAFE_HTML_OPTIONS)
 }
 
-function PolicyContent({
-  html,
-  plainDescription,
-}: {
-  html: string | null
-  plainDescription?: string
-}) {
+function PolicyContent({ html, plainDescription }: { html: string | null; plainDescription?: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const MAX_HEIGHT = 260
+
   if (!html && plainDescription) {
     return (
       <div className="flex items-start gap-3 text-muted-foreground py-4">
@@ -45,10 +48,35 @@ function PolicyContent({
   const safe = sanitize(html)
 
   return (
-    <div
-      className="prose prose-sm md:prose-base dark:prose-invert max-w-[72ch] text-foreground/85 prose-headings:text-foreground prose-headings:font-bold prose-headings:tracking-tight prose-p:leading-relaxed prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-table:w-full prose-table:border-collapse prose-td:border prose-td:border-border/50 prose-td:p-2.5 prose-th:border prose-th:border-border/50 prose-th:p-2.5 prose-th:bg-muted/40 prose-th:font-semibold prose-img:rounded-lg prose-img:shadow-sm prose-blockquote:border-l-primary/40 prose-blockquote:bg-muted/20 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-li:marker:text-primary/60 prose-ul:space-y-1 prose-ol:space-y-1"
-      dangerouslySetInnerHTML={{ __html: safe }}
-    />
+    <div className="relative animate-in fade-in duration-300">
+      <div
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${!expanded ? "max-h-[260px]" : "max-h-[9999px]"}`}
+        style={{ maxHeight: !expanded ? `${MAX_HEIGHT}px` : undefined }}
+      >
+        <div
+          className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground prose-headings:text-foreground prose-headings:font-bold prose-p:leading-relaxed prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-table:w-full prose-table:border-collapse prose-td:border prose-td:border-border/50 prose-td:p-2.5 prose-th:border prose-th:border-border/50 prose-th:p-2.5 prose-th:bg-muted/40 prose-th:font-semibold prose-img:rounded-lg prose-img:shadow-sm prose-blockquote:border-l-primary/40 prose-blockquote:bg-muted/20 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-li:marker:text-primary/60 prose-ul:space-y-1 prose-ol:space-y-1"
+          dangerouslySetInnerHTML={{ __html: safe }}
+        />
+      </div>
+
+      {safe.length > 600 && (
+        <>
+          {!expanded && (
+            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none" />
+          )}
+          <button
+            onClick={() => setExpanded((prev: boolean) => !prev)}
+            className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors group"
+          >
+            {expanded ? (
+              <><ChevronUp className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5" /> Show less</>
+            ) : (
+              <><ChevronDown className="h-3.5 w-3.5 transition-transform group-hover:translate-y-0.5" /> Read full policy</>
+            )}
+          </button>
+        </>
+      )}
+    </div>
   )
 }
 
@@ -56,247 +84,149 @@ function PolicyContent({
 
 export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProps) {
   const [activeTabSlug, setActiveTabSlug] = useState<string | null>(null)
+  const [expandedAccordionId, setExpandedAccordionId] = useState<string | null | undefined>(undefined)
   const { data: policies, isLoading, isError } = useGetJournalPolicies(journalId)
-
-  const tabStripRef = useRef<HTMLDivElement | null>(null)
-  const activeButtonRef = useRef<HTMLButtonElement | null>(null)
-  const hasInitializedRef = useRef(false)
-  const tabButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
 
   const tabs = policies?.tabs || []
 
-  const defaultTabSlug = tabs.length > 0 ? tabs[0].slug : null
-  const currentTabSlug = activeTabSlug || defaultTabSlug
-  const navItems = tabs.map((t) => ({ id: t.slug, title: t.title, content: t.content }))
+  const defaultTabSlug = tabs.length > 0 ? tabs[0].slug : null;
+  const currentTabSlug = activeTabSlug || defaultTabSlug;
 
-  // Keep the active tab in view on narrow viewports ONLY on user-initiated changes
-  // (not on initial load). This prevents unwanted scrolling when the page first renders.
-  useEffect(() => {
-    if (!hasInitializedRef.current) {
-      hasInitializedRef.current = true
-      return
-    }
-    if (!activeButtonRef.current) return
-    activeButtonRef.current.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "center",
-    })
-  }, [currentTabSlug])
-
-  // Keyboard navigation: ArrowRight/Down → next, ArrowLeft/Up → prev, Home → first, End → last.
-  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, itemId: string) => {
-    const items = navItems
-    const index = items.findIndex((t) => t.id === itemId)
-    if (index === -1) return
-
-    let targetIndex: number | null = null
-    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-      targetIndex = index + 1 < items.length ? index + 1 : 0
-      e.preventDefault()
-    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-      targetIndex = index - 1 >= 0 ? index - 1 : items.length - 1
-      e.preventDefault()
-    } else if (e.key === "Home") {
-      targetIndex = 0
-      e.preventDefault()
-    } else if (e.key === "End") {
-      targetIndex = items.length - 1
-      e.preventDefault()
-    }
-
-    if (targetIndex !== null) {
-      const target = items[targetIndex]
-      setActiveTabSlug(target.id)
-      setTimeout(() => {
-        tabButtonRefs.current.get(target.id)?.focus()
-      }, 0)
-    }
-  }
-
+  // If completely empty without config
   if (!isLoading && !isError && tabs.length === 0) {
-    return null
+    return null; // Hide the entire section if absolutely no policies exist
   }
 
-  const activeItem = navItems.find((t) => t.id === currentTabSlug) ?? navItems[0]
+  // Combine items to a single array so we can render them cleanly
+  const navItems = [
+    ...tabs.map(t => ({ id: t.slug, title: t.title, type: "policy" as const, content: t.content }))
+  ]
+
+  const activeItem = navItems.find(t => t.id === currentTabSlug)
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-card shadow-sm overflow-hidden">
-      {/* Shared header */}
-      <header className="flex items-center gap-3 px-5 sm:px-6 py-4 sm:py-5 border-b border-border/40 bg-muted/10">
-        <div className="p-2 sm:p-2.5 rounded-lg bg-primary/10 shrink-0">
-          <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+    <div className="rounded-2xl border border-border/60 bg-card shadow-sm overflow-hidden flex flex-col md:flex-row">
+      
+      {/* ── Mobile/Tablet Accordion List (Hidden on Desktop) ── */}
+      <div className="md:hidden flex flex-col w-full">
+        <div className="flex items-center gap-3 px-6 py-5 border-b border-border/40 bg-muted/10">
+          <div className="p-2.5 rounded-lg bg-primary/10">
+            <Shield className="h-5 w-5 text-primary" />
+          </div>
+          <h2 className="text-xl font-bold">Journal Policies</h2>
         </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-base sm:text-lg lg:text-xl font-bold leading-tight">
-            Journal Policies
-          </h2>
-          <p className="hidden sm:block text-[11px] lg:text-xs text-muted-foreground font-medium mt-0.5">
-            Editorial standards, ethics, and submission guidelines
-          </p>
-        </div>
-      </header>
 
-      {/* Horizontal tab strip — shown below the lg breakpoint where a sidebar
-         would crowd the reading area. Scrollable on overflow so long titles
-         never force wrapping. */}
-      <div
-        ref={tabStripRef}
-        role="tablist"
-        aria-label="Journal policy sections"
-        className="lg:hidden border-b border-border/40 overflow-x-auto scroll-smooth [-webkit-overflow-scrolling:touch] [scrollbar-width:thin]"
-      >
         {isLoading ? (
-          <div className="flex gap-2 px-4 py-3 animate-pulse">
-            <div className="h-8 w-28 bg-muted rounded-full" />
-            <div className="h-8 w-36 bg-muted rounded-full" />
-            <div className="h-8 w-24 bg-muted rounded-full" />
+          <div className="p-4 space-y-3">
+             <div className="h-14 bg-muted rounded-xl animate-pulse" />
+             <div className="h-14 bg-muted rounded-xl animate-pulse" />
+             <div className="h-14 bg-muted rounded-xl animate-pulse" />
           </div>
         ) : isError ? (
-          <div className="px-4 py-3 text-sm text-destructive font-medium">
-            Failed to load policies.
-          </div>
+           <div className="p-4">
+             <div className="p-4 rounded-xl border border-destructive/20 bg-destructive/5 text-destructive text-sm font-semibold flex flex-col gap-1">
+               Failed to load policies.
+               <span className="text-xs opacity-80 font-medium">Please try again later.</span>
+             </div>
+           </div>
         ) : (
-          <div className="flex min-w-max gap-1 px-3 py-2">
-            {navItems.map((item) => {
-              const isActive = currentTabSlug === item.id
+          <div className="divide-y divide-border/40">
+            {navItems.map(item => {
+              const isActive = (expandedAccordionId === undefined ? defaultTabSlug : expandedAccordionId) === item.id;
               return (
-                <button
-                  key={item.id}
-                  id={`tab-${item.id}`}
-                  ref={(el) => {
-                    if (el) {
-                      tabButtonRefs.current.set(item.id, el)
-                      if (isActive) activeButtonRef.current = el
-                    }
-                  }}
-                  role="tab"
-                  aria-selected={isActive}
-                  aria-controls={`tabpanel-${item.id}`}
-                  tabIndex={isActive ? 0 : -1}
-                  onClick={() => setActiveTabSlug(item.id)}
-                  onKeyDown={(e) => handleTabKeyDown(e, item.id)}
-                  className={[
-                    "inline-flex items-center gap-2 whitespace-nowrap px-3.5 py-2 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
-                  ].join(" ")}
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                  {item.title}
-                </button>
+                <div key={item.id} className="flex flex-col bg-card relative">
+                  <button
+                    onClick={() => setExpandedAccordionId(isActive ? null : item.id)}
+                    className={`flex items-center justify-between px-6 py-4 transition-colors ${isActive ? "bg-primary/5 text-primary" : "text-foreground hover:bg-muted/40"}`}
+                  >
+                    <div className="flex items-center gap-3">
+                       <FileText className="h-4 w-4" />
+                       <span className="text-sm font-bold">{item.title}</span>
+                    </div>
+                    {isActive ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4 opacity-50" />}
+                  </button>
+                  {isActive && (
+                    <div className="p-6 bg-card border-t border-border/40 animate-in slide-in-from-top-2 duration-300 shadow-inner">
+                      <PolicyContent key={item.id} html={item.content || null} plainDescription="This policy has no detailed description configured." />
+                    </div>
+                  )}
+                </div>
               )
             })}
           </div>
         )}
       </div>
 
-      {/* Desktop (lg+) sidebar + content, otherwise full-width content */}
-      <div className="flex flex-col lg:flex-row">
-        {/* Compact sidebar — narrower than before (w-60, ~240px) so the
-           reading column gets the horizontal space it deserves. Sticky so
-           navigation stays visible while reading long policies. */}
-        <aside className="hidden lg:block w-60 shrink-0 border-r border-border/40 bg-muted/10">
-          <nav
-            role="tablist"
-            aria-label="Journal policy sections"
-            className="sticky top-4 p-3 space-y-1 max-h-[calc(100vh-2rem)] overflow-y-auto"
-          >
+      {/* ── Desktop Sidebar Layout (Hidden on Mobile) ── */}
+      <div className="hidden md:flex flex-row w-full min-h-[450px]">
+        {/* Sidebar */}
+        <div className="w-1/3 md:w-[280px] lg:w-[320px] shrink-0 bg-muted/20 border-r border-border/40 flex flex-col z-10 shadow-[2px_0_10px_-4px_rgba(0,0,0,0.05)]">
+          <div className="flex items-center gap-3 px-6 py-6 border-b border-border/40">
+            <div className="p-2.5 rounded-lg bg-primary/10">
+              <Shield className="h-5 w-5 text-primary" />
+            </div>
+            <h2 className="text-lg font-bold">Journal Policies</h2>
+          </div>
+          
+          <div className="p-4 space-y-1.5 flex-1 overflow-y-auto">
             {isLoading ? (
-              <div className="space-y-2 animate-pulse">
-                <div className="h-10 bg-muted rounded-lg" />
-                <div className="h-10 bg-muted rounded-lg" />
-                <div className="h-10 bg-muted rounded-lg w-3/4" />
-              </div>
+               <div className="space-y-3 animate-pulse">
+                <div className="h-11 bg-muted rounded-xl w-full" />
+                <div className="h-11 bg-muted rounded-xl w-full" />
+                <div className="h-11 bg-muted rounded-xl w-3/4" />
+               </div>
             ) : isError ? (
-              <div className="text-sm text-destructive p-3 rounded-lg bg-destructive/10 font-medium">
-                Error loading policies.
-              </div>
+               <div className="text-sm text-destructive p-4 bg-destructive/10 rounded-xl font-medium">Error loading policies.</div>
             ) : (
-              navItems.map((item) => {
-                const isActive = currentTabSlug === item.id
+              navItems.map(item => {
+                const isActive = currentTabSlug === item.id;
                 return (
                   <button
                     key={item.id}
-                    id={`tab-${item.id}`}
-                    ref={(el) => {
-                      if (el) {
-                        tabButtonRefs.current.set(item.id, el)
-                        if (isActive) activeButtonRef.current = el
-                      }
-                    }}
-                    role="tab"
-                    aria-selected={isActive}
-                    aria-controls={`tabpanel-${item.id}`}
-                    tabIndex={isActive ? 0 : -1}
                     onClick={() => setActiveTabSlug(item.id)}
-                    onKeyDown={(e) => handleTabKeyDown(e, item.id)}
                     className={[
-                      "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                      isActive
-                        ? "bg-primary/10 text-primary font-semibold"
-                        : "text-muted-foreground hover:bg-muted/70 hover:text-foreground font-medium",
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left group",
+                      isActive 
+                        ? "bg-primary/10 text-primary shadow-sm font-semibold" 
+                        : "text-muted-foreground hover:bg-muted/80 hover:text-foreground font-medium"
                     ].join(" ")}
                   >
-                    <FileText
-                      className={[
-                        "h-4 w-4 shrink-0",
-                        isActive ? "text-primary" : "text-muted-foreground/70",
-                      ].join(" ")}
-                    />
-                    <span className="leading-snug">{item.title}</span>
+                    <div className={`p-1.5 rounded-md transition-colors ${isActive ? "bg-primary/20 text-primary" : "bg-transparent text-muted-foreground group-hover:text-foreground"}`}>
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <span className="text-sm tracking-tight">{item.title}</span>
                   </button>
                 )
               })
             )}
-          </nav>
-        </aside>
+          </div>
+        </div>
 
-        {/* Content — fills the remaining width, with a comfortable reading
-           measure applied inside the prose block instead of via an outer
-           `max-w` that wastes space on wide screens. */}
-        <article
-          role="tabpanel"
-          id={`tabpanel-${activeItem?.id}`}
-          aria-labelledby={`tab-${activeItem?.id}`}
-          className="flex-1 min-w-0 px-5 sm:px-8 lg:px-10 py-6 sm:py-8 lg:py-10"
-        >
-          {isLoading ? (
-            <div className="space-y-3 animate-pulse">
-              <div className="h-7 bg-muted rounded w-1/2" />
-              <div className="h-4 bg-muted rounded w-full" />
-              <div className="h-4 bg-muted rounded w-11/12" />
-              <div className="h-4 bg-muted rounded w-10/12" />
-              <div className="h-4 bg-muted rounded w-9/12" />
-            </div>
-          ) : isError ? (
-            <div className="flex items-start gap-3 text-destructive">
-              <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
-              <p className="text-sm font-medium">
-                Failed to load policies. Please try again later.
-              </p>
-            </div>
-          ) : activeItem ? (
-            <div className="animate-in fade-in duration-300">
-              <header className="flex items-center gap-3 pb-4 mb-6 border-b border-border/40">
-                <div className="p-2.5 rounded-lg bg-primary/10 ring-1 ring-primary/15 shrink-0">
-                  <FileText className="h-4 w-4 text-primary" />
+        {/* Content Area */}
+        <div className="flex-1 flex flex-col bg-card max-h-[800px] overflow-y-auto min-w-0">
+           {!isLoading && !isError && activeItem ? (
+             <div className="animate-in fade-in duration-500 max-w-4xl p-8 lg:p-10">
+                <div className="flex items-center gap-4 mb-8 pb-5 border-b border-border/40">
+                  <div className="p-3 rounded-xl bg-primary/10 shadow-sm ring-1 ring-primary/20">
+                    <FileText className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="text-2xl font-extrabold text-foreground tracking-tight">
+                    {activeItem.title}
+                  </h3>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight leading-tight">
-                  {activeItem.title}
-                </h3>
-              </header>
 
-              <PolicyContent
-                key={activeItem.id}
-                html={activeItem.content || null}
-                plainDescription="This policy has no detailed description configured."
-              />
-            </div>
-          ) : null}
-        </article>
+                <div className="pl-1">
+                  <PolicyContent
+                    key={activeItem.id}
+                    html={activeItem.content || null}
+                    plainDescription="This policy has no detailed description configured."
+                  />
+                </div>
+             </div>
+           ) : null}
+        </div>
       </div>
+
     </div>
   )
 }

@@ -22,10 +22,6 @@ export const ojsJournalRowSchema = z.object({
     country: z.string().nullable().optional(),
     aims_and_scope: z.string().nullable().optional(),
     author_guidelines: z.string().nullable().optional(),
-    publication_fee: z.string().nullable().optional(),
-    submission_fee: z.string().nullable().optional(),
-    publication_fee_description: z.string().nullable().optional(),
-    currency_code: z.string().nullable().optional(),
 })
 
 export type OjsJournalRow = z.infer<typeof ojsJournalRowSchema>
@@ -69,20 +65,5 @@ export function mapOjsJournalRow(row: OjsJournalRow, baseUrl: string): OjsJourna
                 allowedAttributes: {},
               }).trim() || null
             : null,
-        publication_fee: parseFee(row.publication_fee),
-        submission_fee: parseFee(row.submission_fee),
-        publication_fee_description: row.publication_fee_description
-            ? sanitizeHtml(row.publication_fee_description, {
-                allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4', 'a'],
-                allowedAttributes: { a: ['href', 'target', 'rel'] },
-              }).trim() || null
-            : null,
-        currency_code: row.currency_code ? row.currency_code.toUpperCase() : null,
     })
-}
-
-function parseFee(value: string | null | undefined): number | null {
-    if (value == null) return null
-    const n = parseFloat(String(value).replace(/[^0-9.\-]/g, ""))
-    return Number.isFinite(n) && n >= 0 ? n : null
 }

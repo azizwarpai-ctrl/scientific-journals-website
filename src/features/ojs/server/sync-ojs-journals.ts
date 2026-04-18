@@ -46,8 +46,6 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                             status: journal.enabled ? "active" : "inactive",
                             aims_and_scope: journal.aims_and_scope ?? null,
                             author_guidelines: journal.author_guidelines ?? null,
-                            publication_fee: journal.publication_fee ?? 0,
-                            submission_fee: journal.submission_fee ?? 0,
                         },
                     })
                 }
@@ -70,8 +68,6 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                             status: journal.enabled ? "active" : "inactive",
                             aims_and_scope: journal.aims_and_scope ?? null,
                             author_guidelines: journal.author_guidelines ?? null,
-                            publication_fee: journal.publication_fee ?? 0,
-                            submission_fee: journal.submission_fee ?? 0,
                         },
                     })
                 } catch (error) {

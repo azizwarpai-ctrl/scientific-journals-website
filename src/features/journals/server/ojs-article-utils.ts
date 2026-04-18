@@ -1,11 +1,6 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
 import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
-import {
-  fetchNewAuthorAffiliations,
-  resolveAuthorAffiliation,
-  pickLocalized,
-} from "./author-affiliation"
 import type { CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/journals/types/current-issue-types"
 
 export interface ArticleRow {
@@ -114,45 +109,84 @@ export async function fetchArticlesWithAuthors(
   const authorsByPub = new Map<number, CurrentIssueAuthor[]>()
 
   if (authorRows.length > 0) {
-    const authorIds = authorRows.map((r) => r.author_id)
+    const authorIds = authorRows.map(r => r.author_id)
 
-    // Fetch author_settings and new affiliations in parallel.
-    const [authorSettingsRows, newAffiliationRows] = await Promise.all([
-      ojsQuery<{
+    // Fetch author_settings (names + legacy affiliation field)
+    const authorSettingsRows = await ojsQuery<{
+      author_id: number
+      locale: string
+      setting_name: string
+      setting_value: string
+    }>(
+      `SELECT author_id, locale, setting_name, setting_value
+       FROM author_settings
+       WHERE author_id IN (${authorIds.join(',')})`
+    )
+
+    // Fetch affiliations from the newer author_affiliations / author_affiliation_settings
+    // tables (OJS 3.4+). Falls back gracefully if tables are absent (query returns []).
+    let newAffiliationRows: { author_id: number; locale: string; setting_value: string }[] = []
+    try {
+      newAffiliationRows = await ojsQuery<{
         author_id: number
         locale: string
-        setting_name: string
         setting_value: string
       }>(
-        `SELECT author_id, locale, setting_name, setting_value
-         FROM author_settings
-         WHERE author_id IN (${authorIds.join(",")})`
-      ),
-      fetchNewAuthorAffiliations(authorIds),
-    ])
+        `SELECT aa.author_id, aas.locale, aas.setting_value
+         FROM author_affiliations aa
+         JOIN author_affiliation_settings aas
+           ON aas.author_affiliation_id = aa.author_affiliation_id
+          AND aas.setting_name = 'name'
+         WHERE aa.author_id IN (${authorIds.join(',')})`
+      )
+    } catch {
+      // Table may not exist in older OJS instances — silently ignore
+    }
+
+    // Index new-style affiliations by author_id for O(1) lookup
+    const newAffByAuthor = new Map<number, { locale: string; setting_value: string }[]>()
+    for (const row of newAffiliationRows) {
+      const existing = newAffByAuthor.get(row.author_id) || []
+      existing.push(row)
+      newAffByAuthor.set(row.author_id, existing)
+    }
 
     for (const row of authorRows) {
-      const settings = authorSettingsRows.filter((s) => s.author_id === row.author_id)
+      const settings = authorSettingsRows.filter(s => s.author_id === row.author_id)
 
-      const givenName = pickLocalized(
-        settings.filter((s) => s.setting_name === "givenName"),
-        primaryLocale
-      )
-      const familyName = pickLocalized(
-        settings.filter((s) => s.setting_name === "familyName"),
-        primaryLocale
-      )
+      const getBestSetting = (name: string): string | null => {
+        const matches = settings.filter(s => s.setting_name === name)
+        if (matches.length === 0) return null
+        const primaryMatch = matches.find(s => s.locale === primaryLocale)
+        if (primaryMatch?.setting_value) return primaryMatch.setting_value
+        const enMatch = matches.find(s => s.locale === 'en_US' || s.locale === 'en')
+        if (enMatch?.setting_value) return enMatch.setting_value
+        const emptyMatch = matches.find(s => s.locale === '')
+        if (emptyMatch?.setting_value) return emptyMatch.setting_value
+        return matches[0].setting_value || null
+      }
+
+      // Resolve affiliation: prefer new table, fall back to legacy author_settings key
+      const resolveAffiliation = (): string | null => {
+        const newAffRows = newAffByAuthor.get(row.author_id)
+        if (newAffRows && newAffRows.length > 0) {
+          const primary = newAffRows.find(r => r.locale === primaryLocale)
+          if (primary?.setting_value) return primary.setting_value
+          const en = newAffRows.find(r => r.locale === 'en_US' || r.locale === 'en')
+          if (en?.setting_value) return en.setting_value
+          const empty = newAffRows.find(r => r.locale === '')
+          if (empty?.setting_value) return empty.setting_value
+          if (newAffRows[0].setting_value) return newAffRows[0].setting_value
+        }
+        // Fallback: legacy author_settings 'affiliation' key
+        return getBestSetting('affiliation')
+      }
 
       const existing = authorsByPub.get(row.publication_id) || []
       existing.push({
-        givenName,
-        familyName,
-        affiliation: resolveAuthorAffiliation({
-          authorId: row.author_id,
-          primaryLocale,
-          newAffiliationRows,
-          legacySettings: settings,
-        }),
+        givenName: getBestSetting('givenName'),
+        familyName: getBestSetting('familyName'),
+        affiliation: resolveAffiliation(),
       })
       authorsByPub.set(row.publication_id, existing)
     }
