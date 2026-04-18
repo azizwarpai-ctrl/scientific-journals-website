@@ -16,6 +16,10 @@ export const ojsJournalSchema = z.object({
     country: z.string().nullable().optional(),
     aims_and_scope: z.string().nullable().optional(),
     author_guidelines: z.string().nullable().optional(),
+    publication_fee: z.number().nullable().optional(),
+    submission_fee: z.number().nullable().optional(),
+    publication_fee_description: z.string().nullable().optional(),
+    currency_code: z.string().nullable().optional(),
 })
 
 export const ojsJournalsResponseSchema = z.object({

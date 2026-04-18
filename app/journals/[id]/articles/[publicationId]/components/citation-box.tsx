@@ -10,13 +10,27 @@ import {
   type CitationFormat,
 } from "@/src/features/journals/utils/citation-formatter"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface CitationBoxProps {
   article: ArticleDetail
 }
 
+/**
+ * Vancouver (ICMJE) is the medical / scientific journal convention and matches
+ * the platform's primary audience. It remains the default regardless of
+ * persisted user preference to keep behavior predictable across articles.
+ */
+const DEFAULT_FORMAT: CitationFormat = "vancouver"
+
 export function CitationBox({ article }: CitationBoxProps) {
-  const [format, setFormat] = useState<CitationFormat>("apa")
+  const [format, setFormat] = useState<CitationFormat>(DEFAULT_FORMAT)
   const [copied, setCopied] = useState(false)
   const [copyFailed, setCopyFailed] = useState(false)
 
@@ -84,52 +98,44 @@ export function CitationBox({ article }: CitationBoxProps) {
       aria-label="Cite this article"
       className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden"
     >
-      <header className="flex items-center gap-2.5 px-5 py-4 border-b border-border/50">
-        <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+      <header className="flex flex-wrap items-center gap-3 px-5 py-4 border-b border-border/50">
+        <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
           <Quote className="h-4 w-4 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-base leading-tight">Cite this article</h3>
-          <p className="text-[11px] text-muted-foreground font-medium">
+          <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
             {activeFormat.description}
           </p>
         </div>
+        <Select value={format} onValueChange={(v) => setFormat(v as CitationFormat)}>
+          <SelectTrigger
+            size="sm"
+            aria-label="Citation format"
+            className="h-9 min-w-[150px] font-semibold"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end" className="min-w-[220px]">
+            {CITATION_FORMATS.map((fmt) => (
+              <SelectItem key={fmt.id} value={fmt.id} className="py-2">
+                <div className="flex flex-col items-start gap-0.5">
+                  <span className="text-sm font-semibold leading-none">{fmt.label}</span>
+                  <span className="text-[11px] text-muted-foreground leading-none">
+                    {fmt.description}
+                  </span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </header>
-
-      {/* Format selector — scrollable segmented control */}
-      <div
-        className="flex gap-1 px-3 py-2 bg-muted/30 border-b border-border/50 overflow-x-auto scrollbar-thin"
-        role="tablist"
-        aria-label="Citation format"
-      >
-        {CITATION_FORMATS.map((fmt) => {
-          const active = fmt.id === format
-          return (
-            <button
-              key={fmt.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              title={fmt.description}
-              onClick={() => setFormat(fmt.id)}
-              className={[
-                "shrink-0 inline-flex items-center justify-center px-3 h-7 rounded-md text-[11px] font-bold uppercase tracking-wider transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                active
-                  ? "bg-background text-foreground shadow-sm border border-border/60"
-                  : "text-muted-foreground hover:text-foreground hover:bg-background/60 border border-transparent",
-              ].join(" ")}
-            >
-              {fmt.label}
-            </button>
-          )
-        })}
-      </div>
 
       {/* Citation preview */}
       <div className="p-5 space-y-4">
         {activeFormat.display === "prose" ? (
           <div
-            className="text-[13px] leading-relaxed text-foreground/90 rounded-lg bg-muted/30 p-4 border border-border/40 [&_i]:italic"
+            className="text-[13px] leading-relaxed text-foreground/90 rounded-lg bg-muted/30 p-4 border border-border/40 [&_i]:italic break-words"
             dangerouslySetInnerHTML={{ __html: citationHtml }}
           />
         ) : (
@@ -138,14 +144,14 @@ export function CitationBox({ article }: CitationBoxProps) {
           </pre>
         )}
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={handleCopy}
             aria-live="polite"
             className={[
-              "flex-1 gap-2 transition-colors",
+              "flex-1 min-w-[140px] gap-2 transition-colors",
               copied
                 ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700"
                 : "bg-transparent hover:bg-muted/50",

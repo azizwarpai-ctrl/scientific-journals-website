@@ -10,24 +10,54 @@ app.get("/", async (c) => {
     try {
         // If using direct MySQL DB
         if (isOjsConfigured()) {
-            // Run independent queries concurrently
+            // Pull the set of journal IDs DigitoPub actually displays from Prisma
+            // (single source of truth). OJS's `enabled` flag only hides a
+            // journal from OJS's own storefront — DigitoPub keeps surfacing it,
+            // so metrics must be scoped to every synced journal, not just the
+            // OJS-enabled subset.
+            const syncedJournalIds = (
+                await prisma.journal.findMany({
+                    where: { ojs_id: { not: null } },
+                    select: { ojs_id: true },
+                })
+            )
+                .map((j) => j.ojs_id)
+                .filter((id): id is string => Boolean(id))
+
+            // Cast to unsigned integers — OJS journal_id is an INT, and Prisma
+            // stores ojs_id as a string for flexibility.
+            const syncedIntIds = syncedJournalIds
+                .map((id) => Number(id))
+                .filter((n) => Number.isFinite(n) && n > 0)
+
+            const journalsCount = await prisma.journal.count()
+
+            // Build a reusable IN-clause for OJS side filtering. When no
+            // journals are synced yet we short-circuit the dependent queries
+            // rather than emitting an invalid `IN ()` SQL expression.
+            const hasSynced = syncedIntIds.length > 0
+            const journalInClause = hasSynced ? syncedIntIds.join(",") : ""
+
             const results = await Promise.allSettled([
-                ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM journals WHERE enabled = 1"),
-                // Count published submissions in active journals only
-                ojsQuery<{ count: number }>(
-                    `SELECT COUNT(*) as count
-                     FROM submissions s
-                     INNER JOIN journals j ON j.journal_id = s.context_id AND j.enabled = 1
-                     WHERE s.status = 3`
-                ),
-                // Count unique researchers (distinct author emails from published articles in active journals)
-                ojsQuery<{ count: number }>(
-                    `SELECT COUNT(DISTINCT a.email) as count
-                     FROM authors a
-                     INNER JOIN publications p ON p.publication_id = a.publication_id
-                     INNER JOIN submissions s ON s.submission_id = p.submission_id AND s.status = 3
-                     INNER JOIN journals j ON j.journal_id = s.context_id AND j.enabled = 1`
-                ),
+                // Count published submissions in every DigitoPub-visible journal
+                hasSynced
+                    ? ojsQuery<{ count: number }>(
+                        `SELECT COUNT(*) as count
+                         FROM submissions s
+                         WHERE s.status = 3
+                           AND s.context_id IN (${journalInClause})`
+                    )
+                    : Promise.resolve([{ count: 0 }] as { count: number }[]),
+                // Count unique researchers (distinct author emails) across all visible journals
+                hasSynced
+                    ? ojsQuery<{ count: number }>(
+                        `SELECT COUNT(DISTINCT a.email) as count
+                         FROM authors a
+                         INNER JOIN publications p ON p.publication_id = a.publication_id
+                         INNER JOIN submissions s ON s.submission_id = p.submission_id AND s.status = 3
+                         WHERE s.context_id IN (${journalInClause})`
+                    )
+                    : Promise.resolve([{ count: 0 }] as { count: number }[]),
                 // Count countries from geographic metrics (real visitor/access data)
                 ojsQuery<{ count: number }>(
                     "SELECT COUNT(DISTINCT country) as count FROM metrics_submission_geo_monthly WHERE country != '' AND country IS NOT NULL"
@@ -40,14 +70,16 @@ app.get("/", async (c) => {
                      INNER JOIN user_groups ug ON ug.user_group_id = uug.user_group_id AND ug.role_id = ${AUTHOR_ROLE_ID}
                      WHERE u.country IS NOT NULL AND u.country != '' AND u.disabled = 0`
                 ),
-                // Fallback: count distinct countries from journal settings
-                ojsQuery<{ count: number }>(
-                    `SELECT COUNT(DISTINCT js.setting_value) as count
-                     FROM journal_settings js
-                     INNER JOIN journals j ON j.journal_id = js.journal_id AND j.enabled = 1
-                     WHERE js.setting_name = 'country'
-                     AND js.setting_value IS NOT NULL AND js.setting_value != ''`
-                )
+                // Fallback: count distinct countries from journal settings across visible journals
+                hasSynced
+                    ? ojsQuery<{ count: number }>(
+                        `SELECT COUNT(DISTINCT js.setting_value) as count
+                         FROM journal_settings js
+                         WHERE js.journal_id IN (${journalInClause})
+                           AND js.setting_name = 'country'
+                           AND js.setting_value IS NOT NULL AND js.setting_value != ''`
+                    )
+                    : Promise.resolve([{ count: 0 }] as { count: number }[]),
             ])
 
             interface CountRow { count: number }
@@ -59,12 +91,11 @@ app.get("/", async (c) => {
                 return 0
             }
 
-            const journalsCount = getCount(results[0])
-            const articlesCount = getCount(results[1])
-            const researchersCount = getCount(results[2])
-            const geoCountriesCount = getCount(results[3])
-            const userCountriesCount = getCount(results[4])
-            const journalCountriesCount = getCount(results[5])
+            const articlesCount = getCount(results[0])
+            const researchersCount = getCount(results[1])
+            const geoCountriesCount = getCount(results[2])
+            const userCountriesCount = getCount(results[3])
+            const journalCountriesCount = getCount(results[4])
 
             const queryErrors = results
                 .filter((r) => r.status === "rejected")
@@ -79,14 +110,14 @@ app.get("/", async (c) => {
             } else if (journalCountriesCount > 0) {
                 countriesCount = journalCountriesCount
             } else {
-                // Minimum floor: assume at least 1 country per active journal
+                // Minimum floor: assume at least 1 country per synced journal (visible to users)
                 countriesCount = journalsCount
             }
 
             return c.json({
                 success: true,
                 data: {
-                    activeJournals: journalsCount,
+                    activeJournals: journalsCount, // Counts all journals synced to DigitoPub (visible to users)
                     publishedArticles: articlesCount,
                     researchers: researchersCount,
                     countriesEstimated: countriesCount,

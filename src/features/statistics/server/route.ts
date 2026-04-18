@@ -1,5 +1,6 @@
 import { Hono } from "hono"
 import { ojsQuery, isOjsConfigured } from "@/src/features/ojs/server/ojs-client"
+import { prisma } from "@/src/lib/db/config"
 
 interface StatsData {
   totalJournals: number
@@ -26,34 +27,51 @@ app.get("/", async (c) => {
       return c.json({ success: true, data: statsCache })
     }
 
-    // Execute database queries in parallel
+    // Count journals from Prisma — single source of truth for what is actually
+    // displayed on DigitoPub. OJS's `enabled` flag only hides a journal from
+    // its own storefront; DigitoPub continues to surface every synced journal,
+    // so filtering by `enabled = 1` here would undercount.
     const queries = [
-      ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM journals WHERE enabled = 1"),
+      prisma.journal.count(),
       ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM submissions WHERE status = 3"),
       ojsQuery<{ count: number }>("SELECT COUNT(*) as count FROM users"),
       ojsQuery<{ count: number }>("SELECT COUNT(DISTINCT country) as count FROM users WHERE country IS NOT NULL AND country != ''")
-    ];
+    ] as const;
 
     const results = await Promise.allSettled(queries);
 
+    // Only cache if all queries succeeded; transient failures (network, DB
+    // downtime) should not be cached as zeros, and we want to retry on next request.
+    const allFulfilled = results.every((r) => r.status === "fulfilled")
+    if (!allFulfilled) {
+      console.warn("[STATISTICS_GET] Some queries failed; not caching results")
+    }
+
     interface CountRow { count: number }
-    const extractCount = (result: PromiseSettledResult<CountRow[]>) => 
+    const extractOjsCount = (result: PromiseSettledResult<CountRow[]>) =>
       result.status === "fulfilled" ? (result.value[0]?.count || 0) : 0;
+    const extractNumber = (result: PromiseSettledResult<number>) =>
+      result.status === "fulfilled" ? (result.value || 0) : 0;
 
-    const journalsData = extractCount(results[0]);
-    const articlesData = extractCount(results[1]);
-    const usersData = extractCount(results[2]);
-    const countriesData = extractCount(results[3]);
+    const journalsData = extractNumber(results[0] as PromiseSettledResult<number>);
+    const articlesData = extractOjsCount(results[1] as PromiseSettledResult<CountRow[]>);
+    const usersData = extractOjsCount(results[2] as PromiseSettledResult<CountRow[]>);
+    const countriesData = extractOjsCount(results[3] as PromiseSettledResult<CountRow[]>);
 
-    statsCache = {
+    const data: StatsData = {
       totalJournals: journalsData,
       totalArticles: articlesData,
       totalUsers: usersData,
       countriesCount: countriesData,
     }
-    lastFetchTime = now
 
-    return c.json({ success: true, data: statsCache })
+    // Only persist to cache if all queries succeeded.
+    if (allFulfilled) {
+      statsCache = data
+      lastFetchTime = now
+    }
+
+    return c.json({ success: true, data })
   } catch (error) {
     console.error("[STATISTICS_GET_ERROR]", error)
     const errorMessage = error instanceof Error ? error.message : "Failed to fetch statistics"

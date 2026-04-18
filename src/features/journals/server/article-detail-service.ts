@@ -1,7 +1,8 @@
 import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
-import { getOjsBaseUrl, getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
+import { getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
+import { fetchNewAuthorAffiliations, resolveAuthorAffiliation } from "@/src/features/journals/server/author-affiliation"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
 
 
@@ -227,16 +228,19 @@ export async function fetchArticleDetail(
 
   if (authorRows.length > 0) {
     const authorIds = authorRows.map(r => r.author_id)
-    const authorSettings = await ojsQuery<{
-      author_id: number
-      locale: string
-      setting_name: string
-      setting_value: string
-    }>(
-      `SELECT author_id, locale, setting_name, setting_value
-       FROM author_settings
-       WHERE author_id IN (${authorIds.join(',')})`
-    )
+    const [authorSettings, newAffiliationRows] = await Promise.all([
+      ojsQuery<{
+        author_id: number
+        locale: string
+        setting_name: string
+        setting_value: string
+      }>(
+        `SELECT author_id, locale, setting_name, setting_value
+         FROM author_settings
+         WHERE author_id IN (${authorIds.join(',')})`
+      ),
+      fetchNewAuthorAffiliations(authorIds),
+    ])
 
     for (const row of authorRows) {
       const settings = authorSettings.filter(s => s.author_id === row.author_id)
@@ -260,7 +264,12 @@ export async function fetchArticleDetail(
       authors.push({
         givenName: getBestSetting('givenName'),
         familyName: getBestSetting('familyName'),
-        affiliation: getBestSetting('affiliation'),
+        affiliation: resolveAuthorAffiliation({
+          authorId: row.author_id,
+          primaryLocale,
+          newAffiliationRows,
+          legacySettings: settings,
+        }),
         orcid: getBestSetting('orcid')
       })
     }
