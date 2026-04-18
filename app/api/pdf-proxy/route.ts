@@ -167,6 +167,7 @@ export async function GET(request: Request) {
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
     try {
       return await fetch(url, {
+        method: request.method,
         headers: {
           "User-Agent": BROWSER_USER_AGENT,
           Accept: "application/pdf,application/octet-stream;q=0.9,*/*;q=0.1",
@@ -322,6 +323,12 @@ export async function GET(request: Request) {
     const MAGIC_SIZE = PDF_MAGIC.length
     const PEEK_LIMIT = 2048 // Limit peeking to prevent memory bloat
 
+    // Do not read body chunks for HEAD requests, as they have no body.
+    if (request.method === "HEAD") {
+      try { reader.releaseLock() } catch { /* ignore */ }
+      return new NextResponse(null, { status: 200, headers: res.headers })
+    }
+
     try {
       while (totalBytes < MAGIC_SIZE && totalBytes < PEEK_LIMIT) {
         const { done, value } = await reader.read()
@@ -393,7 +400,6 @@ export async function GET(request: Request) {
     const outHeaders: Record<string, string> = {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="article-${submissionId}.pdf"`,
-      "X-Frame-Options": "SAMEORIGIN",
       "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
       "Accept-Ranges": "none",
     }
@@ -502,7 +508,10 @@ export async function GET(request: Request) {
       const bridgeResult = await safeAttempt(bridgeUrl, {
         Authorization: `Bearer ${apiKey}`,
       })
-      if (bridgeResult.ok) return bridgeResult
+      if (bridgeResult.ok) {
+        console.log(`[PDF Proxy] SUCCESS: Served from PHP bridge for submissionId=${submissionId}`)
+        return bridgeResult
+      }
       const errorHeader = bridgeResult.headers.get("X-Proxy-Error")
       if (!errorHeader || !RETRIABLE_CODES.has(errorHeader)) {
         return bridgeResult
@@ -555,5 +564,9 @@ export async function GET(request: Request) {
       502
     )
   }
+}
+
+export async function HEAD(request: Request) {
+  return GET(request)
 }
 

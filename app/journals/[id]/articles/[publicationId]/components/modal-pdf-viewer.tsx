@@ -98,7 +98,7 @@ async function probePdf(url: string, signal: AbortSignal): Promise<ProbeResult> 
   let res: Response
   try {
     res = await fetch(url, {
-      method: "GET",
+      method: "HEAD",
       signal,
       redirect: "follow",
       headers: { Accept: "application/pdf,application/json" },
@@ -136,6 +136,17 @@ export function ModalPdfViewer({
   const panelRef = useRef<HTMLDivElement>(null)
 
   const directUrl = pdfDirectUrl || pdfUrl
+
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    // Simple heuristic for mobile browsers where embedded PDFs usually trigger endless downloads or fail
+    const checkMobile = () => {
+      const ua = navigator.userAgent || navigator.vendor || (window as any).opera || ""
+      return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua)
+    }
+    setIsMobile(checkMobile())
+  }, [])
 
   const openModal = useCallback(() => {
     triggerRef.current = document.activeElement as HTMLElement
@@ -203,10 +214,12 @@ export function ModalPdfViewer({
   useEffect(() => {
     if (!open || !pdfUrl || phase !== "probing") return
     const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 15000)
     let cancelled = false
     ;(async () => {
       try {
         const result = await probePdf(pdfUrl, controller.signal)
+        clearTimeout(timer)
         if (cancelled) return
         if (result.ok) {
           setPhase("rendering")
@@ -216,7 +229,15 @@ export function ModalPdfViewer({
           setPhase("error")
         }
       } catch (err) {
-        if (cancelled || (err as Error).name === "AbortError") return
+        clearTimeout(timer)
+        if (cancelled || (err as Error).name === "AbortError") {
+          if (!cancelled) {
+            setErrorCode("TIMEOUT")
+            setErrorMessage(ERROR_MESSAGES.TIMEOUT)
+            setPhase("error")
+          }
+          return
+        }
         setErrorCode("NETWORK_ERROR")
         setErrorMessage(ERROR_MESSAGES.NETWORK_ERROR)
         setPhase("error")
@@ -224,6 +245,7 @@ export function ModalPdfViewer({
     })()
     return () => {
       cancelled = true
+      clearTimeout(timer)
       controller.abort()
     }
   }, [open, pdfUrl, phase, attempt])
@@ -336,7 +358,7 @@ export function ModalPdfViewer({
           {phase === "probing" && (
             <LoadingView />
           )}
-          {phase === "rendering" && (
+          {phase === "rendering" && !isMobile && (
             <iframe
               key={attempt}
               src={`${pdfUrl}#toolbar=1&navpanes=1&scrollbar=1&view=FitH`}
@@ -345,9 +367,17 @@ export function ModalPdfViewer({
               allow="fullscreen"
             />
           )}
+          {phase === "rendering" && isMobile && (
+            <FallbackView
+              directUrl={directUrl || pdfUrl}
+              code="UNKNOWN"
+              message="PDF rendering is limited on mobile devices."
+              onRetry={retry}
+            />
+          )}
           {phase === "error" && (
             <FallbackView
-              directUrl={directUrl}
+              directUrl={directUrl || pdfUrl}
               code={errorCode}
               message={errorMessage}
               onRetry={retry}
