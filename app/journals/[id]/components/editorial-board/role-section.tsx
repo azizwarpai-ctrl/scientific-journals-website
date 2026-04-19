@@ -23,7 +23,7 @@ export function RoleSection({ roleName, members, totalCount, shownCount }: RoleS
         <div className="mt-2 h-px bg-border" />
       </div>
 
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {members.map((member) => (
           <MemberCard key={member.userId} member={member} />
         ))}
