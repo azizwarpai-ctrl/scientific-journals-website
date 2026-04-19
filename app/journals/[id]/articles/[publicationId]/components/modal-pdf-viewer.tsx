@@ -90,12 +90,11 @@ export function ModalPdfViewer({
   const viewUrl = directOjsUrl || pdfUrl
   const downloadUrl = directOjsUrl || pdfUrl
 
-  const [isMobile, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    const ua = navigator.userAgent || navigator.vendor || (window as any).opera || ""
-    setIsMobile(/android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua))
-  }, [])
+  const [isMobile] = useState(() => {
+    if (typeof navigator === "undefined") return false
+    const ua = navigator.userAgent || navigator.vendor || (window as unknown as { opera?: string }).opera || ""
+    return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua)
+  })
 
   const openModal = useCallback(() => {
     triggerRef.current = document.activeElement as HTMLElement
