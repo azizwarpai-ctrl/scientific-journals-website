@@ -3,6 +3,8 @@ import {
   splitBlockIntoCards,
   stripBlockTitleHeading,
   extractCardFields,
+  subSplitSegmentByTitleAnchors,
+  extractImgAlt,
 } from "@/src/features/journals/server/custom-blocks-service"
 
 describe("stripBlockTitleHeading", () => {
@@ -147,5 +149,157 @@ describe("splitBlockIntoCards", () => {
     expect(cards[3].title).toBe("Google Scholar")
     expect(cards[0].image).toMatch(/crossref/)
     expect(cards[0].link).toMatch(/crossref\.org/)
+  })
+})
+
+describe("subSplitSegmentByTitleAnchors", () => {
+  it("returns the segment unchanged when it contains a single title", () => {
+    const seg = `
+      <div>
+        <div><strong>ORCID</strong></div>
+        <img src="/img/orcid.png" alt="ORCID" />
+        <div>ORCID description.</div>
+      </div>
+    `
+    expect(subSplitSegmentByTitleAnchors(seg)).toEqual([seg])
+  })
+
+  it("splits a wrapper div that merges multiple logical card titles", () => {
+    // Mirrors the OJBR 5th top-level div: one wrapper holding 3 logical
+    // items (National Library of France / Google Scholar / IMEMR) each
+    // marked by a standalone <strong>.
+    const merged = `
+      <div>
+        <div><strong>The National Library of France</strong></div>
+        <div><a href="https://bnf.fr"><img src="/img/bnf.png" alt="BnF"/></a></div>
+        <div>BnF archival description.</div>
+        <div><strong>Google Scholar</strong></div>
+        <a href="https://scholar.google.com"><img src="/img/gs.png" alt="GS"/></a>
+        <div>Indexed in Google Scholar.</div>
+        <div><strong>IMEMR Index Medicus</strong></div>
+        <div><a href="https://emro.who.int"><img src="/img/imemr.png" alt="IMEMR"/></a></div>
+        <div>IMEMR profile.</div>
+      </div>
+    `
+    const subs = subSplitSegmentByTitleAnchors(merged)
+    expect(subs.length).toBe(3)
+    expect(subs[0]).toMatch(/National Library of France/)
+    expect(subs[1]).toMatch(/Google Scholar/)
+    expect(subs[2]).toMatch(/IMEMR/)
+    // Each sub-segment must contain the expected image marker
+    expect(subs[0]).toMatch(/bnf\.png/)
+    expect(subs[1]).toMatch(/gs\.png/)
+    expect(subs[2]).toMatch(/imemr\.png/)
+  })
+
+  it("does NOT treat an inline <strong> value (like 'Online ISSN: 2966-6864') as an anchor", () => {
+    // Only one qualifying anchor here → segment stays whole.
+    const seg = `
+      <div>
+        <div><strong>ISSN</strong></div>
+        <img src="/img/issn.png" alt="ISSN"/>
+        <div>Online ISSN: <strong>2966-6864</strong></div>
+      </div>
+    `
+    const subs = subSplitSegmentByTitleAnchors(seg)
+    expect(subs).toEqual([seg])
+  })
+})
+
+describe("extractImgAlt (title fallback)", () => {
+  it("returns the alt of the first <img>", () => {
+    expect(extractImgAlt(`<div><img src="/x.png" alt="My Label"/></div>`)).toBe(
+      "My Label",
+    )
+  })
+
+  it("returns undefined when no img exists", () => {
+    expect(extractImgAlt(`<p>nothing here</p>`)).toBeUndefined()
+  })
+
+  it("returns undefined when alt is empty", () => {
+    expect(extractImgAlt(`<img src="/x.png" alt=""/>`)).toBeUndefined()
+  })
+
+  it("decodes HTML entities in alt text", () => {
+    expect(extractImgAlt(`<img src="/x.png" alt="A &amp; B"/>`)).toBe("A & B")
+  })
+})
+
+describe("OJBR-style blockContent: 10 logical items across 8 top-level divs", () => {
+  it("yields 10 card segments after sub-split pass", () => {
+    // Structure mirroring journal_id=2 (ojbr) source-truth dump: the 5th
+    // top-level div merges 3 logical items (BnF, Google Scholar, IMEMR).
+    const html = `
+      <h3>Journal Information</h3>
+      <div>
+        <div>
+          <div><strong>International Standard Serial Number (ISSN)</strong></div>
+          <a href="https://portal.issn.org/resource/ISSN/2966-6864"><img src="/img/issn.png" alt="ISSN"/></a>
+          <div>Online ISSN: <strong>2966-6864</strong></div>
+        </div>
+        <div>
+          <div><strong>Crossref Metadata Search</strong></div>
+          <a href="https://search.crossref.org/"><img src="/img/crossref.png" alt="Crossref"/></a>
+          <div>Search Crossref metadata.</div>
+        </div>
+        <div>
+          <div><strong>ORCID</strong></div>
+          <img src="/img/orcid.png" alt="ORCID iD icon"/>
+          <div>The journal uses ORCID.</div>
+        </div>
+        <div>
+          <div><strong>Plagiarism Checker</strong></div>
+          <img src="/img/plag.png" alt="Plagiarism checker"/>
+          <div>Manuscripts screened for originality.</div>
+        </div>
+        <div>
+          <div><strong>The National Library of France</strong></div>
+          <div><a href="https://bnf.fr"><img src="/img/bnf.png" alt="BnF"/></a></div>
+          <div>Archived by BnF.</div>
+          <div><strong>Google Scholar</strong></div>
+          <a href="https://scholar.google.com"><img src="/img/gs.png" alt="Google Scholar"/></a>
+          <div>Indexed in Google Scholar.</div>
+          <div><strong>IMEMR Index Medicus</strong></div>
+          <div><a href="https://emro.who.int"><img src="/img/imemr.png" alt="IMEMR"/></a></div>
+          <div>IMEMR profile.</div>
+        </div>
+        <div>
+          <div><strong>Index Copernicus (CIC)</strong></div>
+          <a href="https://journals.indexcopernicus.com"><img src="/img/ici.png" alt="Index Copernicus (CIC)"/></a>
+          <div>Journal profile on Index Copernicus.</div>
+        </div>
+        <div>
+          <div><strong>Scilit Index</strong></div>
+          <a href="https://www.scilit.com/sources/129253"><img src="/img/scilit.png" alt="Scilit Index"/></a>
+          <div>Journal profile on Scilit Index.</div>
+        </div>
+        <div>
+          <div><strong>Euro Pub</strong></div>
+          <a href="https://europub.co.uk/journals/29744"><img src="/img/europub.png" alt="Euro Pub"/></a>
+          <div>Journal entry on Euro Pub.</div>
+        </div>
+      </div>
+    `
+
+    const topSegments = splitBlockIntoCards(html)
+    expect(topSegments.length).toBe(8) // 8 direct wrapper divs
+
+    const refined = topSegments.flatMap(subSplitSegmentByTitleAnchors)
+    expect(refined.length).toBe(10) // 10 logical items after sub-split
+
+    const titles = refined.map((seg, i) => extractCardFields(seg, `ojbr-${i}`).title)
+    expect(titles).toEqual([
+      "International Standard Serial Number (ISSN)",
+      "Crossref Metadata Search",
+      "ORCID",
+      "Plagiarism Checker",
+      "The National Library of France",
+      "Google Scholar",
+      "IMEMR Index Medicus",
+      "Index Copernicus (CIC)",
+      "Scilit Index",
+      "Euro Pub",
+    ])
   })
 })
