@@ -258,13 +258,8 @@ export async function fetchCustomBlocks(
       const refinedSegments = cardHtmlSegments.flatMap(subSplitSegmentByTitleAnchors)
       for (let idx = 0; idx < refinedSegments.length; idx++) {
         const segHtml = refinedSegments[idx]
-        const { title, image, link, description } = extractCardFields(segHtml, `${name}-${idx}`)
-        // Fall back to image alt or a block-derived label so a malformed card
-        // (no <strong>/<h2-6>) is still visible rather than silently dropped.
-        const finalTitle =
-          title ||
-          extractImgAlt(segHtml) ||
-          `${name.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} ${idx + 1}`
+        const { image, link, description } = extractCardFields(segHtml, `${name}-${idx}`)
+        const finalTitle = getFinalTitle(segHtml, name, idx)
         const finalDescription = buildFinalDescription(finalTitle, description)
         const itemResult = CustomBlockSchema.safeParse({
           name: `${name}-${idx}`,
@@ -283,26 +278,30 @@ export async function fetchCustomBlocks(
     } else {
       // Single-card fallback — strip the block-title heading first so the
       // first real item doesn't inherit "Journal Information" as its title.
+      // Then apply sub-split in case the single "card" is actually merged items.
       const strippedHtml = stripBlockTitleHeading(cleanContent)
-      const cardFields = extractCardFields(strippedHtml || cleanContent, name)
-      const finalTitle =
-        cardFields.title ||
-        name.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-      const finalDescription = buildFinalDescription(
-        finalTitle,
-        cardFields.description
-      )
-      const itemResult = CustomBlockSchema.safeParse({
-        name,
-        content: cleanContent,
-        title: finalTitle,
-        image: cardFields.image,
-        link: cardFields.link,
-        description: finalDescription,
-      })
-      if (itemResult.success) {
-        blocks.push(itemResult.data)
+      const singleSegments = subSplitSegmentByTitleAnchors(strippedHtml || cleanContent)
+      for (let idx = 0; idx < singleSegments.length; idx++) {
+        const segHtml = singleSegments[idx]
+        const cardFields = extractCardFields(segHtml, name)
+        const finalTitle = getFinalTitle(segHtml, name, singleSegments.length > 1 ? idx : undefined)
+        const finalDescription = buildFinalDescription(
+          finalTitle,
+          cardFields.description
+        )
+        const itemResult = CustomBlockSchema.safeParse({
+          name: singleSegments.length > 1 ? `${name}-${idx}` : name,
+          content: cleanContent,
+          title: finalTitle,
+          image: cardFields.image,
+          link: cardFields.link,
+          description: finalDescription,
+        })
+        if (itemResult.success) {
+          items.push(itemResult.data)
+        }
       }
+      blocks.push(...items)
     }
   }
 
@@ -691,4 +690,25 @@ export function extractImgAlt(html: string): string | undefined {
   if (!m) return undefined
   const alt = decodeHtml(m[1]).trim()
   return alt.length > 0 ? alt : undefined
+}
+
+/**
+ * Compute the final card title using a fallback chain:
+ * 1. Extracted title from heading/<strong>
+ * 2. Image alt attribute
+ * 3. Block-derived label (e.g. "Journal Information 1")
+ */
+function getFinalTitle(
+  segmentHtml: string,
+  baseName: string,
+  idx?: number,
+): string {
+  const { title } = extractCardFields(segmentHtml, `${baseName}-${idx ?? 0}`)
+  return (
+    title ||
+    extractImgAlt(segmentHtml) ||
+    `${baseName.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}${
+      idx !== undefined ? ` ${idx + 1}` : ""
+    }`
+  )
 }
