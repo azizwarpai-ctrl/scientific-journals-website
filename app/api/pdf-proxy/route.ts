@@ -9,12 +9,15 @@ type ProxyErrorCode =
   | "UPSTREAM_ERROR"
   | "TIMEOUT"
   | "NETWORK_ERROR"
+  | "BRIDGE_ERROR"
 
 interface ProxyErrorBody {
   error: ProxyErrorCode
   message: string
   status: number
   source?: string
+  bridgeError?: string
+  bridgeDetails?: unknown
 }
 
 const FETCH_TIMEOUT_MS = 15000
@@ -35,20 +38,25 @@ function jsonError(
   code: ProxyErrorCode,
   message: string,
   status: number,
-  sourceUrl?: string
+  sourceUrl?: string,
+  extra?: { bridgeError?: string; bridgeDetails?: unknown }
 ): NextResponse {
   const body: ProxyErrorBody = { error: code, message, status }
   if (sourceUrl && process.env.NODE_ENV !== "production") {
     body.source = sourceUrl
   }
-  return NextResponse.json(body, {
-    status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store",
-      "X-Proxy-Error": code,
-    },
-  })
+  if (extra?.bridgeError) body.bridgeError = extra.bridgeError
+  if (extra?.bridgeDetails !== undefined) body.bridgeDetails = extra.bridgeDetails
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    "X-Proxy-Error": code,
+  }
+  if (extra?.bridgeError) {
+    headers["X-PDF-Bridge-Error"] = extra.bridgeError
+  }
+  return NextResponse.json(body, { status, headers })
 }
 
 function startsWithPdfMagic(chunk: Uint8Array): boolean {
@@ -503,21 +511,108 @@ export async function GET(request: Request) {
     "TIMEOUT",
   ])
 
+  // Dedicated bridge caller that preserves the bridge's own diagnostic header
+  // (X-PDF-Bridge-Error) AND its JSON error body. The generic `attempt` flow
+  // flattens every non-2xx into a local ProxyErrorCode, which hides the
+  // specific reason the bridge rejected the request (INVALID_KEY vs
+  // UNPUBLISHED vs SUBMISSION_MISMATCH vs FILE_NOT_FOUND). Those distinctions
+  // are the whole point of the bridge — without them the operator sees a
+  // generic AUTH_REQUIRED and can't tell which step broke.
+  const callBridge = async (
+    url: string
+  ): Promise<{ ok: true; response: NextResponse } | { ok: false; response: NextResponse; bridgeError: string | null }> => {
+    try {
+      const res = await fetchWithTimeout(url, { Authorization: `Bearer ${apiKey}` })
+      const bridgeError = res.headers.get("X-PDF-Bridge-Error")
+
+      if (res.ok) {
+        const streamed = await streamPdfResponse(res, url)
+        if (streamed.ok) return { ok: true, response: streamed }
+        return { ok: false, response: streamed, bridgeError }
+      }
+
+      let bodyJson: unknown = null
+      try {
+        bodyJson = await res.clone().json()
+      } catch {
+        /* bridge didn't return JSON — fall through with null */
+      }
+
+      const message =
+        (bodyJson && typeof bodyJson === "object" && "message" in bodyJson && typeof (bodyJson as { message: unknown }).message === "string"
+          ? (bodyJson as { message: string }).message
+          : null) ||
+        `PHP bridge returned HTTP ${res.status}${bridgeError ? ` (${bridgeError})` : ""}.`
+
+      const details =
+        bodyJson && typeof bodyJson === "object" && "details" in bodyJson
+          ? (bodyJson as { details: unknown }).details
+          : undefined
+
+      const mappedCode: ProxyErrorCode =
+        bridgeError === "FILE_NOT_FOUND" ||
+        bridgeError === "GALLEY_NOT_FOUND" ||
+        bridgeError === "JOURNAL_NOT_FOUND" ||
+        bridgeError === "SUBMISSION_NOT_FOUND"
+          ? "FILE_NOT_FOUND"
+          : "BRIDGE_ERROR"
+
+      const response = jsonError(mappedCode, message, res.status || 502, url, {
+        bridgeError: bridgeError ?? undefined,
+        bridgeDetails: details,
+      })
+      return { ok: false, response, bridgeError }
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return {
+          ok: false,
+          response: jsonError("TIMEOUT", "PHP bridge did not respond in time.", 504, url),
+          bridgeError: null,
+        }
+      }
+      return {
+        ok: false,
+        response: jsonError(
+          "UPSTREAM_ERROR",
+          "Network error while contacting the PHP bridge.",
+          502,
+          url
+        ),
+        bridgeError: null,
+      }
+    }
+  }
+
+  // Bridge-origin error codes that indicate "the bridge reached a correct
+  // verdict, don't bother retrying the public URLs" — returning these short-
+  // circuits the fallback ladder so the operator sees the actual reason.
+  const TERMINAL_BRIDGE_ERRORS = new Set([
+    "INVALID_KEY",
+    "SERVER_MISCONFIGURED",
+    "UNPUBLISHED",
+    "SUBMISSION_MISMATCH",
+    "FILE_MISMATCH",
+    "UNSUPPORTED_MEDIA_TYPE",
+    "BAD_REQUEST",
+    "RATE_LIMIT_EXCEEDED",
+  ])
+
   try {
     if (bridgeUrl) {
-      const bridgeResult = await safeAttempt(bridgeUrl, {
-        Authorization: `Bearer ${apiKey}`,
-      })
+      const bridgeResult = await callBridge(bridgeUrl)
       if (bridgeResult.ok) {
         console.log(`[PDF Proxy] SUCCESS: Served from PHP bridge for submissionId=${submissionId}`)
-        return bridgeResult
+        return bridgeResult.response
       }
-      const errorHeader = bridgeResult.headers.get("X-Proxy-Error")
-      if (!errorHeader || !RETRIABLE_CODES.has(errorHeader)) {
-        return bridgeResult
+      const bridgeError = bridgeResult.bridgeError
+      if (bridgeError && TERMINAL_BRIDGE_ERRORS.has(bridgeError)) {
+        console.warn(
+          `[PDF Proxy] PHP bridge returned terminal error (${bridgeError}); not falling back to public galley URLs`
+        )
+        return bridgeResult.response
       }
       console.warn(
-        `[PDF Proxy] PHP bridge attempt failed (${errorHeader}), falling back to REST API / public galley URLs`
+        `[PDF Proxy] PHP bridge attempt failed (${bridgeError ?? "unknown"}), falling back to REST API / public galley URLs`
       )
     }
 

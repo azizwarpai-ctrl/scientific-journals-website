@@ -113,28 +113,19 @@ export default function JournalDetailPage() {
     )
   }
 
-  // Aims & Scope: prefer OJS About-page content (navigation_menu or static_pages)
-  // when it provides a clean Aims/Scope split, otherwise fall back to the
-  // structured `journal_settings.aimsAndScope` field parsed locally. OJS About
-  // content can include headings/lists/tables, so use the richer sanitizer.
-  const localParts = parseAimsAndScope(journal.aims_and_scope)
-  const preferOjs = !!(ojsAbout && (ojsAbout.aims || ojsAbout.scope || ojsAbout.combined))
-  const preferOjsSplit = !!(ojsAbout && ojsAbout.aims && ojsAbout.scope)
-  const hasLocalSplit = !!(localParts.aims && localParts.scope)
+  // Aims & Scope resolution:
+  //   - When OJS has any content, trust its decision in full. The service
+  //     already decided whether to split (extraction from About prose) or to
+  //     render as one unified block (dedicated `aims-scope` nav item / static
+  //     page authored by an admin). Do not second-guess it locally.
+  //   - Only fall back to splitting the local structured `aims_and_scope`
+  //     field when OJS returned nothing at all.
+  const hasOjs = !!(ojsAbout && (ojsAbout.aims || ojsAbout.scope || ojsAbout.combined))
+  const localParts = hasOjs ? null : parseAimsAndScope(journal.aims_and_scope)
 
-  const chosenAims = preferOjsSplit
-    ? ojsAbout?.aims ?? null
-    : hasLocalSplit
-      ? localParts.aims
-      : ojsAbout?.aims ?? null
-  const chosenScope = preferOjsSplit
-    ? ojsAbout?.scope ?? null
-    : hasLocalSplit
-      ? localParts.scope
-      : ojsAbout?.scope ?? null
-  const chosenCombined = preferOjsSplit || hasLocalSplit
-    ? null
-    : (preferOjs ? ojsAbout?.combined ?? null : localParts.combined)
+  const chosenAims = hasOjs ? ojsAbout?.aims ?? null : localParts?.aims ?? null
+  const chosenScope = hasOjs ? ojsAbout?.scope ?? null : localParts?.scope ?? null
+  const chosenCombined = hasOjs ? ojsAbout?.combined ?? null : localParts?.combined ?? null
 
   const safeAims = chosenAims ? sanitizeRichContent(chosenAims) : null
   const safeScope = chosenScope ? sanitizeRichContent(chosenScope) : null

@@ -252,15 +252,19 @@ export async function fetchCustomBlocks(
     const items: CustomBlock[] = []
 
     if (cardHtmlSegments.length >= 2) {
-      for (let idx = 0; idx < cardHtmlSegments.length; idx++) {
-        const segHtml = cardHtmlSegments[idx]
-        const { title, image, link, description } = extractCardFields(segHtml, `${name}-${idx}`)
-        if (!title) continue
-        const finalDescription = buildFinalDescription(title, description)
+      // Second-pass: some segments may themselves contain multiple logical
+      // "card title" anchors when an editor merged items under a single
+      // wrapper <div> in OJS. Re-split each segment at those anchors.
+      const refinedSegments = cardHtmlSegments.flatMap(subSplitSegmentByTitleAnchors)
+      for (let idx = 0; idx < refinedSegments.length; idx++) {
+        const segHtml = refinedSegments[idx]
+        const { image, link, description } = extractCardFields(segHtml, `${name}-${idx}`)
+        const finalTitle = getFinalTitle(segHtml, name, idx)
+        const finalDescription = buildFinalDescription(finalTitle, description)
         const itemResult = CustomBlockSchema.safeParse({
           name: `${name}-${idx}`,
           content: segHtml,
-          title,
+          title: finalTitle,
           image,
           link,
           description: finalDescription,
@@ -274,26 +278,30 @@ export async function fetchCustomBlocks(
     } else {
       // Single-card fallback — strip the block-title heading first so the
       // first real item doesn't inherit "Journal Information" as its title.
+      // Then apply sub-split in case the single "card" is actually merged items.
       const strippedHtml = stripBlockTitleHeading(cleanContent)
-      const cardFields = extractCardFields(strippedHtml || cleanContent, name)
-      const finalTitle =
-        cardFields.title ||
-        name.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-      const finalDescription = buildFinalDescription(
-        finalTitle,
-        cardFields.description
-      )
-      const itemResult = CustomBlockSchema.safeParse({
-        name,
-        content: cleanContent,
-        title: finalTitle,
-        image: cardFields.image,
-        link: cardFields.link,
-        description: finalDescription,
-      })
-      if (itemResult.success) {
-        blocks.push(itemResult.data)
+      const singleSegments = subSplitSegmentByTitleAnchors(strippedHtml || cleanContent)
+      for (let idx = 0; idx < singleSegments.length; idx++) {
+        const segHtml = singleSegments[idx]
+        const cardFields = extractCardFields(segHtml, name)
+        const finalTitle = getFinalTitle(segHtml, name, singleSegments.length > 1 ? idx : undefined)
+        const finalDescription = buildFinalDescription(
+          finalTitle,
+          cardFields.description
+        )
+        const itemResult = CustomBlockSchema.safeParse({
+          name: singleSegments.length > 1 ? `${name}-${idx}` : name,
+          content: cleanContent,
+          title: finalTitle,
+          image: cardFields.image,
+          link: cardFields.link,
+          description: finalDescription,
+        })
+        if (itemResult.success) {
+          items.push(itemResult.data)
+        }
       }
+      blocks.push(...items)
     }
   }
 
@@ -581,4 +589,126 @@ function splitFlatByPredicate(
   if (started && current.length > 0) segments.push(current.join(""))
 
   return segments.filter(hasRenderableText)
+}
+
+// ── Title-anchor qualification ──────────────────────────────────────────────
+// A genuine card title is a heading (h2-h6) OR a <strong> whose wrapping
+// element contains no other text besides the strong itself — i.e. it's a
+// standalone label, not an inline bold inside a sentence like
+// `Online ISSN: <strong>2966-6864</strong>`.
+
+function isQualifyingTitleAnchor($: CheerioAPI, el: AnyNode): boolean {
+  const tag = tagOf(el)
+  if (/^h[2-6]$/.test(tag)) return true
+  if (tag !== "strong") return false
+
+  const $el = $(el)
+  const strongText = $el.text().trim()
+  if (!strongText) return false
+
+  const parent = $el.parent()
+  if (parent.length === 0) return false
+  const parentTag = tagOf(parent[0] as AnyNode)
+  if (!["p", "div", "span", "h2", "h3", "h4", "h5", "h6"].includes(parentTag)) {
+    return false
+  }
+  // Standalone means the parent's visible text equals the strong's text
+  // (no surrounding copy), and the parent has no peer content like images
+  // that would make it a mixed card body.
+  if (parent.text().trim() !== strongText) return false
+  return true
+}
+
+/**
+ * Check whether `el` (or any descendant) contains a qualifying title anchor.
+ * Used to treat a sibling subtree as a "card start marker" during sub-split.
+ */
+function subtreeHasTitleAnchor($: CheerioAPI, el: AnyNode): boolean {
+  if (isQualifyingTitleAnchor($, el)) return true
+  const $el = $(el)
+  let found = false
+  $el.find("strong, h2, h3, h4, h5, h6").each((_, node) => {
+    if (isQualifyingTitleAnchor($, node as AnyNode)) {
+      found = true
+      return false
+    }
+  })
+  return found
+}
+
+/**
+ * Second-pass splitter. When an editor authored multiple logical cards
+ * inside a single wrapper <div> (multiple standalone <strong> labels under
+ * one container), slice that wrapper at each qualifying title anchor so each
+ * logical item becomes its own card. If no merged structure is detected,
+ * returns `[segmentHtml]` unchanged.
+ */
+export function subSplitSegmentByTitleAnchors(segmentHtml: string): string[] {
+  const $ = load(segmentHtml)
+  const bodyEl = ($("body").length ? $("body") : $.root()) as Cheerio<AnyNode>
+
+  // Walk the DOM to find the shallowest container whose direct children
+  // include ≥ 2 subtrees each holding a qualifying title anchor.
+  let targetRoot: Cheerio<AnyNode> | null = null
+
+  const visit = (node: AnyNode): boolean => {
+    if (targetRoot) return true
+    const $node = $(node)
+    const kids = $node
+      .children()
+      .toArray()
+      .filter((c) => (c as unknown as { type?: string }).type === "tag")
+    if (kids.length >= 2) {
+      const anchorKids = kids.filter((c) => subtreeHasTitleAnchor($, c))
+      if (anchorKids.length >= 2) {
+        targetRoot = $node
+        return true
+      }
+    }
+    for (const c of kids) {
+      if (visit(c)) return true
+    }
+    return false
+  }
+
+  visit(bodyEl[0] as AnyNode)
+  if (!targetRoot) return [segmentHtml]
+
+  const subSegments = splitFlatByPredicate($, targetRoot, (el) =>
+    subtreeHasTitleAnchor($, el),
+  )
+
+  return subSegments.length >= 2 ? subSegments : [segmentHtml]
+}
+
+/**
+ * Fallback title helper — grab the alt text of the first <img> so a card
+ * with no heading/<strong> anchor still renders with a meaningful label.
+ */
+export function extractImgAlt(html: string): string | undefined {
+  const m = html.match(/<img[^>]*\balt=["']([^"']+)["']/i)
+  if (!m) return undefined
+  const alt = decodeHtml(m[1]).trim()
+  return alt.length > 0 ? alt : undefined
+}
+
+/**
+ * Compute the final card title using a fallback chain:
+ * 1. Extracted title from heading/<strong>
+ * 2. Image alt attribute
+ * 3. Block-derived label (e.g. "Journal Information 1")
+ */
+function getFinalTitle(
+  segmentHtml: string,
+  baseName: string,
+  idx?: number,
+): string {
+  const { title } = extractCardFields(segmentHtml, `${baseName}-${idx ?? 0}`)
+  return (
+    title ||
+    extractImgAlt(segmentHtml) ||
+    `${baseName.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}${
+      idx !== undefined ? ` ${idx + 1}` : ""
+    }`
+  )
 }

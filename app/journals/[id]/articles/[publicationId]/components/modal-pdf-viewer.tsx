@@ -17,6 +17,13 @@ import { Button } from "@/components/ui/button"
 interface ModalPdfViewerProps {
   pdfUrl: string | null
   pdfDirectUrl?: string | null
+  /**
+   * When true, ignore the direct OJS URL and load the PDF exclusively through
+   * `/api/pdf-proxy`. Used for journals disabled in OJS (`enabled=0`) where the
+   * direct URL would hit OJS's login wall. The proxy routes to the PHP bridge
+   * on the OJS host, which reads the file straight off disk.
+   */
+  pdfProxyOnly?: boolean
   articleTitle?: string
   triggerStyle?: "sidebar" | "card"
 }
@@ -73,6 +80,7 @@ function deriveDirectUrl(proxyUrl: string | null): string | null {
 export function ModalPdfViewer({
   pdfUrl,
   pdfDirectUrl,
+  pdfProxyOnly = false,
   articleTitle = "Document",
   triggerStyle = "sidebar",
 }: ModalPdfViewerProps) {
@@ -83,19 +91,20 @@ export function ModalPdfViewer({
   const panelRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
-  // Always prefer the direct OJS URL so the browser handles SiteGround's WAF.
-  // If pdfDirectUrl isn't provided (e.g. from article listings), derive it
-  // from the proxy URL's query parameters + NEXT_PUBLIC_OJS_BASE_URL.
-  const directOjsUrl = pdfDirectUrl || deriveDirectUrl(pdfUrl)
+  // For OJS-disabled journals, the direct URL would hit OJS's login wall. Force
+  // the proxy route (which fronts the PHP bridge on the OJS host) so the PDF
+  // streams from disk regardless of OJS's public access policy.
+  // Otherwise, prefer the direct OJS URL so the browser handles SiteGround's
+  // WAF; derive it from the proxy URL's params when `pdfDirectUrl` is absent.
+  const directOjsUrl = pdfProxyOnly ? null : (pdfDirectUrl || deriveDirectUrl(pdfUrl))
   const viewUrl = directOjsUrl || pdfUrl
   const downloadUrl = directOjsUrl || pdfUrl
 
-  const [isMobile, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    const ua = navigator.userAgent || navigator.vendor || (window as any).opera || ""
-    setIsMobile(/android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua))
-  }, [])
+  const [isMobile] = useState(() => {
+    if (typeof navigator === "undefined") return false
+    const ua = navigator.userAgent || navigator.vendor || (window as unknown as { opera?: string }).opera || ""
+    return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua)
+  })
 
   const openModal = useCallback(() => {
     triggerRef.current = document.activeElement as HTMLElement

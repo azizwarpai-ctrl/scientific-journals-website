@@ -48,6 +48,7 @@ export function ArticleSidebar({ article }: ArticleSidebarProps) {
           <ModalPdfViewer
             pdfUrl={article.pdfUrl}
             pdfDirectUrl={article.pdfDirectUrl}
+            pdfProxyOnly={article.pdfProxyOnly}
             articleTitle={article.title || undefined}
           />
         ) : (
