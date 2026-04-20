@@ -28,136 +28,124 @@ import { useGetHelpCategories } from "@/src/features/help/api/use-help-categorie
 import { useGetHelpContent } from "@/src/features/help/api/use-get-help-content"
 import { defaultHelpContent } from "@/src/features/help/schemas/help-schema"
 
-// Static visual config keyed by well-known category slugs.
-// Unknown slugs fall back to FALLBACK_CONFIG.
-const CATEGORY_CONFIG: Record<string, {
-  Icon: LucideIcon
-  iconBg: string
-  iconText: string
-  accentBar: string
-  pillBg: string
-  pillHover: string
-  pillText: string
-  numBg: string
-  numText: string
-}> = {
-  "guide-for-authors": {
-    Icon: BookOpen,
-    iconBg: "bg-sky-500/10",
-    iconText: "text-sky-500",
-    accentBar: "bg-sky-500",
-    pillBg: "bg-sky-500/10",
-    pillHover: "hover:bg-sky-500/20",
-    pillText: "text-sky-600 dark:text-sky-400",
-    numBg: "bg-sky-500/10",
-    numText: "text-sky-600 dark:text-sky-400",
-  },
-  "guide-for-reviewers": {
-    Icon: Users2,
-    iconBg: "bg-emerald-500/10",
-    iconText: "text-emerald-500",
-    accentBar: "bg-emerald-500",
-    pillBg: "bg-emerald-500/10",
-    pillHover: "hover:bg-emerald-500/20",
-    pillText: "text-emerald-600 dark:text-emerald-400",
-    numBg: "bg-emerald-500/10",
-    numText: "text-emerald-600 dark:text-emerald-400",
-  },
-  "publication-ethics": {
-    Icon: Shield,
-    iconBg: "bg-violet-500/10",
-    iconText: "text-violet-500",
-    accentBar: "bg-violet-500",
-    pillBg: "bg-violet-500/10",
-    pillHover: "hover:bg-violet-500/20",
-    pillText: "text-violet-600 dark:text-violet-400",
-    numBg: "bg-violet-500/10",
-    numText: "text-violet-600 dark:text-violet-400",
-  },
-  "faq": {
-    Icon: HelpCircle,
-    iconBg: "bg-amber-500/10",
-    iconText: "text-amber-500",
-    accentBar: "bg-amber-500",
-    pillBg: "bg-amber-500/10",
-    pillHover: "hover:bg-amber-500/20",
-    pillText: "text-amber-600 dark:text-amber-400",
-    numBg: "bg-amber-500/10",
-    numText: "text-amber-600 dark:text-amber-400",
-  },
+// Icon mapping per well-known category slug. Visuals otherwise stay aligned
+// with the platform's primary-themed design language — no per-category colors.
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  "guide-for-authors": BookOpen,
+  "guide-for-reviewers": Users2,
+  "publication-ethics": Shield,
+  "faq": HelpCircle,
 }
 
-const FALLBACK_CONFIG = {
-  Icon: BookOpen,
-  iconBg: "bg-primary/10",
-  iconText: "text-primary",
-  accentBar: "bg-primary",
-  pillBg: "bg-primary/10",
-  pillHover: "hover:bg-primary/20",
-  pillText: "text-primary",
-  numBg: "bg-primary/10",
-  numText: "text-primary",
+const GUIDE_SLUGS = new Set(["guide-for-authors", "guide-for-reviewers"])
+const ACCORDION_SLUGS = new Set(["faq"])
+
+type Category = {
+  id: string
+  slug: string
+  title: string
+  topics?: Array<{ id: string; title: string; content: string; is_active?: boolean }>
 }
+
+type Topic = { id: string; title: string; content: string }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function CategoryCard({ category, topics, cfg }: {
-  category: { id: string; slug: string; title: string }
-  topics: { id: string; title: string; content: string }[]
-  cfg: typeof FALLBACK_CONFIG
+function CardHeader({ Icon, title, topicCount }: {
+  Icon: LucideIcon
+  title: string
+  topicCount: number
 }) {
+  return (
+    <header className="flex items-center gap-3 border-b border-border/40 px-6 py-5">
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10">
+        <Icon className="h-5 w-5 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h2 className="text-base font-bold leading-tight tracking-tight">{title}</h2>
+        {topicCount > 0 && (
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {topicCount} {topicCount === 1 ? "topic" : "topics"}
+          </p>
+        )}
+      </div>
+    </header>
+  )
+}
+
+function EmptyBody({ Icon }: { Icon: LucideIcon }) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-14 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+        <Icon className="h-6 w-6 text-primary/50" />
+      </div>
+      <div>
+        <p className="text-sm font-medium text-foreground/70">Content in preparation</p>
+        <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+          This section is being developed. Please check back soon.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Guide-style card: each topic rendered inline as a numbered section, so the
+ * card reads as one cohesive document rather than a stack of foldable panels.
+ */
+function GuideCard({ category, topics }: { category: Category; topics: Topic[] }) {
+  const Icon = CATEGORY_ICONS[category.slug] ?? BookOpen
   return (
     <article
       id={category.slug}
-      className="scroll-mt-24 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
+      className="scroll-mt-24 flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
     >
-      {/* Card header */}
-      <header className="flex items-center gap-4 border-b border-border/40 px-6 py-5">
-        <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${cfg.iconBg}`}>
-          <cfg.Icon className={`h-5 w-5 ${cfg.iconText}`} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-base font-bold leading-tight">{category.title}</h2>
-          {topics.length > 0 && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {topics.length} {topics.length === 1 ? "topic" : "topics"}
-            </p>
-          )}
-        </div>
-        <div className={`h-8 w-1 flex-shrink-0 rounded-full ${cfg.accentBar}`} />
-      </header>
-
-      {/* Card body */}
+      <CardHeader Icon={Icon} title={category.title} topicCount={topics.length} />
       {topics.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-          <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${cfg.iconBg}`}>
-            <cfg.Icon className={`h-6 w-6 ${cfg.iconText} opacity-50`} />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground/70">Content in preparation</p>
-            <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-              This section is being developed. Please check back soon.
-            </p>
-          </div>
+        <EmptyBody Icon={Icon} />
+      ) : (
+        <div className="flex-1 divide-y divide-border/40">
+          {topics.map((topic, idx) => (
+            <section key={topic.id} className="px-6 py-5">
+              <div className="flex items-baseline gap-3">
+                <span className="text-xs font-bold tracking-wider text-primary">
+                  {String(idx + 1).padStart(2, "0")}
+                </span>
+                <h3 className="text-sm font-semibold leading-snug">{topic.title}</h3>
+              </div>
+              <p className="mt-2 pl-8 text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                {topic.content}
+              </p>
+            </section>
+          ))}
         </div>
+      )}
+    </article>
+  )
+}
+
+/**
+ * FAQ-style card: accordion is the natural format for Q&A, kept for FAQ only.
+ */
+function AccordionCard({ category, topics }: { category: Category; topics: Topic[] }) {
+  const Icon = CATEGORY_ICONS[category.slug] ?? HelpCircle
+  return (
+    <article
+      id={category.slug}
+      className="scroll-mt-24 flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
+    >
+      <CardHeader Icon={Icon} title={category.title} topicCount={topics.length} />
+      {topics.length === 0 ? (
+        <EmptyBody Icon={Icon} />
       ) : (
         <Accordion type="single" collapsible className="w-full">
-          {topics.map((topic, idx) => (
-            <AccordionItem
-              key={topic.id}
-              value={`topic-${topic.id}`}
-              className="border-border/40"
-            >
-              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/30 transition-colors">
-                <span className="flex items-center gap-3 text-sm font-medium text-left">
-                  <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold leading-none ${cfg.numBg} ${cfg.numText}`}>
-                    {idx + 1}
-                  </span>
-                  {topic.title}
-                </span>
+          {topics.map((topic) => (
+            <AccordionItem key={topic.id} value={`topic-${topic.id}`} className="border-border/40">
+              <AccordionTrigger className="px-6 py-4 text-sm font-medium hover:no-underline hover:bg-muted/30 transition-colors">
+                {topic.title}
               </AccordionTrigger>
               <AccordionContent className="px-6 pb-5 pt-0">
-                <div className="ml-9 border-l-2 border-border/50 pl-4 text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                <div className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
                   {topic.content}
                 </div>
               </AccordionContent>
@@ -169,28 +157,37 @@ function CategoryCard({ category, topics, cfg }: {
   )
 }
 
+function CategoryCard({ category, topics }: { category: Category; topics: Topic[] }) {
+  return ACCORDION_SLUGS.has(category.slug)
+    ? <AccordionCard category={category} topics={topics} />
+    : <GuideCard category={category} topics={topics} />
+}
+
 function SkeletonLoader() {
   return (
-    <div className="space-y-8">
-      {[1, 2].map((n) => (
-        <div key={n} className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
-          <div className="flex items-center gap-4 border-b border-border/40 px-6 py-5">
-            <Skeleton className="h-10 w-10 rounded-xl" />
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-3 w-16" />
+    <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-2">
+        {[1, 2].map((n) => (
+          <div key={n} className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
+            <div className="flex items-center gap-3 border-b border-border/40 px-6 py-5">
+              <Skeleton className="h-10 w-10 rounded-xl" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+            </div>
+            <div className="divide-y divide-border/40">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="space-y-2 px-6 py-5">
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-5/6" />
+                </div>
+              ))}
             </div>
           </div>
-          <div className="divide-y divide-border/40">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-3 px-6 py-4">
-                <Skeleton className="h-6 w-6 rounded-full flex-shrink-0" />
-                <Skeleton className="h-4 w-3/4" />
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }
@@ -198,8 +195,8 @@ function SkeletonLoader() {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/10 py-20 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-        <BookOpen className="h-8 w-8 text-muted-foreground/50" />
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+        <BookOpen className="h-8 w-8 text-primary/60" />
       </div>
       <div>
         <h3 className="text-lg font-semibold">No help content yet</h3>
@@ -220,8 +217,8 @@ function EmptyState() {
 function NoResults({ query, onClear }: { query: string; onClear: () => void }) {
   return (
     <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/10 py-20 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-        <Search className="h-8 w-8 text-muted-foreground/50" />
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+        <Search className="h-8 w-8 text-primary/60" />
       </div>
       <div>
         <h3 className="text-lg font-semibold">No results for &ldquo;{query}&rdquo;</h3>
@@ -244,7 +241,10 @@ export default function HelpPage() {
   const [searchTerm, setSearchTerm] = useState("")
 
   const content = helpResponse || defaultHelpContent
-  const activeCategories = useMemo(() => Array.isArray(categories) ? categories : [], [categories])
+  const activeCategories = useMemo<Category[]>(
+    () => (Array.isArray(categories) ? (categories as Category[]) : []),
+    [categories]
+  )
 
   // Re-apply hash scroll after async category data has landed so footer
   // deep-links (/help#guide-for-authors, etc.) resolve correctly.
@@ -256,23 +256,32 @@ export default function HelpPage() {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
   }, [isCategoriesLoading, activeCategories.length])
 
-  const filteredCategories = useMemo(() => {
+  const filteredCategories = useMemo<Category[]>(() => {
     if (!searchTerm.trim()) return activeCategories
     const query = searchTerm.toLowerCase()
     return activeCategories
-      .map((cat: any) => ({
+      .map((cat) => ({
         ...cat,
         topics: (cat.topics || []).filter(
-          (t: any) =>
-            t.is_active &&
+          (t) =>
+            t.is_active !== false &&
             (t.title.toLowerCase().includes(query) ||
               t.content.toLowerCase().includes(query))
         ),
       }))
-      .filter((cat: any) => cat.topics.length > 0)
+      .filter((cat) => (cat.topics || []).length > 0)
   }, [activeCategories, searchTerm])
 
-  const displayCategories: any[] = searchTerm.trim() ? filteredCategories : activeCategories
+  const displayCategories: Category[] = searchTerm.trim() ? filteredCategories : activeCategories
+
+  const topicsFor = (category: Category): Topic[] =>
+    searchTerm
+      ? (category.topics || []) as Topic[]
+      : ((category.topics || []).filter((t) => t.is_active !== false) as Topic[])
+
+  // Partition: guides render side-by-side; everything else stacks full-width.
+  const guideCards = displayCategories.filter((c) => GUIDE_SLUGS.has(c.slug))
+  const otherCards = displayCategories.filter((c) => !GUIDE_SLUGS.has(c.slug))
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -324,11 +333,11 @@ export default function HelpPage() {
                   />
                 </div>
 
-                {/* Category nav pills — hidden during search */}
+                {/* Category nav pills — unified primary styling, hidden during search */}
                 {!isCategoriesLoading && activeCategories.length > 0 && !searchTerm && (
                   <div className="mt-5 flex flex-wrap justify-center gap-2">
-                    {activeCategories.map((cat: any) => {
-                      const cfg = CATEGORY_CONFIG[cat.slug] ?? FALLBACK_CONFIG
+                    {activeCategories.map((cat) => {
+                      const Icon = CATEGORY_ICONS[cat.slug] ?? BookOpen
                       return (
                         <button
                           key={cat.slug}
@@ -336,9 +345,9 @@ export default function HelpPage() {
                             const el = document.getElementById(cat.slug)
                             if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
                           }}
-                          className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${cfg.pillBg} ${cfg.pillHover} ${cfg.pillText}`}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
                         >
-                          <cfg.Icon className="h-3.5 w-3.5" />
+                          <Icon className="h-3.5 w-3.5" />
                           {cat.title}
                         </button>
                       )
@@ -354,7 +363,7 @@ export default function HelpPage() {
         <section className="py-14 md:py-20">
           <div className="container mx-auto px-4 md:px-6">
             <GSAPWrapper animation="slideUp" delay={0.15}>
-              <div className="mx-auto max-w-3xl space-y-6">
+              <div className="mx-auto max-w-5xl space-y-6">
                 {isCategoriesLoading ? (
                   <SkeletonLoader />
                 ) : activeCategories.length === 0 ? (
@@ -362,20 +371,30 @@ export default function HelpPage() {
                 ) : filteredCategories.length === 0 && searchTerm ? (
                   <NoResults query={searchTerm} onClear={() => setSearchTerm("")} />
                 ) : (
-                  displayCategories.map((category: any) => {
-                    const cfg = CATEGORY_CONFIG[category.slug] ?? FALLBACK_CONFIG
-                    const topics = searchTerm
-                      ? category.topics || []
-                      : (category.topics || []).filter((t: any) => t.is_active)
-                    return (
-                      <CategoryCard
-                        key={category.id}
-                        category={category}
-                        topics={topics}
-                        cfg={cfg}
-                      />
-                    )
-                  })
+                  <>
+                    {guideCards.length > 0 && (
+                      <div className="grid gap-6 md:grid-cols-2">
+                        {guideCards.map((category) => (
+                          <CategoryCard
+                            key={category.id}
+                            category={category}
+                            topics={topicsFor(category)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {otherCards.length > 0 && (
+                      <div className="space-y-6">
+                        {otherCards.map((category) => (
+                          <CategoryCard
+                            key={category.id}
+                            category={category}
+                            topics={topicsFor(category)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </GSAPWrapper>
