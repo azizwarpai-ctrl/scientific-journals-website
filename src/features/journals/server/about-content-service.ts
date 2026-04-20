@@ -298,20 +298,23 @@ export async function fetchJournalAboutContent(ojsJournalId: string): Promise<Jo
     }),
   ])
 
-  const candidates: Array<{ html: string; source: JournalAboutContent["source"] }> = []
+  const candidates: Array<{ html: string; source: JournalAboutContent["source"]; dedicated: boolean }> = []
   const navGroups = groupByItemId(navRows)
   const staticGroups = groupStaticPages(staticRows)
 
   // 1. Dedicated "aims-scope" navigation-menu item — when an OJS admin creates
   //    this item, its content is the explicit, source-of-truth block for Aims &
   //    Scope and supersedes the legacy aimsAndScope setting or About prose.
+  //    Marked `dedicated` so the picker renders it as ONE unified block and does
+  //    NOT split its internal "Aims of the Journal"/"Scope of the Journal"
+  //    subsection headings into two separate cards.
   for (const item of navGroups.values()) {
     const titleHint = pickBestLocale(item.settings, "title", primaryLocale)
     if (!isAimsScopeAlias(item.path, titleHint)) continue
     const raw = pickBestLocale(item.settings, "content", primaryLocale)
     const sanitized = sanitize(raw)
     if (hasUsableContent(sanitized)) {
-      candidates.push({ html: sanitized, source: "navigation_menu" })
+      candidates.push({ html: sanitized, source: "navigation_menu", dedicated: true })
       break
     }
   }
@@ -323,7 +326,7 @@ export async function fetchJournalAboutContent(ojsJournalId: string): Promise<Jo
     const raw = pickBestLocale(page.settings, "content", primaryLocale)
     const sanitized = sanitize(raw)
     if (hasUsableContent(sanitized)) {
-      candidates.push({ html: sanitized, source: "static_page" })
+      candidates.push({ html: sanitized, source: "static_page", dedicated: true })
       break
     }
   }
@@ -332,7 +335,7 @@ export async function fetchJournalAboutContent(ojsJournalId: string): Promise<Jo
   const structuredRaw = pickBestLocale(aimsRows, "aimsAndScope", primaryLocale)
   const structuredHtml = sanitize(structuredRaw)
   if (hasUsableContent(structuredHtml)) {
-    candidates.push({ html: structuredHtml, source: "journal_settings" })
+    candidates.push({ html: structuredHtml, source: "journal_settings", dedicated: false })
   }
 
   // 4. Extraction fallback — a generic "About" nav-menu page whose content
@@ -345,7 +348,7 @@ export async function fetchJournalAboutContent(ojsJournalId: string): Promise<Jo
     const raw = pickBestLocale(item.settings, "content", primaryLocale)
     const sanitized = sanitize(raw)
     if (hasUsableContent(sanitized)) {
-      candidates.push({ html: sanitized, source: "navigation_menu" })
+      candidates.push({ html: sanitized, source: "navigation_menu", dedicated: false })
       break
     }
   }
@@ -359,17 +362,28 @@ export async function fetchJournalAboutContent(ojsJournalId: string): Promise<Jo
     const raw = pickBestLocale(page.settings, "content", primaryLocale)
     const sanitized = sanitize(raw)
     if (hasUsableContent(sanitized)) {
-      candidates.push({ html: sanitized, source: "static_page" })
+      candidates.push({ html: sanitized, source: "static_page", dedicated: false })
       break
     }
   }
 
   if (candidates.length === 0) return empty
 
-  // Prefer the first candidate that splits cleanly into aims + scope. If none
-  // does, fall back to the first candidate and expose it as `combined`.
+  // Pick a candidate. A DEDICATED candidate wins immediately and is rendered as
+  // ONE unified block (combined only) — the admin authored a single page and
+  // its internal "Aims of the Journal"/"Scope of the Journal" subsection
+  // headings are authored structure, not a signal to split into two cards.
+  // For non-dedicated candidates, prefer a clean aims/scope split when the
+  // parser can find it, falling back to combined.
   let chosen: { parts: AimsScopeParts; source: JournalAboutContent["source"] } | null = null
   for (const cand of candidates) {
+    if (cand.dedicated) {
+      chosen = {
+        parts: { aims: null, scope: null, combined: cand.html },
+        source: cand.source,
+      }
+      break
+    }
     const parts = parseAimsAndScope(cand.html)
     if (hasSplitParts(parts)) {
       chosen = { parts, source: cand.source }
