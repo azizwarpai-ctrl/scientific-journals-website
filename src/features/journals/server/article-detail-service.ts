@@ -35,6 +35,7 @@ interface ArticleDbRow {
   number: string | null
   year: string | null
   journal_url_path: string | null
+  journal_enabled: number | null
   issue_title: string | null
   journal_title: string | null
   journal_abbreviation: string | null
@@ -69,6 +70,7 @@ export async function fetchArticleDetail(
       i.number,
       i.year,
       j.path as journal_url_path,
+      j.enabled as journal_enabled,
       is_title.setting_value as issue_title,
       js_name.setting_value as journal_title,
       js_abbrev.setting_value as journal_abbreviation,
@@ -295,6 +297,14 @@ export async function fetchArticleDetail(
 
 
 
+  // When a journal is disabled in OJS (`journals.enabled = 0`), OJS gates its
+  // public galley URLs behind a login wall. In that case the only way to serve
+  // the PDF to anonymous readers is via our own proxy (which talks to the PHP
+  // bridge on the OJS host and streams the file straight off disk). So: skip
+  // `directUrl` entirely for disabled journals and force the client to use the
+  // proxy route.
+  const isOjsJournalEnabled = Number(article.journal_enabled) === 1
+
   const galleys: ArticleGalley[] = galleyRows.map(row => {
     if (row.remote_url) {
       return { galleyId: row.galley_id, label: row.label, locale: row.locale, downloadUrl: row.remote_url, directUrl: row.remote_url }
@@ -321,7 +331,7 @@ export async function fetchArticleDetail(
       label: row.label,
       locale: row.locale,
       downloadUrl: `/api/pdf-proxy?${params.toString()}`,
-      directUrl: publicOjsBaseUrl 
+      directUrl: (publicOjsBaseUrl && isOjsJournalEnabled)
         ? `${publicOjsBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}?inline=1`
         : null,
     }
@@ -382,6 +392,7 @@ export async function fetchArticleDetail(
     galleys,
     pdfUrl: pdfGalley?.downloadUrl || null,
     pdfDirectUrl: pdfGalley?.directUrl || null,
+    pdfProxyOnly: !isOjsJournalEnabled,
 
     issueId: article.issue_id || 0,
     issueTitle: article.issue_title,

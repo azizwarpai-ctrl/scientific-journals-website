@@ -28,6 +28,13 @@ export interface ArticleDetail {
   galleys: ArticleGalley[]
   pdfUrl: string | null
   pdfDirectUrl: string | null
+  /**
+   * True when the OJS journal is disabled (`journals.enabled = 0`). In that
+   * case OJS gates public galley URLs behind a login wall, so the client must
+   * stream through `/api/pdf-proxy` (which routes to the PHP bridge) instead
+   * of loading `pdfDirectUrl` in the iframe.
+   */
+  pdfProxyOnly: boolean
 
   // Issue context
   issueId: number
