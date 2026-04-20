@@ -45,27 +45,28 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Resources */}
+          {/* Resources — each link targets a Help Centre category anchor.
+              Content is admin-editable via /admin/help-content. */}
           <div>
             <h3 className="mb-4 text-sm font-semibold">Resources</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/help" className="text-muted-foreground hover:text-primary">
+                <Link href="/help#guide-for-authors" className="text-muted-foreground hover:text-primary">
                   Guide for Authors
                 </Link>
               </li>
               <li>
-                <Link href="/help" className="text-muted-foreground hover:text-primary">
+                <Link href="/help#guide-for-reviewers" className="text-muted-foreground hover:text-primary">
                   Guide for Reviewers
                 </Link>
               </li>
               <li>
-                <Link href="/help" className="text-muted-foreground hover:text-primary">
+                <Link href="/help#publication-ethics" className="text-muted-foreground hover:text-primary">
                   Publication Ethics
                 </Link>
               </li>
               <li>
-                <Link href="/help" className="text-muted-foreground hover:text-primary">
+                <Link href="/help#faq" className="text-muted-foreground hover:text-primary">
                   FAQ
                 </Link>
               </li>

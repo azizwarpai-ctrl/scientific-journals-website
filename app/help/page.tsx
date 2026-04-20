@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 
 import { useGetHelpCategories } from "@/src/features/help/api/use-help-categories"
 import { useGetHelpContent } from "@/src/features/help/api/use-get-help-content"
@@ -23,6 +23,18 @@ export default function HelpPage() {
 
   const content = helpResponse || defaultHelpContent
   const activeCategories = useMemo(() => Array.isArray(categories) ? categories : [], [categories])
+
+  // When arriving via footer anchors (e.g. /help#guide-for-authors), the
+  // target element doesn't exist during first paint because categories are
+  // fetched client-side. Re-apply the hash scroll once the data has landed
+  // so deep links from the footer resolve to the right card.
+  useEffect(() => {
+    if (isCategoriesLoading) return
+    const hash = window.location.hash.slice(1)
+    if (!hash) return
+    const el = document.getElementById(hash)
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [isCategoriesLoading, activeCategories.length])
 
   // Filter topics across categories based on search term
   const filteredCategories = useMemo(() => {
@@ -173,7 +185,6 @@ export default function HelpPage() {
                     <div className="grid gap-8">
                       {filteredCategories.map((category: any) => {
                         const activeTopics = category.topics?.filter((t: any) => t.is_active) || []
-                        if (activeTopics.length === 0) return null;
 
                         return (
                           <Card key={category.id} id={category.slug} className="border-border/40 shadow-sm overflow-hidden scroll-mt-24 transition-shadow hover:shadow-md">
@@ -186,22 +197,28 @@ export default function HelpPage() {
                               </div>
                             </CardHeader>
                             <CardContent className="p-0">
-                              <Accordion type="single" collapsible className="w-full">
-                                {activeTopics.map((topic: any, idx: number) => (
-                                  <AccordionItem 
-                                    key={topic.id} 
-                                    value={`topic-${topic.id}`}
-                                    className={`px-6 py-2 border-b-border/40 ${idx === activeTopics.length - 1 ? 'border-b-0' : ''}`}
-                                  >
-                                    <AccordionTrigger className="text-left font-medium hover:text-primary transition-colors py-4">
-                                      {topic.title}
-                                    </AccordionTrigger>
-                                    <AccordionContent className="text-muted-foreground leading-relaxed whitespace-pre-wrap pb-6 pt-2">
-                                      {topic.content}
-                                    </AccordionContent>
-                                  </AccordionItem>
-                                ))}
-                              </Accordion>
+                              {activeTopics.length === 0 ? (
+                                <div className="px-6 py-10 text-center text-sm text-muted-foreground">
+                                  Content for this section is being prepared. Please check back soon.
+                                </div>
+                              ) : (
+                                <Accordion type="single" collapsible className="w-full">
+                                  {activeTopics.map((topic: any, idx: number) => (
+                                    <AccordionItem
+                                      key={topic.id}
+                                      value={`topic-${topic.id}`}
+                                      className={`px-6 py-2 border-b-border/40 ${idx === activeTopics.length - 1 ? 'border-b-0' : ''}`}
+                                    >
+                                      <AccordionTrigger className="text-left font-medium hover:text-primary transition-colors py-4">
+                                        {topic.title}
+                                      </AccordionTrigger>
+                                      <AccordionContent className="text-muted-foreground leading-relaxed whitespace-pre-wrap pb-6 pt-2">
+                                        {topic.content}
+                                      </AccordionContent>
+                                    </AccordionItem>
+                                  ))}
+                                </Accordion>
+                              )}
                             </CardContent>
                           </Card>
                         )
