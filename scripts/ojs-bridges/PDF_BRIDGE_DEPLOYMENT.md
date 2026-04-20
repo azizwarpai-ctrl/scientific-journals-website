@@ -31,8 +31,12 @@ OJS server's local filesystem.
 
 ## Install
 
-1. Upload `ojs-pdf-bridge.php` to the OJS install root (next to `index.php`,
-   `config.inc.php`, and the existing `ojs-user-bridge.php`).
+1. Upload `ojs-pdf-bridge.php` **and** the adjacent `.htaccess` to the OJS
+   install root (next to `index.php`, `config.inc.php`, and the existing
+   `ojs-user-bridge.php`). The `.htaccess` is mandatory on Apache/SiteGround
+   — without it `mod_php` silently strips the `Authorization` header and
+   the bridge returns `401 AUTH_REQUIRED` for every call (the exact symptom
+   the production bug reports).
 2. Set the bearer token in **one** of these places:
    - env var `OJS_API_KEY` on the PHP-FPM / Apache process, or
    - `config.inc.php` under `[digitopub] api_key = <SECRET>`.
@@ -40,6 +44,14 @@ OJS server's local filesystem.
    if OJS itself can serve galleys).
 4. Lock the endpoint down with a firewall/WAF rule allowing only your
    Next.js server's IP — defence in depth on top of the Bearer check.
+
+### Optional env knobs
+
+| Env var                            | Purpose                                                            |
+| ---------------------------------- | ------------------------------------------------------------------ |
+| `OJS_API_KEY`                      | Shared Bearer token (see step 2)                                   |
+| `OJS_CONFIG_PATH`                  | Absolute path to `config.inc.php` if not adjacent to the bridge    |
+| `OJS_PDF_BRIDGE_ALLOW_STATUSES`    | Comma-separated OJS submission statuses to serve (default: `3`)    |
 
 ## Wire it to Next.js
 
@@ -96,6 +108,51 @@ Next.js proxy maps to its own `X-Proxy-Error` taxonomy.
 - **PDF validation.** Rejects non-PDF files via magic-byte check
   (`%PDF…`) or mimetype before streaming.
 - **No writes, no exec, no shell.** Pure read path — PDO + `fopen`.
+
+---
+
+## Diagnosing `AUTH_REQUIRED` with the bridge installed
+
+If the viewer still shows
+
+```json
+{"error":"AUTH_REQUIRED","message":"This file requires access permission on the source server.","status":403}
+```
+
+after the bridge is installed, walk the bridge's own diagnostics in order:
+
+1. **Hit `?debug=1`.** Any authenticated caller (same Bearer) can request
+   `…/ojs-pdf-bridge.php?journal=…&submissionId=…&galleyId=…&debug=1` and
+   get a JSON trace of every resolution step (journal → submission →
+   galley → file on disk). The step that fails names the exact reason.
+   This endpoint never streams content, so it's safe to run in prod.
+
+2. **Check the Next.js proxy response.** The proxy now forwards the
+   bridge's `X-PDF-Bridge-Error` header and JSON body fields
+   (`bridgeError`, `bridgeDetails`) to the client. Look at the network
+   response body rather than the rendered "AUTH_REQUIRED" text — the
+   real code will be one of:
+   - `INVALID_KEY` — Bearer mismatch. Re-check `OJS_API_KEY` on both sides.
+   - `UNPUBLISHED` — submission is not status=3. Either publish, or set
+     `OJS_PDF_BRIDGE_ALLOW_STATUSES=3,5` for scheduled content.
+   - `JOURNAL_NOT_FOUND` / `SUBMISSION_NOT_FOUND` — param mismatch; check
+     `journals.path` and `submissions.submission_id` directly.
+   - `SUBMISSION_MISMATCH` — the galley belongs to a different submission.
+   - `FILE_NOT_FOUND` — `files.path` resolves outside `files_dir` or the
+     file was deleted from disk.
+   - `SERVER_MISCONFIGURED` — config.inc.php missing/unparseable, or
+     `files_dir` unreadable.
+
+3. **Apache strips `Authorization`?** If the Next.js log shows the bridge
+   returning `AUTH_REQUIRED` on the first call even though `OJS_API_KEY`
+   matches, Apache is dropping the header. Install the adjacent
+   `.htaccess` (ships in this directory). SiteGround, cPanel-Apache, and
+   some PHP-FPM builds all need it.
+
+4. **Log output.** `error_log` lines prefixed `[PDF-Bridge]` are emitted
+   for every failure path and for each successful stream. Tail the PHP
+   error log on submitmanager.com — a missing line for your request
+   proves the request never reached PHP (WAF / rewrite issue).
 
 ---
 

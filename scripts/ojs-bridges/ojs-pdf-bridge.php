@@ -68,43 +68,112 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// ─── Rate limiting ─────────────────────────────────────────────────────────
-session_start();
-$rateLimit = 60; // max requests
-$rateWindow = 60; // per second window
-
-if (!isset($_SESSION['bridge_requests'])) {
-    $_SESSION['bridge_requests'] = [];
+// ─── Rate limiting (IP-keyed, filesystem-backed) ──────────────────────────
+//
+// The previous implementation used PHP sessions, which are useless for a
+// server-to-server endpoint: each Next.js request produces a new cookie, so
+// the bucket is always empty, AND it pollutes Set-Cookie on the response.
+// Replace with a lightweight per-IP file counter.
+$clientIp = $_SERVER['HTTP_X_FORWARDED_FOR']
+    ?? $_SERVER['HTTP_X_REAL_IP']
+    ?? $_SERVER['REMOTE_ADDR']
+    ?? 'unknown';
+// If X-Forwarded-For has a list, take the first hop.
+if (strpos($clientIp, ',') !== false) {
+    $clientIp = trim(explode(',', $clientIp)[0]);
 }
-
+$rateDir = sys_get_temp_dir() . '/ojs-pdf-bridge-rl';
+@mkdir($rateDir, 0700, true);
+$rateFile = $rateDir . '/' . hash('sha256', $clientIp);
+$rateLimit  = 120; // requests
+$rateWindow = 60;  // seconds
 $now = time();
-$_SESSION['bridge_requests'] = array_filter($_SESSION['bridge_requests'], function($timestamp) use ($now, $rateWindow) {
-    return ($now - $timestamp) < $rateWindow;
-});
-
-if (count($_SESSION['bridge_requests']) >= $rateLimit) {
+$hits = [];
+if (is_file($rateFile)) {
+    $raw = @file_get_contents($rateFile);
+    if ($raw !== false && $raw !== '') {
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) {
+            $hits = array_values(array_filter($decoded, function ($t) use ($now, $rateWindow) {
+                return is_int($t) && ($now - $t) < $rateWindow;
+            }));
+        }
+    }
+}
+if (count($hits) >= $rateLimit) {
     http_response_code(429);
     header('Retry-After: 60');
-    echo json_encode(['error' => 'RATE_LIMIT_EXCEEDED', 'message' => 'Too many requests. Please try again later.']);
+    header('Content-Type: application/json; charset=utf-8');
+    header('X-PDF-Bridge-Error: RATE_LIMIT_EXCEEDED');
+    echo json_encode([
+        'success' => false,
+        'error'   => 'RATE_LIMIT_EXCEEDED',
+        'message' => 'Too many requests from this IP. Please try again later.',
+        'status'  => 429,
+    ]);
     exit;
 }
-$_SESSION['bridge_requests'][] = $now;
+$hits[] = $now;
+@file_put_contents($rateFile, json_encode($hits), LOCK_EX);
 
-// Helper: emit a JSON error and exit.
-function bridge_json_error($statusCode, $code, $message) {
+// Helper: emit a JSON error and exit. Echoes an X-PDF-Bridge-Error header so
+// the Next.js proxy can surface the exact failure reason to operators.
+function bridge_json_error($statusCode, $code, $message, array $extra = []) {
     if (!headers_sent()) {
         http_response_code($statusCode);
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');
         header('X-PDF-Bridge-Error: ' . $code);
     }
-    echo json_encode([
+    $payload = [
         'success' => false,
         'error'   => $code,
         'message' => $message,
         'status'  => $statusCode,
-    ]);
+    ];
+    if (!empty($extra)) {
+        $payload['details'] = $extra;
+    }
+    echo json_encode($payload);
     exit;
+}
+
+// Collect request headers in a case-insensitive, Apache-safe way.
+//
+// Apache + mod_php frequently strips `Authorization` from `$_SERVER`, leaving
+// the bearer invisible unless we fall through to `getallheaders()` or the
+// redirected copy. Without this, the bridge always returns 401 AUTH_REQUIRED
+// for legitimate callers — which is the exact symptom reported in prod.
+function bridge_get_authorization_header() {
+    $candidates = [
+        $_SERVER['HTTP_AUTHORIZATION'] ?? null,
+        $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? null,
+        $_SERVER['HTTP_X_AUTHORIZATION'] ?? null, // some proxies rename it
+    ];
+    foreach ($candidates as $value) {
+        if (!empty($value)) return $value;
+    }
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        if (is_array($headers)) {
+            foreach ($headers as $name => $value) {
+                if (strcasecmp($name, 'Authorization') === 0 && !empty($value)) {
+                    return $value;
+                }
+            }
+        }
+    }
+    if (function_exists('apache_request_headers')) {
+        $headers = apache_request_headers();
+        if (is_array($headers)) {
+            foreach ($headers as $name => $value) {
+                if (strcasecmp($name, 'Authorization') === 0 && !empty($value)) {
+                    return $value;
+                }
+            }
+        }
+    }
+    return '';
 }
 
 // ─── Method gate ───────────────────────────────────────────────────────────
@@ -113,34 +182,86 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET' && $_SERVER['REQUEST_METHOD'] !== 'HEAD
 }
 
 // ─── Load OJS config (for DB + files_dir) ─────────────────────────────────
-$configFile = dirname(__FILE__) . '/config.inc.php';
-if (!file_exists($configFile)) {
-    error_log('[PDF-Bridge] FATAL: config.inc.php not found at ' . $configFile);
+//
+// Search order for config.inc.php:
+//   1. Same directory as this bridge (default OJS layout).
+//   2. Parent directory (when bridge sits in a sibling dir, e.g. /ojs-bridges).
+//   3. OJS_CONFIG_PATH env override for non-standard layouts.
+$configCandidates = array_filter([
+    getenv('OJS_CONFIG_PATH') ?: null,
+    dirname(__FILE__) . '/config.inc.php',
+    dirname(__FILE__) . '/../config.inc.php',
+]);
+$configFile = null;
+foreach ($configCandidates as $candidate) {
+    if (is_file($candidate)) {
+        $configFile = $candidate;
+        break;
+    }
+}
+if ($configFile === null) {
+    error_log('[PDF-Bridge] FATAL: config.inc.php not found. Tried: ' . implode(', ', $configCandidates));
     bridge_json_error(500, 'SERVER_MISCONFIGURED', 'OJS config.inc.php is missing.');
 }
-$config = parse_ini_file($configFile, true);
+// INI_SCANNER_RAW preserves special chars (`$`, `!`, `"`, `;`, etc.) that
+// commonly appear in DB passwords — without it parse_ini_file silently
+// truncates the value and DB auth fails with a cryptic "Access denied".
+$config = @parse_ini_file($configFile, true, INI_SCANNER_RAW);
 if (empty($config) || empty($config['database'])) {
-    error_log('[PDF-Bridge] FATAL: Failed to parse config.inc.php.');
+    error_log('[PDF-Bridge] FATAL: Failed to parse ' . $configFile);
     bridge_json_error(500, 'SERVER_MISCONFIGURED', 'OJS configuration unavailable.');
+}
+
+// Trim wrapping quotes that INI_SCANNER_RAW leaves intact on quoted values.
+$stripIniQuotes = function ($value) {
+    if (!is_string($value)) return $value;
+    $trimmed = trim($value);
+    if (strlen($trimmed) >= 2) {
+        $first = $trimmed[0];
+        $last  = $trimmed[strlen($trimmed) - 1];
+        if (($first === '"' && $last === '"') || ($first === "'" && $last === "'")) {
+            return substr($trimmed, 1, -1);
+        }
+    }
+    return $trimmed;
+};
+foreach ($config as $section => $values) {
+    if (is_array($values)) {
+        foreach ($values as $key => $value) {
+            $config[$section][$key] = $stripIniQuotes($value);
+        }
+    }
 }
 
 // ─── Bearer auth ──────────────────────────────────────────────────────────
 $apiKey = getenv('OJS_API_KEY')
     ?: ($_ENV['OJS_API_KEY'] ?? ($config['digitopub']['api_key'] ?? ''));
 if (empty($apiKey)) {
-    error_log('[PDF-Bridge] FATAL: OJS_API_KEY is not set.');
+    error_log('[PDF-Bridge] FATAL: OJS_API_KEY is not set (env or [digitopub] api_key).');
     bridge_json_error(500, 'SERVER_MISCONFIGURED', 'OJS_API_KEY is not configured.');
 }
 
-$authHeader = $_SERVER['HTTP_AUTHORIZATION']
-    ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
-    ?? '';
-if (empty($authHeader) || !preg_match('/^Bearer\s+(.+)$/i', $authHeader, $matches)) {
-    bridge_json_error(401, 'AUTH_REQUIRED', 'Missing or invalid Authorization header.');
+$authHeader = bridge_get_authorization_header();
+if (empty($authHeader)) {
+    error_log('[PDF-Bridge] AUTH_REQUIRED: no Authorization header seen (Apache may be stripping it — check .htaccess).');
+    bridge_json_error(401, 'AUTH_REQUIRED', 'Missing Authorization header. If you are sure the client sent one, Apache may be stripping it — see deployment .htaccess.');
+}
+if (!preg_match('/^Bearer\s+(.+)$/i', $authHeader, $matches)) {
+    bridge_json_error(401, 'AUTH_REQUIRED', 'Authorization header is not a Bearer token.');
 }
 if (!hash_equals($apiKey, trim($matches[1]))) {
+    error_log('[PDF-Bridge] INVALID_KEY: Bearer token mismatch.');
     bridge_json_error(403, 'INVALID_KEY', 'Invalid API key.');
 }
+
+// ─── Diagnostic mode (Bearer-gated) ───────────────────────────────────────
+//
+// `?debug=1` returns the step-by-step resolution without streaming the file.
+// Only reachable after the Bearer check succeeds, so it never leaks details
+// to unauthenticated callers. Lets operators pinpoint which step fails
+// (journal lookup, submission status, galley join, file on disk).
+$debugMode = isset($_GET['debug']) && $_GET['debug'] === '1';
+$debugTrace = [];
 
 // ─── Parameter validation ─────────────────────────────────────────────────
 $journalPath  = isset($_GET['journal'])      ? trim($_GET['journal'])      : '';
@@ -182,18 +303,36 @@ try {
 }
 
 // ─── Resolve journal context ──────────────────────────────────────────────
-$stmt = $pdo->prepare('SELECT journal_id FROM journals WHERE path = ? LIMIT 1');
+$stmt = $pdo->prepare('SELECT journal_id, enabled FROM journals WHERE path = ? LIMIT 1');
 $stmt->execute([$journalPath]);
 $journalRow = $stmt->fetch();
 if (!$journalRow) {
     bridge_json_error(404, 'JOURNAL_NOT_FOUND', 'Unknown journal path.');
 }
 $journalId = (int)$journalRow['journal_id'];
+$debugTrace['journal'] = [
+    'path'       => $journalPath,
+    'journal_id' => $journalId,
+    'enabled'    => (int)($journalRow['enabled'] ?? 0),
+];
 
 // ─── Verify submission belongs to journal AND is published ───────────────
 //
 // OJS statuses: 1=QUEUED, 3=PUBLISHED, 4=DECLINED, 5=SCHEDULED. We only serve
-// status=3 to match what the public site exposes — protects in-review files.
+// status=3 (published) by default. This matches the public surface shown on
+// digitopub.com, and matches OJS's own gate for /article/view/… when the
+// journal is enabled. If you need to serve scheduled or queued submissions
+// (e.g. pre-publication review on a staging mirror), set the env var
+// `OJS_PDF_BRIDGE_ALLOW_STATUSES=3,5` (comma-separated OJS status codes).
+$allowedStatusesRaw = getenv('OJS_PDF_BRIDGE_ALLOW_STATUSES');
+$allowedStatuses = [3];
+if (!empty($allowedStatusesRaw)) {
+    $parsed = array_values(array_filter(array_map('intval', explode(',', $allowedStatusesRaw))));
+    if (!empty($parsed)) {
+        $allowedStatuses = $parsed;
+    }
+}
+
 $stmt = $pdo->prepare(
     'SELECT submission_id, status, context_id
      FROM submissions
@@ -203,10 +342,22 @@ $stmt = $pdo->prepare(
 $stmt->execute([$submissionId, $journalId]);
 $submission = $stmt->fetch();
 if (!$submission) {
-    bridge_json_error(404, 'SUBMISSION_NOT_FOUND', 'Submission not found for this journal.');
+    bridge_json_error(404, 'SUBMISSION_NOT_FOUND', 'Submission not found for this journal.', [
+        'journalId'    => $journalId,
+        'submissionId' => $submissionId,
+    ]);
 }
-if ((int)$submission['status'] !== 3) {
-    bridge_json_error(403, 'UNPUBLISHED', 'Submission is not published.');
+$submissionStatus = (int)$submission['status'];
+$debugTrace['submission'] = [
+    'submission_id'    => $submissionId,
+    'status'           => $submissionStatus,
+    'allowed_statuses' => $allowedStatuses,
+];
+if (!in_array($submissionStatus, $allowedStatuses, true)) {
+    bridge_json_error(403, 'UNPUBLISHED', 'Submission is not in an allowed status.', [
+        'status'           => $submissionStatus,
+        'allowed_statuses' => $allowedStatuses,
+    ]);
 }
 
 // ─── Resolve galley → submission_file → file ──────────────────────────────
@@ -235,11 +386,25 @@ $stmt = $pdo->prepare(
 $stmt->execute([$galleyId]);
 $row = $stmt->fetch();
 if (!$row) {
-    bridge_json_error(404, 'GALLEY_NOT_FOUND', 'Galley row not found.');
+    bridge_json_error(404, 'GALLEY_NOT_FOUND', 'Galley row not found.', [
+        'galleyId' => $galleyId,
+    ]);
 }
+$debugTrace['galley'] = [
+    'galley_id'          => (int)$row['galley_id'],
+    'submission_file_id' => (int)($row['submission_file_id'] ?? 0),
+    'publication_id'     => (int)($row['publication_id'] ?? 0),
+    'pub_submission_id'  => (int)($row['pub_submission_id'] ?? 0),
+    'sf_submission_id'   => (int)($row['sf_submission_id'] ?? 0),
+    'file_id'            => (int)($row['file_id'] ?? 0),
+];
 if ((int)$row['pub_submission_id'] !== $submissionId
  && (int)$row['sf_submission_id'] !== $submissionId) {
-    bridge_json_error(403, 'SUBMISSION_MISMATCH', 'Galley does not belong to this submission.');
+    bridge_json_error(403, 'SUBMISSION_MISMATCH', 'Galley does not belong to this submission.', [
+        'requested_submission' => $submissionId,
+        'pub_submission_id'    => (int)($row['pub_submission_id'] ?? 0),
+        'sf_submission_id'     => (int)($row['sf_submission_id'] ?? 0),
+    ]);
 }
 
 $filePathRel = $row['path'] ?? null;
@@ -252,7 +417,10 @@ if (empty($filePathRel)) {
 // If caller provided a fileId hint, confirm it matches the resolved file row.
 // This prevents a client from probing arbitrary galley/file combinations.
 if ($fileIdHint !== null && (int)$row['file_id'] !== $fileIdHint) {
-    bridge_json_error(403, 'FILE_MISMATCH', 'fileId does not match the galley\'s file.');
+    bridge_json_error(403, 'FILE_MISMATCH', 'fileId does not match the galley\'s file.', [
+        'fileId_hint'    => $fileIdHint,
+        'resolved_file'  => (int)$row['file_id'],
+    ]);
 }
 
 // ─── Resolve files_dir and safely join ────────────────────────────────────
@@ -272,12 +440,38 @@ if ($filesDirReal === false) {
 // verify the resolved path stays inside files_dir to block path traversal.
 $candidate = rtrim($filesDirReal, '/\\') . DIRECTORY_SEPARATOR . ltrim($filePathRel, '/\\');
 $resolved  = realpath($candidate);
+$debugTrace['file'] = [
+    'relative_path' => $filePathRel,
+    'candidate'     => $candidate,
+    'resolved'      => $resolved ?: null,
+    'files_dir'     => $filesDirReal,
+    'readable'      => $resolved ? is_readable($resolved) : false,
+];
 if ($resolved === false || strpos($resolved, $filesDirReal) !== 0) {
-    error_log('[PDF-Bridge] Path traversal blocked. Candidate=' . $candidate);
-    bridge_json_error(404, 'FILE_NOT_FOUND', 'File does not exist on disk.');
+    error_log('[PDF-Bridge] Path traversal blocked or file missing. Candidate=' . $candidate);
+    bridge_json_error(404, 'FILE_NOT_FOUND', 'File does not exist on disk.', [
+        'candidate' => $candidate,
+    ]);
 }
 if (!is_file($resolved) || !is_readable($resolved)) {
-    bridge_json_error(404, 'FILE_NOT_FOUND', 'File is missing or unreadable.');
+    bridge_json_error(404, 'FILE_NOT_FOUND', 'File is missing or unreadable.', [
+        'resolved' => $resolved,
+    ]);
+}
+
+// If debug mode is on, return the trace instead of the file. Placed here so
+// operators get full resolution detail; all error paths above already include
+// `details` via bridge_json_error's $extra arg.
+if ($debugMode) {
+    http_response_code(200);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo json_encode([
+        'success' => true,
+        'debug'   => true,
+        'trace'   => $debugTrace,
+    ], JSON_PRETTY_PRINT);
+    exit;
 }
 
 // ─── Sanity-check the content looks like a PDF ────────────────────────────
@@ -299,7 +493,7 @@ if (!$isPdfMagic && !$isPdfMime) {
 rewind($fh);
 
 // ─── Stream the PDF back ──────────────────────────────────────────────────
-$clientIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+// $clientIp was resolved during the rate-limit step at the top of the script.
 error_log("[PDF-Bridge] SUCCESS: Serving journal={$journalPath} subId={$submissionId} file={$resolved} ip={$clientIp}");
 
 $filename = 'article-' . $submissionId . '.pdf';
