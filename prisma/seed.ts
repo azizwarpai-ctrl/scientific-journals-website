@@ -200,10 +200,10 @@ async function main() {
     //      - Guide for Authors / Guide for Reviewers topics come verbatim from
     //        the previous `scripts/seed-help-articles.ts` + the pre-refactor
     //        `help-schema.ts` defaults (git commit 5c84b35).
-    //      - Publication Ethics / FAQ ship as empty category shells — no prior
-    //        content exists in git history, so the admin will populate them
-    //        through the dashboard. The /help page already renders an
-    //        "under preparation" state for categories with no active topics.
+    //      - Publication Ethics / FAQ topics are drafted to reflect the
+    //        platform's OJS-backed workflow, COPE alignment, and core services
+    //        (DOI/Crossref, ORCID, Portico/CLOCKSS). Admins can edit or extend
+    //        via the dashboard; the first seed leaves them immutable after.
     console.log('📚 Initializing Help Centre baseline categories...')
 
     const helpSeed: Array<{
@@ -262,12 +262,98 @@ async function main() {
       {
         slug: 'publication-ethics',
         title: 'Publication Ethics',
-        topics: [],
+        topics: [
+          {
+            title: 'Authorship & Contribution',
+            content:
+              'All listed authors must have made substantial contributions to the conception, design, execution, or interpretation of the reported study. Ghost, gift, and guest authorship are not permitted. Any change to the author list after submission requires written consent from all authors and editorial approval.',
+            order: 1,
+          },
+          {
+            title: 'Originality & Plagiarism',
+            content:
+              "Submitted manuscripts must be the authors' original work and not under consideration elsewhere. All submissions are screened through similarity-detection tools (Crossref Similarity Check / iThenticate). Plagiarism, self-plagiarism, and duplicate publication are grounds for immediate rejection or retraction.",
+            order: 2,
+          },
+          {
+            title: 'Conflicts of Interest',
+            content:
+              'Authors, reviewers, and editors must disclose any financial, personal, or professional relationships that could be perceived as influencing the work. Undisclosed conflicts discovered post-publication may trigger a correction or retraction.',
+            order: 3,
+          },
+          {
+            title: 'Research Integrity & Data Availability',
+            content:
+              'Data fabrication, falsification, and selective reporting are serious forms of misconduct. Authors should retain raw data and, where applicable, deposit it in a recognised public repository. Editors may request underlying data at any stage of review.',
+            order: 4,
+          },
+          {
+            title: 'Ethical Approval & Informed Consent',
+            content:
+              'Studies involving human participants must cite approval from an institutional review board (IRB) or equivalent, together with a statement confirming informed consent. Animal studies must comply with recognised guidelines (e.g. ARRIVE) and declare ethical oversight.',
+            order: 5,
+          },
+          {
+            title: 'Corrections, Retractions & Misconduct',
+            content:
+              'We follow COPE guidelines for handling suspected misconduct, errors, and disputes. Confirmed errors are addressed through corrigenda, expressions of concern, or retractions, and all post-publication notices are linked to the original article via Crossmark.',
+            order: 6,
+          },
+        ],
       },
       {
         slug: 'faq',
         title: 'FAQ',
-        topics: [],
+        topics: [
+          {
+            title: 'How do I submit a manuscript?',
+            content:
+              'Submissions are handled through SubmitManager, our integrated e-submission platform. From any journal page, click "Submit Manuscript" — new authors are provisioned an account automatically and returning authors go straight to their dashboard.',
+            order: 1,
+          },
+          {
+            title: 'Do I need an account on DigitoPub to submit?',
+            content:
+              'No separate DigitoPub account is required. Author identities and submissions live on SubmitManager; DigitoPub simply routes you there securely.',
+            order: 2,
+          },
+          {
+            title: 'How long does the peer review process take?',
+            content:
+              'Typical first-decision times range from 4 to 8 weeks, depending on the journal and reviewer availability. You can track the current status of your submission at any time from your SubmitManager dashboard.',
+            order: 3,
+          },
+          {
+            title: 'Are there article processing charges (APCs)?',
+            content:
+              "APC policies vary per journal. Each journal's specific fees, waiver policy, and funding options are listed on its individual page under \"Author Guidelines.\"",
+            order: 4,
+          },
+          {
+            title: 'How are DOIs assigned to published articles?',
+            content:
+              'Every accepted article receives a persistent DOI registered with Crossref at the time of publication. Crossmark is enabled so readers are notified of any subsequent corrections or updates.',
+            order: 5,
+          },
+          {
+            title: 'Why do you recommend an ORCID iD?',
+            content:
+              'ORCID provides a unique, persistent identifier that disambiguates your authorship across journals and databases. We collect ORCID iDs at submission so your publications are reliably linked to your scholarly record.',
+            order: 6,
+          },
+          {
+            title: 'How do I volunteer as a reviewer?',
+            content:
+              "Contact the journal's editorial office directly — contact details are on each journal's page — or indicate your interest through your SubmitManager profile. Editors invite reviewers based on subject expertise and prior review history.",
+            order: 7,
+          },
+          {
+            title: 'How is long-term access to my article guaranteed?',
+            content:
+              'All journals hosted by DigitoPub are archived with Portico and CLOCKSS, ensuring permanent access even if a journal ceases publication. Content is also indexed with major discovery services where eligible.',
+            order: 8,
+          },
+        ],
       },
     ]
 
