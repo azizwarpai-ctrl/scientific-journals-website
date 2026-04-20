@@ -296,6 +296,119 @@ export async function initializeDatabase() {
         })
       }
 
+      // Help Centre: baseline categories for the four footer "Resources" links
+      // (Guide for Authors, Guide for Reviewers, Publication Ethics, FAQ).
+      // These are admin-editable via /admin/help-content; seeds are idempotent
+      // and never overwrite edits an admin has made after the first run.
+      //
+      // Content provenance:
+      //   - Guide for Authors / Guide for Reviewers topics come verbatim from
+      //     the previous `scripts/seed-help-articles.ts` + the pre-refactor
+      //     `help-schema.ts` defaults (git commit 5c84b35).
+      //   - Publication Ethics / FAQ ship as empty category shells — no prior
+      //     content exists in git history, so the admin populates them via
+      //     the dashboard. The /help page renders an "under preparation"
+      //     placeholder for empty categories so the anchor target exists.
+      console.log('[DB Init] 📚 Initializing Help Centre baseline categories...')
+
+      const helpSeed: Array<{
+        slug: string
+        title: string
+        topics: Array<{ title: string; content: string; order: number }>
+      }> = [
+        {
+          slug: 'guide-for-authors',
+          title: 'Guide for Authors',
+          topics: [
+            {
+              title: 'Manuscript Preparation',
+              content:
+                "Ensure your manuscript adheres to the journal's formatting guidelines, including citation style, figure resolution, and word count limits. Use the templates provided if available.",
+              order: 1,
+            },
+            {
+              title: 'Submission Process',
+              content:
+                'Verify that all co-authors are listed correctly and that you have obtained necessary ethical approvals. Prepare a cover letter to the editor highlighting the significance of your work.',
+              order: 2,
+            },
+            {
+              title: 'Revision & Resubmission',
+              content:
+                "When submitting a revised manuscript, include a point-by-point response to the reviewers' comments. Highlight changes in the manuscript text for easy verification.",
+              order: 3,
+            },
+          ],
+        },
+        {
+          slug: 'guide-for-reviewers',
+          title: 'Guide for Reviewers',
+          topics: [
+            {
+              title: 'The Review Process',
+              content:
+                "Reviews should be constructive, objective, and timely. Evaluate the study's methodology, clarity, and contribution to the field. Maintain confidentiality throughout the process.",
+              order: 1,
+            },
+            {
+              title: 'Writing Reviews',
+              content:
+                'Provide specific comments and suggestions for improvement. Clearly state your recommendation (Accept, Minor Revision, Major Revision, Reject) to the editor.',
+              order: 2,
+            },
+            {
+              title: 'Timeline & Expectations',
+              content:
+                'Accept review invitations only if you have the expertise and time to complete the review within the deadline. Inform the editor immediately if a conflict of interest or delay arises.',
+              order: 3,
+            },
+          ],
+        },
+        {
+          slug: 'publication-ethics',
+          title: 'Publication Ethics',
+          topics: [],
+        },
+        {
+          slug: 'faq',
+          title: 'FAQ',
+          topics: [],
+        },
+      ]
+
+      for (const seed of helpSeed) {
+        const category = await prisma.helpCategory.upsert({
+          where: { slug: seed.slug },
+          update: {}, // Never overwrite admin edits after first run
+          create: {
+            slug: seed.slug,
+            title: seed.title,
+          },
+        })
+
+        // HelpTopic has no unique composite key, so upsert by (category_id, title)
+        // via findFirst + conditional create. Existing topics are left alone
+        // regardless of content drift — the admin is the source of truth after
+        // the first seed.
+        for (const topic of seed.topics) {
+          const existing = await prisma.helpTopic.findFirst({
+            where: { category_id: category.id, title: topic.title },
+            select: { id: true },
+          })
+          if (!existing) {
+            await prisma.helpTopic.create({
+              data: {
+                category_id: category.id,
+                title: topic.title,
+                content: topic.content,
+                order: topic.order,
+                is_active: true,
+              },
+            })
+          }
+        }
+      }
+
       console.log('[DB Init] ✅ Database initialization completed successfully.')
       isInitialized = true
     } catch (error) {
