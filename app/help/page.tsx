@@ -2,19 +2,241 @@
 
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { BookOpen, FileText, Users, HelpCircle, ChevronRight, Search } from "lucide-react"
-import Link from "next/link"
-import { Skeleton } from "@/components/ui/skeleton"
-import { GSAPWrapper } from "@/components/gsap-wrapper"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import {
+  BookOpen,
+  Users2,
+  Shield,
+  HelpCircle,
+  Search,
+  Mail,
+} from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { GSAPWrapper } from "@/components/gsap-wrapper"
 import { useState, useMemo, useEffect } from "react"
+import type { LucideIcon } from "lucide-react"
+import Link from "next/link"
 
 import { useGetHelpCategories } from "@/src/features/help/api/use-help-categories"
 import { useGetHelpContent } from "@/src/features/help/api/use-get-help-content"
 import { defaultHelpContent } from "@/src/features/help/schemas/help-schema"
+
+// Static visual config keyed by well-known category slugs.
+// Unknown slugs fall back to FALLBACK_CONFIG.
+const CATEGORY_CONFIG: Record<string, {
+  Icon: LucideIcon
+  iconBg: string
+  iconText: string
+  accentBar: string
+  pillBg: string
+  pillHover: string
+  pillText: string
+  numBg: string
+  numText: string
+}> = {
+  "guide-for-authors": {
+    Icon: BookOpen,
+    iconBg: "bg-sky-500/10",
+    iconText: "text-sky-500",
+    accentBar: "bg-sky-500",
+    pillBg: "bg-sky-500/10",
+    pillHover: "hover:bg-sky-500/20",
+    pillText: "text-sky-600 dark:text-sky-400",
+    numBg: "bg-sky-500/10",
+    numText: "text-sky-600 dark:text-sky-400",
+  },
+  "guide-for-reviewers": {
+    Icon: Users2,
+    iconBg: "bg-emerald-500/10",
+    iconText: "text-emerald-500",
+    accentBar: "bg-emerald-500",
+    pillBg: "bg-emerald-500/10",
+    pillHover: "hover:bg-emerald-500/20",
+    pillText: "text-emerald-600 dark:text-emerald-400",
+    numBg: "bg-emerald-500/10",
+    numText: "text-emerald-600 dark:text-emerald-400",
+  },
+  "publication-ethics": {
+    Icon: Shield,
+    iconBg: "bg-violet-500/10",
+    iconText: "text-violet-500",
+    accentBar: "bg-violet-500",
+    pillBg: "bg-violet-500/10",
+    pillHover: "hover:bg-violet-500/20",
+    pillText: "text-violet-600 dark:text-violet-400",
+    numBg: "bg-violet-500/10",
+    numText: "text-violet-600 dark:text-violet-400",
+  },
+  "faq": {
+    Icon: HelpCircle,
+    iconBg: "bg-amber-500/10",
+    iconText: "text-amber-500",
+    accentBar: "bg-amber-500",
+    pillBg: "bg-amber-500/10",
+    pillHover: "hover:bg-amber-500/20",
+    pillText: "text-amber-600 dark:text-amber-400",
+    numBg: "bg-amber-500/10",
+    numText: "text-amber-600 dark:text-amber-400",
+  },
+}
+
+const FALLBACK_CONFIG = {
+  Icon: BookOpen,
+  iconBg: "bg-primary/10",
+  iconText: "text-primary",
+  accentBar: "bg-primary",
+  pillBg: "bg-primary/10",
+  pillHover: "hover:bg-primary/20",
+  pillText: "text-primary",
+  numBg: "bg-primary/10",
+  numText: "text-primary",
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function CategoryCard({ category, topics, cfg }: {
+  category: { id: string; slug: string; title: string }
+  topics: { id: string; title: string; content: string }[]
+  cfg: typeof FALLBACK_CONFIG
+}) {
+  return (
+    <article
+      id={category.slug}
+      className="scroll-mt-24 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
+    >
+      {/* Card header */}
+      <header className="flex items-center gap-4 border-b border-border/40 px-6 py-5">
+        <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${cfg.iconBg}`}>
+          <cfg.Icon className={`h-5 w-5 ${cfg.iconText}`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-base font-bold leading-tight">{category.title}</h2>
+          {topics.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {topics.length} {topics.length === 1 ? "topic" : "topics"}
+            </p>
+          )}
+        </div>
+        <div className={`h-8 w-1 flex-shrink-0 rounded-full ${cfg.accentBar}`} />
+      </header>
+
+      {/* Card body */}
+      {topics.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+          <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${cfg.iconBg}`}>
+            <cfg.Icon className={`h-6 w-6 ${cfg.iconText} opacity-50`} />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground/70">Content in preparation</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+              This section is being developed. Please check back soon.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <Accordion type="single" collapsible className="w-full">
+          {topics.map((topic, idx) => (
+            <AccordionItem
+              key={topic.id}
+              value={`topic-${topic.id}`}
+              className="border-border/40"
+            >
+              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/30 transition-colors">
+                <span className="flex items-center gap-3 text-sm font-medium text-left">
+                  <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold leading-none ${cfg.numBg} ${cfg.numText}`}>
+                    {idx + 1}
+                  </span>
+                  {topic.title}
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-5 pt-0">
+                <div className="ml-9 border-l-2 border-border/50 pl-4 text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                  {topic.content}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      )}
+    </article>
+  )
+}
+
+function SkeletonLoader() {
+  return (
+    <div className="space-y-8">
+      {[1, 2].map((n) => (
+        <div key={n} className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
+          <div className="flex items-center gap-4 border-b border-border/40 px-6 py-5">
+            <Skeleton className="h-10 w-10 rounded-xl" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+          </div>
+          <div className="divide-y divide-border/40">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-6 py-4">
+                <Skeleton className="h-6 w-6 rounded-full flex-shrink-0" />
+                <Skeleton className="h-4 w-3/4" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/10 py-20 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+        <BookOpen className="h-8 w-8 text-muted-foreground/50" />
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold">No help content yet</h3>
+        <p className="mt-1 text-sm text-muted-foreground max-w-sm mx-auto">
+          Please check back later, or contact our support team if you need immediate assistance.
+        </p>
+      </div>
+      <Button variant="outline" size="sm" asChild>
+        <Link href="/contact">
+          <Mail className="mr-2 h-4 w-4" />
+          Contact Support
+        </Link>
+      </Button>
+    </div>
+  )
+}
+
+function NoResults({ query, onClear }: { query: string; onClear: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/10 py-20 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+        <Search className="h-8 w-8 text-muted-foreground/50" />
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold">No results for &ldquo;{query}&rdquo;</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Try different keywords or browse all sections below.
+        </p>
+      </div>
+      <Button variant="outline" size="sm" onClick={onClear}>
+        Clear search
+      </Button>
+    </div>
+  )
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function HelpPage() {
   const { data: categories, isLoading: isCategoriesLoading } = useGetHelpCategories()
@@ -24,10 +246,8 @@ export default function HelpPage() {
   const content = helpResponse || defaultHelpContent
   const activeCategories = useMemo(() => Array.isArray(categories) ? categories : [], [categories])
 
-  // When arriving via footer anchors (e.g. /help#guide-for-authors), the
-  // target element doesn't exist during first paint because categories are
-  // fetched client-side. Re-apply the hash scroll once the data has landed
-  // so deep links from the footer resolve to the right card.
+  // Re-apply hash scroll after async category data has landed so footer
+  // deep-links (/help#guide-for-authors, etc.) resolve correctly.
   useEffect(() => {
     if (isCategoriesLoading) return
     const hash = window.location.hash.slice(1)
@@ -36,198 +256,129 @@ export default function HelpPage() {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
   }, [isCategoriesLoading, activeCategories.length])
 
-  // Filter topics across categories based on search term
   const filteredCategories = useMemo(() => {
     if (!searchTerm.trim()) return activeCategories
-
     const query = searchTerm.toLowerCase()
-    
-    return activeCategories.map((cat: any) => {
-      const filteredTopics = cat.topics?.filter((topic: any) => 
-        topic.is_active && (
-          topic.title.toLowerCase().includes(query) || 
-          topic.content.toLowerCase().includes(query)
-        )
-      ) || []
-      
-      return { ...cat, topics: filteredTopics }
-    }).filter((cat: any) => cat.topics?.length > 0)
+    return activeCategories
+      .map((cat: any) => ({
+        ...cat,
+        topics: (cat.topics || []).filter(
+          (t: any) =>
+            t.is_active &&
+            (t.title.toLowerCase().includes(query) ||
+              t.content.toLowerCase().includes(query))
+        ),
+      }))
+      .filter((cat: any) => cat.topics.length > 0)
   }, [activeCategories, searchTerm])
+
+  const displayCategories: any[] = searchTerm.trim() ? filteredCategories : activeCategories
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
 
       <main className="flex-1">
-        {/* Header Section */}
+        {/* ── Hero ── */}
         <GSAPWrapper animation="fadeIn">
-          <section className="bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-16 md:py-20 border-b border-border/40">
-            <div className="container mx-auto px-4 md:px-6 relative overflow-hidden">
-              <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] z-0"></div>
-              <div className="mx-auto max-w-3xl text-center relative z-10">
+          <section className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-muted/40 via-background to-background">
+            <div
+              className="pointer-events-none absolute inset-0 opacity-70"
+              aria-hidden
+              style={{
+                backgroundImage:
+                  "radial-gradient(circle at 20% 15%, color-mix(in oklab, var(--color-primary) 14%, transparent) 0%, transparent 45%), radial-gradient(circle at 80% 25%, color-mix(in oklab, var(--color-primary) 10%, transparent) 0%, transparent 45%)",
+              }}
+            />
+
+            <div className="container relative mx-auto px-4 pb-14 pt-20 md:pb-20 md:pt-28 md:px-6">
+              <div className="mx-auto max-w-2xl text-center">
                 {isHelpLoading ? (
                   <div className="space-y-4">
-                    <Skeleton className="mx-auto h-12 w-64 md:h-14" />
-                    <Skeleton className="mx-auto h-6 w-full max-w-md" />
+                    <Skeleton className="mx-auto h-10 w-56" />
+                    <Skeleton className="mx-auto h-5 w-80" />
                   </div>
                 ) : (
                   <>
-                    <h1 className="mb-4 text-4xl font-extrabold tracking-tight md:text-6xl text-foreground drop-shadow-sm">{content.heroTitle}</h1>
-                    <p className="text-xl text-muted-foreground">{content.heroSubtitle}</p>
+                    <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-primary/80">
+                      Help Centre
+                    </p>
+                    <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl">
+                      {content.heroTitle}
+                    </h1>
+                    <p className="mt-4 text-base text-muted-foreground leading-relaxed">
+                      {content.heroSubtitle}
+                    </p>
                   </>
                 )}
-                
-                {/* Search Bar - Center piece of the help page */}
-                <div className="mt-8 max-w-xl mx-auto relative group">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-full blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
-                  <div className="relative flex items-center bg-background rounded-full border shadow-sm">
-                    <Search className="ml-4 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      placeholder="Search for articles, guides, topics..."
-                      className="border-0 bg-transparent h-12 md:h-14 pl-3 rounded-full focus-visible:ring-0 focus-visible:ring-offset-0 text-base shadow-none"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
+
+                {/* Search */}
+                <div className="relative mt-8">
+                  <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Search guides, topics, questions…"
+                    className="h-12 rounded-xl border-border/60 bg-background pl-11 pr-4 text-sm shadow-sm focus-visible:ring-primary/30"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
+
+                {/* Category nav pills — hidden during search */}
+                {!isCategoriesLoading && activeCategories.length > 0 && !searchTerm && (
+                  <div className="mt-5 flex flex-wrap justify-center gap-2">
+                    {activeCategories.map((cat: any) => {
+                      const cfg = CATEGORY_CONFIG[cat.slug] ?? FALLBACK_CONFIG
+                      return (
+                        <button
+                          key={cat.slug}
+                          onClick={() => {
+                            const el = document.getElementById(cat.slug)
+                            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+                          }}
+                          className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${cfg.pillBg} ${cfg.pillHover} ${cfg.pillText}`}
+                        >
+                          <cfg.Icon className="h-3.5 w-3.5" />
+                          {cat.title}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </section>
         </GSAPWrapper>
 
-        <section className="py-16">
+        {/* ── Categories ── */}
+        <section className="py-14 md:py-20">
           <div className="container mx-auto px-4 md:px-6">
-            <div className="mx-auto max-w-5xl">
-              
-              {/* Quick Links */}
-              <GSAPWrapper animation="slideUp" delay={0.2}>
-                <div className="mb-16 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                  {content.quickLinks?.map((link) => {
-                    const isRoute = link.href.startsWith("/")
-                    const Wrapper = isRoute ? Link : "a"
-                    const iconName = link.icon || "BookOpen"
-                    const IconElement = iconName === "Users" ? Users : iconName === "HelpCircle" ? HelpCircle : iconName === "FileText" ? FileText : BookOpen
-                    
+            <GSAPWrapper animation="slideUp" delay={0.15}>
+              <div className="mx-auto max-w-3xl space-y-6">
+                {isCategoriesLoading ? (
+                  <SkeletonLoader />
+                ) : activeCategories.length === 0 ? (
+                  <EmptyState />
+                ) : filteredCategories.length === 0 && searchTerm ? (
+                  <NoResults query={searchTerm} onClear={() => setSearchTerm("")} />
+                ) : (
+                  displayCategories.map((category: any) => {
+                    const cfg = CATEGORY_CONFIG[category.slug] ?? FALLBACK_CONFIG
+                    const topics = searchTerm
+                      ? category.topics || []
+                      : (category.topics || []).filter((t: any) => t.is_active)
                     return (
-                      <Wrapper key={link.id || link.title} href={link.href as string}>
-                        <Card className="group cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-2 border-border/40 h-full bg-card hover:bg-card/80 overflow-hidden relative">
-                          <div className={`absolute top-0 left-0 w-full h-1 ${link.color === "primary" ? "bg-primary" : "bg-secondary"}`}></div>
-                          <CardContent className="pt-8 text-center relative z-10">
-                            <div className="mb-4 flex justify-center">
-                              <div className={`flex h-16 w-16 items-center justify-center rounded-2xl transition-transform duration-500 group-hover:rotate-6 ${
-                                link.color === "primary" ? "bg-primary/10 text-primary shadow-primary/20" : "bg-secondary/10 text-secondary shadow-secondary/20"
-                              } shadow-lg`}>
-                                <IconElement className="h-8 w-8" />
-                              </div>
-                            </div>
-                            <h3 className="font-bold text-lg">{link.title}</h3>
-                            <p className="mt-2 text-sm text-muted-foreground">{link.description}</p>
-                            <div className="mt-4 flex justify-center">
-                               <ChevronRight className="h-5 w-5 text-muted-foreground opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300" />
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </Wrapper>
+                      <CategoryCard
+                        key={category.id}
+                        category={category}
+                        topics={topics}
+                        cfg={cfg}
+                      />
                     )
-                  })}
-                </div>
-              </GSAPWrapper>
-
-              {/* Dynamic Database Content - Categories & Topics */}
-              <GSAPWrapper animation="fadeIn" delay={0.3}>
-                <div className="space-y-12">
-                  <div className="text-center mb-10">
-                    <h2 className="text-3xl font-bold tracking-tight">Browse Topics</h2>
-                    <p className="text-muted-foreground mt-2">Find answers by categories below</p>
-                  </div>
-
-                  {isCategoriesLoading ? (
-                    <div className="space-y-6">
-                      {[...Array(3)].map((_, i) => (
-                        <Card key={i} className="border-border/40 shadow-sm">
-                          <CardHeader className="bg-muted/30">
-                            <Skeleton className="h-7 w-48" />
-                          </CardHeader>
-                          <CardContent className="p-6">
-                            <div className="space-y-4">
-                              <Skeleton className="h-4 w-full" />
-                              <Skeleton className="h-4 w-3/4" />
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : activeCategories.length === 0 ? (
-                    <div className="py-20 text-center border rounded-2xl border-dashed bg-muted/10">
-                      <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
-                        <BookOpen className="h-8 w-8 text-muted-foreground/50" />
-                      </div>
-                      <h3 className="text-xl font-medium text-foreground">No help content available yet</h3>
-                      <p className="mt-2 text-muted-foreground max-w-sm mx-auto">
-                        Please check back later or contact support if you need immediate assistance.
-                      </p>
-                    </div>
-                  ) : filteredCategories.length === 0 && searchTerm ? (
-                    <div className="py-20 text-center border rounded-2xl border-dashed bg-muted/10">
-                      <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
-                        <Search className="h-8 w-8 text-muted-foreground/50" />
-                      </div>
-                      <h3 className="text-xl font-medium text-foreground">No results found for &ldquo;{searchTerm}&rdquo;</h3>
-                      <p className="mt-2 text-muted-foreground max-w-sm mx-auto">
-                        We could not find any articles matching your search query. Try using different keywords.
-                      </p>
-                      <Button variant="outline" className="mt-6" onClick={() => setSearchTerm("")}>
-                        Clear Search
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="grid gap-8">
-                      {filteredCategories.map((category: any) => {
-                        const activeTopics = category.topics?.filter((t: any) => t.is_active) || []
-
-                        return (
-                          <Card key={category.id} id={category.slug} className="border-border/40 shadow-sm overflow-hidden scroll-mt-24 transition-shadow hover:shadow-md">
-                            <CardHeader className="bg-muted/30 border-b pb-4">
-                              <div className="flex items-center gap-3">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                  <BookOpen className="h-5 w-5" />
-                                </div>
-                                <CardTitle className="text-xl">{category.title}</CardTitle>
-                              </div>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                              {activeTopics.length === 0 ? (
-                                <div className="px-6 py-10 text-center text-sm text-muted-foreground">
-                                  Content for this section is being prepared. Please check back soon.
-                                </div>
-                              ) : (
-                                <Accordion type="single" collapsible className="w-full">
-                                  {activeTopics.map((topic: any, idx: number) => (
-                                    <AccordionItem
-                                      key={topic.id}
-                                      value={`topic-${topic.id}`}
-                                      className={`px-6 py-2 border-b-border/40 ${idx === activeTopics.length - 1 ? 'border-b-0' : ''}`}
-                                    >
-                                      <AccordionTrigger className="text-left font-medium hover:text-primary transition-colors py-4">
-                                        {topic.title}
-                                      </AccordionTrigger>
-                                      <AccordionContent className="text-muted-foreground leading-relaxed whitespace-pre-wrap pb-6 pt-2">
-                                        {topic.content}
-                                      </AccordionContent>
-                                    </AccordionItem>
-                                  ))}
-                                </Accordion>
-                              )}
-                            </CardContent>
-                          </Card>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              </GSAPWrapper>
-            </div>
+                  })
+                )}
+              </div>
+            </GSAPWrapper>
           </div>
         </section>
       </main>
