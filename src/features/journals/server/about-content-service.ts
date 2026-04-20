@@ -1,19 +1,22 @@
 /**
  * Journal About-Content Service
  *
- * Many OJS installations keep "Aims of the Journal" and "Scope of the Journal"
- * as prose inside a custom navigation-menu page (usually "About the Journal"),
- * rather than in the structured `aimsAndScope` journal_settings field. When that
- * setting is empty or only holds a placeholder, the visible Home/About content
- * is the source of truth.
+ * OJS exposes Aims & Scope through several distinct surfaces, in practice a
+ * journal admin picks one and populates it. This service probes them in order:
  *
- * This service probes OJS in priority order:
- *   1. `journal_settings.aimsAndScope` (the legacy structured field).
- *   2. A custom page under `navigation_menu_items` whose path/title matches
- *      "about" (aboutTheJournal, about, aboutJournal, etc.).
- *   3. A matching page in the StaticPagesPlugin `static_pages` table.
+ *   1. A DEDICATED navigation-menu item whose path/title is a direct
+ *      "aims-scope" alias (e.g. `path='aims-scope'`, title='Aims & Scope').
+ *      When an OJS admin creates this item, its content is the explicit,
+ *      source-of-truth block for Aims & Scope and must not be competed with.
+ *   2. A DEDICATED StaticPagesPlugin page with the same aims-scope alias.
+ *   3. The legacy structured `journal_settings.aimsAndScope` setting.
+ *   4. A custom page under `navigation_menu_items` whose path/title matches
+ *      "about" (aboutTheJournal, about, aboutJournal, etc.) — extraction
+ *      fallback from mixed content.
+ *   5. A matching About page in the StaticPagesPlugin `static_pages` table —
+ *      extraction fallback.
  *
- * It then feeds whichever HTML block is richest into the existing
+ * It feeds whichever HTML block is richest into the existing
  * `parseAimsAndScope` parser so consumers can render Aims and Scope as two
  * separate cards when the block has clear headings, or one combined card when
  * it's a single narrative.
@@ -38,6 +41,34 @@ const ABOUT_PAGE_ALIASES = new Set<string>([
   "information about the journal",
 ])
 
+/**
+ * Slug-style aliases for dedicated Aims & Scope pages. These match the `path`
+ * column verbatim (case-insensitive, trimmed) and cover the conventions OJS
+ * admins commonly adopt when they create a bespoke "Aims & Scope" nav item.
+ */
+const AIMS_SCOPE_PATH_ALIASES = new Set<string>([
+  "aims-scope",
+  "aims-and-scope",
+  "aimsandscope",
+  "aimsscope",
+  "aim-and-scope",
+  "scope-and-aims",
+  "scope-aims",
+])
+
+/**
+ * Human-title aliases that identify a dedicated Aims & Scope nav item/page
+ * (fallback when the admin set an unconventional path but a clear title).
+ * Compared after `normalizeKey` so "Aims & Scope" → "aims and scope".
+ */
+const AIMS_SCOPE_TITLE_ALIASES = new Set<string>([
+  "aims and scope",
+  "aim and scope",
+  "aims scope",
+  "scope and aims",
+  "scope aims",
+])
+
 function normalizeKey(value: string | null | undefined): string {
   if (!value) return ""
   return value
@@ -48,12 +79,32 @@ function normalizeKey(value: string | null | undefined): string {
     .trim()
 }
 
+function normalizePath(value: string | null | undefined): string {
+  if (!value) return ""
+  return value.toLowerCase().trim()
+}
+
 function isAboutAlias(value: string | null | undefined): boolean {
   const norm = normalizeKey(value)
   if (!norm) return false
   if (ABOUT_PAGE_ALIASES.has(norm)) return true
   // Match variations like "about our journal", "about <name>", "the journal".
   return /\babout\b.*\bjournal\b|\babout\s+(?:the\s+)?journal\b/.test(norm)
+}
+
+/**
+ * True when a navigation-menu item or static page unambiguously represents a
+ * dedicated Aims & Scope page (by path slug or by title).
+ */
+export function isAimsScopeAlias(
+  path: string | null | undefined,
+  title: string | null | undefined,
+): boolean {
+  const p = normalizePath(path)
+  if (p && AIMS_SCOPE_PATH_ALIASES.has(p)) return true
+  const t = normalizeKey(title)
+  if (t && AIMS_SCOPE_TITLE_ALIASES.has(t)) return true
+  return false
 }
 
 const SANITIZE_OPTIONS = {
@@ -248,16 +299,44 @@ export async function fetchJournalAboutContent(ojsJournalId: string): Promise<Jo
   ])
 
   const candidates: Array<{ html: string; source: JournalAboutContent["source"] }> = []
+  const navGroups = groupByItemId(navRows)
+  const staticGroups = groupStaticPages(staticRows)
 
-  // 1. Structured aimsAndScope setting (sanitized).
+  // 1. Dedicated "aims-scope" navigation-menu item — when an OJS admin creates
+  //    this item, its content is the explicit, source-of-truth block for Aims &
+  //    Scope and supersedes the legacy aimsAndScope setting or About prose.
+  for (const item of navGroups.values()) {
+    const titleHint = pickBestLocale(item.settings, "title", primaryLocale)
+    if (!isAimsScopeAlias(item.path, titleHint)) continue
+    const raw = pickBestLocale(item.settings, "content", primaryLocale)
+    const sanitized = sanitize(raw)
+    if (hasUsableContent(sanitized)) {
+      candidates.push({ html: sanitized, source: "navigation_menu" })
+      break
+    }
+  }
+
+  // 2. Dedicated "aims-scope" StaticPagesPlugin page.
+  for (const page of staticGroups.values()) {
+    const titleHint = pickBestLocale(page.settings, "title", primaryLocale)
+    if (!isAimsScopeAlias(page.path, titleHint)) continue
+    const raw = pickBestLocale(page.settings, "content", primaryLocale)
+    const sanitized = sanitize(raw)
+    if (hasUsableContent(sanitized)) {
+      candidates.push({ html: sanitized, source: "static_page" })
+      break
+    }
+  }
+
+  // 3. Structured aimsAndScope setting (sanitized).
   const structuredRaw = pickBestLocale(aimsRows, "aimsAndScope", primaryLocale)
   const structuredHtml = sanitize(structuredRaw)
   if (hasUsableContent(structuredHtml)) {
     candidates.push({ html: structuredHtml, source: "journal_settings" })
   }
 
-  // 2. Custom navigation-menu "About" page.
-  const navGroups = groupByItemId(navRows)
+  // 4. Extraction fallback — a generic "About" nav-menu page whose content
+  //    mixes aims/scope into longer prose.
   for (const item of navGroups.values()) {
     const titleHint = pickBestLocale(item.settings, "title", primaryLocale)
     const matches = isAboutAlias(item.path) || isAboutAlias(titleHint)
@@ -271,8 +350,7 @@ export async function fetchJournalAboutContent(ojsJournalId: string): Promise<Jo
     }
   }
 
-  // 3. StaticPagesPlugin "About" page.
-  const staticGroups = groupStaticPages(staticRows)
+  // 5. Extraction fallback — StaticPagesPlugin "About" page.
   for (const page of staticGroups.values()) {
     const titleHint = pickBestLocale(page.settings, "title", primaryLocale)
     const matches = isAboutAlias(page.path) || isAboutAlias(titleHint)
