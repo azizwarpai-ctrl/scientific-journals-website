@@ -42,8 +42,8 @@ export const EditorialBoardSkeleton = () => {
             <div className="space-y-4">
                 <Skeleton className="h-3 w-36" />
                 <div className="h-px bg-border" />
-                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-                    {Array.from({ length: 6 }).map((_, i) => (
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 max-w-4xl">
+                    {Array.from({ length: 4 }).map((_, i) => (
                         <MemberCardSkeleton key={i} />
                     ))}
                 </div>
