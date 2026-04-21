@@ -16,7 +16,7 @@
 
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
-import { fetchEditorialBoardFromNavPage } from "./editorial-board-nav-service"
+import { fetchBoardFromNavPage } from "./board-nav-service"
 
 // Roles to exclude from the editorial board:
 //   16=Journal Manager (admin staff, not academic editors), 65536=Author, 4096=Reviewer, 1048576=Reader
@@ -328,7 +328,7 @@ export async function fetchEditorialBoard(
   }
 
   // ── Step 1: Nav page (primary source) ──
-  const navMembers = await fetchEditorialBoardFromNavPage(ojsJournalId, primaryLocale)
+  const navMembers = await fetchBoardFromNavPage(ojsJournalId, "editorial-board", primaryLocale)
   if (navMembers !== null) {
     return navMembers // authoritative — even if empty
   }

@@ -415,6 +415,44 @@ app.get("/:id/editorial-board", zValidator("param", journalSlugParamSchema), asy
   }
 })
 
+// ─── GET /journals/:id/advisory-board — OJS Hand-authored Advisory Board ────
+
+app.get("/:id/advisory-board", zValidator("param", journalSlugParamSchema), async (c) => {
+  try {
+    const { id } = c.req.valid("param")
+
+    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
+    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
+    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+
+    if (!journal) {
+      return c.json({ success: false, error: "Journal not found" }, 404)
+    }
+
+    if (!journal.ojs_id) {
+      return c.json({ success: true, data: { members: [] }, message: "No OJS data" }, 200)
+    }
+
+    const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
+
+    if (!isOjsConfigured()) {
+      return c.json({ success: true, data: { members: [] }, message: "OJS not configured" }, 200)
+    }
+
+    try {
+      const { fetchAdvisoryBoard } = await import("@/src/features/journals/server/advisory-board-service")
+      const members = await fetchAdvisoryBoard(journal.ojs_id)
+      return c.json({ success: true, data: { members } }, 200)
+    } catch (queryError) {
+      console.error("[AdvisoryBoard API] OJS Query Error:", queryError)
+      return c.json({ success: false, error: "Failed to fetch advisory board from OJS" }, 502)
+    }
+  } catch (error) {
+    console.error("Error fetching advisory board:", error)
+    return c.json({ success: false, error: "Failed to fetch advisory board" }, 500)
+  }
+})
+
 // ─── GET /journals/:id/custom-blocks — OJS Custom Block Manager ───────
 
 app.get("/:id/custom-blocks", zValidator("param", journalSlugParamSchema), async (c) => {

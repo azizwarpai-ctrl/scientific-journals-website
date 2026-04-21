@@ -35,6 +35,12 @@ export interface ArticleDetail {
    * of loading `pdfDirectUrl` in the iframe.
    */
   pdfProxyOnly: boolean
+  
+  /**
+   * True when the article is behind an active subscription wall.
+   * If true, we know OJS will intercept any direct iframe load with a login redirect.
+   */
+  isGatedAccess: boolean
 
   // Issue context
   issueId: number

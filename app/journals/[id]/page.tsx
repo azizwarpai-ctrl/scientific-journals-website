@@ -21,6 +21,8 @@ import {
   Scale,
   Target,
   Telescope,
+  Archive as ArchiveIcon,
+  Newspaper as NewspaperIcon
 } from "lucide-react"
 
 import DOMPurify from "dompurify"
@@ -37,10 +39,11 @@ import { JournalError } from "@/components/errors/error-states"
 import { JournalNotFound } from "@/components/states/not-found-states"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JournalDetailSkeleton } from "@/components/skeletons/journal-detail-skeleton"
+
 import { CurrentIssueSection } from "./components/current-issue-section"
 import { ArchiveSection } from "./components/archive-section"
-import { Newspaper as NewspaperIcon, Archive as ArchiveIcon } from "lucide-react"
 import { EditorialBoardSection } from "./components/editorial-board-section"
+import { AdvisoryBoardSection } from "./components/advisory-board-section"
 import { JournalInfoCarousel } from "./components/journal-info-carousel"
 import { JournalPoliciesSection } from "./components/journal-policies-section"
 
@@ -432,12 +435,19 @@ export default function JournalDetailPage() {
                       ) : null}
                     </div>
 
-                    {/* 2. Editorial Board */}
+                    {/* 2. Advisory Board */}
+                    <div className="pt-2 border-t border-border/30">
+                      <AdvisoryBoardSection journalId={id} />
+                    </div>
+
+
+                    {/* 3. Editorial Board */}
                     <div className="pt-2 border-t border-border/30">
                       <EditorialBoardSection journalId={id} editorInChief={journal.editor_in_chief} />
                     </div>
 
-                    {/* 3. Technical Details Grid — only real data, no N/A fallbacks */}
+
+                    {/* 4. Technical Details Grid — only real data, no N/A fallbacks */}
                     <div className="pt-2 border-t border-border/30">
                       <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
                         <div className="flex items-center gap-3 mb-6">
