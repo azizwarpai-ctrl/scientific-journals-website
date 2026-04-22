@@ -71,19 +71,39 @@ export function AdvisoryBoardSection({ journalId }: AdvisoryBoardSectionProps) {
   const totalBoardMembers = sortedMembers.length
   const shouldShowExpandButton = totalBoardMembers > INITIAL_VISIBLE_COUNT
 
-  let currentDisplayCount = 0
   const sectionsToDisplay: Array<{ role: string; members: EditorialBoardMember[]; total: number }> = []
 
-  for (const entry of Object.values(grouped)) {
-    if (!isExpanded && currentDisplayCount >= INITIAL_VISIBLE_COUNT) break
-    let displayMembers = entry.members
-    if (!isExpanded) {
-      const remaining = INITIAL_VISIBLE_COUNT - currentDisplayCount
-      displayMembers = entry.members.slice(0, remaining)
+  if (isExpanded) {
+    for (const entry of Object.values(grouped)) {
+      sectionsToDisplay.push({ role: entry.label, members: entry.members, total: entry.total })
     }
-    if (displayMembers.length > 0) {
-      sectionsToDisplay.push({ role: entry.label, members: displayMembers, total: entry.total })
-      currentDisplayCount += displayMembers.length
+  } else {
+    const roleEntries = Object.values(grouped)
+    let currentDisplayCount = 0
+
+    // 1. First pass: Allocate 1 member per role to ensure discoverability
+    for (const entry of roleEntries) {
+      if (currentDisplayCount >= INITIAL_VISIBLE_COUNT) break
+      sectionsToDisplay.push({
+        role: entry.label,
+        members: [entry.members[0]],
+        total: entry.total
+      })
+      currentDisplayCount++
+    }
+
+    // 2. Second pass: Fill remaining slots with additional members in priority order
+    if (currentDisplayCount < INITIAL_VISIBLE_COUNT) {
+      for (const section of sectionsToDisplay) {
+        if (currentDisplayCount >= INITIAL_VISIBLE_COUNT) break
+        const entry = roleEntries.find(e => e.label === section.role)!
+        const available = entry.members.slice(1)
+        const space = INITIAL_VISIBLE_COUNT - currentDisplayCount
+        const toAdd = available.slice(0, space)
+        
+        section.members.push(...toAdd)
+        currentDisplayCount += toAdd.length
+      }
     }
   }
 
@@ -106,7 +126,6 @@ export function AdvisoryBoardSection({ journalId }: AdvisoryBoardSectionProps) {
             roleName={section.role}
             members={section.members}
             totalCount={section.total}
-            shownCount={section.members.length}
           />
         ))}
       </div>

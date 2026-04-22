@@ -5,10 +5,10 @@ interface AdvisoryRoleSectionProps {
   roleName: string
   members: EditorialBoardMember[]
   totalCount: number
-  shownCount: number
 }
 
-export function AdvisoryRoleSection({ roleName, members, totalCount, shownCount }: AdvisoryRoleSectionProps) {
+export function AdvisoryRoleSection({ roleName, members, totalCount }: AdvisoryRoleSectionProps) {
+  const shownCount = members.length
   return (
     <div className="space-y-4">
       <div>

@@ -6,7 +6,7 @@ interface AdvisoryMemberCardProps {
   member: EditorialBoardMember
 }
 
-function safeHref(url: string | null | undefined): string | null {
+function safeHref(url: string | null| undefined): string | null {
   if (!url) return null
   try {
     const parsed = new URL(url)
@@ -16,8 +16,17 @@ function safeHref(url: string | null | undefined): string | null {
   }
 }
 
+function normalizeOrcid(val: string | null | undefined): string | null {
+  if (!val) return null
+  const s = val.trim()
+  // Match the standard 16-character pattern, potentially preceded by common URL prefixes
+  const match = s.match(/(?:orcid\.org\/)?(\d{4}-\d{4}-\d{4}-\d{3}[\dX])$/i)
+  return match ? match[1] : null
+}
+
 export function AdvisoryMemberCard({ member }: AdvisoryMemberCardProps) {
-  const orcidUrl = member.orcid ? `https://orcid.org/${member.orcid}` : null
+  const orcidId = normalizeOrcid(member.orcid)
+  const orcidUrl = orcidId ? safeHref(`https://orcid.org/${orcidId}`) : null
   const scholarUrl = safeHref(member.googleScholar)
   const scopusUrl = safeHref(member.scopus)
   const profileUrl = safeHref(member.url)
@@ -29,7 +38,7 @@ export function AdvisoryMemberCard({ member }: AdvisoryMemberCardProps) {
         <MemberPhoto
           name={member.name}
           imageUrl={member.profileImage}
-          className="aspect-[3/4] h-full w-full"
+          className="aspect-[3/4] w-full"
         />
       </div>
 
