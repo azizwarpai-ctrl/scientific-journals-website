@@ -62,7 +62,10 @@ export function AdvisoryBoardSection({ journalId }: AdvisoryBoardSectionProps) {
       </div>
 
       {/* Grid Layout - Sharp Edges */}
-      <div className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 lg:grid-cols-3 border border-border">
+      <div 
+        id={`advisory-registry-${journalId}`}
+        className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 lg:grid-cols-3 border border-border"
+      >
         {displayMembers.map((member) => (
           <div key={member.userId} className="bg-background">
             <AdvisoryMemberCard member={member} />
@@ -76,6 +79,8 @@ export function AdvisoryBoardSection({ journalId }: AdvisoryBoardSectionProps) {
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
+            aria-expanded={isExpanded}
+            aria-controls={`advisory-registry-${journalId}`}
             className="group relative flex items-center justify-center gap-3 overflow-hidden border border-primary px-8 py-3 text-xs font-bold uppercase tracking-widest transition-all hover:bg-primary hover:text-primary-foreground"
           >
             <div className="relative z-10 flex items-center gap-2">

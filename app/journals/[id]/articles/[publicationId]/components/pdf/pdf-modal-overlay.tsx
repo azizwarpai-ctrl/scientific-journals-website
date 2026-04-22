@@ -116,8 +116,8 @@ export function PdfModalOverlay({
 
         {/* Content */}
         <div className="flex-1 relative overflow-hidden bg-[#525659]">
-          {/* Loading overlay */}
-          {phase === "loading" && !isMobile && (
+          {/* Loading overlay - suppress for gated to show gated wall immediately */}
+          {phase === "loading" && !isMobile && !isGatedAccess && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-[#1a1a1a] animate-in fade-in duration-200">
               <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
                 <Loader2 className="h-7 w-7 text-primary animate-spin" />

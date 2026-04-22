@@ -52,7 +52,7 @@ export function ModalPdfViewer({
     : pdfDirectUrl || deriveDirectUrl(pdfUrl)
   
   const downloadUrl = directOjsUrl || pdfUrl
-  const iframeSrc = getIframeSrc(directOjsUrl || pdfUrl)
+  const iframeSrc = getIframeSrc(downloadUrl)
 
   if (!isGatedAccess && !downloadUrl) {
     if (triggerStyle === "card") return null

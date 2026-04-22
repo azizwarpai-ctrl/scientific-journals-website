@@ -131,6 +131,36 @@ export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMemb
     return null
   }
 
+  const extractProfileFromHref = (href: string, p: Partial<RawMember>) => {
+    try {
+      const url = new URL(href)
+      if (url.protocol !== "http:" && url.protocol !== "https:") return
+      
+      const host = url.hostname.toLowerCase()
+      
+      // 1. ORCID
+      if (host === "orcid.org" && !p.orcid) {
+        const m = url.pathname.match(/(\d{4}-\d{4}-\d{4}-\d{3}[\dX])/i)
+        if (m) p.orcid = m[1]
+        return
+      }
+      
+      // 2. Google Scholar
+      if (host.startsWith("scholar.google.") && !p.googleScholar) {
+        p.googleScholar = href
+        return
+      }
+      
+      // 3. Scopus
+      if ((host === "scopus.com" || host.endsWith(".scopus.com")) && !p.scopus) {
+        p.scopus = href
+        return
+      }
+    } catch {
+      // Ignore malformed URLs
+    }
+  }
+
   $("p, hr, div, figure, td, th").each((_, el) => {
     const tag = el.type === "tag" ? el.name : ""
 
@@ -161,14 +191,7 @@ export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMemb
         const href = ($(a).attr("href") ?? "").trim()
         if (!href) return
         if (!pending) pending = { role: currentRole }
-        if (href.includes("orcid.org/") && !pending.orcid) {
-          const m = href.match(/(\d{4}-\d{4}-\d{4}-\d{3}[\dX])/i)
-          if (m) pending.orcid = m[1]
-        } else if (href.includes("scholar.google.") && !pending.googleScholar) {
-          pending.googleScholar = href
-        } else if (href.includes("scopus.com/") && !pending.scopus) {
-          pending.scopus = href
-        }
+        extractProfileFromHref(href, pending)
       })
       return
     }
@@ -194,14 +217,7 @@ export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMemb
       const href = ($(a).attr("href") ?? "").trim()
       if (!href) return
       if (!pending) pending = { role: currentRole }
-      if (href.includes("orcid.org/") && !pending.orcid) {
-        const m = href.match(/(\d{4}-\d{4}-\d{4}-\d{3}[\dX])/i)
-        if (m) pending.orcid = m[1]
-      } else if (href.includes("scholar.google.") && !pending.googleScholar) {
-        pending.googleScholar = href
-      } else if (href.includes("scopus.com/") && !pending.scopus) {
-        pending.scopus = href
-      }
+      extractProfileFromHref(href, pending)
     })
 
     if (imgSrc && !strongText) {
@@ -286,7 +302,7 @@ export async function fetchBoardFromNavPage(
     throw err
   }
 
-  const row = rows.find((r) => r.content && r.content.trim().length > 100)
+  const row = rows.find((r) => r.content && r.content.trim().length > 0)
   if (!row?.content) {
     console.log(`[NavPage] No content for journal ${journalId} at path '${path}'`)
     boardCache.set(cacheKey, { data: null, ts: now })
@@ -295,6 +311,13 @@ export async function fetchBoardFromNavPage(
 
   const defaultRole = path === "advisory-board" ? "Advisory Board Member" : "Editorial Board Member"
   const raw = parseBoardHtml(row.content, defaultRole)
+
+  if (raw.length === 0) {
+    console.log(`[NavPage] Content found for journal ${journalId} at path '${path}', but parsed 0 members. Treating as missing.`)
+    boardCache.set(cacheKey, { data: null, ts: now })
+    return null
+  }
+
   console.log(`[NavPage] journal_id=${journalId} path=${path}: parsed ${raw.length} members`)
 
   const members: EditorialBoardMember[] = raw.map((m, idx) => ({

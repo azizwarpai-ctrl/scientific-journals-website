@@ -5,7 +5,22 @@ interface AdvisoryMemberCardProps {
   member: EditorialBoardMember
 }
 
+function safeHref(url: string | null | undefined): string | null {
+  if (!url) return null
+  try {
+    const parsed = new URL(url)
+    return (parsed.protocol === "http:" || parsed.protocol === "https:") ? url : null
+  } catch {
+    return null
+  }
+}
+
 export function AdvisoryMemberCard({ member }: AdvisoryMemberCardProps) {
+  const scholarUrl = safeHref(member.googleScholar)
+  const scopusUrl = safeHref(member.scopus)
+  const profileUrl = safeHref(member.url)
+  const hasLinks = member.orcid || scholarUrl || scopusUrl || profileUrl
+
   return (
     <div className="group relative flex h-full flex-col border border-border bg-card transition-all hover:border-primary/30 hover:bg-accent/5">
       {/* 1. Header/Info Section */}
@@ -30,7 +45,7 @@ export function AdvisoryMemberCard({ member }: AdvisoryMemberCardProps) {
       </div>
 
       {/* 2. Social/Links Bar - Sharp & Minimal */}
-      {(member.orcid || member.googleScholar || member.scopus || member.url) && (
+      {hasLinks && (
         <div className="mt-auto border-t border-border/60 bg-muted/30 px-5 py-3">
           <div className="flex flex-wrap items-center gap-4">
             {member.orcid && (
@@ -44,9 +59,9 @@ export function AdvisoryMemberCard({ member }: AdvisoryMemberCardProps) {
                 ORCID
               </a>
             )}
-            {member.googleScholar && (
+            {scholarUrl && (
               <a
-                href={member.googleScholar}
+                href={scholarUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground hover:text-[#4285F4] transition-colors"
@@ -55,9 +70,9 @@ export function AdvisoryMemberCard({ member }: AdvisoryMemberCardProps) {
                 Scholar
               </a>
             )}
-            {member.scopus && (
+            {scopusUrl && (
               <a
-                href={member.scopus}
+                href={scopusUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground hover:text-[#ff6600] transition-colors"
@@ -66,9 +81,9 @@ export function AdvisoryMemberCard({ member }: AdvisoryMemberCardProps) {
                 Scopus
               </a>
             )}
-            {member.url && (
+            {profileUrl && (
               <a
-                href={member.url}
+                href={profileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground hover:text-primary transition-colors ml-auto"
