@@ -10,7 +10,7 @@
 
 export interface EditorialBoardMember {
   /** OJS user_id */
-  userId: number
+  userId: string | number
   /** Full name (givenName + familyName from user_settings) */
   name: string
   /** Role title from user_group_settings (e.g. "Editor-in-Chief", "Section Editor") */

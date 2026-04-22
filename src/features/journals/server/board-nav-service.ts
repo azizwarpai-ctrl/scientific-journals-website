@@ -48,9 +48,17 @@ const CACHE_TTL_MS = 15 * 60 * 1000
 
 // ── HTML pre-processing ────────────────────────────────────────────────────────
 
-function stripWordVml(html: string): string {
+function cleanWordHtml(html: string): string {
+  // 1. Strip VML and Conditional Comments
   let out = html.replace(/<!--\[if\s+gte\s+vml\s+\d+\]>[\s\S]*?<!\[endif\]-->/gi, "")
   out = out.replace(/<!--\[if\s+!vml\]-->([\s\S]*?)<!--\[endif\]-->/gi, "$1")
+  out = out.replace(/<!\[if\s+!supportLists\]>[\s\S]*?<!\[endif\]>/gi, "")
+
+  // 2. Strip OJS/Word specific attributes and namespaces
+  out = out.replace(/\s+(?:style|class|v:[\w-]+|o:[\w-]+|mso-[\w-]+)="[^"]*"/gi, "")
+  out = out.replace(/<[ov]:[\s\S]*?>/gi, "")
+  out = out.replace(/<\/[ov]:[\s\S]*?>/gi, "")
+
   return out
 }
 
@@ -87,7 +95,7 @@ interface RawMember {
 // ── HTML parser ────────────────────────────────────────────────────────────────
 
 export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMember[] {
-  const cleaned = stripWordVml(rawHtml)
+  const cleaned = cleanWordHtml(rawHtml)
   const $ = load(cleaned)
 
   const members: RawMember[] = []
@@ -290,7 +298,7 @@ export async function fetchBoardFromNavPage(
   console.log(`[NavPage] journal_id=${journalId} path=${path}: parsed ${raw.length} members`)
 
   const members: EditorialBoardMember[] = raw.map((m, idx) => ({
-    userId: -(idx + 1 + (path === "advisory-board" ? 1000 : 0)), // Ensure semi-unique negative IDs
+    userId: `nav:${journalId}:${path}:${idx}`, // Use scoped synthetic keys for global uniqueness
     name: m.name,
     role: m.role,
     affiliation: m.affiliation,

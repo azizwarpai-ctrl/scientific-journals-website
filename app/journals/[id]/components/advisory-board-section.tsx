@@ -1,115 +1,109 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, ChevronUp, Users } from "lucide-react"
+import { ChevronDown, ChevronUp, Users, Info } from "lucide-react"
 import { useGetAdvisoryBoard } from "@/src/features/journals/api/use-get-advisory-board"
-import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
-import { getRoleConfig } from "./editorial-board/role-styles"
-import { RoleSection } from "./editorial-board/role-section"
-import { EditorialBoardSkeleton } from "./editorial-board/editorial-board-skeleton"
+import { AdvisoryMemberCard } from "./advisory-board/advisory-member-card"
+import { AdvisoryBoardSkeleton } from "./advisory-board/advisory-board-skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface AdvisoryBoardSectionProps {
   journalId: string
 }
 
-const INITIAL_VISIBLE_COUNT = 8
+const INITIAL_VISIBLE_COUNT = 9
 
 export function AdvisoryBoardSection({ journalId }: AdvisoryBoardSectionProps) {
   const { data, isLoading, isError } = useGetAdvisoryBoard(journalId)
   const [isExpanded, setIsExpanded] = useState(false)
 
-  if (isLoading) return <EditorialBoardSkeleton />
-  if (isError) return null
-
-  const rawMembers: EditorialBoardMember[] = data?.members ? [...data.members] : []
-
-  // If there's no advisory board, we don't even show the section
-  // unlike the editorial board which is mandatory in the UI.
-  if (rawMembers.length === 0) return null
-
-  // Sort by priority, then name
-  const sortedMembers = [...rawMembers].sort((a, b) => {
-    const ca = getRoleConfig(a.roleId)
-    const cb = getRoleConfig(b.roleId)
-    if (ca.priority !== cb.priority) return ca.priority - cb.priority
-    return a.name.localeCompare(b.name)
-  })
-
-  // Group by role label
-  const grouped = sortedMembers.reduce<Record<string, { members: EditorialBoardMember[]; total: number }>>(
-    (acc, member) => {
-      const config = getRoleConfig(member.roleId)
-      const key = config.tier === "default" ? member.role : config.label
-      if (!acc[key]) acc[key] = { members: [], total: 0 }
-      acc[key].members.push(member)
-      acc[key].total++
-      return acc
-    },
-    {}
-  )
-
-  const totalBoardMembers = sortedMembers.length
-  const shouldShowExpandButton = totalBoardMembers > INITIAL_VISIBLE_COUNT
-
-  let currentDisplayCount = 0
-  const sectionsToDisplay: Array<{ role: string; members: EditorialBoardMember[]; total: number }> = []
-
-  for (const [roleName, entry] of Object.entries(grouped)) {
-    if (!isExpanded && currentDisplayCount >= INITIAL_VISIBLE_COUNT) break
-    let displayMembers = entry.members
-    if (!isExpanded) {
-      const remaining = INITIAL_VISIBLE_COUNT - currentDisplayCount
-      displayMembers = entry.members.slice(0, remaining)
-    }
-    if (displayMembers.length > 0) {
-      sectionsToDisplay.push({ role: roleName, members: displayMembers, total: entry.total })
-      currentDisplayCount += displayMembers.length
-    }
+  if (isLoading) return <AdvisoryBoardSkeleton />
+  
+  if (isError) {
+    return (
+      <section className="w-full py-12 border-t border-border">
+        <Alert variant="destructive" className="rounded-none border-destructive/50 bg-destructive/5">
+          <Info className="h-4 w-4" />
+          <AlertTitle className="text-sm font-bold tracking-tight">System Notice</AlertTitle>
+          <AlertDescription className="text-xs opacity-80">
+            We encountered a temporary issue retrieving the advisory board data. Please try refreshing the page.
+          </AlertDescription>
+        </Alert>
+      </section>
+    )
   }
 
+  const members = data?.members ?? []
+  if (members.length === 0) return null
+
+  const displayMembers = isExpanded ? members : members.slice(0, INITIAL_VISIBLE_COUNT)
+  const hasMore = members.length > INITIAL_VISIBLE_COUNT
+
   return (
-    <section className="w-full py-8 pt-2 border-t border-border/30">
-      <div className="mb-8">
-        <h2 className="text-xl font-bold tracking-tight text-foreground">Advisory Board</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {totalBoardMembers} {totalBoardMembers === 1 ? "member" : "members"}
-        </p>
+    <section className="w-full py-12 border-t border-border">
+      {/* Header - Sharp & Minimal */}
+      <div className="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-primary">
+            <Users className="h-4 w-4" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Academic Governance</span>
+          </div>
+          <h2 className="text-2xl font-black tracking-tighter uppercase text-foreground sm:text-3xl">
+            Advisory Board
+          </h2>
+        </div>
+        
+        <div className="flex items-center gap-3 border-l border-border pl-4 md:border-l-0 md:pl-0">
+          <div className="text-right">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Total Registry</p>
+            <p className="text-xl font-black tracking-tighter text-foreground">{members.length}</p>
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-10">
-        {sectionsToDisplay.map((section) => (
-          <RoleSection
-            key={section.role}
-            roleName={section.role}
-            members={section.members}
-            totalCount={section.total}
-            shownCount={section.members.length}
-          />
+      {/* Grid Layout - Sharp Edges */}
+      <div className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 lg:grid-cols-3 border border-border">
+        {displayMembers.map((member) => (
+          <div key={member.userId} className="bg-background">
+            <AdvisoryMemberCard member={member} />
+          </div>
         ))}
       </div>
 
-      {shouldShowExpandButton && (
-        <div className="mt-8">
+      {/* Footer / Pagination - Solid Sharp Button */}
+      {hasMore && (
+        <div className="mt-10 flex justify-center">
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            aria-expanded={isExpanded}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            className="group relative flex items-center justify-center gap-3 overflow-hidden border border-primary px-8 py-3 text-xs font-bold uppercase tracking-widest transition-all hover:bg-primary hover:text-primary-foreground"
           >
-            {isExpanded ? (
-              <>
-                <ChevronUp className="h-3.5 w-3.5" />
-                Show less
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-3.5 w-3.5" />
-                View all {totalBoardMembers} advisory members
-              </>
-            )}
+            <div className="relative z-10 flex items-center gap-2">
+              {isExpanded ? (
+                <>
+                  <ChevronUp className="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />
+                  Collapse Registry
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4 transition-transform group-hover:translate-y-0.5" />
+                  Expand Full Registry ({members.length})
+                </>
+              )}
+            </div>
+            {/* Hover effect background */}
+            <div className="absolute inset-0 z-0 bg-primary translate-y-full transition-transform group-hover:translate-y-0" />
           </button>
         </div>
       )}
+
+      {/* Professional Note */}
+      <div className="mt-12 border-l-2 border-primary/20 pl-4 py-1">
+        <p className="text-[10px] italic leading-relaxed text-muted-foreground/60 max-w-2xl">
+          The Advisory Board provides strategic guidance and ensures the peer-review integrity and academic standards of the journal. 
+          Members are selected for their recognized expertise and contribution to the field.
+        </p>
+      </div>
     </section>
   )
 }
