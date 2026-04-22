@@ -44,6 +44,9 @@ interface ArticleDbRow {
   section_id: number | null
   section_title: string | null
   primary_locale: string | null
+  pub_access_status: number | null
+  issue_access_status: number | null
+  issue_open_access_date: string | null
 }
 
 export async function fetchArticleDetail(
@@ -78,7 +81,10 @@ export async function fetchArticleDetail(
       js_eissn.setting_value as e_issn,
       sec.section_id,
       sec_title.setting_value as section_title,
-      j.primary_locale
+      j.primary_locale,
+      p.access_status as pub_access_status,
+      i.access_status as issue_access_status,
+      i.open_access_date as issue_open_access_date
     FROM publications p
     INNER JOIN submissions s ON s.submission_id = p.submission_id
     LEFT JOIN dois d ON p.doi_id = d.doi_id
@@ -304,6 +310,16 @@ export async function fetchArticleDetail(
   // `directUrl` entirely for disabled journals and force the client to use the
   // proxy route.
   const isOjsJournalEnabled = Number(article.journal_enabled) === 1
+  
+  // OJS Access Control logic:
+  // issue.access_status = 1 (Open Access), 0 (Subscription)
+  const isIssueOa = article.issue_access_status === 1 || (
+    article.issue_open_access_date && new Date(article.issue_open_access_date) <= new Date()
+  )
+  const isPubOa = article.pub_access_status === 1
+  
+  // It is gated if NEITHER the publication nor the issue is open access.
+  const isGatedAccess = !isIssueOa && !isPubOa
 
   const galleys: ArticleGalley[] = galleyRows.map(row => {
     if (row.remote_url) {
@@ -390,9 +406,10 @@ export async function fetchArticleDetail(
     sectionTitle: article.section_title,
     articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(coverImageRaw)),
     galleys,
-    pdfUrl: pdfGalley?.downloadUrl || null,
-    pdfDirectUrl: pdfGalley?.directUrl || null,
+    pdfUrl: isGatedAccess ? null : (pdfGalley?.downloadUrl || null),
+    pdfDirectUrl: isGatedAccess ? null : (pdfGalley?.directUrl || null),
     pdfProxyOnly: !isOjsJournalEnabled,
+    isGatedAccess,
 
     issueId: article.issue_id || 0,
     issueTitle: article.issue_title,

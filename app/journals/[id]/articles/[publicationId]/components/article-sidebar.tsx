@@ -49,6 +49,7 @@ export function ArticleSidebar({ article }: ArticleSidebarProps) {
             pdfUrl={article.pdfUrl}
             pdfDirectUrl={article.pdfDirectUrl}
             pdfProxyOnly={article.pdfProxyOnly}
+            isGatedAccess={article.isGatedAccess}
             articleTitle={article.title || undefined}
           />
         ) : (
