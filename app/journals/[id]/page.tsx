@@ -436,9 +436,7 @@ export default function JournalDetailPage() {
                     </div>
 
                     {/* 2. Advisory Board */}
-                    <div className="pt-2 border-t border-border/30">
-                      <AdvisoryBoardSection journalId={id} />
-                    </div>
+                    <AdvisoryBoardSection journalId={id} />
 
 
                     {/* 3. Editorial Board */}

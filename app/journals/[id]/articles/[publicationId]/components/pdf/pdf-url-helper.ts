@@ -27,5 +27,6 @@ export function deriveDirectUrl(proxyUrl: string | null): string | null {
  */
 export function getIframeSrc(viewUrl: string | null): string {
   if (!viewUrl) return ""
-  return `${viewUrl}${viewUrl.includes("?") ? "&" : "#"}toolbar=1&navpanes=1&scrollbar=1&view=FitH`
+  const joiner = viewUrl.includes("#") ? "&" : "#"
+  return `${viewUrl}${joiner}toolbar=1&navpanes=1&scrollbar=1&view=FitH`
 }

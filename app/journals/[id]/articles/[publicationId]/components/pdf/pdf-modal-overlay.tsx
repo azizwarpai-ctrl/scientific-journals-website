@@ -77,7 +77,7 @@ export function PdfModalOverlay({
             </span>
           </div>
 
-          {downloadUrl && (
+          {!isGatedAccess && downloadUrl && (
             <div className="flex items-center gap-1.5 shrink-0">
               <Button
                 variant="ghost"
@@ -134,7 +134,7 @@ export function PdfModalOverlay({
           )}
 
           {/* Iframe */}
-          {!isMobile && iframeSrc && (
+          {!isMobile && !isGatedAccess && iframeSrc && (
             <iframe
               ref={iframeRef}
               key={attempt}

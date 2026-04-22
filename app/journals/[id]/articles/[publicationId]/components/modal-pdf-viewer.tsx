@@ -54,7 +54,7 @@ export function ModalPdfViewer({
   const downloadUrl = directOjsUrl || pdfUrl
   const iframeSrc = getIframeSrc(directOjsUrl || pdfUrl)
 
-  if (!pdfUrl && !pdfDirectUrl) {
+  if (!isGatedAccess && !pdfUrl && !pdfDirectUrl) {
     if (triggerStyle === "card") return null
     return (
       <div className="flex flex-col items-center justify-center p-8 bg-muted/20 border border-dashed border-border/50 rounded-xl">

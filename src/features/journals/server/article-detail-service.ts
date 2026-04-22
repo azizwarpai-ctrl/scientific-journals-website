@@ -406,8 +406,8 @@ export async function fetchArticleDetail(
     sectionTitle: article.section_title,
     articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(coverImageRaw)),
     galleys,
-    pdfUrl: pdfGalley?.downloadUrl || null,
-    pdfDirectUrl: pdfGalley?.directUrl || null,
+    pdfUrl: isGatedAccess ? null : (pdfGalley?.downloadUrl || null),
+    pdfDirectUrl: isGatedAccess ? null : (pdfGalley?.directUrl || null),
     pdfProxyOnly: !isOjsJournalEnabled,
     isGatedAccess,
 

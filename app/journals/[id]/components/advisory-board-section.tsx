@@ -68,7 +68,7 @@ export function AdvisoryBoardSection({ journalId }: AdvisoryBoardSectionProps) {
   }
 
   return (
-    <section className="w-full py-8">
+    <section className="w-full py-8 pt-2 border-t border-border/30">
       <div className="mb-8">
         <h2 className="text-xl font-bold tracking-tight text-foreground">Advisory Board</h2>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -93,6 +93,7 @@ export function AdvisoryBoardSection({ journalId }: AdvisoryBoardSectionProps) {
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
+            aria-expanded={isExpanded}
             className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             {isExpanded ? (

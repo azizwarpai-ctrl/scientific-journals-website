@@ -240,7 +240,7 @@ export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMemb
  */
 export async function fetchBoardFromNavPage(
   ojsJournalId: string,
-  path: string,
+  path: "editorial-board" | "advisory-board",
   primaryLocale = "en"
 ): Promise<EditorialBoardMember[] | null> {
   if (!/^\d+$/.test(ojsJournalId)) return null
@@ -274,8 +274,8 @@ export async function fetchBoardFromNavPage(
     )
   } catch (err) {
     console.error(`[NavPage] DB query failed for journal ${journalId} (path=${path}):`, err)
-    boardCache.set(cacheKey, { data: null, ts: now })
-    return null
+    // Do NOT cache database failures, and rethrow to alert the caller
+    throw err
   }
 
   const row = rows.find((r) => r.content && r.content.trim().length > 100)
