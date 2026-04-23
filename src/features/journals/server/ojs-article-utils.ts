@@ -1,6 +1,6 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
-import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
+import { getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import {
   fetchNewAuthorAffiliations,
   resolveAuthorAffiliation,
@@ -216,14 +216,12 @@ export async function fetchArticlesWithAuthors(
     const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale) 
       || galleys.find(g => g.label?.toLowerCase().includes('pdf'))
     
-    const ojsBaseUrl = getOjsBaseUrl()
+    const ojsBaseUrl = getPublicOjsBaseUrl()
     
     let pdfUrl = null;
     if (pdfGalley) {
       if (pdfGalley.remote_url) {
         pdfUrl = pdfGalley.remote_url;
-      } else if (pdfGalley.submission_file_id) {
-        pdfUrl = `/api/pdf-proxy?journal=${journalUrlPath}&submissionId=${row.submission_id}&galleyId=${pdfGalley.galley_id}&fileId=${pdfGalley.submission_file_id}`;
       } else if (ojsBaseUrl) {
         pdfUrl = `${ojsBaseUrl}/index.php/${journalUrlPath}/article/download/${row.submission_id}/${pdfGalley.galley_id}?inline=1`;
       }

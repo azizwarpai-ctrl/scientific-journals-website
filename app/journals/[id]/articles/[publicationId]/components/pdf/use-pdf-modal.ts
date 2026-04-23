@@ -1,24 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 
-export type Phase = "loading" | "ready" | "timeout"
-
-/**
- * Custom hook to manage the state and logic for the PDF viewer modal.
- * Handles phase transitions (loading -> ready/timeout), attempt tracking,
- * and keyboard/scroll management.
- */
 export function usePdfModal() {
   const [open, setOpen] = useState(false)
-  const [phase, setPhase] = useState<Phase>("loading")
-  const [attempt, setAttempt] = useState(0)
+  const [loaded, setLoaded] = useState(false)
   const triggerRef = useRef<HTMLElement | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   const openModal = useCallback(() => {
     triggerRef.current = document.activeElement as HTMLElement
-    setPhase("loading")
-    setAttempt((n) => n + 1)
+    setLoaded(false)
     setOpen(true)
   }, [])
 
@@ -26,15 +17,13 @@ export function usePdfModal() {
     setOpen(false)
   }, [])
 
-  const retry = useCallback(() => {
-    setPhase("loading")
-    setAttempt((n) => n + 1)
+  const handleIframeLoad = useCallback(() => {
+    setLoaded(true)
   }, [])
 
-  // Body scroll-lock + keyboard handling while open
   useEffect(() => {
     if (!open) return
-    const prev = document.body.style.overflow
+    const prevOverflow = document.body.style.overflow
     document.body.style.overflow = "hidden"
     const panel = panelRef.current
     const focusables = panel?.querySelectorAll<HTMLElement>(
@@ -68,25 +57,11 @@ export function usePdfModal() {
     document.addEventListener("keydown", onKey)
     return () => {
       document.removeEventListener("keydown", onKey)
-      document.body.style.overflow = prev
+      document.body.style.overflow = prevOverflow
       triggerRef.current?.focus()
     }
   }, [open, closeModal])
 
-  // Timeout logic: transition to 'timeout' after 25s of loading.
-  useEffect(() => {
-    if (!open || phase !== "loading") return
-    const timer = setTimeout(() => {
-      setPhase("timeout")
-    }, 25000)
-    return () => clearTimeout(timer)
-  }, [open, phase, attempt])
-
-  const handleIframeLoad = useCallback(() => {
-    setPhase("ready")
-  }, [])
-
-  // Detect mobile environment
   const [isMobile] = useState(() => {
     if (typeof navigator === "undefined") return false
     const ua =
@@ -101,14 +76,12 @@ export function usePdfModal() {
 
   return {
     open,
-    phase,
-    attempt,
+    loaded,
+    isMobile,
     panelRef,
     iframeRef,
-    isMobile,
     openModal,
     closeModal,
-    retry,
     handleIframeLoad,
   }
 }
