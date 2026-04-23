@@ -1,6 +1,7 @@
 import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
+import { buildGalleyDownloadUrl } from "@/src/features/journals/server/ojs-galley-utils"
 import { getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import { fetchNewAuthorAffiliations, resolveAuthorAffiliation } from "@/src/features/journals/server/author-affiliation"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
@@ -35,7 +36,6 @@ interface ArticleDbRow {
   number: string | null
   year: string | null
   journal_url_path: string | null
-  journal_enabled: number | null
   issue_title: string | null
   journal_title: string | null
   journal_abbreviation: string | null
@@ -44,9 +44,6 @@ interface ArticleDbRow {
   section_id: number | null
   section_title: string | null
   primary_locale: string | null
-  pub_access_status: number | null
-  issue_access_status: number | null
-  issue_open_access_date: string | null
 }
 
 export async function fetchArticleDetail(
@@ -73,7 +70,6 @@ export async function fetchArticleDetail(
       i.number,
       i.year,
       j.path as journal_url_path,
-      j.enabled as journal_enabled,
       is_title.setting_value as issue_title,
       js_name.setting_value as journal_title,
       js_abbrev.setting_value as journal_abbreviation,
@@ -81,10 +77,7 @@ export async function fetchArticleDetail(
       js_eissn.setting_value as e_issn,
       sec.section_id,
       sec_title.setting_value as section_title,
-      j.primary_locale,
-      p.access_status as pub_access_status,
-      i.access_status as issue_access_status,
-      i.open_access_date as issue_open_access_date
+      j.primary_locale
     FROM publications p
     INNER JOIN submissions s ON s.submission_id = p.submission_id
     LEFT JOIN dois d ON p.doi_id = d.doi_id
@@ -283,19 +276,14 @@ export async function fetchArticleDetail(
     }
   }
 
-  // 4. Fetch Galleys and Submission Files
-  // NOTE: We pass both galley_id (for OJS web download URL) and submission_file_id
-  // (for OJS REST API with key). galley_id is the correct ID for the public
-  // /article/download/{submissionId}/{galleyId} endpoint.
-  const galleyRows = await ojsQuery<GalleyRow & { submission_file_id: number | null }>(
+  // 4. Fetch Galleys
+  const galleyRows = await ojsQuery<GalleyRow>(
     `SELECT
       pg.galley_id,
       pg.label,
       pg.locale,
-      pg.remote_url,
-      sf.submission_file_id
+      pg.remote_url
     FROM publication_galleys pg
-    LEFT JOIN submission_files sf ON pg.submission_file_id = sf.submission_file_id
     WHERE pg.publication_id = ?
     ORDER BY pg.seq ASC`,
     [publicationId]
@@ -303,55 +291,12 @@ export async function fetchArticleDetail(
 
 
 
-  // When a journal is disabled in OJS (`journals.enabled = 0`), OJS gates its
-  // public galley URLs behind a login wall. In that case the only way to serve
-  // the PDF to anonymous readers is via our own proxy (which talks to the PHP
-  // bridge on the OJS host and streams the file straight off disk). So: skip
-  // `directUrl` entirely for disabled journals and force the client to use the
-  // proxy route.
-  const isOjsJournalEnabled = Number(article.journal_enabled) === 1
-  
-  // OJS Access Control logic:
-  // issue.access_status = 1 (Open Access), 0 (Subscription)
-  const isIssueOa = article.issue_access_status === 1 || (
-    article.issue_open_access_date && new Date(article.issue_open_access_date) <= new Date()
-  )
-  const isPubOa = article.pub_access_status === 1
-  
-  // It is gated if NEITHER the publication nor the issue is open access.
-  const isGatedAccess = !isIssueOa && !isPubOa
-
-  const galleys: ArticleGalley[] = galleyRows.map(row => {
-    if (row.remote_url) {
-      return { galleyId: row.galley_id, label: row.label, locale: row.locale, downloadUrl: row.remote_url, directUrl: row.remote_url }
-    }
-
-    if (!article.journal_url_path) {
-      return { galleyId: row.galley_id, label: row.label, locale: row.locale, downloadUrl: null, directUrl: null }
-    }
-
-    // Build proxy URL using galley_id as primary identifier.
-    // The proxy uses galleyId for /article/download/{sub}/{galley} (no API key needed)
-    // and optionally fileId for the REST API path when OJS_API_KEY is set.
-    const params = new URLSearchParams({
-      journal: article.journal_url_path,
-      submissionId: String(submissionId),
-      galleyId: String(row.galley_id),
-    })
-    if (row.submission_file_id) {
-      params.set("fileId", String(row.submission_file_id))
-    }
-
-    return {
-      galleyId: row.galley_id,
-      label: row.label,
-      locale: row.locale,
-      downloadUrl: `/api/pdf-proxy?${params.toString()}`,
-      directUrl: (publicOjsBaseUrl && isOjsJournalEnabled)
-        ? `${publicOjsBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}?inline=1`
-        : null,
-    }
-  })
+  const galleys: ArticleGalley[] = galleyRows.map(row => ({
+    galleyId: row.galley_id,
+    label: row.label,
+    locale: row.locale,
+    downloadUrl: buildGalleyDownloadUrl(row.remote_url, article.journal_url_path, submissionId, row.galley_id, true),
+  }))
 
   const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale)
     || galleys.find(g => g.label?.toLowerCase().includes('pdf'))
@@ -406,10 +351,7 @@ export async function fetchArticleDetail(
     sectionTitle: article.section_title,
     articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(coverImageRaw)),
     galleys,
-    pdfUrl: isGatedAccess ? null : (pdfGalley?.downloadUrl || null),
-    pdfDirectUrl: isGatedAccess ? null : (pdfGalley?.directUrl || null),
-    pdfProxyOnly: !isOjsJournalEnabled,
-    isGatedAccess,
+    pdfUrl: pdfGalley?.downloadUrl || null,
 
     issueId: article.issue_id || 0,
     issueTitle: article.issue_title,
