@@ -1,6 +1,6 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
-import { getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
+import { buildGalleyDownloadUrl } from "./ojs-galley-utils"
 import {
   fetchNewAuthorAffiliations,
   resolveAuthorAffiliation,
@@ -213,19 +213,12 @@ export async function fetchArticlesWithAuthors(
   // ── Map articles with their authors and pdfUrl ───────────────────
   return articleRows.map((row) => {
     const galleys = galleysByPub.get(row.publication_id) || []
-    const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale) 
+    const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale)
       || galleys.find(g => g.label?.toLowerCase().includes('pdf'))
-    
-    const ojsBaseUrl = getPublicOjsBaseUrl()
-    
-    let pdfUrl = null;
-    if (pdfGalley) {
-      if (pdfGalley.remote_url) {
-        pdfUrl = pdfGalley.remote_url;
-      } else if (ojsBaseUrl) {
-        pdfUrl = `${ojsBaseUrl}/index.php/${journalUrlPath}/article/download/${row.submission_id}/${pdfGalley.galley_id}?inline=1`;
-      }
-    }
+
+    const pdfUrl = pdfGalley
+      ? buildGalleyDownloadUrl(pdfGalley.remote_url, journalUrlPath, row.submission_id, pdfGalley.galley_id, true)
+      : null
 
     return {
       publicationId: row.publication_id,

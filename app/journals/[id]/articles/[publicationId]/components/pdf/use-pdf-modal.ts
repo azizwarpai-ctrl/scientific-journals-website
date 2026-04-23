@@ -3,13 +3,16 @@ import { useState, useEffect, useCallback, useRef } from "react"
 export function usePdfModal() {
   const [open, setOpen] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [loadTimedOut, setLoadTimedOut] = useState(false)
   const triggerRef = useRef<HTMLElement | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const openModal = useCallback(() => {
     triggerRef.current = document.activeElement as HTMLElement
     setLoaded(false)
+    setLoadTimedOut(false)
     setOpen(true)
   }, [])
 
@@ -18,6 +21,7 @@ export function usePdfModal() {
   }, [])
 
   const handleIframeLoad = useCallback(() => {
+    if (loadTimerRef.current) clearTimeout(loadTimerRef.current)
     setLoaded(true)
   }, [])
 
@@ -55,10 +59,17 @@ export function usePdfModal() {
     }
 
     document.addEventListener("keydown", onKey)
+
+    const loadTimer = setTimeout(() => {
+      setLoadTimedOut(true)
+    }, 20000)
+    loadTimerRef.current = loadTimer
+
     return () => {
       document.removeEventListener("keydown", onKey)
       document.body.style.overflow = prevOverflow
       triggerRef.current?.focus()
+      if (loadTimerRef.current) clearTimeout(loadTimerRef.current)
     }
   }, [open, closeModal])
 
@@ -77,6 +88,7 @@ export function usePdfModal() {
   return {
     open,
     loaded,
+    loadTimedOut,
     isMobile,
     panelRef,
     iframeRef,

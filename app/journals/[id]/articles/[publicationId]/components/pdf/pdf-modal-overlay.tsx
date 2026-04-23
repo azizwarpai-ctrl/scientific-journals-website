@@ -16,6 +16,7 @@ interface PdfModalOverlayProps {
   iframeSrc: string
   isMobile: boolean
   loaded: boolean
+  loadTimedOut: boolean
   panelRef: RefObject<HTMLDivElement | null>
   iframeRef: RefObject<HTMLIFrameElement | null>
   onClose: () => void
@@ -28,6 +29,7 @@ export function PdfModalOverlay({
   iframeSrc,
   isMobile,
   loaded,
+  loadTimedOut,
   panelRef,
   iframeRef,
   onClose,
@@ -83,7 +85,7 @@ export function PdfModalOverlay({
               asChild
               className="h-8 gap-1.5 rounded-lg text-xs font-semibold bg-primary/20 text-primary hover:bg-primary hover:text-white border border-primary/30 hover:border-primary"
             >
-              <a href={downloadUrl} download rel="noopener noreferrer">
+              <a href={downloadUrl} download target="_blank" rel="noopener noreferrer">
                 <Download className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Download</span>
               </a>
@@ -101,7 +103,7 @@ export function PdfModalOverlay({
         </div>
 
         {/* Content */}
-        <div className="flex-1 relative overflow-hidden bg-[#525659]">
+        <div className="flex-1 relative overflow-hidden bg-[#525659]" aria-busy={!loaded && !isMobile} role="region" aria-label="PDF document">
           {isMobile ? (
             <MobileFallback downloadUrl={downloadUrl} />
           ) : (
@@ -114,6 +116,11 @@ export function PdfModalOverlay({
                   <p className="text-sm font-semibold text-white/80">
                     Loading document…
                   </p>
+                  {loadTimedOut && (
+                    <p className="text-xs text-white/50 max-w-xs">
+                      Taking longer than expected. Try <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-white/70">opening in a new tab</a> or downloading.
+                    </p>
+                  )}
                 </div>
               )}
               <iframe
@@ -124,6 +131,7 @@ export function PdfModalOverlay({
                   loaded ? "opacity-100" : "opacity-0"
                 }`}
                 allow="fullscreen"
+                aria-hidden={!loaded}
                 onLoad={onIframeLoad}
               />
             </>
@@ -161,6 +169,7 @@ function MobileFallback({ downloadUrl }: { downloadUrl: string }) {
         <a
           href={downloadUrl}
           download
+          target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary/80 hover:bg-primary text-white border border-primary/50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >

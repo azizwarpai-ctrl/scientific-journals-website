@@ -1,6 +1,7 @@
 import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
+import { buildGalleyDownloadUrl } from "@/src/features/journals/server/ojs-galley-utils"
 import { getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import { fetchNewAuthorAffiliations, resolveAuthorAffiliation } from "@/src/features/journals/server/author-affiliation"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
@@ -290,22 +291,12 @@ export async function fetchArticleDetail(
 
 
 
-  const galleys: ArticleGalley[] = galleyRows.map(row => {
-    if (row.remote_url) {
-      return { galleyId: row.galley_id, label: row.label, locale: row.locale, downloadUrl: row.remote_url }
-    }
-
-    if (!article.journal_url_path || !publicOjsBaseUrl) {
-      return { galleyId: row.galley_id, label: row.label, locale: row.locale, downloadUrl: null }
-    }
-
-    return {
-      galleyId: row.galley_id,
-      label: row.label,
-      locale: row.locale,
-      downloadUrl: `${publicOjsBaseUrl}/index.php/${article.journal_url_path}/article/download/${submissionId}/${row.galley_id}?inline=1`,
-    }
-  })
+  const galleys: ArticleGalley[] = galleyRows.map(row => ({
+    galleyId: row.galley_id,
+    label: row.label,
+    locale: row.locale,
+    downloadUrl: buildGalleyDownloadUrl(row.remote_url, article.journal_url_path, submissionId, row.galley_id, true),
+  }))
 
   const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale)
     || galleys.find(g => g.label?.toLowerCase().includes('pdf'))

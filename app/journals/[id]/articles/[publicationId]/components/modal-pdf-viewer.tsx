@@ -22,6 +22,7 @@ export function ModalPdfViewer({
     open,
     isMobile,
     loaded,
+    loadTimedOut,
     panelRef,
     iframeRef,
     openModal,
@@ -83,6 +84,7 @@ export function ModalPdfViewer({
               iframeSrc={iframeSrc}
               isMobile={isMobile}
               loaded={loaded}
+              loadTimedOut={loadTimedOut}
               panelRef={panelRef}
               iframeRef={iframeRef}
               onClose={closeModal}
