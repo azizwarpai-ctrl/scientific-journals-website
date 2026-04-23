@@ -236,12 +236,12 @@ export async function GET(request: Request) {
         }
       }
     } catch {
-      try { reader.releaseLock() } catch { /* ignore */ }
+      await reader.cancel().catch(() => {})
       return jsonError("UPSTREAM_ERROR", "Source closed connection.", 502, sourceUrl)
     }
 
     if (totalBytes === 0) {
-      try { reader.releaseLock() } catch { /* ignore */ }
+      await reader.cancel().catch(() => {})
       return jsonError("INVALID_RESPONSE", "Source returned empty body.", 502, sourceUrl)
     }
 
@@ -253,7 +253,7 @@ export async function GET(request: Request) {
     }
 
     if (!startsWithPdfMagic(buffer)) {
-      try { reader.releaseLock() } catch { /* ignore */ }
+      await reader.cancel().catch(() => {})
       if (looksLikeHtml(buffer)) {
         return jsonError(
           "AUTH_REQUIRED",
@@ -266,7 +266,7 @@ export async function GET(request: Request) {
     }
 
     if (contentType && !ACCEPTED_CONTENT_TYPES.test(contentType)) {
-      try { reader.releaseLock() } catch { /* ignore */ }
+      await reader.cancel().catch(() => {})
       return jsonError(
         "INVALID_RESPONSE",
         `Unexpected content type: ${contentType}.`,
@@ -312,7 +312,7 @@ export async function GET(request: Request) {
     if (apiResult.ok) return apiResult
     // Fall through on retriable errors; terminal errors surface directly.
     const code = apiResult.headers.get("X-Proxy-Error")
-    if (code && !["AUTH_REQUIRED", "UPSTREAM_ERROR", "INVALID_RESPONSE", "FILE_NOT_FOUND", "TIMEOUT"].includes(code)) {
+    if (code && !["AUTH_REQUIRED", "UPSTREAM_ERROR", "INVALID_RESPONSE", "FILE_NOT_FOUND", "TIMEOUT", "NETWORK_ERROR"].includes(code)) {
       return apiResult
     }
     console.warn(`[PDF Proxy] REST API attempt failed (${code ?? "unknown"}), falling back to web URL`)
@@ -324,5 +324,37 @@ export async function GET(request: Request) {
 }
 
 export async function HEAD(request: Request) {
-  return GET(request)
+  const { searchParams } = new URL(request.url)
+  const journal = searchParams.get("journal")
+  const submissionId = searchParams.get("submissionId")
+  const galleyId = searchParams.get("galleyId")
+  const fileId = searchParams.get("fileId")
+
+  if (!journal || !submissionId || !galleyId) {
+    return jsonError(
+      "BAD_REQUEST",
+      "Missing required parameters (journal, submissionId, galleyId).",
+      400
+    )
+  }
+
+  const ID_PATTERN = /^\d+$/
+  const JOURNAL_PATTERN = /^[A-Za-z0-9._-]+$/
+  if (
+    !ID_PATTERN.test(submissionId) ||
+    !ID_PATTERN.test(galleyId) ||
+    (fileId && !ID_PATTERN.test(fileId)) ||
+    !JOURNAL_PATTERN.test(journal)
+  ) {
+    return jsonError("BAD_REQUEST", "Invalid parameter format.", 400)
+  }
+
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/pdf",
+      "Accept-Ranges": "none",
+      "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+    },
+  })
 }
