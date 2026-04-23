@@ -217,7 +217,13 @@ export async function fetchArticlesWithAuthors(
       || galleys.find(g => g.label?.toLowerCase().includes('pdf'))
 
     const pdfUrl = pdfGalley
-      ? buildGalleyDownloadUrl(pdfGalley.remote_url, journalUrlPath, row.submission_id, pdfGalley.galley_id, true)
+      ? buildGalleyDownloadUrl(
+          pdfGalley.remote_url,
+          journalUrlPath,
+          row.submission_id,
+          pdfGalley.galley_id,
+          pdfGalley.submission_file_id
+        )
       : null
 
     return {
