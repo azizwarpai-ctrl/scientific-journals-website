@@ -21,6 +21,7 @@ interface GalleyRow {
   label: string | null
   locale: string | null
   remote_url: string | null
+  submission_file_id: number | null
 }
 
 const OJS_STATUS_PUBLISHED = 3
@@ -276,26 +277,33 @@ export async function fetchArticleDetail(
     }
   }
 
-  // 4. Fetch Galleys
+  // 4. Fetch Galleys. `submission_file_id` feeds the OJS REST API path in
+  //    the PDF proxy (bypasses session/hotlink checks via OJS_API_KEY).
   const galleyRows = await ojsQuery<GalleyRow>(
     `SELECT
       pg.galley_id,
       pg.label,
       pg.locale,
-      pg.remote_url
+      pg.remote_url,
+      sf.submission_file_id
     FROM publication_galleys pg
+    LEFT JOIN submission_files sf ON pg.submission_file_id = sf.submission_file_id
     WHERE pg.publication_id = ?
     ORDER BY pg.seq ASC`,
     [publicationId]
   )
 
-
-
   const galleys: ArticleGalley[] = galleyRows.map(row => ({
     galleyId: row.galley_id,
     label: row.label,
     locale: row.locale,
-    downloadUrl: buildGalleyDownloadUrl(row.remote_url, article.journal_url_path, submissionId, row.galley_id, true),
+    downloadUrl: buildGalleyDownloadUrl(
+      row.remote_url,
+      article.journal_url_path,
+      submissionId,
+      row.galley_id,
+      row.submission_file_id
+    ),
   }))
 
   const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale)
