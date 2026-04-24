@@ -1,6 +1,21 @@
 import { NextResponse } from "next/server"
 import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 
+/**
+ * PDF proxy for gated / hotlink-protected OJS galleys.
+ *
+ * Open-access galleys are served directly from OJS (see
+ * `buildGalleyDownloadUrl` in `ojs-galley-utils.ts`) and never hit this
+ * route. This proxy exists as a fallback for:
+ *   - subscription / restricted journals, and
+ *   - deployments where OJS applies session or hotlink checks to direct
+ *     browser requests.
+ *
+ * Upstream URL: `/index.php/{journal}/article/download/{s}/{g}/{f}` —
+ * the 3-arg form is the canonical direct-stream endpoint in OJS 3.x; the
+ * 2-arg form renders an HTML viewer page instead of bytes.
+ */
+
 type ProxyErrorCode =
   | "BAD_REQUEST"
   | "AUTH_REQUIRED"
@@ -18,6 +33,16 @@ const ACCEPTED_CONTENT_TYPES = /^(application\/pdf|application\/x-pdf|applicatio
 // bot-like User-Agents with 403/HTML login pages.
 const BROWSER_USER_AGENT =
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
+
+const ID_PATTERN = /^\d+$/
+const JOURNAL_PATTERN = /^[A-Za-z0-9._-]+$/
+
+interface ValidatedParams {
+  journal: string
+  submissionId: string
+  galleyId: string
+  fileId: string
+}
 
 function jsonError(
   code: ProxyErrorCode,
@@ -37,6 +62,33 @@ function jsonError(
       "X-Proxy-Error": code,
     },
   })
+}
+
+function validateParams(request: Request): ValidatedParams | NextResponse {
+  const { searchParams } = new URL(request.url)
+  const journal = searchParams.get("journal")
+  const submissionId = searchParams.get("submissionId")
+  const galleyId = searchParams.get("galleyId")
+  const fileId = searchParams.get("fileId")
+
+  if (!journal || !submissionId || !galleyId || !fileId) {
+    return jsonError(
+      "BAD_REQUEST",
+      "Missing required parameters (journal, submissionId, galleyId, fileId).",
+      400
+    )
+  }
+
+  if (
+    !ID_PATTERN.test(submissionId) ||
+    !ID_PATTERN.test(galleyId) ||
+    !ID_PATTERN.test(fileId) ||
+    !JOURNAL_PATTERN.test(journal)
+  ) {
+    return jsonError("BAD_REQUEST", "Invalid parameter format.", 400)
+  }
+
+  return { journal, submissionId, galleyId, fileId }
 }
 
 function startsWithPdfMagic(chunk: Uint8Array): boolean {
@@ -87,30 +139,9 @@ function buildStream(
 }
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const journal = searchParams.get("journal")
-  const submissionId = searchParams.get("submissionId")
-  const galleyId = searchParams.get("galleyId")
-  const fileId = searchParams.get("fileId")
-
-  if (!journal || !submissionId || !galleyId) {
-    return jsonError(
-      "BAD_REQUEST",
-      "Missing required parameters (journal, submissionId, galleyId).",
-      400
-    )
-  }
-
-  const ID_PATTERN = /^\d+$/
-  const JOURNAL_PATTERN = /^[A-Za-z0-9._-]+$/
-  if (
-    !ID_PATTERN.test(submissionId) ||
-    !ID_PATTERN.test(galleyId) ||
-    (fileId && !ID_PATTERN.test(fileId)) ||
-    !JOURNAL_PATTERN.test(journal)
-  ) {
-    return jsonError("BAD_REQUEST", "Invalid parameter format.", 400)
-  }
+  const validated = validateParams(request)
+  if (validated instanceof NextResponse) return validated
+  const { journal, submissionId, galleyId, fileId } = validated
 
   let baseUrl: string
   try {
@@ -130,13 +161,9 @@ export async function GET(request: Request) {
     return jsonError("UPSTREAM_ERROR", "OJS base URL is invalid.", 502)
   }
 
-  const apiKey = process.env.OJS_API_KEY
   const articlePageReferer = `${baseUrl}/index.php/${journal}/article/view/${submissionId}`
 
-  const fetchWithTimeout = async (
-    url: string,
-    extraHeaders: Record<string, string> = {}
-  ): Promise<Response> => {
+  const fetchWithTimeout = async (url: string): Promise<Response> => {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
     try {
@@ -147,7 +174,6 @@ export async function GET(request: Request) {
           Accept: "application/pdf,application/octet-stream;q=0.9,*/*;q=0.1",
           "Accept-Language": "en-US,en;q=0.9",
           Referer: articlePageReferer,
-          ...extraHeaders,
         },
         signal: controller.signal,
         redirect: "manual",
@@ -161,13 +187,11 @@ export async function GET(request: Request) {
   // Follow same-host redirects; block cross-host or auth redirects.
   const followRedirects = async (
     startUrl: string,
-    headers: Record<string, string>,
     maxHops = 5
   ): Promise<{ res: Response; finalUrl: string } | NextResponse> => {
     let currentUrl = startUrl
-    let currentHeaders = headers
     for (let hop = 0; hop <= maxHops; hop++) {
-      const res = await fetchWithTimeout(currentUrl, currentHeaders)
+      const res = await fetchWithTimeout(currentUrl)
       if (res.status < 300 || res.status > 399) {
         return { res, finalUrl: currentUrl }
       }
@@ -188,8 +212,6 @@ export async function GET(request: Request) {
       if (target.host !== ojsHost) {
         return jsonError("UPSTREAM_ERROR", "Source redirected to an untrusted host.", 502, currentUrl)
       }
-      currentHeaders = { ...currentHeaders }
-      delete currentHeaders.Authorization
       currentUrl = target.toString()
     }
     return jsonError("UPSTREAM_ERROR", "Too many redirects.", 502, startUrl)
@@ -289,65 +311,23 @@ export async function GET(request: Request) {
     return new NextResponse(stream, { status: 200, headers: outHeaders })
   }
 
-  const attempt = async (
-    url: string,
-    extraHeaders: Record<string, string> = {}
-  ): Promise<NextResponse> => {
-    try {
-      const followed = await followRedirects(url, extraHeaders)
-      if (followed instanceof NextResponse) return followed
-      return await streamPdfResponse(followed.res, followed.finalUrl)
-    } catch (error: unknown) {
-      if (error instanceof Error && error.name === "AbortError") {
-        return jsonError("TIMEOUT", "Source did not respond in time.", 504, url)
-      }
-      return jsonError("NETWORK_ERROR", "Network error contacting source.", 502, url)
-    }
-  }
+  const webUrl = `${baseUrl}/index.php/${journal}/article/download/${submissionId}/${galleyId}/${fileId}`
 
-  // Path 1: OJS REST API with Bearer auth (preferred — bypasses session/hotlink).
-  if (apiKey && fileId) {
-    const apiUrl = `${baseUrl}/index.php/${journal}/api/v1/submissions/${submissionId}/files/${fileId}/download`
-    const apiResult = await attempt(apiUrl, { Authorization: `Bearer ${apiKey}` })
-    if (apiResult.ok) return apiResult
-    // Fall through on retriable errors; terminal errors surface directly.
-    const code = apiResult.headers.get("X-Proxy-Error")
-    if (code && !["AUTH_REQUIRED", "UPSTREAM_ERROR", "INVALID_RESPONSE", "FILE_NOT_FOUND", "TIMEOUT", "NETWORK_ERROR"].includes(code)) {
-      return apiResult
+  try {
+    const followed = await followRedirects(webUrl)
+    if (followed instanceof NextResponse) return followed
+    return await streamPdfResponse(followed.res, followed.finalUrl)
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return jsonError("TIMEOUT", "Source did not respond in time.", 504, webUrl)
     }
-    console.warn(`[PDF Proxy] REST API attempt failed (${code ?? "unknown"}), falling back to web URL`)
+    return jsonError("NETWORK_ERROR", "Network error contacting source.", 502, webUrl)
   }
-
-  // Path 2: Public galley web URL with browser-like headers.
-  const webUrl = `${baseUrl}/index.php/${journal}/article/download/${submissionId}/${galleyId}`
-  return attempt(webUrl)
 }
 
 export async function HEAD(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const journal = searchParams.get("journal")
-  const submissionId = searchParams.get("submissionId")
-  const galleyId = searchParams.get("galleyId")
-  const fileId = searchParams.get("fileId")
-
-  if (!journal || !submissionId || !galleyId) {
-    return jsonError(
-      "BAD_REQUEST",
-      "Missing required parameters (journal, submissionId, galleyId).",
-      400
-    )
-  }
-
-  const ID_PATTERN = /^\d+$/
-  const JOURNAL_PATTERN = /^[A-Za-z0-9._-]+$/
-  if (
-    !ID_PATTERN.test(submissionId) ||
-    !ID_PATTERN.test(galleyId) ||
-    (fileId && !ID_PATTERN.test(fileId)) ||
-    !JOURNAL_PATTERN.test(journal)
-  ) {
-    return jsonError("BAD_REQUEST", "Invalid parameter format.", 400)
-  }
+  const validated = validateParams(request)
+  if (validated instanceof NextResponse) return validated
 
   return new NextResponse(null, {
     status: 200,
