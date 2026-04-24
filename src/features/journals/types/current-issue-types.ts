@@ -28,6 +28,7 @@ export interface CurrentIssueArticle {
   pdfUrl: string | null
   doi?: string | null
   keywords?: string[]
+  isOpenAccess?: boolean
 }
 
 export interface CurrentIssue {
