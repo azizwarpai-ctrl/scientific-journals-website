@@ -126,6 +126,15 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Long unbroken tokens (DOIs, URLs, emails) in prose blocks must wrap
+     on narrow viewports instead of forcing horizontal overflow. */
+  .prose a,
+  .prose code,
+  .prose pre {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
 }
 
 /* Hide scrollbar while preserving scroll functionality */
