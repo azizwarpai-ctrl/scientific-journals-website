@@ -48,6 +48,7 @@ export function ArticleSidebar({ article }: ArticleSidebarProps) {
           <ModalPdfViewer
             pdfUrl={article.pdfUrl}
             articleTitle={article.title || undefined}
+            isOpenAccess={article.isOpenAccess}
           />
         ) : (
           <div className="p-4 rounded-lg bg-muted/40 border border-border/40 text-center">

@@ -39,6 +39,8 @@ export interface ArticleDetail {
   eIssn: string | null
   journalUrlPath: string
 
+  isOpenAccess: boolean
+
   views: number
   downloads: number
   citations: number

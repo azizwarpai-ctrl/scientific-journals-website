@@ -1,6 +1,7 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
-import { buildGalleyDownloadUrl } from "./ojs-galley-utils"
+import { buildGalleyDownloadUrl, isOpenAccessStatus } from "./ojs-galley-utils"
 import {
   fetchNewAuthorAffiliations,
   resolveAuthorAffiliation,
@@ -20,6 +21,7 @@ export interface ArticleRow {
   section_title: string | null
   cover_image_raw: string | null
   doi: string | null
+  access_status: number | null
 }
 
 export interface AuthorRow {
@@ -58,10 +60,13 @@ export async function fetchArticlesWithAuthors(
       sec.seq AS section_seq,
       sec_title.setting_value AS section_title,
       ps_cover.setting_value AS cover_image_raw,
-      COALESCE(d.doi, ps_doi.setting_value, ps_pubid.setting_value) AS doi
+      COALESCE(d.doi, ps_doi.setting_value, ps_pubid.setting_value) AS doi,
+      i.access_status
     FROM publications p
     INNER JOIN submissions s
       ON s.submission_id = p.submission_id
+    LEFT JOIN issues i
+      ON i.issue_id = p.issue_id
     LEFT JOIN dois d
       ON p.doi_id = d.doi_id
     LEFT JOIN publication_settings ps_title
@@ -211,6 +216,8 @@ export async function fetchArticlesWithAuthors(
   }
 
   // ── Map articles with their authors and pdfUrl ───────────────────
+  const publicOjsBaseUrl = getPublicOjsBaseUrl()
+
   return articleRows.map((row) => {
     const galleys = galleysByPub.get(row.publication_id) || []
     const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale)
@@ -222,9 +229,13 @@ export async function fetchArticlesWithAuthors(
           journalUrlPath,
           row.submission_id,
           pdfGalley.galley_id,
-          pdfGalley.submission_file_id
+          pdfGalley.submission_file_id,
+          row.access_status,
+          publicOjsBaseUrl
         )
       : null
+
+    const isOpenAccess = isOpenAccessStatus(row.access_status)
 
     return {
       publicationId: row.publication_id,
@@ -239,6 +250,7 @@ export async function fetchArticlesWithAuthors(
       pdfUrl,
       doi: row.doi,
       keywords: keywordsByPub.get(row.publication_id) || [],
+      isOpenAccess,
     }
   })
 }

@@ -10,12 +10,14 @@ import { PdfModalOverlay } from "./pdf/pdf-modal-overlay"
 interface ModalPdfViewerProps {
   pdfUrl: string | null
   articleTitle?: string
+  isOpenAccess?: boolean
   triggerStyle?: "sidebar" | "card"
 }
 
 export function ModalPdfViewer({
   pdfUrl,
   articleTitle = "Document",
+  isOpenAccess,
   triggerStyle = "sidebar",
 }: ModalPdfViewerProps) {
   const {
@@ -23,12 +25,16 @@ export function ModalPdfViewer({
     isMobile,
     loaded,
     loadTimedOut,
+    probeState,
+    errorCode,
     panelRef,
     iframeRef,
     openModal,
     closeModal,
+    retry,
     handleIframeLoad,
-  } = usePdfModal()
+    handleIframeError,
+  } = usePdfModal(pdfUrl)
 
   if (!pdfUrl) {
     if (triggerStyle === "card") return null
@@ -83,12 +89,17 @@ export function ModalPdfViewer({
               downloadUrl={pdfUrl}
               iframeSrc={iframeSrc}
               isMobile={isMobile}
+              isOpenAccess={isOpenAccess}
               loaded={loaded}
               loadTimedOut={loadTimedOut}
+              probeState={probeState}
+              errorCode={errorCode}
               panelRef={panelRef}
               iframeRef={iframeRef}
               onClose={closeModal}
               onIframeLoad={handleIframeLoad}
+              onIframeError={handleIframeError}
+              onRetry={retry}
             />,
             document.body
           )

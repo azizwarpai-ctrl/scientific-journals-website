@@ -1,7 +1,7 @@
 import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
-import { buildGalleyDownloadUrl } from "@/src/features/journals/server/ojs-galley-utils"
+import { buildGalleyDownloadUrl, isOpenAccessStatus } from "@/src/features/journals/server/ojs-galley-utils"
 import { getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import { fetchNewAuthorAffiliations, resolveAuthorAffiliation } from "@/src/features/journals/server/author-affiliation"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
@@ -45,6 +45,7 @@ interface ArticleDbRow {
   section_id: number | null
   section_title: string | null
   primary_locale: string | null
+  access_status: number | null
 }
 
 export async function fetchArticleDetail(
@@ -78,7 +79,8 @@ export async function fetchArticleDetail(
       js_eissn.setting_value as e_issn,
       sec.section_id,
       sec_title.setting_value as section_title,
-      j.primary_locale
+      j.primary_locale,
+      i.access_status
     FROM publications p
     INNER JOIN submissions s ON s.submission_id = p.submission_id
     LEFT JOIN dois d ON p.doi_id = d.doi_id
@@ -91,20 +93,18 @@ export async function fetchArticleDetail(
     LEFT JOIN journal_settings js_eissn ON js_eissn.journal_id = j.journal_id AND js_eissn.setting_name = 'onlineIssn' AND js_eissn.locale = ''
     LEFT JOIN sections sec ON sec.section_id = p.section_id
     LEFT JOIN section_settings sec_title ON sec_title.section_id = sec.section_id AND sec_title.setting_name = 'title' AND sec_title.locale = j.primary_locale
-    WHERE p.publication_id = ? AND s.context_id = ? 
-    /* FORENSIC FIX: Allow unpublished statuses for testing */
-    /* AND p.status = ${OJS_STATUS_PUBLISHED} AND s.status = ${OJS_STATUS_PUBLISHED} */
+    WHERE p.publication_id = ? AND s.context_id = ?
+      AND p.status = ?
+      AND s.status = ?
     LIMIT 1`,
-    [publicationId, journalId]
+    [publicationId, journalId, OJS_STATUS_PUBLISHED, OJS_STATUS_PUBLISHED]
   )
 
   if (articleRows.length === 0) {
-    console.log(`[DEBUG FORENSIC - Document Viewer Phase 3] fetchArticleDetail query returned 0 rows for pubId=${publicationId}, journalId=${journalId}`);
     return null
   }
 
   const article = articleRows[0]
-  console.log(`[DEBUG FORENSIC - Document Viewer Phase 3] SUCCESS: Found article "${article.issue_title}" (status bypass)`);
   const primaryLocale = article.primary_locale || 'en_US'
   const submissionId = article.submission_id
 
@@ -277,8 +277,9 @@ export async function fetchArticleDetail(
     }
   }
 
-  // 4. Fetch Galleys. `submission_file_id` feeds the OJS REST API path in
-  //    the PDF proxy (bypasses session/hotlink checks via OJS_API_KEY).
+  // 4. Fetch Galleys. `submission_file_id` is required for both the direct
+  //    OJS open-access URL (3-arg `/article/download/{s}/{g}/{f}`) and the
+  //    fallback proxy path.
   const galleyRows = await ojsQuery<GalleyRow>(
     `SELECT
       pg.galley_id,
@@ -302,7 +303,9 @@ export async function fetchArticleDetail(
       article.journal_url_path,
       submissionId,
       row.galley_id,
-      row.submission_file_id
+      row.submission_file_id,
+      article.access_status,
+      publicOjsBaseUrl
     ),
   }))
 
@@ -345,6 +348,7 @@ export async function fetchArticleDetail(
 
   const parsedVolume = article.volume ? parseInt(article.volume, 10) : NaN;
   const parsedYear = article.year ? parseInt(article.year, 10) : NaN;
+  const isOpenAccess = isOpenAccessStatus(article.access_status)
 
   return {
     publicationId: article.publication_id,
@@ -372,6 +376,8 @@ export async function fetchArticleDetail(
     issn: article.issn,
     eIssn: article.e_issn,
     journalUrlPath: article.journal_url_path || "",
+
+    isOpenAccess,
 
     views,
     downloads,

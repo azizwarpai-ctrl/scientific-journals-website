@@ -181,6 +181,7 @@ export function ArticleItem({ article }: ArticleItemProps) {
               <ModalPdfViewer
                 pdfUrl={article.pdfUrl}
                 articleTitle={article.title || undefined}
+                isOpenAccess={article.isOpenAccess}
                 triggerStyle="card"
               />
             )}
