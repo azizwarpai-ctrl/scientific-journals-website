@@ -1,7 +1,7 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
-import { buildGalleyDownloadUrl } from "./ojs-galley-utils"
+import { buildGalleyDownloadUrl, isOpenAccessStatus } from "./ojs-galley-utils"
 import {
   fetchNewAuthorAffiliations,
   resolveAuthorAffiliation,
@@ -235,7 +235,7 @@ export async function fetchArticlesWithAuthors(
         )
       : null
 
-    const isOpenAccess = row.access_status === null || row.access_status === 0 || row.access_status === 1
+    const isOpenAccess = isOpenAccessStatus(row.access_status)
 
     return {
       publicationId: row.publication_id,

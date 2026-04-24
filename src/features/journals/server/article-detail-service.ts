@@ -1,7 +1,7 @@
 import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
-import { buildGalleyDownloadUrl } from "@/src/features/journals/server/ojs-galley-utils"
+import { buildGalleyDownloadUrl, isOpenAccessStatus } from "@/src/features/journals/server/ojs-galley-utils"
 import { getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import { fetchNewAuthorAffiliations, resolveAuthorAffiliation } from "@/src/features/journals/server/author-affiliation"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
@@ -94,10 +94,10 @@ export async function fetchArticleDetail(
     LEFT JOIN sections sec ON sec.section_id = p.section_id
     LEFT JOIN section_settings sec_title ON sec_title.section_id = sec.section_id AND sec_title.setting_name = 'title' AND sec_title.locale = j.primary_locale
     WHERE p.publication_id = ? AND s.context_id = ?
-      AND p.status = ${OJS_STATUS_PUBLISHED}
-      AND s.status = ${OJS_STATUS_PUBLISHED}
+      AND p.status = ?
+      AND s.status = ?
     LIMIT 1`,
-    [publicationId, journalId]
+    [publicationId, journalId, OJS_STATUS_PUBLISHED, OJS_STATUS_PUBLISHED]
   )
 
   if (articleRows.length === 0) {
@@ -348,10 +348,7 @@ export async function fetchArticleDetail(
 
   const parsedVolume = article.volume ? parseInt(article.volume, 10) : NaN;
   const parsedYear = article.year ? parseInt(article.year, 10) : NaN;
-  const isOpenAccess =
-    article.access_status === null ||
-    article.access_status === 0 ||
-    article.access_status === 1
+  const isOpenAccess = isOpenAccessStatus(article.access_status)
 
   return {
     publicationId: article.publication_id,

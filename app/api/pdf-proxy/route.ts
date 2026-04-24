@@ -325,9 +325,26 @@ export async function GET(request: Request) {
   }
 }
 
+/**
+ * HEAD response is strictly metadata: it validates the request shape and
+ * returns 200 with PDF-ish headers, or mirrors the validation error's
+ * status + X-Proxy-Error header with no body (RFC 9110 §9.3.2).
+ *
+ * Note: this handler does NOT probe upstream availability. A 200 here
+ * means the URL is well-formed, not that the PDF is reachable. Callers
+ * that need a real existence check must use GET.
+ */
 export async function HEAD(request: Request) {
   const validated = validateParams(request)
-  if (validated instanceof NextResponse) return validated
+  if (validated instanceof NextResponse) {
+    // validateParams uses jsonError() which attaches a JSON body. RFC 9110
+    // forbids HEAD responses from carrying a body, so re-emit the status
+    // and headers without it.
+    return new NextResponse(null, {
+      status: validated.status,
+      headers: validated.headers,
+    })
+  }
 
   return new NextResponse(null, {
     status: 200,
