@@ -2,7 +2,6 @@ import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
 import { buildGalleyDownloadUrl, isOpenAccessStatus } from "@/src/features/journals/server/ojs-galley-utils"
-import { getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import { fetchNewAuthorAffiliations, resolveAuthorAffiliation } from "@/src/features/journals/server/author-affiliation"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
 
@@ -57,7 +56,6 @@ export async function fetchArticleDetail(
   }
 
   const journalId = parseInt(ojsJournalId, 10)
-  const publicOjsBaseUrl = getPublicOjsBaseUrl()
 
   // 1. Fetch Main Article Data (JOINing publications, submissions, issues, journals, sections)
   const articleRows = await ojsQuery<ArticleDbRow>(
@@ -303,9 +301,7 @@ export async function fetchArticleDetail(
       article.journal_url_path,
       submissionId,
       row.galley_id,
-      row.submission_file_id,
-      article.access_status,
-      publicOjsBaseUrl
+      row.submission_file_id
     ),
   }))
 
