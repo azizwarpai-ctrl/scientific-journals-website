@@ -1,43 +1,125 @@
 "use client"
 
-import Image from "next/image"
-import { useTheme } from "next-themes"
-import { useEffect, useState } from "react"
+import Link from "next/link"
 import { cn } from "@/src/lib/utils"
 
 interface LogoProps {
   className?: string
-  width?: number
-  height?: number
+  /** Show only the icon mark (no wordmark) */
+  iconOnly?: boolean
+  /** Wrap in a Link to "/" — set to false when used inside an existing Link */
+  asLink?: boolean
 }
 
-export function Logo({ className, width = 180, height = 60 }: LogoProps) {
-  const { resolvedTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+const ACCENT = "#F97316" // tailwind orange-500
 
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setMounted(true))
-    return () => cancelAnimationFrame(frame)
-  }, [])
+function LogoMark({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 44 40"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className={cn("shrink-0", className)}
+    >
+      {/* Back layer */}
+      <rect
+        x="10"
+        y="16"
+        width="24"
+        height="20"
+        rx="4"
+        fill="currentColor"
+        fillOpacity="0.25"
+      />
+      {/* Middle layer */}
+      <rect
+        x="7"
+        y="12"
+        width="24"
+        height="20"
+        rx="4"
+        fill="currentColor"
+        fillOpacity="0.5"
+      />
+      {/* Front layer */}
+      <rect
+        x="4"
+        y="8"
+        width="24"
+        height="20"
+        rx="4"
+        fill="currentColor"
+      />
+      {/* Spine accent line on front layer */}
+      <line
+        x1="10"
+        y1="13"
+        x2="10"
+        y2="23"
+        stroke="currentColor"
+        strokeOpacity="0.35"
+        strokeWidth="1"
+        strokeLinecap="round"
+      />
+      {/* Digital pulse dot */}
+      <circle cx="34" cy="10" r="4" fill={ACCENT} />
+      {/* Subtle ring around dot */}
+      <circle
+        cx="34"
+        cy="10"
+        r="6.5"
+        stroke={ACCENT}
+        strokeOpacity="0.25"
+        strokeWidth="1"
+        fill="none"
+      />
+    </svg>
+  )
+}
 
-  // Determine which logo to use based on the theme
-  const currentTheme = mounted ? resolvedTheme : "light"
-  const logoSrc = currentTheme === "dark" 
-    ? "/images/logodigitopub-white.png" 
-    : "/images/logodigitopub.png"
+function LogoContent({ iconOnly }: { iconOnly?: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-2.5">
+      <LogoMark className="h-9 w-9 sm:h-10 sm:w-10 text-foreground" />
+      {!iconOnly && (
+        <span
+          className={cn(
+            "font-extrabold tracking-tight leading-none",
+            "text-xl sm:text-[1.55rem]",
+            "text-foreground"
+          )}
+        >
+          Digito<span style={{ color: ACCENT }}>Pub</span>
+        </span>
+      )}
+    </span>
+  )
+}
+
+export function Logo({ className, iconOnly, asLink = false }: LogoProps) {
+  if (asLink) {
+    return (
+      <Link
+        href="/"
+        aria-label="DigitoPub — go to homepage"
+        className={cn(
+          "inline-flex items-center outline-none",
+          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md",
+          className
+        )}
+      >
+        <LogoContent iconOnly={iconOnly} />
+      </Link>
+    )
+  }
 
   return (
-    <Image 
-      src={logoSrc} 
-      alt="DigitoPub Logo" 
-      width={width} 
-      height={height} 
-      className={cn(
-        "transition-opacity duration-300", 
-        !mounted ? "opacity-0" : "opacity-100",
-        className
-      )} 
-      priority
-    />
+    <span
+      aria-label="DigitoPub"
+      className={cn("inline-flex items-center", className)}
+    >
+      <LogoContent iconOnly={iconOnly} />
+    </span>
   )
 }

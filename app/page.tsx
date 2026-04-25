@@ -108,9 +108,9 @@ export default function HomePage() {
               </div>
 
               {isLoadingOjs ? (
-                <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory scroll-smooth">
+                <div className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory scroll-smooth">
                   {[...Array(6)].map((_, i) => (
-                    <div key={i} className="min-w-[260px] max-w-[280px] shrink-0 snap-start">
+                    <div key={i} className="min-w-[200px] max-w-[220px] sm:min-w-[260px] sm:max-w-[280px] shrink-0 snap-start">
                       <JournalCardSkeleton />
                     </div>
                   ))}
@@ -135,12 +135,12 @@ export default function HomePage() {
                   {/* Horizontal scroll container */}
                   <div
                     ref={scrollRef}
-                    className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory scroll-smooth"
+                    className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory scroll-smooth"
                   >
                     {journals.slice(0, 10).map((journal: Journal, idx: number) => {
                       const slug = String([journal.ojs_path, journal.ojs_id, journal.id].find(s => s && String(s).trim()) || journal.id)
                       return (
-                        <GSAPWrapper key={journal.id} animation="slideUp" delay={0.4 + idx * 0.05} className="min-w-[260px] max-w-[280px] shrink-0 snap-start">
+                        <GSAPWrapper key={journal.id} animation="slideUp" delay={0.4 + idx * 0.05} className="min-w-[200px] max-w-[220px] sm:min-w-[260px] sm:max-w-[280px] shrink-0 snap-start">
                           <JournalCard
                             title={journal.title}
                             coverImage={journal.cover_image_url}

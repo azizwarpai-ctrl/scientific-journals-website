@@ -196,10 +196,10 @@ export default function JournalDetailPage() {
             }} />
           </div>
 
-          <div className="container relative z-10 mx-auto px-4 md:px-6 py-12 md:py-16">
-            <div className="grid gap-10 md:grid-cols-[240px_1fr] md:items-start lg:gap-16">
+          <div className="container relative z-10 mx-auto px-4 md:px-6 py-8 md:py-16">
+            <div className="grid gap-6 md:gap-10 md:grid-cols-[240px_1fr] md:items-start lg:gap-16">
               {/* Cover Image - Refined Display */}
-              <div className="mx-auto w-40 md:mx-0 md:w-48 lg:w-56 flex-shrink-0">
+              <div className="mx-auto w-32 sm:w-40 md:mx-0 md:w-48 lg:w-56 flex-shrink-0">
                 <div className="relative group">
                   <div className="absolute -inset-1 bg-gradient-to-br from-primary/30 via-primary/10 to-transparent rounded-xl blur-lg opacity-50 group-hover:opacity-75 transition-opacity duration-500" />
                   <div className="relative rounded-xl overflow-hidden shadow-2xl shadow-black/30 ring-1 ring-white/10">
@@ -216,21 +216,21 @@ export default function JournalDetailPage() {
               </div>
 
               {/* Title + Metadata + Actions */}
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6 text-center md:text-left">
                 {/* Badges */}
-                <div className="flex flex-wrap gap-2.5">
+                <div className="flex flex-wrap justify-center md:justify-start gap-2">
                   {journal.field && (
-                    <Badge variant="secondary" className="bg-white/10 text-white border-white/20 backdrop-blur-sm px-3.5 py-1.5 text-xs font-semibold">
-                      <Globe className="mr-1.5 h-3 w-3" />
+                    <Badge variant="secondary" className="bg-white/10 text-white border-white/20 backdrop-blur-sm px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-[11px] sm:text-xs font-semibold">
+                      <Globe className="mr-1 sm:mr-1.5 h-3 w-3" />
                       {journal.field}
                     </Badge>
                   )}
-                  <Badge variant="outline" className="border-white/20 text-white/80 bg-white/5 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium">
-                    <Database className="mr-1.5 h-3 w-3" />
+                  <Badge variant="outline" className="border-white/20 text-white/80 bg-white/5 backdrop-blur-sm px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-[11px] sm:text-xs font-medium">
+                    <Database className="mr-1 sm:mr-1.5 h-3 w-3" />
                     {journal.issn || journal.e_issn || "ISSN Coming Soon"}
                   </Badge>
-                  <Badge variant="outline" className="border-white/20 text-white/80 bg-white/5 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium">
-                    <Globe className="mr-1.5 h-3 w-3" />
+                  <Badge variant="outline" className="border-white/20 text-white/80 bg-white/5 backdrop-blur-sm px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-[11px] sm:text-xs font-medium">
+                    <Globe className="mr-1 sm:mr-1.5 h-3 w-3" />
                     Open Access
                   </Badge>
                 </div>
@@ -241,13 +241,13 @@ export default function JournalDetailPage() {
                 </h1>
 
                 {/* Metadata Row - Clean Display */}
-                <div className="flex flex-wrap gap-x-8 gap-y-3 text-sm text-slate-300">
+                <div className="flex flex-wrap justify-center md:justify-start gap-x-5 sm:gap-x-8 gap-y-3 text-sm text-slate-300">
                   {journal.publisher && (
                     <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-md bg-white/5">
+                      <div className="p-1.5 rounded-md bg-white/5 shrink-0">
                         <Building className="h-4 w-4 text-primary/80" />
                       </div>
-                      <div>
+                      <div className="text-left">
                         <span className="text-xs text-slate-500 block">Publisher</span>
                         <span className="font-medium text-slate-200">{journal.publisher}</span>
                       </div>
@@ -255,10 +255,10 @@ export default function JournalDetailPage() {
                   )}
                   {journal.frequency && (
                     <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-md bg-white/5">
+                      <div className="p-1.5 rounded-md bg-white/5 shrink-0">
                         <Calendar className="h-4 w-4 text-primary/80" />
                       </div>
-                      <div>
+                      <div className="text-left">
                         <span className="text-xs text-slate-500 block">Frequency</span>
                         <span className="font-medium text-slate-200">{journal.frequency}</span>
                       </div>
@@ -267,9 +267,9 @@ export default function JournalDetailPage() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex flex-wrap gap-3 pt-2">
+                <div className="flex flex-wrap justify-center md:justify-start gap-3 pt-2">
                   {renderSubmitButton(
-                    "rounded-lg px-6 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30",
+                    "w-full sm:w-auto rounded-lg px-6 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30",
                     "default",
                     <>
                       <span className="flex items-center gap-2">
@@ -286,45 +286,45 @@ export default function JournalDetailPage() {
         </section>
 
         {/* Content Section */}
-        <section className="py-10 md:py-14 lg:py-16">
+        <section className="py-8 md:py-14 lg:py-16">
           <div className="container mx-auto px-4 md:px-6">
-            <div className="grid gap-10 lg:grid-cols-3">
-              <div className="lg:col-span-2 space-y-8">
+            <div className="grid gap-8 lg:gap-10 lg:grid-cols-3">
+              <div className="lg:col-span-2 space-y-6 sm:space-y-8">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                  <TabsList className="inline-flex h-auto w-full justify-start gap-1 bg-transparent p-0 border-b border-border rounded-none overflow-x-auto">
+                  <TabsList className="inline-flex h-auto w-full justify-start gap-0.5 sm:gap-1 bg-transparent p-0 border-b border-border rounded-none overflow-x-auto scrollbar-hide">
                     <TabsTrigger
                       value="about"
-                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className="rounded-none border-b-2 border-transparent px-3 py-3 sm:px-4 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
                     >
-                      <BookOpen className="mr-2 h-4 w-4" />
+                      <BookOpen className="mr-1.5 sm:mr-2 h-4 w-4" />
                       About Journal
                     </TabsTrigger>
                     <TabsTrigger
                       value="author"
-                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className="rounded-none border-b-2 border-transparent px-3 py-3 sm:px-4 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
                     >
-                      <FileText className="mr-2 h-4 w-4" />
+                      <FileText className="mr-1.5 sm:mr-2 h-4 w-4" />
                       Author Guidelines
                     </TabsTrigger>
                     <TabsTrigger
                       value="current"
-                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className="rounded-none border-b-2 border-transparent px-3 py-3 sm:px-4 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
                     >
-                      <NewspaperIcon className="mr-2 h-4 w-4" />
+                      <NewspaperIcon className="mr-1.5 sm:mr-2 h-4 w-4" />
                       Current Issue
                     </TabsTrigger>
                     <TabsTrigger
                       value="archive"
-                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className="rounded-none border-b-2 border-transparent px-3 py-3 sm:px-4 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
                     >
-                      <ArchiveIcon className="mr-2 h-4 w-4" />
+                      <ArchiveIcon className="mr-1.5 sm:mr-2 h-4 w-4" />
                       Archive
                     </TabsTrigger>
                     <TabsTrigger
                       value="policies"
-                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className="rounded-none border-b-2 border-transparent px-3 py-3 sm:px-4 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
                     >
-                      <Scale className="mr-2 h-4 w-4" />
+                      <Scale className="mr-1.5 sm:mr-2 h-4 w-4" />
                       Policies
                     </TabsTrigger>
                   </TabsList>
@@ -348,7 +348,7 @@ export default function JournalDetailPage() {
                   <TabsContent value="about" className="mt-8 space-y-10">
                     {/* 1. Journal Overview & Aims */}
                     <div className="space-y-8">
-                      <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
+                      <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6 md:p-8 shadow-sm">
                         <div className="flex items-center gap-3 mb-6">
                           <div className="p-2.5 rounded-lg bg-primary/10">
                             <Info className="h-5 w-5 text-primary" />
@@ -418,7 +418,7 @@ export default function JournalDetailPage() {
                           </div>
                         </div>
                       ) : safeAimsAndScopeCombined ? (
-                        <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
+                        <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6 md:p-8 shadow-sm">
                           <div className="flex items-center gap-3 mb-6">
                             <div className="p-2.5 rounded-lg bg-primary/10">
                               <BookOpen className="h-5 w-5 text-primary" />
@@ -447,7 +447,7 @@ export default function JournalDetailPage() {
 
                     {/* 4. Technical Details Grid — only real data, no N/A fallbacks */}
                     <div className="pt-2 border-t border-border/30">
-                      <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
+                      <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6 md:p-8 shadow-sm">
                         <div className="flex items-center gap-3 mb-6">
                           <div className="p-2.5 rounded-lg bg-primary/10">
                             <FileText className="h-5 w-5 text-primary" />
@@ -513,7 +513,7 @@ export default function JournalDetailPage() {
                       }
 
                       return (
-                        <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
+                        <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6 md:p-8 shadow-sm">
                           <div className="flex items-center gap-3 mb-6">
                             <div className="p-2.5 rounded-lg bg-primary/10">
                               <CreditCard className="h-5 w-5 text-primary" />
@@ -578,7 +578,7 @@ export default function JournalDetailPage() {
                     })()}
 
                     {/* Author Guidelines — from OJS journal_settings.authorGuidelines */}
-                    <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
+                    <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6 md:p-8 shadow-sm">
                       <div className="flex items-center gap-3 mb-6">
                         <div className="p-2.5 rounded-lg bg-primary/10">
                           <Shield className="h-5 w-5 text-primary" />
