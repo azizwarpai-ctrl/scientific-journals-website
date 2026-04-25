@@ -1,5 +1,4 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
-import { getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
 import { buildGalleyDownloadUrl, isOpenAccessStatus } from "./ojs-galley-utils"
 import {
@@ -216,8 +215,6 @@ export async function fetchArticlesWithAuthors(
   }
 
   // ── Map articles with their authors and pdfUrl ───────────────────
-  const publicOjsBaseUrl = getPublicOjsBaseUrl()
-
   return articleRows.map((row) => {
     const galleys = galleysByPub.get(row.publication_id) || []
     const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale)
@@ -229,9 +226,7 @@ export async function fetchArticlesWithAuthors(
           journalUrlPath,
           row.submission_id,
           pdfGalley.galley_id,
-          pdfGalley.submission_file_id,
-          row.access_status,
-          publicOjsBaseUrl
+          pdfGalley.submission_file_id
         )
       : null
 
