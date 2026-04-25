@@ -15,16 +15,18 @@ export function isOpenAccessStatus(accessStatus: number | null | undefined): boo
 /**
  * Builds the URL the browser loads when viewing a galley PDF.
  *
- *   1. `remote_url` set — passthrough (external galley).
- *   2. `submissionFileId` missing — returns null so callers hide the
- *      "View PDF" link; the proxy needs fileId for the 3-arg upstream
- *      download URL.
+ *   1. `remoteUrl` set — passthrough to external URL (external galley).
+ *   2. `journalUrlPath` or `submissionFileId` missing — returns null, signaling
+ *      callers to hide the "View PDF" link.
  *   3. Otherwise — same-origin `/api/pdf-proxy?…` which fetches OJS's
  *      `/article/download/{s}/{g}/{f}` server-side and re-emits the PDF
- *      with `Content-Disposition: inline`. OJS itself returns
- *      `attachment` on every file URL, which forces a Save-As dialog
- *      and prevents in-iframe rendering. Proxying lets us normalize
- *      the disposition header and render inline.
+ *      with `Content-Disposition: inline`.
+ *
+ * Why the proxy is canonical for local galleys: OJS unconditionally returns
+ * `Content-Disposition: attachment` on all file URLs, which forces browser
+ * downloads and prevents inline iframe rendering. The proxy normalizes this
+ * header to inline, enabling seamless inline PDF display for all local
+ * galleys regardless of access status (open access or subscription).
  */
 export function buildGalleyDownloadUrl(
   remoteUrl: string | null,

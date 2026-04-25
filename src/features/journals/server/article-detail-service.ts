@@ -275,9 +275,9 @@ export async function fetchArticleDetail(
     }
   }
 
-  // 4. Fetch Galleys. `submission_file_id` is required for both the direct
-  //    OJS open-access URL (3-arg `/article/download/{s}/{g}/{f}`) and the
-  //    fallback proxy path.
+  // 4. Fetch Galleys. `submission_file_id` is required for the proxy to fetch
+  //    OJS's 3-arg `/article/download/{s}/{g}/{f}` URL and re-emit with
+  //    `Content-Disposition: inline` for inline PDF rendering.
   const galleyRows = await ojsQuery<GalleyRow>(
     `SELECT
       pg.galley_id,
