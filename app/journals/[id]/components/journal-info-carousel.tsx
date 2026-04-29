@@ -103,7 +103,7 @@ const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightIte
   return (
     <div className="flex flex-col h-full p-5 select-none">
       {data.image && (
-        <div className="relative w-full h-[220px] rounded-xl overflow-hidden border border-border/40 bg-muted/20 mb-4 shadow-inner flex-shrink-0 flex items-center justify-center p-5 outline-none">
+        <div className="relative w-full h-[170px] sm:h-[220px] rounded-xl overflow-hidden border border-border/40 bg-muted/20 mb-4 shadow-inner flex-shrink-0 flex items-center justify-center p-5 outline-none">
           <Image
             src={data.image}
             alt={data.title}
@@ -215,8 +215,8 @@ function CarouselSkeleton() {
       <div className="px-5 py-4 border-b border-border/40 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent flex-shrink-0">
         <div className="h-5 w-40 bg-muted animate-pulse rounded-md" />
       </div>
-      <div className="p-5 h-[460px] space-y-4">
-        <div className="h-[220px] w-full bg-muted animate-pulse rounded-xl" />
+      <div className="p-5 h-[380px] sm:h-[460px] space-y-4">
+        <div className="h-[170px] sm:h-[220px] w-full bg-muted animate-pulse rounded-xl" />
         <div className="h-6 w-3/4 bg-muted animate-pulse rounded-md mt-2" />
         <div className="h-4 w-full bg-muted animate-pulse rounded-md mt-2" />
         <div className="h-4 w-5/6 bg-muted animate-pulse rounded-md mt-1.5" />
@@ -435,17 +435,17 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
 
           {/* ── Carousel body ──────────────────────────────────────────────────────
           Single item: skip Embla entirely (no wasted JS, no layout thrash).
-          Multi item:  emblaRef container has `overflow-hidden h-[460px]` —
+          Multi item:  emblaRef container has `overflow-hidden h-[380px] sm:h-[460px]` —
                        both are required for clipping to work.
       ─────────────────────────────────────────────────────────────────────── */}
           {isSingle ? (
-            <div className="h-[460px]">
+            <div className="h-[380px] sm:h-[460px]">
               <HighlightCard data={items[0]} />
             </div>
           ) : (
             <>
               {/* Embla viewport — MUST be overflow-hidden + fixed height */}
-              <div ref={emblaRef} className="overflow-hidden h-[460px] flex-shrink-0">
+              <div ref={emblaRef} className="overflow-hidden h-[380px] sm:h-[460px] flex-shrink-0">
                 {/* Embla container — translated by Embla to scroll */}
                 <div className="flex h-full">
                   {items.map((item: HighlightItem, index: number) => (
