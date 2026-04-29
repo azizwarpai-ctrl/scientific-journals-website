@@ -49,9 +49,9 @@ export function CurrentIssueSection({ journalId }: CurrentIssueSectionProps) {
         <div className="flex flex-col md:flex-row">
           
           {/* Issue Cover Focus Area */}
-          <div className="relative md:w-2/5 lg:w-1/3 bg-muted/20 border-b md:border-b-0 md:border-r border-border/50 p-6 flex flex-col items-center justify-center min-h-[400px]">
+          <div className="relative md:w-2/5 lg:w-1/3 bg-muted/20 border-b md:border-b-0 md:border-r border-border/50 p-4 sm:p-6 flex flex-col items-center justify-center min-h-[260px] sm:min-h-[340px] md:min-h-[400px]">
             {issue.issueCoverUrl && !hasCoverError ? (
-              <div className="relative w-full aspect-[3/4] max-w-[320px] overflow-hidden rounded-md shadow-md ring-1 ring-border/30">
+              <div className="relative w-full aspect-[3/4] max-w-[200px] sm:max-w-[260px] md:max-w-[320px] overflow-hidden rounded-md shadow-md ring-1 ring-border/30">
                 <Image 
                   src={issue.issueCoverUrl} 
                   alt={getIssueTitle(issue)}

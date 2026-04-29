@@ -48,7 +48,7 @@ export function ArticleItem({ article }: ArticleItemProps) {
   return (
     <div className="group relative flex flex-col sm:flex-row rounded-2xl border border-border/40 bg-card overflow-hidden transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:-translate-y-1">
       {/* Visual Cover Area */}
-      <div className="relative sm:w-56 md:w-64 flex-shrink-0 aspect-[3/4] sm:aspect-auto bg-muted/5 border-b sm:border-b-0 sm:border-r border-border/30 overflow-hidden min-h-[280px]">
+      <div className="relative sm:w-56 md:w-64 flex-shrink-0 aspect-[16/9] sm:aspect-auto bg-muted/5 border-b sm:border-b-0 sm:border-r border-border/30 overflow-hidden sm:min-h-[280px]">
         {article.articleCoverUrl && !hasCoverError ? (
           <Image
             src={article.articleCoverUrl}
@@ -74,7 +74,7 @@ export function ArticleItem({ article }: ArticleItemProps) {
         )}
       </div>
 
-      <div className="p-6 flex flex-col flex-1 gap-4">
+      <div className="p-4 sm:p-6 flex flex-col flex-1 gap-4 min-w-0">
         <div className="space-y-3 flex-1">
           {/* Title */}
           <Link href={articleUrl} className="focus:outline-none focus:ring-2 focus:ring-primary/20 rounded-sm">
