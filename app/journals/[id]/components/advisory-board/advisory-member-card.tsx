@@ -33,16 +33,16 @@ export function AdvisoryMemberCard({ member }: AdvisoryMemberCardProps) {
   const hasLinks = orcidUrl || scholarUrl || scopusUrl || profileUrl
 
   return (
-    <article className="group flex h-full flex-col sm:flex-row overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
-      <div className="w-full sm:w-1/3 flex-shrink-0">
+    <article className="group flex h-full flex-row overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+      <div className="w-24 sm:w-1/3 flex-shrink-0">
         <MemberPhoto
           name={member.name}
           imageUrl={member.profileImage}
-          className="aspect-[3/4] w-full"
+          className="aspect-square sm:aspect-[3/4] h-full w-full"
         />
       </div>
 
-      <div className="flex w-full sm:w-2/3 flex-1 flex-col gap-2 p-4 min-w-0">
+      <div className="flex w-[calc(100%-6rem)] sm:w-2/3 flex-1 flex-col gap-2 p-3 sm:p-4 min-w-0">
         <h3 className="text-[15px] font-semibold leading-snug text-foreground line-clamp-2 break-words">
           {member.name}
         </h3>
