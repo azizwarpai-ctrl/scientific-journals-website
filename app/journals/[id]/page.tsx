@@ -294,35 +294,35 @@ export default function JournalDetailPage() {
                   <TabsList className="inline-flex h-auto w-full justify-start gap-1 bg-transparent p-0 border-b border-border rounded-none overflow-x-auto">
                     <TabsTrigger
                       value="about"
-                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className="rounded-none border-b-2 border-transparent px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
                     >
                       <BookOpen className="mr-2 h-4 w-4" />
                       About Journal
                     </TabsTrigger>
                     <TabsTrigger
                       value="author"
-                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className="rounded-none border-b-2 border-transparent px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
                     >
                       <FileText className="mr-2 h-4 w-4" />
                       Author Guidelines
                     </TabsTrigger>
                     <TabsTrigger
                       value="current"
-                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className="rounded-none border-b-2 border-transparent px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
                     >
                       <NewspaperIcon className="mr-2 h-4 w-4" />
                       Current Issue
                     </TabsTrigger>
                     <TabsTrigger
                       value="archive"
-                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className="rounded-none border-b-2 border-transparent px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
                     >
                       <ArchiveIcon className="mr-2 h-4 w-4" />
                       Archive
                     </TabsTrigger>
                     <TabsTrigger
                       value="policies"
-                      className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className="rounded-none border-b-2 border-transparent px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
                     >
                       <Scale className="mr-2 h-4 w-4" />
                       Policies
@@ -435,13 +435,15 @@ export default function JournalDetailPage() {
                       ) : null}
                     </div>
 
-                    {/* 2. Advisory Board */}
-                    <AdvisoryBoardSection journalId={id} />
-
-
-                    {/* 3. Editorial Board */}
+                    {/* 2. Editorial Board */}
                     <div className="pt-2 border-t border-border/30">
                       <EditorialBoardSection journalId={id} editorInChief={journal.editor_in_chief} />
+                    </div>
+
+
+                    {/* 3. Advisory Board */}
+                    <div className="pt-2 border-t border-border/30">
+                      <AdvisoryBoardSection journalId={id} />
                     </div>
 
 
