@@ -79,7 +79,7 @@ export default async function IssueDetailPage({ params }: PageProps) {
                  src={issue.issueCoverUrl!} 
                  alt={issue.title || "Issue Cover"}
                  fill
-                 sizes="(max-width: 768px) 100vw, 256px"
+                 sizes="(max-width: 640px) 160px, (max-width: 768px) 208px, 256px"
                  className="object-cover"
                />
             </div>

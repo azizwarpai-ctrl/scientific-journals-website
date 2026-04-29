@@ -47,6 +47,8 @@ import { AdvisoryBoardSection } from "./components/advisory-board-section"
 import { JournalInfoCarousel } from "./components/journal-info-carousel"
 import { JournalPoliciesSection } from "./components/journal-policies-section"
 
+const TAB_TRIGGER_CLASSES = "rounded-none border-b-2 border-transparent px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+
 export default function JournalDetailPage() {
   const id = useJournalId()
   const [activeTab, setActiveTab] = useState("about")
@@ -294,35 +296,35 @@ export default function JournalDetailPage() {
                   <TabsList className="inline-flex h-auto w-full justify-start gap-1 bg-transparent p-0 border-b border-border rounded-none overflow-x-auto">
                     <TabsTrigger
                       value="about"
-                      className="rounded-none border-b-2 border-transparent px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className={TAB_TRIGGER_CLASSES}
                     >
                       <BookOpen className="mr-2 h-4 w-4" />
                       About Journal
                     </TabsTrigger>
                     <TabsTrigger
                       value="author"
-                      className="rounded-none border-b-2 border-transparent px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className={TAB_TRIGGER_CLASSES}
                     >
                       <FileText className="mr-2 h-4 w-4" />
                       Author Guidelines
                     </TabsTrigger>
                     <TabsTrigger
                       value="current"
-                      className="rounded-none border-b-2 border-transparent px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className={TAB_TRIGGER_CLASSES}
                     >
                       <NewspaperIcon className="mr-2 h-4 w-4" />
                       Current Issue
                     </TabsTrigger>
                     <TabsTrigger
                       value="archive"
-                      className="rounded-none border-b-2 border-transparent px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className={TAB_TRIGGER_CLASSES}
                     >
                       <ArchiveIcon className="mr-2 h-4 w-4" />
                       Archive
                     </TabsTrigger>
                     <TabsTrigger
                       value="policies"
-                      className="rounded-none border-b-2 border-transparent px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                      className={TAB_TRIGGER_CLASSES}
                     >
                       <Scale className="mr-2 h-4 w-4" />
                       Policies

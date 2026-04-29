@@ -62,7 +62,7 @@ export function CurrentIssueSection({ journalId }: CurrentIssueSectionProps) {
                 />
               </div>
             ) : (
-               <div className="w-full aspect-[3/4] max-w-[320px] rounded-md bg-muted/40 border border-border/40 border-dashed flex flex-col items-center justify-center text-muted-foreground shadow-inner mx-auto">
+               <div className="w-full aspect-[3/4] max-w-[200px] sm:max-w-[260px] md:max-w-[320px] rounded-md bg-muted/40 border border-border/40 border-dashed flex flex-col items-center justify-center text-muted-foreground shadow-inner mx-auto">
                 <Newspaper className="h-10 w-10 mb-3 opacity-20" />
                 <span className="text-xs uppercase tracking-widest font-semibold opacity-50 text-center px-4">No Cover Available</span>
               </div>
