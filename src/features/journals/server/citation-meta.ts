@@ -39,7 +39,8 @@ function parsePagesFromString(pages: string | null): { pageStart: string | null;
 
 export function buildCitationMeta(
   article: ArticleDetail,
-  articleUrl: string
+  articleUrl: string,
+  appBaseUrl: string
 ): Record<string, string | string[]> {
   const meta: Record<string, string | string[]> = {}
 
@@ -58,7 +59,10 @@ export function buildCitationMeta(
   const authorStrings = article.authors.map(formatAuthor).filter(Boolean)
   setMany("citation_author", authorStrings.length ? authorStrings : ["Unknown"])
 
-  set("citation_publication_date", formatScholarDate(article.datePublished))
+  const pubDate = formatScholarDate(article.datePublished)
+    ?? (article.year ? String(article.year) : null)
+  set("citation_publication_date", pubDate)
+
   set("citation_journal_title", article.journalTitle)
   set("citation_issn", article.issn)
 
@@ -77,10 +81,10 @@ export function buildCitationMeta(
   meta["citation_abstract_html_url"] = articleUrl
 
   if (article.pdfUrl) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
+    const base = appBaseUrl.replace(/\/$/, "")
     const pdfUrl = article.pdfUrl.startsWith("http")
       ? article.pdfUrl
-      : `${appUrl}${article.pdfUrl}`
+      : `${base}${article.pdfUrl}`
     set("citation_pdf_url", pdfUrl)
   }
 

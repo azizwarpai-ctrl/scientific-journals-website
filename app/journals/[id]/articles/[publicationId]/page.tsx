@@ -68,7 +68,7 @@ export async function generateMetadata(
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
   const articleUrl = `${appUrl}/journals/${resolvedParams.id}/articles/${resolvedParams.publicationId}`
-  const citationMeta = buildCitationMeta(article, articleUrl)
+  const citationMeta = buildCitationMeta(article, articleUrl, appUrl)
 
   return {
     title: `${article.title || 'Untitled Article'} | ${article.journalAbbreviation || article.journalTitle || 'Journal'}`,
