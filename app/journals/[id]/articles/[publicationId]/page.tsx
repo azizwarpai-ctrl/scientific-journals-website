@@ -67,8 +67,13 @@ export async function generateMetadata(
     .filter((name: string) => name.length > 0)
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
-  const articleUrl = `${appUrl}/journals/${resolvedParams.id}/articles/${resolvedParams.publicationId}`
-  const citationMeta = buildCitationMeta(article, articleUrl, appUrl)
+  const isValidAbsoluteUrl = appUrl.startsWith("http://") || appUrl.startsWith("https://")
+
+  let citationMeta: Record<string, string | (string | number)[]> = {}
+  if (isValidAbsoluteUrl) {
+    const articleUrl = `${appUrl}/journals/${resolvedParams.id}/articles/${resolvedParams.publicationId}`
+    citationMeta = buildCitationMeta(article, articleUrl, appUrl)
+  }
 
   return {
     title: `${article.title || 'Untitled Article'} | ${article.journalAbbreviation || article.journalTitle || 'Journal'}`,
@@ -84,7 +89,7 @@ export async function generateMetadata(
         ? new Date(article.datePublished).toISOString()
         : undefined,
     },
-    other: citationMeta,
+    ...(Object.keys(citationMeta).length > 0 && { other: citationMeta }),
   }
 }
 

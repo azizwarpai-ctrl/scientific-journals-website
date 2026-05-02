@@ -30,8 +30,9 @@ function parseLocale(locale: string): string {
 function parsePagesFromString(pages: string | null): { pageStart: string | null; pageEnd: string | null } {
   if (!pages) return { pageStart: null, pageEnd: null }
   const trimmed = pages.trim()
-  const dashIdx = trimmed.indexOf("-")
-  if (dashIdx === -1) return { pageStart: trimmed || null, pageEnd: null }
+  const dashMatch = trimmed.match(/[-–—]/)
+  if (!dashMatch) return { pageStart: trimmed || null, pageEnd: null }
+  const dashIdx = dashMatch.index!
   const start = trimmed.slice(0, dashIdx).trim()
   const end = trimmed.slice(dashIdx + 1).trim()
   return { pageStart: start || null, pageEnd: end || null }
@@ -78,14 +79,17 @@ export function buildCitationMeta(
 
   set("citation_doi", article.doi)
 
-  meta["citation_abstract_html_url"] = articleUrl
+  const base = appBaseUrl.replace(/\/$/, "")
+  const absoluteArticleUrl = articleUrl.startsWith("http")
+    ? articleUrl
+    : base && `${base}${articleUrl}`
+  set("citation_abstract_html_url", absoluteArticleUrl || null)
 
   if (article.pdfUrl) {
-    const base = appBaseUrl.replace(/\/$/, "")
     const pdfUrl = article.pdfUrl.startsWith("http")
       ? article.pdfUrl
-      : `${base}${article.pdfUrl}`
-    set("citation_pdf_url", pdfUrl)
+      : base && `${base}${article.pdfUrl}`
+    set("citation_pdf_url", pdfUrl || null)
   }
 
   set("citation_language", parseLocale(article.locale || "en"))
