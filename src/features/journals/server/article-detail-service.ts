@@ -355,6 +355,7 @@ export async function fetchArticleDetail(
     keywords,
     pages,
     datePublished: article.date_published,
+    locale: primaryLocale,
     authors,
     sectionTitle: article.section_title,
     articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(coverImageRaw)),
