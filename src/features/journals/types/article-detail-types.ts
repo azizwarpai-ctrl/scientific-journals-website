@@ -21,6 +21,7 @@ export interface ArticleDetail {
   keywords: string[]
   pages: string | null
   datePublished: string | null
+  locale: string
   authors: ArticleDetailAuthor[]
   sectionTitle: string | null
   articleCoverUrl: string | null

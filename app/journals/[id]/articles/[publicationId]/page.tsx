@@ -6,6 +6,7 @@ import { HydrationBoundary, dehydrate, QueryClient } from "@tanstack/react-query
 import { client } from "@/src/lib/rpc"
 import { ArticlePageClient } from "./components/article-page-client"
 import type { ArticleDetail, ArticleDetailAuthor } from "@/src/features/journals/types/article-detail-types"
+import { buildCitationMeta } from "@/src/features/journals/server/citation-meta"
 
 interface PageProps {
   params: Promise<{
@@ -56,7 +57,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const resolvedParams = await params
   const data = await getArticleData(resolvedParams.id, resolvedParams.publicationId)
-  
+
   if (!data || "error" in data) return {}
 
   const { article } = data
@@ -64,6 +65,15 @@ export async function generateMetadata(
   const authorNames = article.authors
     .map((a: ArticleDetailAuthor) => `${a.givenName || ''} ${a.familyName || ''}`.trim())
     .filter((name: string) => name.length > 0)
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
+  const isValidAbsoluteUrl = appUrl.startsWith("http://") || appUrl.startsWith("https://")
+
+  let citationMeta: Record<string, string | (string | number)[]> = {}
+  if (isValidAbsoluteUrl) {
+    const articleUrl = `${appUrl}/journals/${resolvedParams.id}/articles/${resolvedParams.publicationId}`
+    citationMeta = buildCitationMeta(article, articleUrl, appUrl)
+  }
 
   return {
     title: `${article.title || 'Untitled Article'} | ${article.journalAbbreviation || article.journalTitle || 'Journal'}`,
@@ -75,10 +85,11 @@ export async function generateMetadata(
       description: abstractText,
       type: "article",
       authors: authorNames,
-      publishedTime: (article.datePublished && !isNaN(new Date(article.datePublished).getTime())) 
-        ? new Date(article.datePublished).toISOString() 
+      publishedTime: (article.datePublished && !isNaN(new Date(article.datePublished).getTime()))
+        ? new Date(article.datePublished).toISOString()
         : undefined,
     },
+    ...(Object.keys(citationMeta).length > 0 && { other: citationMeta }),
   }
 }
 
