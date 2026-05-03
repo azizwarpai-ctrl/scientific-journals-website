@@ -2,20 +2,22 @@
 
 import { useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import {
   Archive,
   BookOpen,
   Calendar,
   FileText,
   ArrowRight,
+  Share2,
+  Check,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import { useGetArchiveIssues, type ArchiveIssue } from "@/src/features/journals"
 import { Badge } from "@/components/ui/badge"
 import { ArchiveSkeleton } from "@/components/skeletons/archive-skeleton"
 import { ArchiveError } from "@/components/errors/archive-error"
-import { ArchiveEmpty } from "@/components/states/archive-empty"
-import { ArchiveIssueDetail } from "./archive-issue-detail"
 import { getIssueTitle, getIssueSubtitle } from "./issue-helpers"
 
 interface ArchiveSectionProps {
@@ -24,24 +26,12 @@ interface ArchiveSectionProps {
 
 export function ArchiveSection({ journalId }: ArchiveSectionProps) {
   const { data: response, isLoading, error, refetch } = useGetArchiveIssues(journalId)
-  const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null)
   const archiveIssues = response?.data || []
 
   if (isLoading) return <ArchiveSkeleton />
   if (error) return <ArchiveError retry={() => refetch()} />
   if (archiveIssues.length === 0) {
     return <ArchiveEmpty message={response?.message} />
-  }
-
-  // ── If an issue is selected, show its detail view ─────────────
-  if (selectedIssueId !== null) {
-    return (
-      <ArchiveIssueDetail
-        journalId={journalId}
-        issueId={selectedIssueId}
-        onBack={() => setSelectedIssueId(null)}
-      />
-    )
   }
 
   // ── Archive Grid ──────────────────────────────────────────────
@@ -68,10 +58,21 @@ export function ArchiveSection({ journalId }: ArchiveSectionProps) {
           <ArchiveIssueCard
             key={issue.issueId}
             issue={issue}
-            onClick={() => setSelectedIssueId(issue.issueId)}
+            journalId={journalId}
           />
         ))}
       </div>
+    </div>
+  )
+}
+
+// ── Lazy import for ArchiveEmpty ─────────────────────────────────────
+function ArchiveEmpty({ message }: { message?: string }) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card p-8 text-center">
+      <p className="text-muted-foreground">
+        {message || "No archived issues found."}
+      </p>
     </div>
   )
 }
@@ -80,22 +81,37 @@ export function ArchiveSection({ journalId }: ArchiveSectionProps) {
 
 function ArchiveIssueCard({
   issue,
-  onClick,
+  journalId,
 }: {
   issue: ArchiveIssue
-  onClick: () => void
+  journalId: string
 }) {
   const [hasCoverError, setHasCoverError] = useState(false)
+  const [copied, setCopied] = useState(false)
 
+  const issueHref =
+    issue.volume != null && issue.number != null
+      ? `/journals/${journalId}/issues/${issue.volume}/${issue.number}`
+      : null
 
+  const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!issueHref) return
 
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      id={`archive-issue-${issue.issueId}`}
-      className="group relative flex flex-col rounded-2xl border border-border/50 bg-card overflow-hidden shadow-sm transition-all duration-300 hover:border-primary/40 hover:shadow-xl hover:-translate-y-1.5 text-left focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-2"
-    >
+    const fullUrl = `${window.location.origin}${issueHref}`
+    try {
+      await navigator.clipboard.writeText(fullUrl)
+      setCopied(true)
+      toast.success("Issue link copied to clipboard")
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error("Failed to copy link")
+    }
+  }
+
+  const cardContent = (
+    <>
       {/* Cover Image */}
       <div className="relative aspect-[3/4] w-full bg-gradient-to-br from-muted/30 to-muted/60 overflow-hidden">
         {issue.issueCoverUrl && !hasCoverError ? (
@@ -148,18 +164,59 @@ function ArchiveIssueCard({
           </p>
         )}
 
-        <div className="flex items-center gap-4 mt-auto pt-3 text-xs text-muted-foreground">
-          {issue.datePublished && (
-            <span className="flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5" />
-              {new Date(issue.datePublished).toLocaleDateString(undefined, {
-                year: "numeric",
-                month: "short",
-              })}
-            </span>
+        <div className="flex items-center justify-between mt-auto pt-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-4">
+            {issue.datePublished && (
+              <span className="flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5" />
+                {new Date(issue.datePublished).toLocaleDateString(undefined, {
+                  year: "numeric",
+                  month: "short",
+                })}
+              </span>
+            )}
+          </div>
+
+          {/* Share button */}
+          {issueHref && (
+            <button
+              type="button"
+              onClick={handleShare}
+              className="p-1.5 rounded-full hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+              aria-label="Copy issue link"
+              title="Copy issue link"
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-emerald-500" />
+              ) : (
+                <Share2 className="h-3.5 w-3.5" />
+              )}
+            </button>
           )}
         </div>
       </div>
-    </button>
+    </>
+  )
+
+  if (issueHref) {
+    return (
+      <Link
+        href={issueHref}
+        id={`archive-issue-${issue.issueId}`}
+        className="group relative flex flex-col rounded-2xl border border-border/50 bg-card overflow-hidden shadow-sm transition-all duration-300 hover:border-primary/40 hover:shadow-xl hover:-translate-y-1.5 text-left focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-2"
+      >
+        {cardContent}
+      </Link>
+    )
+  }
+
+  // Fallback for issues without volume/number — not linkable
+  return (
+    <div
+      id={`archive-issue-${issue.issueId}`}
+      className="group relative flex flex-col rounded-2xl border border-border/50 bg-card overflow-hidden shadow-sm text-left opacity-75"
+    >
+      {cardContent}
+    </div>
   )
 }
