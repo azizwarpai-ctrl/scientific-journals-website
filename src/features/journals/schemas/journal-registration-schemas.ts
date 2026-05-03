@@ -17,7 +17,7 @@ export const publisherInfoSchema = z.object({
 // ═══════════════════════════════════════════════════════════════
 const ISSN_REGEX = /^\d{4}-\d{3}[\dxX]$/i
 
-export const journalInfoSchema = z.object({
+const journalInfoBaseSchema = z.object({
   title: z.string().min(1, "Journal title is required").max(255),
   abbreviation: z.string().min(2, "Abbreviation should be at least 2 characters").max(20),
   printIssn: z
@@ -34,11 +34,12 @@ export const journalInfoSchema = z.object({
   discipline: z.string().min(1, "Please select a primary discipline").max(100),
   description: z.string().min(50, "Please provide a detailed description (minimum 50 characters)").max(2000),
 })
-// Require at least one ISSN
-.refine((data) => data.printIssn || data.onlineIssn, {
-  message: "At least one ISSN (Print or Online) is required",
-  path: ["onlineIssn"],
-})
+
+// Require at least one ISSN (used for per-step form validation)
+export const journalInfoSchema = journalInfoBaseSchema.refine(
+  (data) => data.printIssn || data.onlineIssn,
+  { message: "At least one ISSN (Print or Online) is required", path: ["onlineIssn"] }
+)
 
 // ═══════════════════════════════════════════════════════════════
 // Step 3 — Editorial Information
@@ -99,12 +100,19 @@ export const termsAgreementsSchema = z.object({
 // ═══════════════════════════════════════════════════════════════
 // Combined payload for API
 // ═══════════════════════════════════════════════════════════════
+// journalInfoSchema wraps journalInfoBaseSchema in ZodEffects (.refine), so
+// .merge() would fail in Zod v4. Use the unwrapped base here and re-apply
+// the ISSN constraint on the combined schema.
 export const journalRegistrationPayloadSchema = publisherInfoSchema
-  .merge(journalInfoSchema)
+  .merge(journalInfoBaseSchema)
   .merge(editorialInfoSchema)
   .merge(publicationDetailsSchema)
   .merge(technicalConfigSchema)
   .merge(termsAgreementsSchema)
+  .refine((data) => data.printIssn || data.onlineIssn, {
+    message: "At least one ISSN (Print or Online) is required",
+    path: ["onlineIssn"],
+  })
 
 // ═══════════════════════════════════════════════════════════════
 // Types
