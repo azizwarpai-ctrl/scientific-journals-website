@@ -379,9 +379,9 @@ export function extractCardFields(html: string, _name: string) {
 
   const title = rawTitleText ? decodeHtml(rawTitleText) : undefined
 
-  // 2. Image: First img tag source
+  // 2. Image: First img tag source (skip data: URIs to avoid embedding large base64 payloads)
   const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i)
-  const image = imgMatch ? imgMatch[1] : undefined
+  const image = imgMatch && !imgMatch[1].startsWith("data:") ? imgMatch[1] : undefined
 
   // 3. Link: First a tag href
   const linkMatch = html.match(/<a[^>]+href=["']([^"']+)["']/i)
