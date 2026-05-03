@@ -46,6 +46,30 @@ const BLOCK_TITLE_PATTERNS = [
   /^about\s+(the\s+)?journal$/i,
 ]
 
+/**
+ * Pre-process Word/VML HTML to extract <img> fallbacks from IE conditional
+ * comments before sanitize-html strips all HTML comments.
+ *
+ * Word pastes images as VML inside <!--[if gte vml 1]>...<![endif]--> with
+ * <img data:URI> fallbacks inside <!--[if !vml]-->...<![endif]-->.
+ * htmlparser2 (used by sanitize-html) strips all comment nodes, so both
+ * blocks vanish. We promote the fallback <img> tags before sanitization.
+ */
+function extractVmlFallbackImgs(html: string): string {
+  // Promote <img> fallbacks from <!--[if !vml]-->...<![endif]--> blocks
+  let result = html.replace(
+    /<!--\[if !vml\]-->([\s\S]*?)<!--\[endif\]-->/gi,
+    (_, inner) => inner.trim()
+  )
+  // Remove VML blocks (non-standard <!--[if gte vml N]>...<![endif]-->) to
+  // prevent stray text leaking into the sanitized output.
+  result = result.replace(
+    /<!--\[if gte vml \d+\]>[\s\S]*?<!\[endif\]-->/gi,
+    ""
+  )
+  return result
+}
+
 // Permitted HTML tags in custom block content (generous but safe)
 const ALLOWED_TAGS = [
   "p", "br", "strong", "em", "b", "i", "u",
@@ -221,9 +245,10 @@ export async function fetchCustomBlocks(
       }
     }
 
-    const cleanContent = sanitizeHtml(contentToSanitize, {
+    const cleanContent = sanitizeHtml(extractVmlFallbackImgs(contentToSanitize), {
       allowedTags: ALLOWED_TAGS,
       allowedAttributes: ALLOWED_ATTRS,
+      allowedSchemesByTag: { img: ["http", "https", "data"] },
       transformTags: {
         a: (tagName: string, attribs: { [attr: string]: string }) => ({
           tagName,
