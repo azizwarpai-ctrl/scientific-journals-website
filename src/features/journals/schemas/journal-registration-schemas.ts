@@ -100,19 +100,20 @@ export const termsAgreementsSchema = z.object({
 // ═══════════════════════════════════════════════════════════════
 // Combined payload for API
 // ═══════════════════════════════════════════════════════════════
-// journalInfoSchema wraps journalInfoBaseSchema in ZodEffects (.refine), so
-// .merge() would fail in Zod v4. Use the unwrapped base here and re-apply
-// the ISSN constraint on the combined schema.
-export const journalRegistrationPayloadSchema = publisherInfoSchema
-  .merge(journalInfoBaseSchema)
-  .merge(editorialInfoSchema)
-  .merge(publicationDetailsSchema)
-  .merge(technicalConfigSchema)
-  .merge(termsAgreementsSchema)
-  .refine((data) => data.printIssn || data.onlineIssn, {
-    message: "At least one ISSN (Print or Online) is required",
-    path: ["onlineIssn"],
-  })
+// Zod v4 forbids .merge() on any schema whose shape contains ZodEffects fields
+// (e.g. z.boolean().refine(...)). Spread all shapes into a single z.object()
+// instead to avoid the restriction entirely.
+export const journalRegistrationPayloadSchema = z.object({
+  ...publisherInfoSchema.shape,
+  ...journalInfoBaseSchema.shape,
+  ...editorialInfoSchema.shape,
+  ...publicationDetailsSchema.shape,
+  ...technicalConfigSchema.shape,
+  ...termsAgreementsSchema.shape,
+}).refine((data) => data.printIssn || data.onlineIssn, {
+  message: "At least one ISSN (Print or Online) is required",
+  path: ["onlineIssn"],
+})
 
 // ═══════════════════════════════════════════════════════════════
 // Types
