@@ -4,16 +4,25 @@ import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 /**
  * PDF proxy for gated / hotlink-protected OJS galleys.
  *
+ * Upstream strategies (tried in order):
+ *
+ *   Path 0 — **OJS PDF Bridge** (`ojs-pdf-bridge.php`).
+ *            Authenticates with a shared Bearer token, resolves the galley
+ *            directly from the OJS database, and streams the file from
+ *            disk — bypassing the payments plugin, hotlink rules, and WAF
+ *            interstitials entirely. Requires `OJS_API_KEY` to be set.
+ *            If unconfigured, silently skipped.
+ *
+ *   Path 1 — **OJS web URL** (`/article/download/{s}/{g}/{f}`).
+ *            The 3-arg form is the canonical direct-stream endpoint in
+ *            OJS 3.x. Subject to payment-plugin and WAF interference.
+ *
  * Open-access galleys are served directly from OJS (see
  * `buildGalleyDownloadUrl` in `ojs-galley-utils.ts`) and never hit this
- * route. This proxy exists as a fallback for:
+ * route. This proxy exists for:
  *   - subscription / restricted journals, and
  *   - deployments where OJS applies session or hotlink checks to direct
  *     browser requests.
- *
- * Upstream URL: `/index.php/{journal}/article/download/{s}/{g}/{f}` —
- * the 3-arg form is the canonical direct-stream endpoint in OJS 3.x; the
- * 2-arg form renders an HTML viewer page instead of bytes.
  */
 
 type ProxyErrorCode =
@@ -24,6 +33,7 @@ type ProxyErrorCode =
   | "UPSTREAM_ERROR"
   | "TIMEOUT"
   | "NETWORK_ERROR"
+  | "RATE_LIMITED"
 
 const FETCH_TIMEOUT_MS = 15000
 const PDF_MAGIC = new Uint8Array([0x25, 0x50, 0x44, 0x46]) // "%PDF"
@@ -48,7 +58,8 @@ function jsonError(
   code: ProxyErrorCode,
   message: string,
   status: number,
-  sourceUrl?: string
+  sourceUrl?: string,
+  extraHeaders?: Record<string, string>
 ): NextResponse {
   const body: Record<string, unknown> = { error: code, message, status }
   if (sourceUrl && process.env.NODE_ENV !== "production") {
@@ -60,6 +71,7 @@ function jsonError(
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
       "X-Proxy-Error": code,
+      ...extraHeaders,
     },
   })
 }
@@ -143,6 +155,150 @@ export async function GET(request: Request) {
   if (validated instanceof NextResponse) return validated
   const { journal, submissionId, galleyId, fileId } = validated
 
+  // ─── Path 0: OJS PDF Bridge ───────────────────────────────────────────
+  //
+  // Try the dedicated bridge first — it bypasses all OJS permission layers
+  // (payments plugin, hotlink rules, WAF) by reading files directly from
+  // disk. Falls through to the web URL path on any non-200 response,
+  // except 429 (rate limit) which is terminal to avoid piling onto OJS.
+  const apiKey = process.env.OJS_API_KEY
+  const bridgeBase = process.env.OJS_BRIDGE_URL
+    ?? process.env.OJS_PDF_BRIDGE_URL
+    ?? (process.env.OJS_BASE_URL
+        ? `${process.env.OJS_BASE_URL.replace(/\/$/, "")}/ojs-pdf-bridge.php`
+        : null)
+
+  if (!apiKey) {
+    console.info("[pdf-proxy] OJS_API_KEY not set, skipping bridge")
+  } else if (!bridgeBase) {
+    console.warn("[pdf-proxy] OJS_BRIDGE_URL and OJS_BASE_URL both unset, skipping bridge")
+  } else {
+    try {
+      const bridgeUrl = new URL(bridgeBase)
+      bridgeUrl.searchParams.set("journal", journal)
+      bridgeUrl.searchParams.set("submissionId", submissionId)
+      bridgeUrl.searchParams.set("galleyId", galleyId)
+      if (fileId) bridgeUrl.searchParams.set("fileId", fileId)
+
+      const bridgeRes = await fetch(bridgeUrl, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "User-Agent": "digitopub-pdf-proxy/1.0",
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(15_000),
+      })
+
+      // 429 is terminal — don't pile onto the OJS web layer.
+      if (bridgeRes.status === 429) {
+        return jsonError(
+          "RATE_LIMITED",
+          "Too many requests, please try again shortly.",
+          429,
+          bridgeUrl.toString(),
+          {
+            "Retry-After": bridgeRes.headers.get("retry-after") ?? "60",
+            "X-Proxy-Path": "bridge-429",
+          }
+        )
+      }
+
+      const bridgeCt = bridgeRes.headers.get("content-type") ?? ""
+      if (bridgeRes.ok && bridgeCt.includes("pdf")) {
+        // Bridge returned a PDF — stream it through the same verification
+        // pipeline (magic-byte check, HTML-login detection) for defense in depth.
+        console.info("[pdf-proxy] bridge hit", {
+          path: "bridge",
+          status: bridgeRes.status,
+          submissionId,
+        })
+        // Stream through streamPdfResponse below, but we need baseUrl/ojsHost
+        // for the fallback path anyway, so we defer calling streamPdfResponse
+        // until after we set those up. Instead, handle it inline here.
+        if (!bridgeRes.body) {
+          console.warn("[pdf-proxy] bridge fall-through (empty body)", {
+            bridgeStatus: bridgeRes.status,
+            journal,
+            submissionId,
+          })
+        } else {
+          // Peek first bytes to verify PDF magic / detect HTML shells.
+          const reader = bridgeRes.body.getReader()
+          const chunks: Uint8Array[] = []
+          let totalBytes = 0
+          try {
+            while (totalBytes < PDF_MAGIC.length) {
+              const { done, value } = await reader.read()
+              if (done) break
+              if (value && value.length > 0) {
+                chunks.push(value)
+                totalBytes += value.length
+              }
+            }
+          } catch {
+            await reader.cancel().catch(() => {})
+            // Fall through to web URL path
+            console.warn("[pdf-proxy] bridge fall-through (read error)", {
+              journal, submissionId, galleyId,
+            })
+            totalBytes = 0 // force fall-through
+          }
+
+          if (totalBytes > 0) {
+            const buffer = new Uint8Array(totalBytes)
+            let offset = 0
+            for (const chunk of chunks) {
+              buffer.set(chunk, offset)
+              offset += chunk.length
+            }
+
+            if (startsWithPdfMagic(buffer) && !looksLikeHtml(buffer)) {
+              const stream = buildStream(buffer, reader)
+              const outHeaders: Record<string, string> = {
+                "Content-Type": "application/pdf",
+                "Content-Disposition": `inline; filename="article-${submissionId}.pdf"`,
+                "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+                "Accept-Ranges": "none",
+                "X-Content-Type-Options": "nosniff",
+                "X-Frame-Options": "SAMEORIGIN",
+                "X-Proxy-Path": "bridge",
+              }
+              const contentLength = bridgeRes.headers.get("content-length")
+              if (contentLength && /^\d+$/.test(contentLength)) {
+                outHeaders["Content-Length"] = contentLength
+              }
+              return new NextResponse(stream, { status: 200, headers: outHeaders })
+            }
+
+            // Not a valid PDF — cancel and fall through
+            await reader.cancel().catch(() => {})
+            console.warn("[pdf-proxy] bridge fall-through (non-PDF content)", {
+              bridgeStatus: bridgeRes.status,
+              contentType: bridgeCt,
+              journal,
+              submissionId,
+            })
+          }
+        }
+      } else {
+        // Non-200 or non-PDF content type — log and fall through
+        console.warn("[pdf-proxy] bridge fall-through", {
+          bridgeStatus: bridgeRes.status,
+          bridgeError: bridgeRes.headers.get("x-pdf-bridge-error") ?? null,
+          contentType: bridgeCt,
+          journal,
+          submissionId,
+          galleyId,
+          fileId: fileId || null,
+        })
+      }
+    } catch (err) {
+      console.warn("[pdf-proxy] bridge fetch error", { error: String(err) })
+    }
+  }
+
+  // ─── Path 1: OJS Web URL ──────────────────────────────────────────────
   let baseUrl: string
   try {
     baseUrl = getOjsBaseUrl()
@@ -308,6 +464,7 @@ export async function GET(request: Request) {
     if (contentLength && /^\d+$/.test(contentLength)) {
       outHeaders["Content-Length"] = contentLength
     }
+    outHeaders["X-Proxy-Path"] = "web-url"
     return new NextResponse(stream, { status: 200, headers: outHeaders })
   }
 
