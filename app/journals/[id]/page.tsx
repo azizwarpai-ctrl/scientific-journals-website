@@ -392,7 +392,7 @@ export default function JournalDetailPage() {
                             </div>
                             <CollapsibleContent maxHeight={260} className="prose prose-slate max-w-none dark:prose-invert relative">
                               <div
-                                className="text-[15px] leading-relaxed text-muted-foreground"
+                                className="text-[15px] leading-relaxed text-foreground"
                                 dangerouslySetInnerHTML={{ __html: safeAims }}
                               />
                             </CollapsibleContent>
@@ -411,7 +411,7 @@ export default function JournalDetailPage() {
                             </div>
                             <CollapsibleContent maxHeight={260} className="prose prose-slate max-w-none dark:prose-invert relative">
                               <div
-                                className="text-[15px] leading-relaxed text-muted-foreground"
+                                className="text-[15px] leading-relaxed text-foreground"
                                 dangerouslySetInnerHTML={{ __html: safeScope }}
                               />
                             </CollapsibleContent>
@@ -427,7 +427,7 @@ export default function JournalDetailPage() {
                           </div>
                           <CollapsibleContent maxHeight={300} className="prose prose-slate max-w-none dark:prose-invert">
                             <div
-                              className="text-base leading-relaxed text-muted-foreground"
+                              className="text-base leading-relaxed text-foreground"
                               dangerouslySetInnerHTML={{ __html: safeAimsAndScopeCombined }}
                             />
                           </CollapsibleContent>
