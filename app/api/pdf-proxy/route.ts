@@ -178,7 +178,7 @@ export async function GET(request: Request) {
       bridgeUrl.searchParams.set("journal", journal)
       bridgeUrl.searchParams.set("submissionId", submissionId)
       bridgeUrl.searchParams.set("galleyId", galleyId)
-      if (fileId) bridgeUrl.searchParams.set("fileId", fileId)
+      bridgeUrl.searchParams.set("fileId", fileId)
 
       const bridgeRes = await fetch(bridgeUrl, {
         headers: {
@@ -459,6 +459,8 @@ export async function GET(request: Request) {
       "Content-Disposition": `inline; filename="article-${submissionId}.pdf"`,
       "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
       "Accept-Ranges": "none",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "SAMEORIGIN",
     }
     const contentLength = res.headers.get("content-length")
     if (contentLength && /^\d+$/.test(contentLength)) {
