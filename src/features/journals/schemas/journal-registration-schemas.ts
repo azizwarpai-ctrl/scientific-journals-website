@@ -17,7 +17,7 @@ export const publisherInfoSchema = z.object({
 // ═══════════════════════════════════════════════════════════════
 const ISSN_REGEX = /^\d{4}-\d{3}[\dxX]$/i
 
-export const journalInfoSchema = z.object({
+const journalInfoBaseSchema = z.object({
   title: z.string().min(1, "Journal title is required").max(255),
   abbreviation: z.string().min(2, "Abbreviation should be at least 2 characters").max(20),
   printIssn: z
@@ -34,11 +34,12 @@ export const journalInfoSchema = z.object({
   discipline: z.string().min(1, "Please select a primary discipline").max(100),
   description: z.string().min(50, "Please provide a detailed description (minimum 50 characters)").max(2000),
 })
-// Require at least one ISSN
-.refine((data) => data.printIssn || data.onlineIssn, {
-  message: "At least one ISSN (Print or Online) is required",
-  path: ["onlineIssn"],
-})
+
+// Require at least one ISSN (used for per-step form validation)
+export const journalInfoSchema = journalInfoBaseSchema.refine(
+  (data) => data.printIssn || data.onlineIssn,
+  { message: "At least one ISSN (Print or Online) is required", path: ["onlineIssn"] }
+)
 
 // ═══════════════════════════════════════════════════════════════
 // Step 3 — Editorial Information
@@ -99,12 +100,20 @@ export const termsAgreementsSchema = z.object({
 // ═══════════════════════════════════════════════════════════════
 // Combined payload for API
 // ═══════════════════════════════════════════════════════════════
-export const journalRegistrationPayloadSchema = publisherInfoSchema
-  .merge(journalInfoSchema)
-  .merge(editorialInfoSchema)
-  .merge(publicationDetailsSchema)
-  .merge(technicalConfigSchema)
-  .merge(termsAgreementsSchema)
+// Zod v4 forbids .merge() on any schema whose shape contains ZodEffects fields
+// (e.g. z.boolean().refine(...)). Spread all shapes into a single z.object()
+// instead to avoid the restriction entirely.
+export const journalRegistrationPayloadSchema = z.object({
+  ...publisherInfoSchema.shape,
+  ...journalInfoBaseSchema.shape,
+  ...editorialInfoSchema.shape,
+  ...publicationDetailsSchema.shape,
+  ...technicalConfigSchema.shape,
+  ...termsAgreementsSchema.shape,
+}).refine((data) => data.printIssn || data.onlineIssn, {
+  message: "At least one ISSN (Print or Online) is required",
+  path: ["onlineIssn"],
+})
 
 // ═══════════════════════════════════════════════════════════════
 // Types
