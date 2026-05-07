@@ -9,6 +9,11 @@ import { fetchCurrentIssue } from "@/src/features/journals/server/current-issue-
 import { isOjsConfigured } from "@/src/features/ojs/server/ojs-client"
 import { buildCanonical } from "@/src/lib/seo/canonical"
 
+// Sitemap must be generated at request time, not build time, since it
+// queries the database. This prevents build failures when DATABASE_URL
+// is unset in CI/build environments.
+export const dynamic = "force-dynamic"
+
 // Regenerate hourly. OJS lookups are not free, and the article corpus does
 // not change minute-to-minute.
 export const revalidate = 3600

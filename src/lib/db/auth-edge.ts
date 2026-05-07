@@ -11,17 +11,23 @@ export function getJwtSecret() {
   const encoded = secret ? new TextEncoder().encode(secret) : null;
 
   if (isProduction) {
-    if (!encoded || encoded.length < MIN_SECRET_BYTES) {
-      // Allow build-time evaluation to proceed without a secret so static
-      // analysis / page rendering doesn't fail; the runtime branch below
-      // will throw before any session code actually executes.
+    if (!encoded) {
       if (!isBuildPhase) {
         throw new Error("JWT_SECRET is required in production");
       }
       console.warn(
-        "Warning: JWT_SECRET missing or too short during build phase. Session functionality will fail at runtime."
+        "Warning: JWT_SECRET is not set during build phase. Session functionality will fail at runtime."
       );
       return new TextEncoder().encode("default-development-secret-change-me");
+    }
+    if (encoded.length < MIN_SECRET_BYTES) {
+      if (!isBuildPhase) {
+        throw new Error(`JWT_SECRET must be at least ${MIN_SECRET_BYTES} bytes in production`);
+      }
+      console.warn(
+        `Warning: JWT_SECRET is too short during build phase (${encoded.length} < ${MIN_SECRET_BYTES} bytes). Session functionality will fail at runtime.`
+      );
+      return encoded;
     }
     return encoded;
   }

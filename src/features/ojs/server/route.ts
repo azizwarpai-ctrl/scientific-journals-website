@@ -81,46 +81,47 @@ app.get("/sync", async (c) => {
     }
 
     try {
-        // Reject if a sync is in flight or completed within the last
-        // SYNC_LOCK_WINDOW_MS. The lock row is stored in `system_settings`.
-        const existingLock = await prisma.systemSetting.findUnique({
+        // Acquire the lock atomically. Use raw SQL to ensure the check-and-set
+        // is not subject to TOCTOU races.
+        const now = new Date().toISOString()
+        const lockWindowSec = Math.floor(SYNC_LOCK_WINDOW_MS / 1000)
+
+        await prisma.$executeRaw`
+          INSERT INTO system_settings (setting_key, setting_value, description)
+          VALUES (${SYNC_LOCK_KEY}, ${now}, 'OJS sync lock — ISO timestamp of last attempt')
+          ON DUPLICATE KEY UPDATE
+            setting_value = CASE
+              WHEN UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(setting_value) >= ${lockWindowSec}
+              THEN ${now}
+              ELSE setting_value
+            END
+        `
+
+        // If the lock value wasn't updated to the current timestamp, another
+        // sync holds the lock (value is recent).
+        const lockCheck = await prisma.systemSetting.findUnique({
             where: { setting_key: SYNC_LOCK_KEY },
             select: { setting_value: true },
         })
-        const lockedAt = existingLock ? readLockTimestamp(existingLock.setting_value) : null
-        if (lockedAt !== null && Date.now() - lockedAt < SYNC_LOCK_WINDOW_MS) {
+        const currentLockValue = lockCheck ? (lockCheck.setting_value as string | null) : null
+        if (currentLockValue !== now) {
             return c.json(
                 { success: false, error: "Sync already in progress or recently completed" },
                 429
             )
         }
 
-        // Take the lock by stamping the row with the current time. We leave
-        // the timestamp in place after the sync (success or failure) so a
-        // retry within the window still gets 429; the lock self-expires once
-        // the window elapses.
-        const now = new Date().toISOString()
-        await prisma.systemSetting.upsert({
-            where: { setting_key: SYNC_LOCK_KEY },
-            create: {
-                setting_key: SYNC_LOCK_KEY,
-                setting_value: now,
-                description: "OJS sync lock — ISO timestamp of last attempt",
-            },
-            update: { setting_value: now },
-        })
-
         const start = Date.now()
         // Sync everything, including disabled journals, so they get marked inactive
         const journals = await fetchFromDatabase(true)
-        const result = await syncOjsJournals(journals)
+        const syncResult = await syncOjsJournals(journals)
 
-        const success = result.errors === 0
+        const success = syncResult.errors === 0
         const status = success ? 200 : 207
 
         return c.json({
             success,
-            ...result,
+            ...syncResult,
             latencyMs: Date.now() - start,
         }, status)
     } catch (error) {
