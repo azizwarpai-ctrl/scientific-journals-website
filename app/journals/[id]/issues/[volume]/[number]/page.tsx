@@ -1,3 +1,5 @@
+import type { Metadata } from "next"
+import { cache } from "react"
 import { ArrowLeft, BookOpen, Clock, Calendar, Share2 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -9,6 +11,7 @@ import { fetchIssueIdByVolumeNumber, fetchIssueWithArticles } from "@/src/featur
 import { ArticleItem } from "../../../components/article-item"
 import type { CurrentIssueArticle } from "@/src/features/journals"
 import { ShareIssueButton } from "./share-issue-button"
+import { buildCanonical } from "@/src/lib/seo/canonical"
 
 interface PageProps {
   params: Promise<{
@@ -16,6 +19,22 @@ interface PageProps {
     volume: string
     number: string
   }>
+}
+
+// Memoize resolveJournalOjsId per request so generateMetadata and the page
+// component don't make duplicate DB/OJS lookups.
+const cachedResolveJournalOjsId = cache((id: string) => resolveJournalOjsId(id))
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id, volume, number } = await params
+  const resolved = await cachedResolveJournalOjsId(id)
+  const canonicalId = resolved.found && resolved.ojsId ? resolved.ojsId : id
+
+  return {
+    alternates: {
+      canonical: buildCanonical(`/journals/${canonicalId}/issues/${volume}/${number}`),
+    },
+  }
 }
 
 export default async function IssueDetailPage({ params }: PageProps) {
@@ -27,7 +46,7 @@ export default async function IssueDetailPage({ params }: PageProps) {
     notFound()
   }
 
-  const journalLookup = await resolveJournalOjsId(id)
+  const journalLookup = await cachedResolveJournalOjsId(id)
   if (!journalLookup.found || !journalLookup.ojsId) notFound()
 
   const issueId = await fetchIssueIdByVolumeNumber(
