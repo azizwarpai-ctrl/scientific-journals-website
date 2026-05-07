@@ -6,6 +6,21 @@ import { fetchFromDatabase } from "./ojs-service"
 import { ssoRouter } from "./sso-route"
 import { ojsCache, CACHE_TTL } from "./ojs-cache"
 import { provisionRouter } from "./provision-route"
+import { prisma } from "@/src/lib/db/config"
+
+// Window during which a fresh sync request will be rejected. Covers both
+// "another sync is in flight" and "a sync just finished" — Google/cron
+// retries shouldn't hammer OJS.
+const SYNC_LOCK_KEY = "ojs_sync_lock"
+const SYNC_LOCK_WINDOW_MS = 5 * 60 * 1000
+
+function readLockTimestamp(value: unknown): number | null {
+    if (typeof value === "string") {
+        const t = Date.parse(value)
+        return Number.isNaN(t) ? null : t
+    }
+    return null
+}
 
 const app = new Hono()
 
@@ -66,6 +81,35 @@ app.get("/sync", async (c) => {
     }
 
     try {
+        // Reject if a sync is in flight or completed within the last
+        // SYNC_LOCK_WINDOW_MS. The lock row is stored in `system_settings`.
+        const existingLock = await prisma.systemSetting.findUnique({
+            where: { setting_key: SYNC_LOCK_KEY },
+            select: { setting_value: true },
+        })
+        const lockedAt = existingLock ? readLockTimestamp(existingLock.setting_value) : null
+        if (lockedAt !== null && Date.now() - lockedAt < SYNC_LOCK_WINDOW_MS) {
+            return c.json(
+                { success: false, error: "Sync already in progress or recently completed" },
+                429
+            )
+        }
+
+        // Take the lock by stamping the row with the current time. We leave
+        // the timestamp in place after the sync (success or failure) so a
+        // retry within the window still gets 429; the lock self-expires once
+        // the window elapses.
+        const now = new Date().toISOString()
+        await prisma.systemSetting.upsert({
+            where: { setting_key: SYNC_LOCK_KEY },
+            create: {
+                setting_key: SYNC_LOCK_KEY,
+                setting_value: now,
+                description: "OJS sync lock — ISO timestamp of last attempt",
+            },
+            update: { setting_value: now },
+        })
+
         const start = Date.now()
         // Sync everything, including disabled journals, so they get marked inactive
         const journals = await fetchFromDatabase(true)

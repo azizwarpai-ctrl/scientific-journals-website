@@ -1,15 +1,12 @@
 import { prisma } from "@/src/lib/db/config"
-import { isOjsConfigured } from "./ojs-client"
 import type { OjsJournal } from "../schemas/ojs-schema"
-
-// Module-level flag to ensure startup sync runs only once per cold start
-let hasRunStartupSync = false
 
 /**
  * Synchronize OJS journals into the internal Prisma database.
  * Uses `ojs_id` as the unique linking key between systems.
- * 
- * Called automatically on app startup (once) and via the cron API route.
+ *
+ * Invoked exclusively from the bearer-protected cron endpoint and the
+ * `scripts/ojs-sync-cron.ts` standalone script — never on a per-request path.
  */
 export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ synced: number; errors: number }> {
     let synced = 0
@@ -98,28 +95,4 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
 
     console.log(`[OJS_SYNC] Completed: ${synced} synced, ${errors} errors`)
     return { synced, errors }
-}
-
-/**
- * Run startup sync if it hasn't been run yet this cold start.
- * Non-blocking — fires and forgets so it doesn't slow down the first request.
- */
-export function triggerStartupSync(fetchFn: () => Promise<OjsJournal[]>) {
-    if (hasRunStartupSync || !isOjsConfigured()) return
-    hasRunStartupSync = true
-
-    // Fire-and-forget: don't block the request
-    fetchFn()
-        .then((journals) => syncOjsJournals(journals))
-        .then((result) => {
-            console.log(`[OJS_SYNC] Startup sync done:`, result)
-            if (result.errors > 0) {
-                console.warn(`[OJS_SYNC] Startup sync completed with ${result.errors} errors, allowing retry.`)
-                hasRunStartupSync = false // Allow retry on next request if it partially failed
-            }
-        })
-        .catch((err) => {
-            console.error(`[OJS_SYNC] Startup sync failed:`, err)
-            hasRunStartupSync = false // Allow retry on next request if it transiently failed
-        })
 }

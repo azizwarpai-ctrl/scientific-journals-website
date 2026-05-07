@@ -14,8 +14,6 @@ import { statisticsRouter } from "@/src/features/statistics/server"
 import { emailTemplateRouter } from "@/src/features/email-templates/server"
 import { billingRouter } from "@/src/features/billing/server"
 import { searchRouter } from "@/src/features/search/server"
-import { fetchFromDatabase } from "@/src/features/ojs/server/ojs-service"
-import { triggerStartupSync } from "@/src/features/ojs/server/sync-ojs-journals"
 
 const apiApp = new Hono()
     .route("/journals", journalRouter)
@@ -69,14 +67,6 @@ app.use("/*", async (c, next) => {
     await next()
     c.res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate")
     c.res.headers.set("Pragma", "no-cache")
-})
-
-// Ensure background startup sync fires on the first few requests if not completed
-app.use("/*", async (c, next) => {
-    if (!c.req.path.includes("/ojs/sync")) {
-        triggerStartupSync(() => fetchFromDatabase(true))
-    }
-    await next()
 })
 
 // Mount API routes
