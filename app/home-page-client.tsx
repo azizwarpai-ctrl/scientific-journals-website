@@ -137,7 +137,7 @@ export default function HomePageClient() {
                     ref={scrollRef}
                     className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory scroll-smooth"
                   >
-                    {journals.slice(0, 10).map((journal: Journal, idx: number) => {
+                    {journals.map((journal: Journal, idx: number) => {
                       const slug = String([journal.ojs_path, journal.ojs_id, journal.id].find(s => s && String(s).trim()) || journal.id)
                       return (
                         <GSAPWrapper key={journal.id} animation="slideUp" delay={0.4 + idx * 0.05} className="min-w-[260px] max-w-[280px] shrink-0 snap-start">

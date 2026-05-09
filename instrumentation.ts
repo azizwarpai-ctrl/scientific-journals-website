@@ -11,5 +11,54 @@ export async function register() {
         initializeDatabase().catch(err => {
             console.error('[Instrumentation] Failed to start database initialization:', err)
         })
+
+        // Temporary forensic investigation
+        const { prisma } = await import('./src/lib/db/config');
+        const { fetchFromDatabase } = await import('./src/features/ojs/server/ojs-service');
+        const { ojsQuery, isOjsConfigured } = await import('./src/features/ojs/server/ojs-client');
+
+        (async () => {
+            try {
+                console.log("[FORENSICS] OJS Configured:", isOjsConfigured());
+                
+                try {
+                    const ojsJournals = await fetchFromDatabase(true);
+                    console.log(`[FORENSICS] fetchFromDatabase(true) returned ${ojsJournals.length} journals`);
+                    console.log("[FORENSICS] Names (all):", ojsJournals.map(j => j.path).join(", "));
+                } catch (e) {
+                    console.error("[FORENSICS] fetchFromDatabase error:", e);
+                }
+
+                try {
+                    const ojsJournalsEnabled = await fetchFromDatabase(false);
+                    console.log(`[FORENSICS] fetchFromDatabase(false) returned ${ojsJournalsEnabled.length} journals`);
+                    console.log("[FORENSICS] Names (enabled):", ojsJournalsEnabled.map(j => j.path).join(", "));
+                } catch (e) {
+                    console.error("[FORENSICS] fetchFromDatabase(false) error:", e);
+                }
+
+                try {
+                    const rawCount = await ojsQuery("SELECT count(*) as c FROM journals");
+                    console.log("[FORENSICS] Raw OJS journals table count:", rawCount);
+                    
+                    const rawOjp = await ojsQuery("SELECT journal_id, path, enabled FROM journals WHERE path LIKE '%ojp%'");
+                    console.log("[FORENSICS] OJS OJP query:", rawOjp);
+                } catch (e) {
+                    console.error("[FORENSICS] Raw OJS query error:", e);
+                }
+
+                try {
+                    const localCount = await prisma.journal.count();
+                    console.log("[FORENSICS] Local Prisma Journals Count:", localCount);
+
+                    const localJournals = await prisma.journal.findMany({ select: { title: true, ojs_path: true, status: true } });
+                    console.log("[FORENSICS] Local Prisma Journals:", localJournals);
+                } catch (e) {
+                    console.error("[FORENSICS] Prisma error:", e);
+                }
+            } catch (e) {
+                console.error("[FORENSICS] Investigation failed:", e);
+            }
+        })();
     }
 }

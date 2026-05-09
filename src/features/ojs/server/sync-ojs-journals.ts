@@ -33,10 +33,10 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                             title: journal.name || journal.path,
                             description: journal.description || null,
                             cover_image_url: journal.thumbnail_url || null,
-                            issn: journal.issn || null,
-                            e_issn: journal.e_issn || null,
+                            issn: journal.issn?.trim() || null,
+                            e_issn: journal.e_issn?.trim() || null,
                             publisher: journal.publisher || null,
-                            abbreviation: journal.abbreviation || null,
+                            abbreviation: journal.abbreviation?.trim() || null,
                             editor_in_chief: journal.contact_name || null,
                             website_url: baseUrl && safeOjsPath ? `${baseUrl}/index.php/${safeOjsPath}` : null,
                             ojs_path: safeOjsPath,
@@ -57,10 +57,10 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                             description: journal.description || null,
                             field: "General Science",
                             cover_image_url: journal.thumbnail_url || null,
-                            issn: journal.issn || null,
-                            e_issn: journal.e_issn || null,
+                            issn: journal.issn?.trim() || null,
+                            e_issn: journal.e_issn?.trim() || null,
                             publisher: journal.publisher || null,
-                            abbreviation: journal.abbreviation || null,
+                            abbreviation: journal.abbreviation?.trim() || null,
                             editor_in_chief: journal.contact_name || null,
                             website_url: baseUrl && safeOjsPath ? `${baseUrl}/index.php/${safeOjsPath}` : null,
                             ojs_path: safeOjsPath,
@@ -72,9 +72,12 @@ export async function syncOjsJournals(ojsJournals: OjsJournal[]): Promise<{ sync
                         },
                     })
                 } catch (error) {
-                    // Ignore P2002 Unique constraint failures which happen if another sync raced us
-                    if ((error as { code?: string })?.code !== "P2002") throw error
-                    return null
+                    // Log P2002 Unique constraint failures to help diagnose missing journals
+                    if ((error as { code?: string })?.code === "P2002") {
+                        console.warn(`[OJS_SYNC] Skipped journal ${journal.journal_id} (${journal.path}) due to unique constraint (P2002) collision (likely duplicate ISSN or path).`)
+                        return null
+                    }
+                    throw error
                 }
             })
         )
