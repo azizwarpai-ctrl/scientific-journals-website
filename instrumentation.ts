@@ -53,8 +53,15 @@ export async function register() {
 
                     const localJournals = await prisma.journal.findMany({ select: { title: true, ojs_path: true, status: true } });
                     console.log("[FORENSICS] Local Prisma Journals:", localJournals);
+
+                    // Force the sync to run so the new P2002/trim fixes take effect immediately
+                    const { syncOjsJournals } = await import('./src/features/ojs/server/sync-ojs-journals');
+                    console.log("[FORENSICS] Forcing syncOjsJournals to restore missing data...");
+                    const ojsJournals = await fetchFromDatabase(true);
+                    const syncResult = await syncOjsJournals(ojsJournals);
+                    console.log("[FORENSICS] Forced sync result:", syncResult);
                 } catch (e) {
-                    console.error("[FORENSICS] Prisma error:", e);
+                    console.error("[FORENSICS] Prisma or Sync error:", e);
                 }
             } catch (e) {
                 console.error("[FORENSICS] Investigation failed:", e);
