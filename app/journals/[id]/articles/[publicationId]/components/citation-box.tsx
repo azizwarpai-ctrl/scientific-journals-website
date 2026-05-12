@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { Check, Copy, Download, Quote } from "lucide-react"
 import type { ArticleDetail } from "@/src/features/journals"
+import { recordCitationEvent } from "@/src/hooks/use-metric-events"
 import {
   CITATION_FORMATS,
   citationToPlainText,
@@ -47,6 +48,14 @@ export function CitationBox({ article }: CitationBoxProps) {
 
   const handleCopy = async () => {
     setCopyFailed(false)
+    // Fire the citation metric before the clipboard call so a failed
+    // clipboard write doesn't silently lose the engagement signal.
+    recordCitationEvent({
+      article_id: article.publicationId,
+      journal_id: article.journalId,
+      format,
+      action: "copy",
+    })
     const richHtml = activeFormat.display === "prose" ? citationHtml : ""
     try {
       if (typeof window !== "undefined" && "ClipboardItem" in window && richHtml) {
@@ -74,6 +83,12 @@ export function CitationBox({ article }: CitationBoxProps) {
 
   const handleExport = () => {
     if (!activeFormat.fileExtension) return
+    recordCitationEvent({
+      article_id: article.publicationId,
+      journal_id: article.journalId,
+      format,
+      action: "export",
+    })
     const body = generateCitation(article, format)
     const mime = activeFormat.fileExtension === "ris" ? "application/x-research-info-systems" : "text/plain"
     const blob = new Blob([body], { type: `${mime};charset=utf-8` })

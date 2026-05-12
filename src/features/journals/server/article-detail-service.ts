@@ -349,6 +349,7 @@ export async function fetchArticleDetail(
   return {
     publicationId: article.publication_id,
     submissionId: article.submission_id,
+    journalId: article.journal_id,
     title,
     abstract,
     doi,

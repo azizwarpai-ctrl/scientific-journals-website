@@ -11,6 +11,9 @@ interface ModalPdfViewerProps {
   pdfUrl: string | null
   articleTitle?: string
   isOpenAccess?: boolean
+  articleId?: number | string
+  journalId?: number | string
+  galleyId?: number | string
   triggerStyle?: "sidebar" | "card"
 }
 
@@ -18,6 +21,9 @@ export function ModalPdfViewer({
   pdfUrl,
   articleTitle = "Document",
   isOpenAccess,
+  articleId,
+  journalId,
+  galleyId,
   triggerStyle = "sidebar",
 }: ModalPdfViewerProps) {
   const {
@@ -34,7 +40,11 @@ export function ModalPdfViewer({
     retry,
     handleIframeLoad,
     handleIframeError,
-  } = usePdfModal(pdfUrl, isOpenAccess ?? true)
+  } = usePdfModal(pdfUrl, {
+    isOpenAccess: isOpenAccess ?? true,
+    articleId,
+    journalId,
+  })
 
   if (!pdfUrl) {
     if (triggerStyle === "card") return null
@@ -90,6 +100,9 @@ export function ModalPdfViewer({
               iframeSrc={iframeSrc}
               isMobile={isMobile}
               isOpenAccess={isOpenAccess}
+              articleId={articleId}
+              journalId={journalId}
+              galleyId={galleyId}
               loaded={loaded}
               loadTimedOut={loadTimedOut}
               probeState={probeState}

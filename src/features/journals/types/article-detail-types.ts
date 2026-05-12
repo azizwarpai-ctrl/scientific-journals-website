@@ -15,6 +15,8 @@ export interface ArticleGalley {
 export interface ArticleDetail {
   publicationId: number
   submissionId: number
+  /** OJS journal_id (numeric). Used by UIET-P1 metric writes. */
+  journalId: number
   title: string | null
   abstract: string | null
   doi: string | null

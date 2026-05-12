@@ -49,6 +49,9 @@ export function ArticleSidebar({ article }: ArticleSidebarProps) {
             pdfUrl={article.pdfUrl}
             articleTitle={article.title || undefined}
             isOpenAccess={article.isOpenAccess}
+            articleId={article.publicationId}
+            journalId={article.journalId}
+            galleyId={article.galleys.find((g) => g.label?.toLowerCase().includes("pdf"))?.galleyId}
           />
         ) : (
           <div className="p-4 rounded-lg bg-muted/40 border border-border/40 text-center">

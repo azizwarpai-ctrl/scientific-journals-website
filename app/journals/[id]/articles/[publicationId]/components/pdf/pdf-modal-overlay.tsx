@@ -14,6 +14,7 @@ import {
 import { MouseEvent, ReactNode, RefObject } from "react"
 import { Button } from "@/components/ui/button"
 import { useGatedAction } from "@/src/hooks/use-gated-action"
+import { recordDownloadEvent } from "@/src/hooks/use-metric-events"
 import type { PdfErrorCode, PdfProbeState } from "./use-pdf-modal"
 
 interface GatedAnchorProps {
@@ -81,6 +82,9 @@ interface PdfModalOverlayProps {
   iframeSrc: string
   isMobile: boolean
   isOpenAccess?: boolean
+  articleId?: number | string
+  journalId?: number | string
+  galleyId?: number | string
   loaded: boolean
   loadTimedOut: boolean
   probeState: PdfProbeState
@@ -154,6 +158,9 @@ export function PdfModalOverlay({
   iframeSrc,
   isMobile,
   isOpenAccess,
+  articleId,
+  journalId,
+  galleyId,
   loaded,
   loadTimedOut,
   probeState,
@@ -167,6 +174,17 @@ export function PdfModalOverlay({
 }: PdfModalOverlayProps) {
   const hasError = probeState === "error"
   const showSpinner = !hasError && !isMobile && (probeState !== "ready" || !loaded)
+
+  // Helper to fire a download event right before the browser follows the link.
+  // Server-side recorder dedupes within 30s per (article, galley, identity).
+  const trackDownload = () => {
+    if (!articleId || !journalId || !galleyId) return
+    recordDownloadEvent({
+      article_id: articleId,
+      journal_id: journalId,
+      galley_id: galleyId,
+    })
+  }
 
   return (
     <div
@@ -221,6 +239,7 @@ export function PdfModalOverlay({
                 isOpenAccess={Boolean(isOpenAccess)}
                 target="_blank"
                 rel="noopener noreferrer"
+                onTrack={trackDownload}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">New Tab</span>
@@ -238,6 +257,7 @@ export function PdfModalOverlay({
                 download
                 target="_blank"
                 rel="noopener noreferrer"
+                onTrack={trackDownload}
               >
                 <Download className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Download</span>
@@ -273,13 +293,18 @@ export function PdfModalOverlay({
           </div>
 
           {isMobile ? (
-            <MobileFallback downloadUrl={downloadUrl} isOpenAccess={Boolean(isOpenAccess)} />
+            <MobileFallback
+              downloadUrl={downloadUrl}
+              isOpenAccess={Boolean(isOpenAccess)}
+              onTrack={trackDownload}
+            />
           ) : hasError ? (
             <ErrorState
               errorCode={errorCode}
               downloadUrl={downloadUrl}
               onRetry={onRetry}
               isOpenAccess={Boolean(isOpenAccess)}
+              onTrack={trackDownload}
             />
           ) : (
             <>
@@ -353,9 +378,10 @@ interface ErrorStateProps {
   downloadUrl: string
   onRetry: () => void
   isOpenAccess: boolean
+  onTrack?: () => void
 }
 
-function ErrorState({ errorCode, downloadUrl, onRetry, isOpenAccess }: ErrorStateProps) {
+function ErrorState({ errorCode, downloadUrl, onRetry, isOpenAccess, onTrack }: ErrorStateProps) {
   const copy = errorCopyFor(errorCode)
   const Icon = copy.icon
   const accent =
@@ -385,6 +411,7 @@ function ErrorState({ errorCode, downloadUrl, onRetry, isOpenAccess }: ErrorStat
           isOpenAccess={isOpenAccess}
           target="_blank"
           rel="noopener noreferrer"
+          onTrack={onTrack}
           className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary/80 hover:bg-primary text-white border border-primary/50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
           <ExternalLink className="h-4 w-4" />
@@ -395,7 +422,15 @@ function ErrorState({ errorCode, downloadUrl, onRetry, isOpenAccess }: ErrorStat
   )
 }
 
-function MobileFallback({ downloadUrl, isOpenAccess }: { downloadUrl: string; isOpenAccess: boolean }) {
+function MobileFallback({
+  downloadUrl,
+  isOpenAccess,
+  onTrack,
+}: {
+  downloadUrl: string
+  isOpenAccess: boolean
+  onTrack?: () => void
+}) {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-8 text-center bg-[#1a1a1a]">
       <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -415,6 +450,7 @@ function MobileFallback({ downloadUrl, isOpenAccess }: { downloadUrl: string; is
           isOpenAccess={isOpenAccess}
           target="_blank"
           rel="noopener noreferrer"
+          onTrack={onTrack}
           className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold text-white/80 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
         >
           <ExternalLink className="h-4 w-4" />
@@ -426,6 +462,7 @@ function MobileFallback({ downloadUrl, isOpenAccess }: { downloadUrl: string; is
           download
           target="_blank"
           rel="noopener noreferrer"
+          onTrack={onTrack}
           className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary/80 hover:bg-primary text-white border border-primary/50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
           <Download className="h-4 w-4" />
