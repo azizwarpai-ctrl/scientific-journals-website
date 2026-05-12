@@ -16,6 +16,7 @@ import { billingRouter } from "@/src/features/billing/server"
 import { searchRouter } from "@/src/features/search/server"
 import { fetchFromDatabase } from "@/src/features/ojs/server/ojs-service"
 import { triggerStartupSync } from "@/src/features/ojs/server/sync-ojs-journals"
+import { authOrcidRouter } from "@/src/server/routes/auth-orcid"
 
 const apiApp = new Hono()
     .route("/journals", journalRouter)
@@ -23,6 +24,9 @@ const apiApp = new Hono()
     .route("/help", helpRouter)
     .route("/help-categories", helpCategoriesRouter)
     .route("/help-topics", helpTopicsRouter)
+    // UIET-P1: ORCID public-user identity router. Mounted BEFORE admin auth
+    // so /auth/orcid/* never accidentally routes through admin auth handlers.
+    .route("/auth/orcid", authOrcidRouter)
     .route("/auth", authRouter)
     .route("/messages", messageRouter)
     .route("/ojs", ojsRouter)

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react"
+import { useGatedAction } from "@/src/hooks/use-gated-action"
 
 export type PdfProbeState = "idle" | "probing" | "ready" | "error"
 
@@ -64,7 +65,7 @@ function isPdfErrorCode(value: string | null): value is PdfErrorCode {
   )
 }
 
-export function usePdfModal(pdfUrl: string | null) {
+export function usePdfModal(pdfUrl: string | null, isOpenAccess: boolean = true) {
   const [open, setOpen] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [loadTimedOut, setLoadTimedOut] = useState(false)
@@ -76,7 +77,7 @@ export function usePdfModal(pdfUrl: string | null) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const openModal = useCallback(() => {
+  const rawOpen = useCallback(() => {
     triggerRef.current = document.activeElement as HTMLElement
     setLoaded(false)
     setLoadTimedOut(false)
@@ -84,6 +85,11 @@ export function usePdfModal(pdfUrl: string | null) {
     setErrorCode(null)
     setOpen(true)
   }, [])
+
+  // UIET-P1: gate non-OA opens behind the ORCID identity cookie. When the
+  // user is anonymous and the article is not open access, the modal does
+  // not open; the global LoginModal is shown instead.
+  const { run: openModal } = useGatedAction(rawOpen, { isOpenAccess })
 
   const closeModal = useCallback(() => {
     setOpen(false)

@@ -34,7 +34,7 @@ export function ModalPdfViewer({
     retry,
     handleIframeLoad,
     handleIframeError,
-  } = usePdfModal(pdfUrl)
+  } = usePdfModal(pdfUrl, isOpenAccess ?? true)
 
   if (!pdfUrl) {
     if (triggerStyle === "card") return null

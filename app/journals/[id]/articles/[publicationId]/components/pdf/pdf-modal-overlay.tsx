@@ -11,9 +11,69 @@ import {
   RefreshCw,
   Unlock,
 } from "lucide-react"
-import { RefObject } from "react"
+import { MouseEvent, ReactNode, RefObject } from "react"
 import { Button } from "@/components/ui/button"
+import { useGatedAction } from "@/src/hooks/use-gated-action"
 import type { PdfErrorCode, PdfProbeState } from "./use-pdf-modal"
+
+interface GatedAnchorProps {
+  href: string
+  isOpenAccess: boolean
+  download?: boolean | string
+  className?: string
+  target?: string
+  rel?: string
+  title?: string
+  children: ReactNode
+  /** Optional side-effect fired before navigation (e.g., metric write). */
+  onTrack?: () => void
+}
+
+/**
+ * Anchor that respects the OA gate. For OA articles or signed-in readers,
+ * the anchor behaves normally and `onTrack` fires before navigation. For
+ * anonymous users on non-OA articles, the click opens the ORCID sign-in
+ * modal and navigation is cancelled.
+ */
+function GatedAnchor({
+  href,
+  isOpenAccess,
+  download,
+  className,
+  target,
+  rel,
+  title,
+  children,
+  onTrack,
+}: GatedAnchorProps) {
+  const { run, gated } = useGatedAction(() => {
+    onTrack?.()
+  }, { isOpenAccess })
+
+  const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (gated) {
+      e.preventDefault()
+      e.stopPropagation()
+      run() // opens login modal
+      return
+    }
+    run() // fires onTrack, then lets browser navigate
+  }
+
+  return (
+    <a
+      href={href}
+      onClick={onClick}
+      download={download === true ? "" : download}
+      className={className}
+      target={target}
+      rel={rel}
+      title={title}
+    >
+      {children}
+    </a>
+  )
+}
 
 interface PdfModalOverlayProps {
   articleTitle: string
@@ -156,10 +216,15 @@ export function PdfModalOverlay({
               asChild
               className="h-8 gap-1.5 rounded-lg text-xs font-semibold text-white/70 hover:text-white hover:bg-white/10 border border-white/10 hover:border-white/20"
             >
-              <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+              <GatedAnchor
+                href={downloadUrl}
+                isOpenAccess={Boolean(isOpenAccess)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <ExternalLink className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">New Tab</span>
-              </a>
+              </GatedAnchor>
             </Button>
             <Button
               variant="ghost"
@@ -167,10 +232,16 @@ export function PdfModalOverlay({
               asChild
               className="h-8 gap-1.5 rounded-lg text-xs font-semibold bg-primary/20 text-primary hover:bg-primary hover:text-white border border-primary/30 hover:border-primary"
             >
-              <a href={downloadUrl} download target="_blank" rel="noopener noreferrer">
+              <GatedAnchor
+                href={downloadUrl}
+                isOpenAccess={Boolean(isOpenAccess)}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Download className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Download</span>
-              </a>
+              </GatedAnchor>
             </Button>
           </div>
 
@@ -202,13 +273,23 @@ export function PdfModalOverlay({
           </div>
 
           {isMobile ? (
-            <MobileFallback downloadUrl={downloadUrl} />
+            <MobileFallback downloadUrl={downloadUrl} isOpenAccess={Boolean(isOpenAccess)} />
           ) : hasError ? (
-            <ErrorState errorCode={errorCode} downloadUrl={downloadUrl} onRetry={onRetry} />
+            <ErrorState
+              errorCode={errorCode}
+              downloadUrl={downloadUrl}
+              onRetry={onRetry}
+              isOpenAccess={Boolean(isOpenAccess)}
+            />
           ) : (
             <>
               {showSpinner && (
-                <LoadingState probing={probeState === "probing"} loadTimedOut={loadTimedOut} downloadUrl={downloadUrl} />
+                <LoadingState
+                  probing={probeState === "probing"}
+                  loadTimedOut={loadTimedOut}
+                  downloadUrl={downloadUrl}
+                  isOpenAccess={Boolean(isOpenAccess)}
+                />
               )}
               {probeState === "ready" && (
                 <iframe
@@ -236,9 +317,10 @@ interface LoadingStateProps {
   probing: boolean
   loadTimedOut: boolean
   downloadUrl: string
+  isOpenAccess: boolean
 }
 
-function LoadingState({ probing, loadTimedOut, downloadUrl }: LoadingStateProps) {
+function LoadingState({ probing, loadTimedOut, downloadUrl, isOpenAccess }: LoadingStateProps) {
   return (
     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-[#1a1a1a] animate-in fade-in duration-200">
       <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -250,14 +332,15 @@ function LoadingState({ probing, loadTimedOut, downloadUrl }: LoadingStateProps)
       {loadTimedOut && (
         <p className="text-xs text-white/50 max-w-xs text-center">
           Taking longer than expected.{" "}
-          <a
+          <GatedAnchor
             href={downloadUrl}
+            isOpenAccess={isOpenAccess}
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-white/70"
           >
             Open in a new tab
-          </a>{" "}
+          </GatedAnchor>{" "}
           or download.
         </p>
       )}
@@ -269,9 +352,10 @@ interface ErrorStateProps {
   errorCode: PdfErrorCode | null
   downloadUrl: string
   onRetry: () => void
+  isOpenAccess: boolean
 }
 
-function ErrorState({ errorCode, downloadUrl, onRetry }: ErrorStateProps) {
+function ErrorState({ errorCode, downloadUrl, onRetry, isOpenAccess }: ErrorStateProps) {
   const copy = errorCopyFor(errorCode)
   const Icon = copy.icon
   const accent =
@@ -296,21 +380,22 @@ function ErrorState({ errorCode, downloadUrl, onRetry }: ErrorStateProps) {
           <RefreshCw className="h-4 w-4" />
           Retry
         </button>
-        <a
+        <GatedAnchor
           href={downloadUrl}
+          isOpenAccess={isOpenAccess}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary/80 hover:bg-primary text-white border border-primary/50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
           <ExternalLink className="h-4 w-4" />
           Open in new tab
-        </a>
+        </GatedAnchor>
       </div>
     </div>
   )
 }
 
-function MobileFallback({ downloadUrl }: { downloadUrl: string }) {
+function MobileFallback({ downloadUrl, isOpenAccess }: { downloadUrl: string; isOpenAccess: boolean }) {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-8 text-center bg-[#1a1a1a]">
       <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -325,17 +410,19 @@ function MobileFallback({ downloadUrl }: { downloadUrl: string }) {
       </div>
 
       <div className="flex flex-wrap gap-3 justify-center">
-        <a
+        <GatedAnchor
           href={downloadUrl}
+          isOpenAccess={isOpenAccess}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold text-white/80 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
         >
           <ExternalLink className="h-4 w-4" />
           Open in Browser
-        </a>
-        <a
+        </GatedAnchor>
+        <GatedAnchor
           href={downloadUrl}
+          isOpenAccess={isOpenAccess}
           download
           target="_blank"
           rel="noopener noreferrer"
@@ -343,7 +430,7 @@ function MobileFallback({ downloadUrl }: { downloadUrl: string }) {
         >
           <Download className="h-4 w-4" />
           Download PDF
-        </a>
+        </GatedAnchor>
       </div>
     </div>
   )
