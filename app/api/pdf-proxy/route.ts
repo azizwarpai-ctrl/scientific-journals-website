@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
 import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
+import { getIdentity } from "@/src/lib/identity-cookie"
+import { isGalleyOpenAccess } from "@/src/lib/pdf-access"
+import { getEnv } from "@/src/lib/env"
 
 /**
  * PDF proxy for gated / hotlink-protected OJS galleys.
@@ -154,6 +157,32 @@ export async function GET(request: Request) {
   const validated = validateParams(request)
   if (validated instanceof NextResponse) return validated
   const { journal, submissionId, galleyId, fileId } = validated
+
+  // ─── UIET-P1: OA-aware gating ─────────────────────────────────────────
+  // When the master flag is off we behave exactly as before. When on,
+  // non-OA galleys require a valid digitopub_identity cookie.
+  if (getEnv().UIET_P1_ENABLED) {
+    const identity = await getIdentity(request.headers)
+    const isOpen = await isGalleyOpenAccess(submissionId, galleyId)
+    if (!isOpen && !identity) {
+      return NextResponse.json(
+        {
+          error: "AUTH_REQUIRED",
+          message: "Sign in with ORCID to access this PDF.",
+          status: 401,
+        },
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Cache-Control": "no-store",
+            "X-Proxy-Error": "AUTH_REQUIRED",
+            "WWW-Authenticate": 'orcid realm="digitopub", scope="/authenticate"',
+          },
+        }
+      )
+    }
+  }
 
   // ─── Path 0: OJS PDF Bridge ───────────────────────────────────────────
   //

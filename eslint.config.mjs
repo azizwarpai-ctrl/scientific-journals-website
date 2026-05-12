@@ -99,7 +99,6 @@ export default [
         ignores: [
             'app/admin/**',
             'app/api/[[...route]]/**',
-            'app/api/pdf-proxy/**',
         ],
         rules: {
             'no-restricted-imports': [

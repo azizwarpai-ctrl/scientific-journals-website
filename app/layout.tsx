@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { QueryProvider } from "@/components/query-provider"
 import { GlobalToaster } from "@/components/global-toaster"
 import { CommandPalette } from "@/components/command-palette"
+import { ConsentBannerHost } from "@/components/consent-banner-host"
 import "./globals.css"
 
 export const viewport: Viewport = {
@@ -57,6 +58,8 @@ export default function RootLayout({
             {/* Global command palette — Ctrl+K from anywhere */}
             <CommandPalette />
             {children}
+            {/* UIET-P1: global consent banner; renders null when flag is off */}
+            <ConsentBannerHost />
           </QueryProvider>
           <Analytics />
           <GlobalToaster />
