@@ -1,0 +1,169 @@
+openapi: 3.1.0
+info:
+  title: digitopub Account Self-Service API
+  version: "1.0.0-UIET-P1"
+  description: |
+    Self-service endpoints for the signed-in public user. Requires a valid
+    `digitopub_identity` cookie. Returns 401 to anonymous callers.
+
+servers:
+  - url: https://digitopub.com
+  - url: http://localhost:3000
+
+components:
+  schemas:
+    AccountStats:
+      type: object
+      required: [orcid, lifetime, monthly]
+      properties:
+        orcid:
+          type: string
+          pattern: '^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$'
+        lifetime:
+          type: object
+          required: [views, downloads, citations, first_seen_at, last_event_at]
+          properties:
+            views:
+              type: integer
+            downloads:
+              type: integer
+            citations:
+              type: integer
+            first_seen_at:
+              type: string
+              format: date-time
+              nullable: true
+            last_event_at:
+              type: string
+              format: date-time
+              nullable: true
+        monthly:
+          type: array
+          description: |
+            Last 12 calendar months in ascending order. Months with zero
+            activity are present with zero counts.
+          items:
+            type: object
+            required: [year, month, views, downloads, citations]
+            properties:
+              year:
+                type: integer
+              month:
+                type: integer
+                minimum: 1
+                maximum: 12
+              views:
+                type: integer
+              downloads:
+                type: integer
+              citations:
+                type: integer
+
+    DeleteResponse:
+      type: object
+      required: [success, deleted]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        deleted:
+          type: object
+          properties:
+            user_event_rows:
+              type: integer
+            user_metrics_rows:
+              type: integer
+            user_orcid_links_rows:
+              type: integer
+
+    ErrorBody:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+          enum: [UNAUTHENTICATED, INTERNAL_ERROR]
+        message:
+          type: string
+
+  securitySchemes:
+    digitopub_identity_cookie:
+      type: apiKey
+      in: cookie
+      name: digitopub_identity
+
+paths:
+  /api/account/stats:
+    get:
+      summary: Get current user's engagement stats
+      description: |
+        Returns lifetime totals + last 12 months of monthly breakdown for the
+        signed-in ORCID. Data is sourced from `user_metrics` and
+        `metrics_article_monthly` (filtered to events attributable to this
+        ORCID — i.e., we aggregate the user_event rows for the ORCID and
+        return a per-month rollup for the last 12 months).
+      operationId: accountStats
+      security:
+        - digitopub_identity_cookie: []
+      responses:
+        '200':
+          description: Stats payload.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/AccountStats'
+        '401':
+          description: No valid identity cookie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+
+  /api/account/data:
+    delete:
+      summary: Erase all engagement data for the current user
+      description: |
+        Right-to-erasure endpoint (GDPR Article 17). Hard-deletes all
+        `user_event` and `user_metrics` rows for the signed-in ORCID,
+        inserts a row in `revoked_orcids` with `cookie_iat_min = now_seconds`
+        (blocks the in-flight cookie from being treated as valid), clears
+        the identity cookie, and writes an audit row.
+      operationId: accountDelete
+      security:
+        - digitopub_identity_cookie: []
+      responses:
+        '200':
+          description: Deletion completed.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: "digitopub_identity=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '401':
+          description: No valid identity cookie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '500':
+          description: |
+            Deletion partially failed. Audit row records the partial state.
+            User MAY retry; idempotent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
