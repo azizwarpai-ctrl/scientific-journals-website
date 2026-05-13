@@ -11,6 +11,70 @@ const app = new Hono()
 
 let runningFullSyncPromise: Promise<void> | null = null;
 
+// ─── OJS drift self-heal ─────────────────────────────────────────────
+// Once Prisma has >=1 journal, the cold-start sync in GET / never runs again.
+// New journals added in OJS would stay invisible until an external cron
+// (/api/ojs/sync) or manual `bun run ojs:sync` runs. The drift check below
+// closes that gap: after every public listing response, we cheaply compare
+// COUNT(*) on OJS vs Prisma; if OJS has more, we fire a single-flight
+// background sync. Throttled to avoid hammering the OJS DB.
+let lastOjsDriftCheckTs = 0;
+const DEFAULT_DRIFT_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+
+function getDriftCheckIntervalMs(): number {
+  const raw = process.env.OJS_DRIFT_CHECK_INTERVAL_MS;
+  if (raw === undefined || raw === "") return DEFAULT_DRIFT_CHECK_INTERVAL_MS;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_DRIFT_CHECK_INTERVAL_MS;
+}
+
+/**
+ * Test-only hook to reset the module-level self-heal state. Not exported via
+ * the feature barrel; only consumed by Vitest specs.
+ */
+export function __resetOjsDriftCheckStateForTests(): void {
+  lastOjsDriftCheckTs = 0;
+  runningFullSyncPromise = null;
+}
+
+function scheduleOjsDriftCheck(prismaTotal: number): void {
+  if (runningFullSyncPromise) return;
+  const interval = getDriftCheckIntervalMs();
+  // 0 disables the self-heal entirely (opt-out switch).
+  if (interval === 0) return;
+  if (Date.now() - lastOjsDriftCheckTs < interval) return;
+  lastOjsDriftCheckTs = Date.now();
+
+  void (async () => {
+    try {
+      const { isOjsConfigured, ojsQuery } = await import("@/src/features/ojs/server/ojs-client");
+      if (!isOjsConfigured()) return;
+
+      const rows = await ojsQuery<{ c: number }>("SELECT COUNT(*) AS c FROM journals");
+      const ojsTotal = Number(rows?.[0]?.c ?? 0);
+      if (ojsTotal <= prismaTotal) return;
+
+      if (runningFullSyncPromise) return;
+      console.log(`[journals/self-heal] Drift detected: OJS=${ojsTotal} > Prisma=${prismaTotal}. Triggering single-flight background sync.`);
+      runningFullSyncPromise = (async () => {
+        try {
+          const { fetchFromDatabase } = await import("@/src/features/ojs/server/ojs-service");
+          const { syncOjsJournals } = await import("@/src/features/ojs/server/sync-ojs-journals");
+          const ojsData = await fetchFromDatabase(true);
+          const result = await syncOjsJournals(ojsData);
+          console.log(`[journals/self-heal] Background sync complete: synced=${result.synced}, errors=${result.errors}`);
+        } catch (syncError) {
+          console.error("[journals/self-heal] Background sync failed:", syncError);
+        } finally {
+          runningFullSyncPromise = null;
+        }
+      })();
+    } catch (err) {
+      console.error("[journals/self-heal] Drift check failed:", err);
+    }
+  })();
+}
+
 const LIST_JOURNAL_SELECT = {
   id: true,
   title: true,
@@ -106,6 +170,11 @@ app.get("/", async (c) => {
         }
       }
     }
+
+    // Self-heal: fire-and-forget OJS drift check so journals added in OJS
+    // after the first cold-start become visible without manual sync. Never
+    // blocks this response; throttled and single-flight internally.
+    scheduleOjsDriftCheck(total)
 
     return c.json(paginatedResponse(serializeMany(journals), total, pagination), 200)
   } catch (error) {
