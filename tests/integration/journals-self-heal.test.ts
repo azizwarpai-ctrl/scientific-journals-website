@@ -68,8 +68,9 @@ describe('Journals listing — OJS drift self-heal', () => {
     beforeEach(() => {
         vi.resetAllMocks()
         __resetOjsDriftCheckStateForTests()
-        // Disable throttling by default so each test starts in a clean state.
-        process.env.OJS_DRIFT_CHECK_INTERVAL_MS = '0'
+        // 0 disables the feature; use 1ms so the throttle is effectively a
+        // no-op for tests that fire a single request.
+        process.env.OJS_DRIFT_CHECK_INTERVAL_MS = '1'
         isOjsConfiguredMock.mockReturnValue(true)
         fetchFromDatabaseMock.mockResolvedValue([])
         syncOjsJournalsMock.mockResolvedValue({ synced: 0, errors: 0 })
@@ -112,6 +113,27 @@ describe('Journals listing — OJS drift self-heal', () => {
         await flushAsync()
 
         expect(ojsQueryMock).toHaveBeenCalledTimes(1)
+        expect(fetchFromDatabaseMock).not.toHaveBeenCalled()
+        expect(syncOjsJournalsMock).not.toHaveBeenCalled()
+    })
+
+    it('is fully disabled when OJS_DRIFT_CHECK_INTERVAL_MS is 0', async () => {
+        vi.mocked(prisma.journal.findMany).mockResolvedValue([])
+        vi.mocked(prisma.journal.count).mockResolvedValue(11)
+        ojsQueryMock.mockResolvedValue([{ c: 12 }])
+
+        process.env.OJS_DRIFT_CHECK_INTERVAL_MS = '0'
+        __resetOjsDriftCheckStateForTests()
+
+        const app = createApp()
+        const res = await app.request('/api/journals')
+
+        expect(res.status).toBe(200)
+        await flushAsync()
+
+        // 0 means "disable the self-heal" — no OJS query, no sync, even when
+        // a real drift exists.
+        expect(ojsQueryMock).not.toHaveBeenCalled()
         expect(fetchFromDatabaseMock).not.toHaveBeenCalled()
         expect(syncOjsJournalsMock).not.toHaveBeenCalled()
     })

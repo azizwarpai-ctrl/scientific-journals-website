@@ -29,16 +29,19 @@ function getDriftCheckIntervalMs(): number {
 }
 
 /**
- * Test-only hook to reset the module-level throttle state. Not exported via
+ * Test-only hook to reset the module-level self-heal state. Not exported via
  * the feature barrel; only consumed by Vitest specs.
  */
 export function __resetOjsDriftCheckStateForTests(): void {
   lastOjsDriftCheckTs = 0;
+  runningFullSyncPromise = null;
 }
 
 function scheduleOjsDriftCheck(prismaTotal: number): void {
   if (runningFullSyncPromise) return;
   const interval = getDriftCheckIntervalMs();
+  // 0 disables the self-heal entirely (opt-out switch).
+  if (interval === 0) return;
   if (Date.now() - lastOjsDriftCheckTs < interval) return;
   lastOjsDriftCheckTs = Date.now();
 
