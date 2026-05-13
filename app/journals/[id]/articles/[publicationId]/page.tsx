@@ -7,6 +7,8 @@ import { client } from "@/src/lib/rpc"
 import { ArticlePageClient } from "./components/article-page-client"
 import type { ArticleDetail, ArticleDetailAuthor } from "@/src/features/journals/types/article-detail-types"
 import { buildCitationMeta } from "@/src/features/journals/server/citation-meta"
+import { resolveJournalOjsId } from "@/src/features/journals/server/resolve-journal"
+import { buildCanonical } from "@/src/lib/seo/canonical"
 
 interface PageProps {
   params: Promise<{
@@ -69,10 +71,18 @@ export async function generateMetadata(
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
   const isValidAbsoluteUrl = appUrl.startsWith("http://") || appUrl.startsWith("https://")
 
+  // Use the resolved numeric journal id for the canonical URL so renaming the
+  // OJS slug later does not invalidate previously indexed URLs.
+  const resolved = await resolveJournalOjsId(resolvedParams.id)
+  const canonicalJournalId =
+    resolved.found && resolved.ojsId ? resolved.ojsId : resolvedParams.id
+  const canonicalUrl = buildCanonical(
+    `/journals/${canonicalJournalId}/articles/${resolvedParams.publicationId}`
+  )
+
   let citationMeta: Record<string, string | (string | number)[]> = {}
   if (isValidAbsoluteUrl) {
-    const articleUrl = `${appUrl}/journals/${resolvedParams.id}/articles/${resolvedParams.publicationId}`
-    citationMeta = buildCitationMeta(article, articleUrl, appUrl)
+    citationMeta = buildCitationMeta(article, canonicalUrl, appUrl)
   }
 
   return {
@@ -80,6 +90,9 @@ export async function generateMetadata(
     description: abstractText,
     keywords: article.keywords?.join(', ') || '',
     authors: authorNames.map((name: string) => ({ name })),
+    alternates: {
+      canonical: canonicalUrl,
+    },
     openGraph: {
       title: article.title || 'Untitled Article',
       description: abstractText,

@@ -11,5 +11,7 @@ export async function register() {
         initializeDatabase().catch(err => {
             console.error('[Instrumentation] Failed to start database initialization:', err)
         })
+
+
     }
 }

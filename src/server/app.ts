@@ -77,14 +77,6 @@ app.use("/*", async (c, next) => {
     c.res.headers.set("Pragma", "no-cache")
 })
 
-// Ensure background startup sync fires on the first few requests if not completed
-app.use("/*", async (c, next) => {
-    if (!c.req.path.includes("/ojs/sync")) {
-        triggerStartupSync(() => fetchFromDatabase(true))
-    }
-    await next()
-})
-
 // Mount API routes
 app.route("/", apiApp)
 

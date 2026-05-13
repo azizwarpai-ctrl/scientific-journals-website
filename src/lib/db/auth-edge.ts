@@ -1,25 +1,43 @@
 import { cookies } from "next/headers"
 import * as jose from "jose"
 
+const MIN_SECRET_BYTES = 32
+
 export function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
-  
   const isProduction = process.env.NODE_ENV === "production";
-  const isServer = typeof window === "undefined";
   const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
 
-  if (!secret) {
-    if (isProduction && isServer && !isBuildPhase) {
-       throw new Error("JWT_SECRET is required in production");
-    }
-    
-    if (isProduction) {
-       console.warn("Warning: JWT_SECRET is missing during build or startup. Session functionality will fail.");
-    }
+  const encoded = secret ? new TextEncoder().encode(secret) : null;
 
-    return new TextEncoder().encode("default-development-secret-change-me");
+  if (isProduction) {
+    if (!encoded) {
+      if (!isBuildPhase) {
+        throw new Error("JWT_SECRET is required in production");
+      }
+      console.warn(
+        "Warning: JWT_SECRET is not set during build phase. Session functionality will fail at runtime."
+      );
+      return new TextEncoder().encode("default-development-secret-change-me");
+    }
+    if (encoded.length < MIN_SECRET_BYTES) {
+      if (!isBuildPhase) {
+        throw new Error(`JWT_SECRET must be at least ${MIN_SECRET_BYTES} bytes in production`);
+      }
+      console.warn(
+        `Warning: JWT_SECRET is too short during build phase (${encoded.length} < ${MIN_SECRET_BYTES} bytes). Session functionality will fail at runtime.`
+      );
+      return encoded;
+    }
+    return encoded;
   }
-  return new TextEncoder().encode(secret);
+
+  if (encoded) return encoded;
+
+  console.warn(
+    "Warning: JWT_SECRET is not set — using insecure development default. Do not use this in production."
+  );
+  return new TextEncoder().encode("default-development-secret-change-me");
 }
 
 const JWT_SECRET = getJwtSecret()
