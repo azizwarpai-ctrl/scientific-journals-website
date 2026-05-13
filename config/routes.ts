@@ -15,6 +15,9 @@ export const PUBLIC_ROUTES = [
   "/admin/register",
   "/admin/registration-success",
   "/admin/verify-code",
+  // UIET-P1: public-user self-service pages. Not behind admin auth.
+  "/account/stats",
+  "/account/data",
 ]
 
 export const ADMIN_ROUTES = [

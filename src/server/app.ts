@@ -17,6 +17,7 @@ import { searchRouter } from "@/src/features/search/server"
 import { fetchFromDatabase } from "@/src/features/ojs/server/ojs-service"
 import { triggerStartupSync } from "@/src/features/ojs/server/sync-ojs-journals"
 import { authOrcidRouter } from "@/src/server/routes/auth-orcid"
+import { accountRouter } from "@/src/server/routes/account"
 
 const apiApp = new Hono()
     .route("/journals", journalRouter)
@@ -28,6 +29,7 @@ const apiApp = new Hono()
     // so /auth/orcid/* never accidentally routes through admin auth handlers.
     .route("/auth/orcid", authOrcidRouter)
     .route("/auth", authRouter)
+    .route("/account", accountRouter)
     .route("/messages", messageRouter)
     .route("/ojs", ojsRouter)
     .route("/metrics", metricsRouter)
