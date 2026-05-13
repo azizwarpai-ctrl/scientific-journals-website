@@ -38,7 +38,7 @@ model UserEvent {
   source        String   @db.VarChar(32)          // 'article_page'|'pdf_view'|'essential_only'|'pre_consent'|'ris'|'bibtex'|'plain'|'all'
   citation_format String? @db.VarChar(16)         // citation_export only: 'vancouver'|'apa'|'ris'|'bibtex'
   event_meta    Json?
-  dedup_key     String   @db.Char(64)             // SHA-256(orcid || '|' || ip_hash) — never NULL
+  dedup_key     String   @db.Char(64)             // SHA-256(orcid || '|' || ip_hash || '|' || ua_hash) — never NULL
   view_day      String?  @db.Char(10)             // 'YYYY-MM-DD' UTC, for view dedup uniqueness
   created_at    DateTime @default(now())
 
@@ -51,8 +51,8 @@ model UserEvent {
 ```
 
 **Notes**:
-- `dedup_key = SHA-256(orcid || '|' || ip_hash || '|' || ua_hash)`. Never NULL: if everything is anonymized (`pre_consent` or `essential_only`), `dedup_key = SHA-256('|' || ip_hash_or_constant)` so we can still measure cardinality.
-- For pre-consent + first-30-days mode, `ip_hash` is NULL but we substitute a constant `'anonymous'` token in `dedup_key` so all anonymous pre-consent events fall into one bucket (intentional — we cannot dedup unidentified visitors per-person).
+- **Canonical dedup formula**: `dedup_key = SHA-256(orcid || '|' || ip_hash || '|' || ua_hash)`, where any NULL component is substituted with the empty string. Never NULL.
+- **Fully-anonymized special case** (all three components NULL — e.g., `pre_consent` mode, or `essential_only` writes that strip the hashes and have no ORCID): the recorder substitutes the literal string `"anonymous"` for the entire concatenated input. So `dedup_key = SHA-256("anonymous")` for every such row. All anonymous pre-consent events therefore collapse into a single dedup bucket (intentional — we cannot dedup unidentified visitors per-person).
 - `view_day` is populated only for view rows (`event_type='view'`). For other event types it is NULL. The unique constraint thus uniquely enforces "one view per (article, identity, UTC day)" without affecting downloads / citations.
 - `galley_id` is BigInt to match OJS conventions. Nullable because views and citation exports do not have galleys.
 - Why a `view_day` text column instead of `DATE(created_at)`? MySQL prior to 8.0 did not support functional indexes; the explicit column is portable across MySQL/MariaDB and avoids index-impl edge cases.

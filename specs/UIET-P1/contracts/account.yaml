@@ -39,9 +39,12 @@ components:
               nullable: true
         monthly:
           type: array
+          minItems: 12
+          maxItems: 12
           description: |
             Last 12 calendar months in ascending order. Months with zero
-            activity are present with zero counts.
+            activity are present with zero counts. The array always contains
+            exactly 12 entries — one per month — regardless of activity.
           items:
             type: object
             required: [year, month, views, downloads, citations]
@@ -101,10 +104,11 @@ paths:
       summary: Get current user's engagement stats
       description: |
         Returns lifetime totals + last 12 months of monthly breakdown for the
-        signed-in ORCID. Data is sourced from `user_metrics` and
-        `metrics_article_monthly` (filtered to events attributable to this
-        ORCID — i.e., we aggregate the user_event rows for the ORCID and
-        return a per-month rollup for the last 12 months).
+        signed-in ORCID. Data is sourced from `user_metrics` (lifetime totals)
+        and ORCID-attributed `user_event` rows (or any derived per-user monthly
+        aggregates) to produce the per-user monthly rollup. Note: the
+        article-level `metrics_article_monthly` table is NOT per-user — it
+        cannot be used here.
       operationId: accountStats
       security:
         - digitopub_identity_cookie: []

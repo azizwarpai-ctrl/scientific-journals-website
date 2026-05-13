@@ -126,7 +126,7 @@ A signed-in reader can visit `/account/stats` to see their own engagement (artic
 - **ORCID API outage**: callback returns 5xx from ORCID → user sees "Sign-in temporarily unavailable; please retry" with a return-to-article fallback link. JWKS cache (24h with 1h SWR) still serves verification.
 - **Clock skew**: server clock is ±2 min off from client/ORCID → identity cookie verifier accepts ±2 min slack on `iat` and `exp_sliding`/`exp_absolute`.
 - **OJS user matched by email but `disabled=1`**: backfill detects disabled flag → digitopub login is blocked with "This account has been disabled. Please contact support." → no cookie minted.
-- **Disabled JS / fetch failures**: metric write to `/api/metrics/*` fails silently; UI flow is never blocked. PDF view, download, citation export all proceed regardless of metric outcome.
+- **Disabled JS / fetch failures**: metric write to `/api/metrics/events/*` fails silently; UI flow is never blocked. PDF view, download, citation export all proceed regardless of metric outcome.
 - **Replay of OAuth `state`**: callback receives a previously consumed state → 400 with "Invalid or expired sign-in session." Always force a fresh `/api/auth/orcid/start`.
 - **Rate limit exceeded** on `/api/auth/orcid/callback` (10/min/IP): 429 with retry-after; UI shows "Too many sign-in attempts, please wait a moment."
 - **Multiple ORCID accounts for one human**: the most recent ORCID iD wins for the cookie. We do not attempt to merge histories. Documented as a known P1 limitation.
@@ -178,9 +178,9 @@ Requirements are TESTABLE and ranked P1/P2/P3. P1 must ship together; P2 ships i
 
 #### Engagement events (P2)
 
-- **FR-025 (P2)**: `POST /api/metrics/view` MUST accept `{article_id, journal_id, source: 'article_page'|'pdf_view'}` and write a `user_event` row.
-- **FR-026 (P2)**: `POST /api/metrics/download` MUST accept `{article_id, journal_id, galley_id}` and write a `user_event` row with `event_type='download'`.
-- **FR-027 (P2)**: `POST /api/metrics/citation` MUST accept `{article_id, journal_id, format}` and write a `user_event` row with `event_type='citation_export'`.
+- **FR-025 (P2)**: `POST /api/metrics/events/view` MUST accept `{article_id, journal_id, source: 'article_page'|'pdf_view'}` and write a `user_event` row.
+- **FR-026 (P2)**: `POST /api/metrics/events/download` MUST accept `{article_id, journal_id, galley_id}` and write a `user_event` row with `event_type='download'`.
+- **FR-027 (P2)**: `POST /api/metrics/events/citation` MUST accept `{article_id, journal_id, format, action}` and write a `user_event` row with `event_type='citation_export'`.
 - **FR-028 (P2)**: All three endpoints MUST attribute the event to the identity cookie's ORCID when present, otherwise to the daily-rotating IP hash.
 - **FR-029 (P2)**: View dedup key: `(article_id, COALESCE(orcid, ip_hash), DATE(created_at UTC))`. Repeats within the same UTC day MUST be a no-op write (HTTP 200, `deduped: true`).
 - **FR-030 (P2)**: Download dedup key: `(article_id, galley_id, COALESCE(orcid, ip_hash))` with a 30 s window. Repeats inside the window MUST be a no-op.
@@ -214,7 +214,7 @@ Requirements are TESTABLE and ranked P1/P2/P3. P1 must ship together; P2 ships i
 #### Account self-service (P3)
 
 - **FR-045 (P3)**: `GET /api/account/stats` MUST return lifetime and 12-month totals for the signed-in ORCID. 401 if no identity.
-- **FR-046 (P3)**: `DELETE /api/account/data` MUST hard-delete every `user_event` and `user_metrics` row for the signed-in ORCID, revoke the identity cookie, write an audit row, and return 204.
+- **FR-046 (P3)**: `DELETE /api/account/data` MUST hard-delete every `user_event` and `user_metrics` row for the signed-in ORCID, upsert a `revoked_orcids` row (revoking the identity cookie), write an audit row, and clear the `digitopub_identity` cookie via `Set-Cookie`. The endpoint MUST return HTTP 200 with body `{success: true, deleted: {user_event_rows, user_metrics_rows, user_orcid_links_rows}}` as defined by `contracts/account.yaml`.
 - **FR-047 (P3)**: `/account/stats` and `/account/data` MUST redirect anonymous visitors to the ORCID sign-in modal with `return_url` set.
 
 #### Mobile (P1)

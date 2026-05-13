@@ -118,7 +118,7 @@ hooks/
 └── use-identity.ts          # NEW
 
 prisma/
-├── schema.prisma            # MODIFY — add 6 new models
+├── schema.prisma            # MODIFY — add 7 new models
 └── migrations/{timestamp}_uiet_p1_engagement_tracking/migration.sql
 
 scripts/
@@ -391,18 +391,23 @@ UI:
 ### 7. Retention & Aggregation
 
 - **Hourly cron** (`scripts/metrics-aggregate.ts`): no-op for P1; placeholder.
-- **Nightly cron** (UTC 02:00):
+- **Nightly cron** (UTC 02:00). MySQL/MariaDB do not support `COUNT(...) FILTER
+  (WHERE ...)`; we use conditional aggregation (`CASE WHEN`) instead:
   ```sql
   INSERT INTO metrics_article_daily (article_id, journal_id, day, views, unique_views, downloads, unique_downloads, citations)
   SELECT
     article_id, journal_id, DATE(created_at) AS day,
-    COUNT(*) FILTER (WHERE event_type='view') AS views,
-    COUNT(DISTINCT COALESCE(orcid, ip_hash)) FILTER (WHERE event_type='view') AS unique_views,
-    ...
+    SUM(CASE WHEN event_type='view'     THEN 1 ELSE 0 END)                                                                AS views,
+    COUNT(DISTINCT CASE WHEN event_type='view'     THEN COALESCE(orcid, ip_hash) END)                                     AS unique_views,
+    SUM(CASE WHEN event_type='download' THEN 1 ELSE 0 END)                                                                AS downloads,
+    COUNT(DISTINCT CASE WHEN event_type='download' THEN COALESCE(orcid, ip_hash) END)                                     AS unique_downloads,
+    SUM(CASE WHEN event_type='citation_export' THEN 1 ELSE 0 END)                                                         AS citations
   FROM user_event
   WHERE created_at >= ? AND created_at < ?
   GROUP BY article_id, journal_id, DATE(created_at)
-  ON DUPLICATE KEY UPDATE views=VALUES(views), ...;
+  ON DUPLICATE KEY UPDATE views=VALUES(views), unique_views=VALUES(unique_views),
+    downloads=VALUES(downloads), unique_downloads=VALUES(unique_downloads),
+    citations=VALUES(citations);
   ```
 - **Monthly cron** (1st of month UTC 03:00): roll daily → monthly.
 - **Retention cron** (weekly): `DELETE FROM user_event WHERE created_at < NOW() - INTERVAL 18 MONTH LIMIT 50000`. Repeat until 0 rows affected.
