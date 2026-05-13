@@ -14,7 +14,6 @@ import {
     buildSetCookieHeader,
     getIdentity,
     invalidateRevocationCache,
-    IDENTITY_COOKIE_NAME,
     mintCookie,
     refreshedCookieMaxAge,
     refreshSliding,
@@ -22,7 +21,6 @@ import {
     SLIDING_REFRESH_WINDOW_SECONDS,
 } from "@/src/lib/identity-cookie"
 import {
-    STATE_COOKIE_NAME,
     StateExpiredError,
     StateInvalidError,
     StateReusedError,
@@ -146,7 +144,6 @@ app.get("/callback", async (c) => {
     try {
         tokenResponse = await exchangeCode(code)
     } catch (err) {
-        // eslint-disable-next-line no-console
         console.error("[auth/orcid/callback] exchangeCode failed:", err)
         return c.json(
             { success: false, error: "ORCID_API_FAILURE", message: "ORCID is temporarily unavailable." },
@@ -166,7 +163,6 @@ app.get("/callback", async (c) => {
             verifiedName = verified.name ?? verifiedName
             verifiedEmail = verified.email
         } catch (err) {
-            // eslint-disable-next-line no-console
             console.error("[auth/orcid/callback] id_token verification failed:", err)
             return c.json(
                 { success: false, error: "INVALID_TOKEN", message: "ORCID returned an invalid token." },
@@ -313,8 +309,5 @@ app.post("/refresh", async (c) => {
         },
     })
 })
-
-// Suppress unused IDENTITY_COOKIE_NAME (referenced from comments/types).
-void IDENTITY_COOKIE_NAME
 
 export { app as authOrcidRouter }

@@ -30,9 +30,9 @@ export default function AccountStatsPage() {
             query.data.success === false &&
             query.data.error === "UNAUTHENTICATED"
         ) {
-            window.location.href = `/api/auth/orcid/start?return_url=${encodeURIComponent(
-                "/account/stats"
-            )}`
+            window.location.assign(
+                `/api/auth/orcid/start?return_url=${encodeURIComponent("/account/stats")}`
+            )
         }
     }, [query.data])
 

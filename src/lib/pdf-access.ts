@@ -56,7 +56,6 @@ export async function isGalleyOpenAccess(
     return isOpen
   } catch (err) {
     // Treat lookup failures as gated. Logged at warn level so ops sees it.
-    // eslint-disable-next-line no-console
     console.warn(
       `[pdf-access] OA lookup failed for galleyId=${galleyId}, defaulting to gated:`,
       err instanceof Error ? err.message : String(err)

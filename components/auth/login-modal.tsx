@@ -17,10 +17,8 @@ import { subscribeLoginModal, type OpenLoginEvent } from "./login-modal-bus"
 export function LoginModal() {
     const [open, setOpen] = useState(false)
     const [returnUrl, setReturnUrl] = useState<string>("/")
-    const [mounted, setMounted] = useState(false)
 
     useEffect(() => {
-        setMounted(true)
         return subscribeLoginModal((e: OpenLoginEvent) => {
             setReturnUrl(e.return_url)
             setOpen(true)
@@ -41,7 +39,7 @@ export function LoginModal() {
         }
     }, [open])
 
-    if (!mounted || !open) return null
+    if (!open || typeof document === "undefined") return null
 
     const startHref = `/api/auth/orcid/start?return_url=${encodeURIComponent(returnUrl)}`
 

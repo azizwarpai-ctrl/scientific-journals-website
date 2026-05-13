@@ -117,24 +117,49 @@ The system operates across two strict boundaries:
 - **digitopub.com (Gateway)**: A purely stateless, read-only Next.js storefront for displaying journal content. It has no user login forms and stores no user sessions.
 - **submitmanager.com (OJS)**: The solitary identity provider and submission management interface. It owns all users, roles, and manuscript workflows.
 
-### Authentication Model
+### Authentication Model (amended by UIET-P1)
 
-- **No local login**: digitopub does not accept or verify credentials.
-- **No shared sessions**: digitopub does not have a session cookie; an OJS session does not give you a digitopub session (because there isn't one).
-- **OJS handles all authentication**: All logins must occur directly on OJS.
+digitopub now holds TWO independent identity systems:
 
-### SSO Concept
-Single Sign-On (SSO) in this system is strictly a **one-way token-based bootstrap** used exclusively after a new user registers on digitopub. The registration API provisions the user in OJS and redirects them with a 5-minute expiry HMAC token to log them securely into OJS the very first time. **SSO is not used for returning users.**
+- **Admin authentication** (`auth_token` cookie, JWT via `jose`): unchanged. Used for `/admin/*` routes only. Helpers live in `src/lib/db/auth.ts`.
+- **Public-user identity** (`digitopub_identity` cookie, HMAC-signed): added by UIET-P1. Used to gate non-OA PDF actions and attribute engagement events. ORCID is the SOLE identity provider — digitopub never sees passwords, never validates credentials, never stores email/password tuples. Helpers live in `src/lib/identity-cookie.ts`.
+
+The two cookies are wholly separate code paths and MUST NOT cross-pollinate.
+
+### Public-user identity (UIET-P1)
+
+- **Sign in**: anonymous readers who try to view or download a non-OA PDF see a sign-in modal with a single "Sign in with ORCID" CTA. The OAuth flow round-trips through orcid.org and returns the user to the article.
+- **Cookie**: `digitopub_identity` is HMAC-signed (`IDENTITY_COOKIE_SECRET`), 30 min sliding expiry, 8 h absolute expiry, ±2 min skew tolerance. Host-only on `digitopub.com`, `httpOnly; Secure; SameSite=Lax`.
+- **OA awareness**: PDF view and download are gated only when `article.isOpenAccess === false`. Abstracts and citation export are always anonymous-allowed.
+- **Server-side enforcement**: `/api/pdf-proxy` rejects non-OA requests without a valid identity cookie (401 with `WWW-Authenticate: orcid`).
+- **OJS linkage**: on first ORCID login we link the iD to the matching OJS user (by ORCID iD first, then email). When `ENABLE_ORCID_OJS_BACKFILL=true`, we write the ORCID iD back into OJS `user_settings`. Every such write is audited in `audit_ojs_writes`. Default OFF in production.
+
+### Engagement tracking
+
+`user_event` rows are written for every view, download, and citation export. The `digitopub_consent` cookie controls what is recorded:
+
+- `all` — orcid (when signed in), daily-rotating IP hash, daily-rotating UA hash.
+- `essential_only` — orcid only; no IP/UA.
+- `pre_consent` (no choice yet) — fully anonymous: source='pre_consent', no orcid, no IP/UA.
+
+Aggregation crons live in `scripts/aggregate-daily-metrics.ts`, `aggregate-monthly-metrics.ts`, `update-user-metrics.ts`, and `retention-cleanup.ts`.
+
+### Registration handover (unchanged)
+
+Single Sign-On (SSO) for the registration path is still a **one-way token-based bootstrap** used exclusively after a new user registers on digitopub. The registration API provisions the user in OJS and redirects them with a 5-minute expiry HMAC token to log them securely into OJS the very first time. **SSO is not used for returning users.**
 
 ### Developer Rules (IMPORTANT)
-- **NEVER** add auth logic in digitopub.
-- **NEVER** use session checks (e.g. `getSession()`, `jwtVerify`) in public routes or middleware.
-- **ALWAYS** redirect to OJS for any user actions.
+
+- **NEVER** call `getSession()` or `jose.jwtVerify` in any public route (under `app/` excluding `app/admin/**`, or under `src/server/routes/`). The ESLint rule `no-restricted-imports` enforces this; CI greps as a backup.
+- **ALWAYS** use `getIdentity(request)` from `src/lib/identity-cookie.ts` for public-user identity. It is sibling to admin auth, never invokes it.
+- **NEVER** write to OJS outside of `writeOrcidToOjsWithAudit()` in `src/lib/ojs-write-guard.ts`. Every write produces an audit row.
+- **ALWAYS** flag-gate new public-user surfaces behind `UIET_P1_ENABLED` until the rollout finishes.
 
 ### Common Mistakes
-- 🚫 **using `getSession()`**: Fetching user context in digitopub breaking statelessness.
-- 🚫 **creating login page**: Adding `/login` in digitopub.
-- 🚫 **blocking submit behind auth**: Conditionally disabling the submit button or routing based on if the user is authenticated.
+
+- 🚫 **using `getSession()` in a public route**: that is the admin pathway. Use `getIdentity()`.
+- 🚫 **blocking submit behind identity**: submission flow is unchanged. The submit button never checks the identity cookie.
+- 🚫 **writing to OJS without the guard**: every write must go through `writeOrcidToOjsWithAudit()` so it lands in `audit_ojs_writes`.
 
 ### Submission & Authentication Flow (Verified Architecture)
 

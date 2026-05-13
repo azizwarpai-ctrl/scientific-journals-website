@@ -79,7 +79,6 @@ export async function linkOjsUser(
             }
         }
     } catch (err) {
-        // eslint-disable-next-line no-console
         console.warn("[linkOjsUser] ORCID lookup failed:", err)
     }
 
@@ -98,7 +97,6 @@ export async function linkOjsUser(
             matched = rows[0]
         }
     } catch (err) {
-        // eslint-disable-next-line no-console
         console.warn("[linkOjsUser] email lookup failed:", err)
         return { ojs_user_id: null, linkSource: "no_match", ojsBackfilled: false }
     }

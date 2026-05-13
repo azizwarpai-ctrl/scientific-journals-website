@@ -32,7 +32,6 @@ const requiredSecret = (name: string) =>
         throw new Error(`[env] ${name} is required in production`)
       }
       if (!isBuildPhase) {
-        // eslint-disable-next-line no-console
         console.warn(
           `[env] ${name} not set — using insecure dev default. DO NOT ship like this.`
         )

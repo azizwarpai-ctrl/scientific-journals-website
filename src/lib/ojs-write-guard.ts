@@ -100,7 +100,6 @@ export async function writeOrcidToOjsWithAudit(
     return { success: true, attempted: true, auditId: auditRow.id }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    // eslint-disable-next-line no-console
     console.error(`[ojs-write-guard] OJS write failed for orcid=${input.orcid}: ${message}`)
     try {
       await prisma.auditOjsWrite.update({

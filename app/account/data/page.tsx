@@ -23,9 +23,9 @@ export default function AccountDataPage() {
 
     if (!identity?.authenticated) {
         if (typeof window !== "undefined") {
-            window.location.href = `/api/auth/orcid/start?return_url=${encodeURIComponent(
-                "/account/data"
-            )}`
+            window.location.assign(
+                `/api/auth/orcid/start?return_url=${encodeURIComponent("/account/data")}`
+            )
         }
         return null
     }
@@ -38,7 +38,7 @@ export default function AccountDataPage() {
             toast.success("Your engagement data has been erased.")
             // Redirect home after a brief delay to let the toast render.
             setTimeout(() => {
-                window.location.href = "/"
+                window.location.assign("/")
             }, 800)
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Deletion failed")
