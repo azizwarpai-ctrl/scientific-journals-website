@@ -342,6 +342,26 @@ export async function fetchArticleDetail(
     console.warn(`[ArticleDetail] Could not fetch citations for publication ${publicationId} (perhaps table does not exist):`, citationError)
   }
 
+  // 6.5. UIET-P1: Add digitopub's own aggregated counts on top of OJS's.
+  //      The backfill script seeds OJS's pre-launch totals into
+  //      metrics_article_monthly under source='ojs_legacy_backfill', so the
+  //      sum is correct without double-counting historical OJS events.
+  try {
+    const { prisma } = await import("@/src/lib/db/config")
+    const dpAgg = await prisma.metricsArticleMonthly.aggregate({
+      where: {
+        article_id: BigInt(publicationId),
+        journal_id: BigInt(article.journal_id),
+      },
+      _sum: { views: true, downloads: true, citations: true },
+    })
+    views += Number(dpAgg._sum.views ?? 0)
+    downloads += Number(dpAgg._sum.downloads ?? 0)
+    citations += Number(dpAgg._sum.citations ?? 0)
+  } catch (mergeError) {
+    console.warn(`[ArticleDetail] digitopub metric merge failed for publication ${publicationId}:`, mergeError)
+  }
+
   const parsedVolume = article.volume ? parseInt(article.volume, 10) : NaN;
   const parsedYear = article.year ? parseInt(article.year, 10) : NaN;
   const isOpenAccess = isOpenAccessStatus(article.access_status)
