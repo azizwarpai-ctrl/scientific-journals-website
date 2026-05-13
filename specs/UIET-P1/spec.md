@@ -29,21 +29,33 @@ An anonymous reader visits an article page, reads the abstract, and opens or dow
 
 ---
 
-### User Story 2 — Non-OA gated download with ORCID sign-in (Priority: P1)
+### User Story 2 — Opt-in ORCID sign-in for attribution (Priority: P1)
 
-An anonymous reader tries to view or download a PDF for a non-OA (subscription / restricted) article. A login modal appears with a "Sign in with ORCID" button. After completing the ORCID OAuth flow, they return to the same article with the PDF now opening.
+> **REVISED — open access constitution change.** The original draft of this
+> story gated non-OA PDF downloads behind ORCID. That violates the open-access
+> principle and was removed before launch. Every PDF action is now open to
+> everyone; sign-in is an OPTIONAL step that attributes engagement events to
+> the researcher's ORCID iD and unlocks `/account/stats` and `/account/data`.
 
-**Why this priority**: Without gating, subscription journals cannot monetize. This is the only story that *requires* identity, so it forces the auth pipeline to work end-to-end on the most contained surface possible.
+A researcher clicks "Sign in with ORCID" from a sign-in entry point (e.g., a
+nav link or one of the `/account/*` pages reached while anonymous). After
+completing the ORCID OAuth flow they return to the same page with their
+ORCID iD attached to future engagement events.
 
-**Independent Test**: Anonymous user → click View PDF on a non-OA article → modal appears → click "Sign in with ORCID" → mocked ORCID returns code → callback sets `digitopub_identity` cookie → redirects back to article → PDF loads. No regression on the OA path.
+**Why this priority**: even though sign-in is optional, the full OAuth flow
+must work end-to-end so that opt-in attribution is reliable. This is also
+the only story that exercises the ORCID + OJS linkage and audited write
+path.
+
+**Independent Test**: Anonymous user → navigate to `/api/auth/orcid/start?return_url=/some/article` → mocked ORCID returns code → callback sets `digitopub_identity` cookie → redirects back to the article. Subsequent metric writes carry the ORCID iD.
 
 **Acceptance Scenarios**:
 
-1. **Given** a non-OA article and an anonymous reader, **When** they click "View PDF", **Then** a modal with the ORCID sign-in CTA appears instead of opening the PDF.
-2. **Given** a non-OA article and an anonymous reader, **When** they click "Download", **Then** the same modal appears.
-3. **Given** a non-OA article and a reader with a valid identity cookie, **When** they click "View PDF" or "Download", **Then** the PDF action proceeds without a modal.
-4. **Given** a non-OA article and an anonymous reader, **When** they hit `/api/pdf-proxy?...` directly (bypassing the UI), **Then** the proxy returns 401 with a `WWW-Authenticate: orcid` header.
-5. **Given** a successful ORCID callback, **When** the callback handler runs, **Then** the response redirects to the original article URL preserved in OAuth `state`.
+1. **Given** any article (OA or not), **When** an anonymous reader clicks "View PDF" or "Download", **Then** the action proceeds immediately — no modal, no 401.
+2. **Given** a successful ORCID callback, **When** the callback handler runs, **Then** the response redirects to the original `return_url` and sets the `digitopub_identity` cookie.
+3. **Given** a signed-in reader, **When** they perform a metric-emitting action, **Then** the `user_event` row carries their ORCID.
+4. **Given** any reader who hits `/api/pdf-proxy?...` directly, **Then** the proxy serves the PDF without any identity check.
+5. **Given** a signed-in reader, **When** they call `POST /api/auth/orcid/logout`, **Then** the identity cookie is cleared and they revert to anonymous attribution.
 
 ---
 
@@ -168,13 +180,20 @@ Requirements are TESTABLE and ranked P1/P2/P3. P1 must ship together; P2 ships i
 - **FR-018 (P1)**: Every OJS write MUST also write to `audit_ojs_writes` `{timestamp, orcid, ojs_user_id, performed_by_request_id, success}`. A failure of the OJS write MUST be logged but MUST NOT fail the user's login.
 - **FR-019 (P1)**: If the matched OJS user has `disabled=1`, login MUST be blocked with "This account has been disabled. Please contact support." and no cookie minted.
 
-#### OA-aware gating (P1)
+#### Open access (P1) — REVISED
 
-- **FR-020 (P1)**: PDF view (modal open) MUST be allowed when `article.isOpenAccess === true` regardless of identity.
-- **FR-021 (P1)**: PDF view MUST require a valid identity cookie when `article.isOpenAccess === false`.
-- **FR-022 (P1)**: PDF download (toolbar, mobile fallback, error-state retry) MUST follow the same rule as view: open when OA, gated when not.
-- **FR-023 (P1)**: `/api/pdf-proxy` MUST verify the identity cookie and reject non-OA requests with 401 and `WWW-Authenticate: orcid`. The `(submissionId, galleyId) → isOpenAccess` map MAY be cached for 5 min.
-- **FR-024 (P1)**: Abstract reading and citation export MUST NEVER be gated.
+The original draft of this feature gated non-OA PDF view/download behind the
+ORCID identity cookie. That gate was removed before launch on open-access
+grounds: every public surface (abstract, PDF view, PDF download, citation
+export) is now available to every visitor regardless of sign-in state. The
+ORCID identity cookie is retained solely as an OPT-IN attribution and
+self-service mechanism (see US3, US6).
+
+- **FR-020 (P1)**: PDF view MUST be available to every visitor regardless of identity, `article.isOpenAccess`, or any other property.
+- **FR-021 (P1)**: PDF download (toolbar, mobile fallback, error-state retry) MUST follow the same rule — open to everyone.
+- **FR-022 (P1)**: `/api/pdf-proxy` MUST NOT reject requests on the basis of identity. The proxy MAY still inspect the cookie for attribution purposes only.
+- **FR-023 (P1)**: Abstract reading, citation export, and account self-service pages MUST NEVER be gated.
+- **FR-024 (P1)**: Any new UI surface introduced by this feature MUST default to "open" and only invite sign-in as an opt-in attribution + self-service step.
 
 #### Engagement events (P2)
 

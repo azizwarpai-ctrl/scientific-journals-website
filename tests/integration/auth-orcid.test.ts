@@ -1,31 +1,37 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 
-const hoisted = vi.hoisted(() => ({
-    exchangeCode: vi.fn(),
-    verifyOrcidToken: vi.fn(),
-    linkOjsUser: vi.fn(),
+// Fully synthetic mocks — no vi.importActual — so this file does not pull
+// real modules (which transitively load @/src/features/ojs/server/ojs-client
+// and pollute the journals-self-heal test that runs after).
+const hoisted = vi.hoisted(() => {
+    class BlockedAccountError extends Error {
+        constructor() {
+            super("ACCOUNT_DISABLED")
+            this.name = "BlockedAccountError"
+        }
+    }
+    return {
+        exchangeCode: vi.fn(),
+        verifyOrcidToken: vi.fn(),
+        linkOjsUser: vi.fn(),
+        buildAuthorizeUrl: vi.fn((state: string) =>
+            `https://orcid.org/oauth/authorize?response_type=code&client_id=test-client&scope=%2Fauthenticate&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapi%2Fauth%2Forcid%2Fcallback&state=${state}`
+        ),
+        BlockedAccountError,
+    }
+})
+
+vi.mock("@/src/lib/orcid-oauth", () => ({
+    exchangeCode: hoisted.exchangeCode,
+    verifyOrcidToken: hoisted.verifyOrcidToken,
+    buildAuthorizeUrl: hoisted.buildAuthorizeUrl,
 }))
 
-vi.mock("@/src/lib/orcid-oauth", async () => {
-    const real = await vi.importActual<typeof import("@/src/lib/orcid-oauth")>(
-        "@/src/lib/orcid-oauth"
-    )
-    return {
-        ...real,
-        exchangeCode: hoisted.exchangeCode,
-        verifyOrcidToken: hoisted.verifyOrcidToken,
-    }
-})
-
-vi.mock("@/src/server/routes/auth-orcid-helpers", async () => {
-    const real = await vi.importActual<
-        typeof import("@/src/server/routes/auth-orcid-helpers")
-    >("@/src/server/routes/auth-orcid-helpers")
-    return {
-        ...real,
-        linkOjsUser: hoisted.linkOjsUser,
-    }
-})
+vi.mock("@/src/server/routes/auth-orcid-helpers", () => ({
+    linkOjsUser: hoisted.linkOjsUser,
+    BlockedAccountError: hoisted.BlockedAccountError,
+    emailHash: vi.fn(() => null),
+}))
 
 process.env.IDENTITY_COOKIE_SECRET ||= "test-identity-cookie-secret"
 process.env.ORCID_STATE_SECRET ||= "test-orcid-state-secret"

@@ -11,15 +11,13 @@ import {
   RefreshCw,
   Unlock,
 } from "lucide-react"
-import { MouseEvent, ReactNode, RefObject } from "react"
+import { ReactNode, RefObject } from "react"
 import { Button } from "@/components/ui/button"
-import { useGatedAction } from "@/src/hooks/use-gated-action"
 import { recordDownloadEvent } from "@/src/hooks/use-metric-events"
 import type { PdfErrorCode, PdfProbeState } from "./use-pdf-modal"
 
-interface GatedAnchorProps {
+interface TrackingAnchorProps {
   href: string
-  isOpenAccess: boolean
   download?: boolean | string
   className?: string
   target?: string
@@ -31,14 +29,11 @@ interface GatedAnchorProps {
 }
 
 /**
- * Anchor that respects the OA gate. For OA articles or signed-in readers,
- * the anchor behaves normally and `onTrack` fires before navigation. For
- * anonymous users on non-OA articles, the click opens the ORCID sign-in
- * modal and navigation is cancelled.
+ * Plain anchor with optional fire-and-forget tracking. No gating — every
+ * PDF action is open to everyone; we only count engagement.
  */
-function GatedAnchor({
+function TrackingAnchor({
   href,
-  isOpenAccess,
   download,
   className,
   target,
@@ -46,25 +41,11 @@ function GatedAnchor({
   title,
   children,
   onTrack,
-}: GatedAnchorProps) {
-  const { run, gated } = useGatedAction(() => {
-    onTrack?.()
-  }, { isOpenAccess })
-
-  const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (gated) {
-      e.preventDefault()
-      e.stopPropagation()
-      run() // opens login modal
-      return
-    }
-    run() // fires onTrack, then lets browser navigate
-  }
-
+}: TrackingAnchorProps) {
   return (
     <a
       href={href}
-      onClick={onClick}
+      onClick={() => onTrack?.()}
       download={download === true ? "" : download}
       className={className}
       target={target}
@@ -234,16 +215,15 @@ export function PdfModalOverlay({
               asChild
               className="h-8 gap-1.5 rounded-lg text-xs font-semibold text-white/70 hover:text-white hover:bg-white/10 border border-white/10 hover:border-white/20"
             >
-              <GatedAnchor
+              <TrackingAnchor
                 href={downloadUrl}
-                isOpenAccess={Boolean(isOpenAccess)}
                 target="_blank"
                 rel="noopener noreferrer"
                 onTrack={trackDownload}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">New Tab</span>
-              </GatedAnchor>
+              </TrackingAnchor>
             </Button>
             <Button
               variant="ghost"
@@ -251,9 +231,8 @@ export function PdfModalOverlay({
               asChild
               className="h-8 gap-1.5 rounded-lg text-xs font-semibold bg-primary/20 text-primary hover:bg-primary hover:text-white border border-primary/30 hover:border-primary"
             >
-              <GatedAnchor
+              <TrackingAnchor
                 href={downloadUrl}
-                isOpenAccess={Boolean(isOpenAccess)}
                 download
                 target="_blank"
                 rel="noopener noreferrer"
@@ -261,7 +240,7 @@ export function PdfModalOverlay({
               >
                 <Download className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Download</span>
-              </GatedAnchor>
+              </TrackingAnchor>
             </Button>
           </div>
 
@@ -295,7 +274,6 @@ export function PdfModalOverlay({
           {isMobile ? (
             <MobileFallback
               downloadUrl={downloadUrl}
-              isOpenAccess={Boolean(isOpenAccess)}
               onTrack={trackDownload}
             />
           ) : hasError ? (
@@ -303,7 +281,6 @@ export function PdfModalOverlay({
               errorCode={errorCode}
               downloadUrl={downloadUrl}
               onRetry={onRetry}
-              isOpenAccess={Boolean(isOpenAccess)}
               onTrack={trackDownload}
             />
           ) : (
@@ -313,7 +290,6 @@ export function PdfModalOverlay({
                   probing={probeState === "probing"}
                   loadTimedOut={loadTimedOut}
                   downloadUrl={downloadUrl}
-                  isOpenAccess={Boolean(isOpenAccess)}
                 />
               )}
               {probeState === "ready" && (
@@ -342,10 +318,9 @@ interface LoadingStateProps {
   probing: boolean
   loadTimedOut: boolean
   downloadUrl: string
-  isOpenAccess: boolean
 }
 
-function LoadingState({ probing, loadTimedOut, downloadUrl, isOpenAccess }: LoadingStateProps) {
+function LoadingState({ probing, loadTimedOut, downloadUrl }: LoadingStateProps) {
   return (
     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-[#1a1a1a] animate-in fade-in duration-200">
       <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -357,15 +332,14 @@ function LoadingState({ probing, loadTimedOut, downloadUrl, isOpenAccess }: Load
       {loadTimedOut && (
         <p className="text-xs text-white/50 max-w-xs text-center">
           Taking longer than expected.{" "}
-          <GatedAnchor
+          <a
             href={downloadUrl}
-            isOpenAccess={isOpenAccess}
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-white/70"
           >
             Open in a new tab
-          </GatedAnchor>{" "}
+          </a>{" "}
           or download.
         </p>
       )}
@@ -377,11 +351,10 @@ interface ErrorStateProps {
   errorCode: PdfErrorCode | null
   downloadUrl: string
   onRetry: () => void
-  isOpenAccess: boolean
   onTrack?: () => void
 }
 
-function ErrorState({ errorCode, downloadUrl, onRetry, isOpenAccess, onTrack }: ErrorStateProps) {
+function ErrorState({ errorCode, downloadUrl, onRetry, onTrack }: ErrorStateProps) {
   const copy = errorCopyFor(errorCode)
   const Icon = copy.icon
   const accent =
@@ -406,9 +379,8 @@ function ErrorState({ errorCode, downloadUrl, onRetry, isOpenAccess, onTrack }: 
           <RefreshCw className="h-4 w-4" />
           Retry
         </button>
-        <GatedAnchor
+        <TrackingAnchor
           href={downloadUrl}
-          isOpenAccess={isOpenAccess}
           target="_blank"
           rel="noopener noreferrer"
           onTrack={onTrack}
@@ -416,7 +388,7 @@ function ErrorState({ errorCode, downloadUrl, onRetry, isOpenAccess, onTrack }: 
         >
           <ExternalLink className="h-4 w-4" />
           Open in new tab
-        </GatedAnchor>
+        </TrackingAnchor>
       </div>
     </div>
   )
@@ -424,11 +396,9 @@ function ErrorState({ errorCode, downloadUrl, onRetry, isOpenAccess, onTrack }: 
 
 function MobileFallback({
   downloadUrl,
-  isOpenAccess,
   onTrack,
 }: {
   downloadUrl: string
-  isOpenAccess: boolean
   onTrack?: () => void
 }) {
   return (
@@ -445,9 +415,8 @@ function MobileFallback({
       </div>
 
       <div className="flex flex-wrap gap-3 justify-center">
-        <GatedAnchor
+        <TrackingAnchor
           href={downloadUrl}
-          isOpenAccess={isOpenAccess}
           target="_blank"
           rel="noopener noreferrer"
           onTrack={onTrack}
@@ -455,10 +424,9 @@ function MobileFallback({
         >
           <ExternalLink className="h-4 w-4" />
           Open in Browser
-        </GatedAnchor>
-        <GatedAnchor
+        </TrackingAnchor>
+        <TrackingAnchor
           href={downloadUrl}
-          isOpenAccess={isOpenAccess}
           download
           target="_blank"
           rel="noopener noreferrer"
@@ -467,7 +435,7 @@ function MobileFallback({
         >
           <Download className="h-4 w-4" />
           Download PDF
-        </GatedAnchor>
+        </TrackingAnchor>
       </div>
     </div>
   )

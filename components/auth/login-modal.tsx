@@ -8,8 +8,11 @@ import { subscribeLoginModal, type OpenLoginEvent } from "./login-modal-bus"
 
 /**
  * ORCID sign-in modal. Imperatively opened via openLoginModal({ return_url })
- * from useGatedAction or any other call site. Renders a centered modal on
- * ≥641px viewports and a full-screen drawer on ≤640px.
+ * from any call site that wants to invite the visitor to sign in (e.g., a
+ * "Sign in" link in the nav, or the /account/* pages when reached
+ * anonymously). Sign-in is OPT-IN — nothing on the public site requires it.
+ * Renders a centered modal on ≥641px viewports and a full-screen drawer on
+ * ≤640px.
  *
  * The sign-in CTA is a plain `<a>` to /api/auth/orcid/start with the
  * captured return_url — the modal does no client-side OAuth work itself.

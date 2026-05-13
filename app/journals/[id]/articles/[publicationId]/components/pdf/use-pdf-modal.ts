@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from "react"
-import { useGatedAction } from "@/src/hooks/use-gated-action"
 import { recordViewEvent } from "@/src/hooks/use-metric-events"
 
 export type PdfProbeState = "idle" | "probing" | "ready" | "error"
@@ -67,16 +66,16 @@ function isPdfErrorCode(value: string | null): value is PdfErrorCode {
 }
 
 export interface UsePdfModalOptions {
+  /** Kept for backward compat; no longer used for gating. */
   isOpenAccess?: boolean
   articleId?: number | string
   journalId?: number | string
 }
 
 export function usePdfModal(pdfUrl: string | null, options: UsePdfModalOptions | boolean = true) {
-  // Backward-compat: callers that pass a bare boolean still work.
-  const opts: UsePdfModalOptions =
-    typeof options === "boolean" ? { isOpenAccess: options } : options
-  const isOpenAccess = opts.isOpenAccess ?? true
+  // Accept legacy boolean callers gracefully but ignore the value — PDF
+  // view is open to everyone regardless of access_status.
+  const opts: UsePdfModalOptions = typeof options === "boolean" ? {} : options
   const articleId = opts.articleId
   const journalId = opts.journalId
 
@@ -93,7 +92,7 @@ export function usePdfModal(pdfUrl: string | null, options: UsePdfModalOptions |
   /** Fire pdf_view once per modal-open cycle. Reset on closeModal. */
   const viewFiredRef = useRef(false)
 
-  const rawOpen = useCallback(() => {
+  const openModal = useCallback(() => {
     triggerRef.current = document.activeElement as HTMLElement
     setLoaded(false)
     setLoadTimedOut(false)
@@ -102,11 +101,6 @@ export function usePdfModal(pdfUrl: string | null, options: UsePdfModalOptions |
     viewFiredRef.current = false
     setOpen(true)
   }, [])
-
-  // UIET-P1: gate non-OA opens behind the ORCID identity cookie. When the
-  // user is anonymous and the article is not open access, the modal does
-  // not open; the global LoginModal is shown instead.
-  const { run: openModal } = useGatedAction(rawOpen, { isOpenAccess })
 
   const closeModal = useCallback(() => {
     setOpen(false)

@@ -128,10 +128,10 @@ The two cookies are wholly separate code paths and MUST NOT cross-pollinate.
 
 ### Public-user identity (UIET-P1)
 
-- **Sign in**: anonymous readers who try to view or download a non-OA PDF see a sign-in modal with a single "Sign in with ORCID" CTA. The OAuth flow round-trips through orcid.org and returns the user to the article.
+- **Open access**: PDF view, PDF download, abstract reading, and citation export are ALL open to every visitor. Nothing on the public site requires login.
+- **Sign in is opt-in**: a "Sign in with ORCID" entry point lets researchers attribute their engagement to their ORCID iD and unlock `/account/stats` (their own engagement breakdown) and `/account/data` (right-to-erasure). The OAuth flow round-trips through orcid.org and returns the user to the page they came from.
 - **Cookie**: `digitopub_identity` is HMAC-signed (`IDENTITY_COOKIE_SECRET`), 30 min sliding expiry, 8 h absolute expiry, ±2 min skew tolerance. Host-only on `digitopub.com`, `httpOnly; Secure; SameSite=Lax`.
-- **OA awareness**: PDF view and download are gated only when `article.isOpenAccess === false`. Abstracts and citation export are always anonymous-allowed.
-- **Server-side enforcement**: `/api/pdf-proxy` rejects non-OA requests without a valid identity cookie (401 with `WWW-Authenticate: orcid`).
+- **No PDF gating**: `/api/pdf-proxy` serves any galley to any visitor. The proxy may inspect the cookie for attribution but never blocks. An earlier draft of UIET-P1 gated non-OA PDFs; that gate was dropped before launch on open-access principle.
 - **OJS linkage**: on first ORCID login we link the iD to the matching OJS user (by ORCID iD first, then email). When `ENABLE_ORCID_OJS_BACKFILL=true`, we write the ORCID iD back into OJS `user_settings`. Every such write is audited in `audit_ojs_writes`. Default OFF in production.
 
 ### Engagement tracking

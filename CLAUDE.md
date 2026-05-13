@@ -46,10 +46,11 @@ The system enforces strict identity separation. **The previous "digitopub never 
 - ±2 minutes clock-skew tolerance on `iat` and both expiries.
 - Revoked via `revoked_orcids.cookie_iat_min` — cookies with `iat < cookie_iat_min` are rejected even if signature and expiries are valid.
 
-**OA-aware gating**:
-- PDF view + download are allowed when `article.isOpenAccess === true` regardless of identity.
-- Non-OA require a valid identity cookie. Enforcement is BOTH client-side (`useGatedAction` opens the login modal) AND server-side (`/api/pdf-proxy` returns 401 with `WWW-Authenticate: orcid` for unauthenticated non-OA requests).
-- Abstract reading and citation export are NEVER gated.
+**Open access — no gating**:
+- PDF view, PDF download, abstract reading, and citation export are ALL open to every visitor regardless of `article.isOpenAccess`, ORCID sign-in state, or any other property.
+- An earlier draft of UIET-P1 gated non-OA PDF actions behind the identity cookie; that gate was removed before launch on open-access principle.
+- Sign-in is OPT-IN. It exists so signed-in researchers' engagement is attributed to their ORCID iD and so they can use `/account/stats` and `/account/data` (right-to-erasure).
+- `/api/pdf-proxy` MUST NOT reject requests on identity grounds. It may inspect the cookie for attribution but never block.
 
 **Engagement tracking**: `user_event` rows are written for views, downloads, and citation exports. Server-side dedup:
 - View: once per `(article, identity_or_iphash, UTC day)`.
