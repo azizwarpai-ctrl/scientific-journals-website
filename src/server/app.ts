@@ -14,8 +14,6 @@ import { statisticsRouter } from "@/src/features/statistics/server"
 import { emailTemplateRouter } from "@/src/features/email-templates/server"
 import { billingRouter } from "@/src/features/billing/server"
 import { searchRouter } from "@/src/features/search/server"
-import { fetchFromDatabase } from "@/src/features/ojs/server/ojs-service"
-import { triggerStartupSync } from "@/src/features/ojs/server/sync-ojs-journals"
 import { authOrcidRouter } from "@/src/server/routes/auth-orcid"
 import { accountRouter } from "@/src/server/routes/account"
 
