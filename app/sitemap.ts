@@ -9,24 +9,66 @@ import { fetchCurrentIssue } from "@/src/features/journals/server/current-issue-
 import { isOjsConfigured } from "@/src/features/ojs/server/ojs-client"
 import { buildCanonical } from "@/src/lib/seo/canonical"
 
-// Sitemap must be generated at request time, not build time, since it
-// queries the database. This prevents build failures when DATABASE_URL
-// is unset in CI/build environments.
-export const dynamic = "force-dynamic"
-
-// Regenerate hourly. OJS lookups are not free, and the article corpus does
-// not change minute-to-minute.
+// ISR: recompute the sitemap at most once per hour; serve the cached XML in
+// between so a cold OJS / DB cannot stall every crawler hit.
 export const revalidate = 3600
+
+// Maximum time we wait for any single OJS / DB lookup. Past this, the call is
+// abandoned and the sitemap is emitted with fewer URLs rather than no
+// response at all. Each OJS lookup also has its own retry budget, so this is
+// the upper bound from sitemap.ts's perspective.
+const PER_QUERY_TIMEOUT_MS = 4000
+
+// Public, non-dynamic routes that must appear in the sitemap regardless of
+// whether the database or OJS is reachable. Source of truth: config/routes.ts
+// PUBLIC_ROUTES, filtered to indexable pages (auth/account/admin routes are
+// intentionally omitted — they're disallow'd in robots.txt).
+const STATIC_PUBLIC_PATHS = [
+  "/about",
+  "/contact",
+  "/help",
+  "/help/submission-service",
+  "/help/technical-support",
+  "/journals",
+  "/solutions",
+  "/submit-manager",
+  "/register",
+] as const
 
 interface IssueRef {
   issueId: number
   datePublished: string | null
 }
 
+// Run `p` but bail out after `ms`. Returns `null` on timeout or rejection so
+// the caller can degrade gracefully without try/catch noise at every call site.
+async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | null> {
+  let timer: NodeJS.Timeout | undefined
+  try {
+    return await Promise.race<T | null>([
+      p.catch((err) => {
+        console.error(`[sitemap] ${label} rejected:`, err)
+        return null
+      }),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => {
+          console.error(`[sitemap] ${label} timed out after ${ms}ms`)
+          resolve(null)
+        }, ms)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
   const entries: MetadataRoute.Sitemap = []
 
+  // ── Homepage + static routes ────────────────────────────────────
+  // Always emitted, no I/O dependency. Guarantees the sitemap is never empty
+  // even if Prisma and OJS are both unreachable.
   entries.push({
     url: buildCanonical("/"),
     lastModified: now,
@@ -34,9 +76,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 1.0,
   })
 
-  const journals = await prisma.journal.findMany({
-    select: { id: true, ojs_id: true, updated_at: true },
-  })
+  for (const path of STATIC_PUBLIC_PATHS) {
+    entries.push({
+      url: buildCanonical(path),
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.5,
+    })
+  }
+
+  // ── Journals (Prisma) ───────────────────────────────────────────
+  const journals = await withTimeout(
+    prisma.journal.findMany({
+      select: { id: true, ojs_id: true, updated_at: true },
+    }),
+    PER_QUERY_TIMEOUT_MS,
+    "prisma.journal.findMany"
+  )
+  if (!journals) return entries
 
   const ojsAvailable = isOjsConfigured()
 
@@ -55,42 +112,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     const issueRefs: IssueRef[] = []
 
-    try {
-      const current = await fetchCurrentIssue(journal.ojs_id)
-      if (current) {
-        issueRefs.push({ issueId: current.issueId, datePublished: current.datePublished })
-      }
-    } catch (err) {
-      console.error(
-        `[sitemap] fetchCurrentIssue failed for journal ojs_id=${journal.ojs_id}:`,
-        err
-      )
+    const current = await withTimeout(
+      fetchCurrentIssue(journal.ojs_id),
+      PER_QUERY_TIMEOUT_MS,
+      `fetchCurrentIssue(ojs_id=${journal.ojs_id})`
+    )
+    if (current) {
+      issueRefs.push({ issueId: current.issueId, datePublished: current.datePublished })
     }
 
-    try {
-      const archive = await fetchArchiveIssues(journal.ojs_id)
+    const archive = await withTimeout(
+      fetchArchiveIssues(journal.ojs_id),
+      PER_QUERY_TIMEOUT_MS,
+      `fetchArchiveIssues(ojs_id=${journal.ojs_id})`
+    )
+    if (archive) {
       for (const issue of archive) {
         if (issueRefs.some((r) => r.issueId === issue.issueId)) continue
         issueRefs.push({ issueId: issue.issueId, datePublished: issue.datePublished })
       }
-    } catch (err) {
-      console.error(
-        `[sitemap] fetchArchiveIssues failed for journal ojs_id=${journal.ojs_id}:`,
-        err
-      )
     }
 
     for (const { issueId } of issueRefs) {
-      let issue
-      try {
-        issue = await fetchIssueWithArticles(journal.ojs_id, issueId)
-      } catch (err) {
-        console.error(
-          `[sitemap] fetchIssueWithArticles failed for journal ojs_id=${journal.ojs_id}, issue_id=${issueId}:`,
-          err
-        )
-        continue
-      }
+      const issue = await withTimeout(
+        fetchIssueWithArticles(journal.ojs_id, issueId),
+        PER_QUERY_TIMEOUT_MS,
+        `fetchIssueWithArticles(ojs_id=${journal.ojs_id}, issue_id=${issueId})`
+      )
       if (!issue) continue
 
       const issueLastModified = issue.datePublished

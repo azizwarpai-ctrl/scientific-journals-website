@@ -16,9 +16,22 @@ import { useGetPlatformStatistics } from "@/src/features/statistics/api/use-get-
 import { JournalCardSkeleton } from "@/components/skeletons/journal-card-skeleton"
 import { CtaSection } from "@/components/cta-section"
 
-export default function HomePageClient() {
-  const { data: journals = [], isLoading: isLoadingOjs, isError: isErrorOjs } = useGetJournals()
+interface HomePageClientProps {
+  initialJournals?: Journal[]
+}
+
+export default function HomePageClient({ initialJournals = [] }: HomePageClientProps) {
+  const journalsQuery = useGetJournals()
   const { data: stats, isLoading: isLoadingStats, isError: isErrorStats } = useGetPlatformStatistics()
+
+  // Render the SSR-fetched journals when the client query is still warming up
+  // so the featured carousel ships in the initial HTML (crawlable links,
+  // no flash of skeletons). Once the client query resolves we switch to its
+  // result for live updates.
+  const hasInitialJournals = initialJournals.length > 0
+  const journals: Journal[] = journalsQuery.data ?? initialJournals
+  const isLoadingOjs = !hasInitialJournals && journalsQuery.isLoading
+  const isErrorOjs = !hasInitialJournals && journalsQuery.isError
 
   /* ── Horizontal scroll controls ───────────────────────────── */
   const scrollRef = useRef<HTMLDivElement>(null)

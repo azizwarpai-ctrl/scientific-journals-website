@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // SEO: pin URL canonicalization so buildCanonical / sitemap / robots all
+  // agree with what Next.js actually serves. trailingSlash=false matches
+  // src/lib/seo/canonical.ts which strips trailing slashes, and resolves
+  // the GSC "duplicate, user didn't select canonical" warning.
+  trailingSlash: false,
   images: {
     unoptimized: true,
     remotePatterns: [

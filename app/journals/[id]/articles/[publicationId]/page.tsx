@@ -5,6 +5,7 @@ import { HydrationBoundary, dehydrate, QueryClient } from "@tanstack/react-query
 
 import { client } from "@/src/lib/rpc"
 import { ArticlePageClient } from "./components/article-page-client"
+import { ArticleJsonLd } from "@/app/journals/[id]/articles/[publicationId]/components/article-jsonld"
 import type { ArticleDetail, ArticleDetailAuthor } from "@/src/features/journals/types/article-detail-types"
 import { buildCitationMeta } from "@/src/features/journals/server/citation-meta"
 import { resolveJournalOjsId } from "@/src/features/journals/server/resolve-journal"
@@ -126,7 +127,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
     queryKey: ["journal-article-detail", resolvedParams.id, publicationIdNum],
     queryFn: async () => {
       const data = await getArticleData(resolvedParams.id, resolvedParams.publicationId)
-      
+
       // We throw errors in fetcher specifically so react-query catches them or error boundaries engage
       if (data.error === "SERVER_ERROR") throw new Error("Internal Server Error fetching article data via API")
       if (data.error === "ARTICLE_NOT_FOUND" || data.error === "INVALID_ID") return { data: null } // will resolve as empty, hooked correctly
@@ -139,16 +140,24 @@ export default async function ArticleDetailPage({ params }: PageProps) {
   // This triggers error.tsx natively if cache resulted in a system failure
   const dehydratedState = dehydrate(queryClient)
   const cachedResult = dehydratedState.queries.find(q => q.queryKey[0] === "journal-article-detail")
-  
+
   if (cachedResult?.state?.error) {
     throw new Error("Unable to fetch structural resources safely for the article.")
   }
 
+  // Pull the prefetched article so we can server-render ScholarlyArticle
+  // JSON-LD without an extra fetch.
+  const prefetched = cachedResult?.state?.data as
+    | { data: ArticleDetail | null }
+    | undefined
+  const article = prefetched?.data ?? null
+
   return (
     <HydrationBoundary state={dehydratedState}>
-       <ArticlePageClient 
-          journalIdStr={resolvedParams.id} 
-          publicationIdStr={resolvedParams.publicationId} 
+       {article && <ArticleJsonLd article={article} />}
+       <ArticlePageClient
+          journalIdStr={resolvedParams.id}
+          publicationIdStr={resolvedParams.publicationId}
        />
     </HydrationBoundary>
   )
