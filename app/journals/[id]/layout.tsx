@@ -6,6 +6,10 @@ import { resolveJournalOjsId } from "@/src/features/journals/server/resolve-jour
 import { buildCanonical } from "@/src/lib/seo/canonical"
 import { PeriodicalJsonLd } from "@/components/seo/periodical-jsonld"
 
+// React.cache dedupes the resolver across generateMetadata + layout body
+// within a single request.
+const cachedResolveJournalOjsId = cache((id: string) => resolveJournalOjsId(id))
+
 interface LayoutProps {
   children: React.ReactNode
   params: Promise<{ id: string }>
@@ -49,7 +53,7 @@ const getJournalForSeo = cache(async (id: string): Promise<JournalForSeo | null>
 
 export async function generateMetadata({ params }: LayoutProps): Promise<Metadata> {
   const { id } = await params
-  const resolved = await resolveJournalOjsId(id)
+  const resolved = await cachedResolveJournalOjsId(id)
   const canonicalId = resolved.found && resolved.ojsId ? resolved.ojsId : id
   const canonicalUrl = buildCanonical(`/journals/${canonicalId}`)
 
@@ -77,7 +81,7 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
 
 export default async function JournalSegmentLayout({ children, params }: LayoutProps) {
   const { id } = await params
-  const resolved = await resolveJournalOjsId(id)
+  const resolved = await cachedResolveJournalOjsId(id)
   const canonicalId = resolved.found && resolved.ojsId ? resolved.ojsId : id
   const canonicalUrl = buildCanonical(`/journals/${canonicalId}`)
   const journal = await getJournalForSeo(id)
