@@ -9,9 +9,8 @@ import { fetchCurrentIssue } from "@/src/features/journals/server/current-issue-
 import { isOjsConfigured } from "@/src/features/ojs/server/ojs-client"
 import { buildCanonical } from "@/src/lib/seo/canonical"
 
-// Generated at request time. ISR ensures we recompute hourly and serve the
-// cached XML in between, so a cold OJS / DB does not stall every crawler hit.
-export const dynamic = "force-dynamic"
+// ISR: recompute the sitemap at most once per hour; serve the cached XML in
+// between so a cold OJS / DB cannot stall every crawler hit.
 export const revalidate = 3600
 
 // Maximum time we wait for any single OJS / DB lookup. Past this, the call is
@@ -87,15 +86,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // ── Journals (Prisma) ───────────────────────────────────────────
-  let journals: Array<{ id: bigint; ojs_id: string | null; updated_at: Date | null }> = []
-  try {
-    journals = await prisma.journal.findMany({
+  const journals = await withTimeout(
+    prisma.journal.findMany({
       select: { id: true, ojs_id: true, updated_at: true },
-    })
-  } catch (err) {
-    console.error("[sitemap] prisma.journal.findMany failed; emitting static routes only:", err)
-    return entries
-  }
+    }),
+    PER_QUERY_TIMEOUT_MS,
+    "prisma.journal.findMany"
+  )
+  if (!journals) return entries
 
   const ojsAvailable = isOjsConfigured()
 

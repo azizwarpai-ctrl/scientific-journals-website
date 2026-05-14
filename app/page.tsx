@@ -4,7 +4,7 @@ import { prisma } from "@/src/lib/db/config"
 import { serializeMany } from "@/src/lib/serialize"
 import { buildCanonical } from "@/src/lib/seo/canonical"
 import type { Journal } from "@/src/features/journals"
-import HomePageClient from "./home-page-client"
+import HomePageClient from "@/app/home-page-client"
 
 export const metadata: Metadata = {
   title: "DigitoPub — Scientific Journals Platform",
@@ -26,26 +26,9 @@ async function getInitialJournals(): Promise<Journal[]> {
       select: {
         id: true,
         title: true,
-        abbreviation: true,
-        issn: true,
-        e_issn: true,
-        description: true,
-        field: true,
-        publisher: true,
-        editor_in_chief: true,
-        frequency: true,
-        submission_fee: true,
-        publication_fee: true,
         cover_image_url: true,
-        website_url: true,
-        status: true,
-        created_at: true,
-        updated_at: true,
-        created_by: true,
         ojs_id: true,
         ojs_path: true,
-        aims_and_scope: true,
-        author_guidelines: true,
       },
     })
     return serializeMany(journals) as unknown as Journal[]

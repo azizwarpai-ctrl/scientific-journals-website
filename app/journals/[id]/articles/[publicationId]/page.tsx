@@ -5,7 +5,7 @@ import { HydrationBoundary, dehydrate, QueryClient } from "@tanstack/react-query
 
 import { client } from "@/src/lib/rpc"
 import { ArticlePageClient } from "./components/article-page-client"
-import { ArticleJsonLd } from "./components/article-jsonld"
+import { ArticleJsonLd } from "@/app/journals/[id]/articles/[publicationId]/components/article-jsonld"
 import type { ArticleDetail, ArticleDetailAuthor } from "@/src/features/journals/types/article-detail-types"
 import { buildCitationMeta } from "@/src/features/journals/server/citation-meta"
 import { resolveJournalOjsId } from "@/src/features/journals/server/resolve-journal"

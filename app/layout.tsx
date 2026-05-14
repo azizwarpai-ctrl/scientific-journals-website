@@ -14,7 +14,20 @@ import "./globals.css"
 // metadataBase resolves relative OG / Twitter / canonical URLs against the
 // production origin. Without it, those tags emit hostnames like localhost
 // in production HTML.
-const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://digitopub.com").replace(/\/+$/, "")
+const RAW_APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://digitopub.com").replace(/\/+$/, "")
+// Guard against a misconfigured env var that lacks a scheme (e.g. "example.com")
+// which would make `new URL()` throw at module-evaluation time.
+const APP_URL = RAW_APP_URL.startsWith("http://") || RAW_APP_URL.startsWith("https://")
+  ? RAW_APP_URL
+  : `https://${RAW_APP_URL}`
+
+function safeMetadataBase(): URL {
+  try {
+    return new URL(APP_URL)
+  } catch {
+    return new URL("https://digitopub.com")
+  }
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -22,7 +35,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL(APP_URL),
+  metadataBase: safeMetadataBase(),
   title: {
     default: "DigitoPub - Scientific Journals Platform",
     template: "%s | DigitoPub",

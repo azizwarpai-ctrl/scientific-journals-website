@@ -43,7 +43,7 @@ export async function middleware(request: NextRequest) {
     try {
       const JWT_SECRET = getJwtSecret()
       await jose.jwtVerify(token, JWT_SECRET)
-      return NextResponse.redirect(new URL("/admin/dashboard", request.url))
+      return withNoindex(NextResponse.redirect(new URL("/admin/dashboard", request.url)), pathname)
     } catch {
       // Token invalid, let it proceed to login page
     }
