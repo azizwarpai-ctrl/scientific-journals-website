@@ -26,6 +26,7 @@ export default function RegisterPage() {
       <Navbar />
 
       <main className="flex-1 py-12">
+        <h1 className="sr-only">Create your DigitoPub account</h1>
         <div className="container mx-auto px-4 md:px-6">
           <div className="mx-auto max-w-2xl">
             <GSAPWrapper animation="slideUp">
