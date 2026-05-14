@@ -1,10 +1,12 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 
 import { useGetArticleDetail } from "@/src/features/journals/api/use-get-article-detail"
+import { recordViewEvent } from "@/src/hooks/use-metric-events"
 
 import { ArticleHeader } from "./article-header"
 import { ArticleAbstract } from "./article-abstract"
@@ -18,9 +20,25 @@ interface ArticlePageClientProps {
 export function ArticlePageClient({ journalIdStr, publicationIdStr }: ArticlePageClientProps) {
   // Try to parse publication ID or let it fail
   const pubId = parseInt(publicationIdStr, 10)
-  
+
   const { data: responseData, isLoading, error } = useGetArticleDetail(journalIdStr, isNaN(pubId) ? 0 : pubId)
-  
+
+  // UIET-P1: fire a single article_page view once per article load. The
+  // server-side recorder dedupes per (article, identity-or-iphash, UTC day).
+  const viewFiredRef = useRef<string | null>(null)
+  useEffect(() => {
+    const article = responseData?.data
+    if (!article) return
+    const key = `${article.publicationId}`
+    if (viewFiredRef.current === key) return
+    viewFiredRef.current = key
+    recordViewEvent({
+      article_id: article.publicationId,
+      journal_id: article.journalId,
+      source: "article_page",
+    })
+  }, [responseData])
+
   if (isNaN(pubId)) {
     return notFound()
   }

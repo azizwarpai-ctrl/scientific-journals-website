@@ -1,0 +1,206 @@
+openapi: 3.1.0
+info:
+  title: digitopub Engagement Metrics API
+  version: "1.0.0-UIET-P1"
+  description: |
+    Engagement event ingestion endpoints. Each call may be attributed to an
+    authenticated ORCID (via `digitopub_identity` cookie) or to a daily-rotating
+    IP hash if anonymous. Behavior depends on the `digitopub_consent` cookie:
+    - `choice=all` → write with `ip_hash`, `ua_hash`.
+    - `choice=essential_only` → write with `source='essential_only'`, no `ip_hash`/`ua_hash`.
+    - no choice yet (within 30-day grace) → write with `source='pre_consent'`, all hashes NULL.
+    All endpoints are rate-limited (60/min/IP, 600/hour/IP). All endpoints are POST.
+
+servers:
+  - url: https://digitopub.com
+  - url: http://localhost:3000
+
+components:
+  schemas:
+    ViewRequest:
+      type: object
+      required: [article_id, journal_id, source]
+      properties:
+        article_id:
+          type: string
+          pattern: '^\d+$'
+          description: OJS publication_id, as a string (BigInt safety).
+        journal_id:
+          type: string
+          pattern: '^\d+$'
+        source:
+          type: string
+          enum: [article_page, pdf_view]
+
+    DownloadRequest:
+      type: object
+      required: [article_id, journal_id, galley_id]
+      properties:
+        article_id:
+          type: string
+          pattern: '^\d+$'
+        journal_id:
+          type: string
+          pattern: '^\d+$'
+        galley_id:
+          type: string
+          pattern: '^\d+$'
+
+    CitationRequest:
+      type: object
+      required: [article_id, journal_id, format, action]
+      properties:
+        article_id:
+          type: string
+          pattern: '^\d+$'
+        journal_id:
+          type: string
+          pattern: '^\d+$'
+        format:
+          type: string
+          enum: [vancouver, apa, ris, bibtex, plain]
+        action:
+          type: string
+          enum: [copy, export]
+
+    EventResponse:
+      type: object
+      required: [recorded, deduped]
+      properties:
+        recorded:
+          type: boolean
+        deduped:
+          type: boolean
+          description: |
+            True if the event matched a dedup rule and no new row was written.
+            View: dedup per (article, identity, UTC day).
+            Download: dedup per (article, galley, identity) within 30 s.
+            Citation: never deduped (always `false`).
+
+    ErrorBody:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+          enum: [INVALID_REQUEST, RATE_LIMITED, CONSENT_BLOCKED, INTERNAL_ERROR]
+        message:
+          type: string
+
+  securitySchemes:
+    digitopub_identity_cookie:
+      type: apiKey
+      in: cookie
+      name: digitopub_identity
+    digitopub_consent_cookie:
+      type: apiKey
+      in: cookie
+      name: digitopub_consent
+
+paths:
+  /api/metrics/events/view:
+    post:
+      summary: Record an article view
+      description: |
+        Fired on article page mount (`source=article_page`) or when the PDF
+        modal reaches `probeState=ready` AND `loaded=true` (`source=pdf_view`).
+        Server-side dedup is global across sources within one UTC day per
+        (article, identity-or-ip-hash). Returns 200 in both new-insert and
+        dedup cases; the client never blocks on this call.
+      operationId: metricsView
+      security:
+        - {}
+        - digitopub_identity_cookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ViewRequest'
+      responses:
+        '200':
+          description: Event accepted (recorded or deduped).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+        '400':
+          description: Schema invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+
+  /api/metrics/events/download:
+    post:
+      summary: Record a PDF download
+      description: |
+        Fired when the user clicks any download / new-tab anchor in
+        `pdf-modal-overlay.tsx`. Server-side dedup: 30 s window per
+        (article, galley, identity-or-ip-hash).
+      operationId: metricsDownload
+      security:
+        - {}
+        - digitopub_identity_cookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DownloadRequest'
+      responses:
+        '200':
+          description: Event accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+        '400':
+          description: Schema invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded.
+
+  /api/metrics/events/citation:
+    post:
+      summary: Record a citation copy or export
+      description: |
+        Fired from `citation-box.tsx`'s `handleCopy` and `handleExport`.
+        No dedup — every copy/export is its own row.
+      operationId: metricsCitation
+      security:
+        - {}
+        - digitopub_identity_cookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CitationRequest'
+      responses:
+        '200':
+          description: Event accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+        '400':
+          description: Schema invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded.

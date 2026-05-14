@@ -14,6 +14,8 @@ import { statisticsRouter } from "@/src/features/statistics/server"
 import { emailTemplateRouter } from "@/src/features/email-templates/server"
 import { billingRouter } from "@/src/features/billing/server"
 import { searchRouter } from "@/src/features/search/server"
+import { authOrcidRouter } from "@/src/server/routes/auth-orcid"
+import { accountRouter } from "@/src/server/routes/account"
 
 const apiApp = new Hono()
     .route("/journals", journalRouter)
@@ -21,7 +23,11 @@ const apiApp = new Hono()
     .route("/help", helpRouter)
     .route("/help-categories", helpCategoriesRouter)
     .route("/help-topics", helpTopicsRouter)
+    // UIET-P1: ORCID public-user identity router. Mounted BEFORE admin auth
+    // so /auth/orcid/* never accidentally routes through admin auth handlers.
+    .route("/auth/orcid", authOrcidRouter)
     .route("/auth", authRouter)
+    .route("/account", accountRouter)
     .route("/messages", messageRouter)
     .route("/ojs", ojsRouter)
     .route("/metrics", metricsRouter)

@@ -140,8 +140,11 @@ model PublishedArticle {
   publication_date   DateTime   @db.Date
   pdf_url            String?    @db.VarChar(500)
   html_url           String?    @db.VarChar(500)
+  /// DEPRECATED (UIET-P1) — use metrics_article_monthly. Retained for backward compat with legacy seed data.
   views_count        Int?       @default(0)
+  /// DEPRECATED (UIET-P1) — use metrics_article_monthly. Retained for backward compat with legacy seed data.
   downloads_count    Int?       @default(0)
+  /// DEPRECATED (UIET-P1) — use metrics_article_monthly. Retained for backward compat with legacy seed data.
   citations_count    Int?       @default(0)
   created_at         DateTime   @default(now())
   published_by       BigInt?
@@ -389,29 +392,128 @@ model AboutItem {
   @@map("about_items")
 }
 
-model faq_solutions {
-  id            BigInt   @id @default(autoincrement())
-  question      String   @db.Text
-  answer        String   @db.Text
-  category      String?  @db.VarChar(100)
-  is_published  Boolean  @default(false)
-  view_count    Int      @default(0)
-  helpful_count Int      @default(0)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @default(now())
+// =====================================================================
+// UIET-P1 — ORCID identity, engagement tracking, OA-aware PDF gating
+// =====================================================================
+
+/// Raw engagement log. One row per view / download / citation_export.
+model UserEvent {
+  id              BigInt   @id @default(autoincrement())
+  orcid           String?  @db.VarChar(19)
+  ip_hash         String?  @db.Char(64)
+  ua_hash         String?  @db.Char(64)
+  article_id      BigInt
+  journal_id      BigInt
+  galley_id       BigInt?
+  event_type      String   @db.VarChar(32)
+  source          String   @db.VarChar(32)
+  citation_format String?  @db.VarChar(16)
+  event_meta      Json?
+  dedup_key       String   @db.Char(64)
+  view_day        String?  @db.Char(10)
+  created_at      DateTime @default(now())
+
+  @@unique([article_id, event_type, dedup_key, view_day], map: "uq_user_event_view_dedup")
+  @@index([orcid, created_at])
+  @@index([article_id, event_type, created_at])
+  @@index([created_at])
+  @@map("user_event")
 }
 
-model help_articles {
-  id            BigInt   @id @default(autoincrement())
-  title         String   @db.VarChar(255)
-  content       String   @db.Text
-  category      String?  @db.VarChar(100)
-  icon          String?  @db.VarChar(100)
-  display_order Int      @default(0)
-  is_published  Boolean  @default(false)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @default(now())
+/// Daily aggregates per (article, day, source).
+model MetricsArticleDaily {
+  id               BigInt   @id @default(autoincrement())
+  article_id       BigInt
+  journal_id       BigInt
+  day              String   @db.Char(10)
+  views            Int      @default(0)
+  unique_views     Int      @default(0)
+  downloads        Int      @default(0)
+  unique_downloads Int      @default(0)
+  citations        Int      @default(0)
+  source           String   @default("digitopub") @db.VarChar(32)
+  computed_at      DateTime @default(now())
 
-  @@index([category])
-  @@index([is_published])
+  @@unique([article_id, day, source], map: "uq_daily_article_day_source")
+  @@index([journal_id, day])
+  @@index([day])
+  @@map("metrics_article_daily")
+}
+
+/// Monthly roll-up per (article, year, month, source).
+model MetricsArticleMonthly {
+  id               BigInt   @id @default(autoincrement())
+  article_id       BigInt
+  journal_id       BigInt
+  year             Int
+  month            Int
+  views            Int      @default(0)
+  unique_views     Int      @default(0)
+  downloads        Int      @default(0)
+  unique_downloads Int      @default(0)
+  citations        Int      @default(0)
+  source           String   @default("digitopub") @db.VarChar(32)
+  computed_at      DateTime @default(now())
+
+  @@unique([article_id, year, month, source], map: "uq_monthly_article_year_month_source")
+  @@index([journal_id, year, month])
+  @@index([year, month])
+  @@map("metrics_article_monthly")
+}
+
+/// Lifetime per-ORCID totals. Updated by the nightly aggregation job.
+model UserMetrics {
+  orcid         String   @id @db.VarChar(19)
+  views         Int      @default(0)
+  downloads     Int      @default(0)
+  citations     Int      @default(0)
+  first_seen_at DateTime
+  last_event_at DateTime
+  updated_at    DateTime @default(now()) @updatedAt
+
+  @@index([last_event_at])
+  @@map("user_metrics")
+}
+
+/// Post-deletion blocklist. Cookies with iat below cookie_iat_min are rejected.
+model RevokedOrcid {
+  orcid          String   @id @db.VarChar(19)
+  revoked_at     DateTime @default(now())
+  cookie_iat_min Int
+
+  @@map("revoked_orcids")
+}
+
+/// digitopub-side cache of orcid -> ojs_user_id. Survives cookie clears.
+model UserOrcidLink {
+  id             BigInt   @id @default(autoincrement())
+  orcid          String   @unique @db.VarChar(19)
+  ojs_user_id    BigInt
+  email_hash     String?  @db.Char(64)
+  linked_at      DateTime @default(now())
+  link_source    String   @db.VarChar(32)
+  ojs_backfilled Boolean  @default(false)
+
+  @@index([ojs_user_id])
+  @@map("user_orcid_links")
+}
+
+/// Append-only audit log of every write digitopub has performed on the OJS database.
+model AuditOjsWrite {
+  id             BigInt    @id @default(autoincrement())
+  request_id     String    @db.VarChar(36)
+  orcid          String    @db.VarChar(19)
+  ojs_user_id    BigInt
+  ojs_table      String    @db.VarChar(64)
+  ojs_column_set String    @db.Text
+  planned_at     DateTime  @default(now())
+  success        Boolean?
+  resolved_at    DateTime?
+  error          String?   @db.Text
+  reason         String    @db.VarChar(64)
+
+  @@index([orcid])
+  @@index([ojs_user_id])
+  @@index([planned_at])
+  @@map("audit_ojs_writes")
 }

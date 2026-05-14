@@ -5,6 +5,15 @@ export default defineConfig({
     test: {
         globals: true,
         environment: 'node',
+        // Per-file isolation so vi.mock() factories declared in one file
+        // don't bleed into another. The journals-self-heal tests dynamically
+        // import @/src/features/ojs/server/ojs-client; if another file has
+        // already loaded the real module into a shared worker, vi.mock()
+        // here can't override it. Forks pool + fileParallelism:false gives
+        // each file its own clean worker.
+        pool: 'forks',
+        isolate: true,
+        fileParallelism: false,
         env: {
             OJS_BASE_URL: 'http://localhost:8000',
             OJS_DATABASE_HOST: ''

@@ -11,9 +11,51 @@ import {
   RefreshCw,
   Unlock,
 } from "lucide-react"
-import { RefObject } from "react"
+import { ReactNode, RefObject } from "react"
 import { Button } from "@/components/ui/button"
+import { recordDownloadEvent } from "@/src/hooks/use-metric-events"
 import type { PdfErrorCode, PdfProbeState } from "./use-pdf-modal"
+
+interface TrackingAnchorProps {
+  href: string
+  download?: boolean | string
+  className?: string
+  target?: string
+  rel?: string
+  title?: string
+  children: ReactNode
+  /** Optional side-effect fired before navigation (e.g., metric write). */
+  onTrack?: () => void
+}
+
+/**
+ * Plain anchor with optional fire-and-forget tracking. No gating — every
+ * PDF action is open to everyone; we only count engagement.
+ */
+function TrackingAnchor({
+  href,
+  download,
+  className,
+  target,
+  rel,
+  title,
+  children,
+  onTrack,
+}: TrackingAnchorProps) {
+  return (
+    <a
+      href={href}
+      onClick={() => onTrack?.()}
+      download={download === true ? "" : download}
+      className={className}
+      target={target}
+      rel={rel}
+      title={title}
+    >
+      {children}
+    </a>
+  )
+}
 
 interface PdfModalOverlayProps {
   articleTitle: string
@@ -21,6 +63,9 @@ interface PdfModalOverlayProps {
   iframeSrc: string
   isMobile: boolean
   isOpenAccess?: boolean
+  articleId?: number | string
+  journalId?: number | string
+  galleyId?: number | string
   loaded: boolean
   loadTimedOut: boolean
   probeState: PdfProbeState
@@ -94,6 +139,9 @@ export function PdfModalOverlay({
   iframeSrc,
   isMobile,
   isOpenAccess,
+  articleId,
+  journalId,
+  galleyId,
   loaded,
   loadTimedOut,
   probeState,
@@ -107,6 +155,17 @@ export function PdfModalOverlay({
 }: PdfModalOverlayProps) {
   const hasError = probeState === "error"
   const showSpinner = !hasError && !isMobile && (probeState !== "ready" || !loaded)
+
+  // Helper to fire a download event right before the browser follows the link.
+  // Server-side recorder dedupes within 30s per (article, galley, identity).
+  const trackDownload = () => {
+    if (!articleId || !journalId || !galleyId) return
+    recordDownloadEvent({
+      article_id: articleId,
+      journal_id: journalId,
+      galley_id: galleyId,
+    })
+  }
 
   return (
     <div
@@ -156,10 +215,15 @@ export function PdfModalOverlay({
               asChild
               className="h-8 gap-1.5 rounded-lg text-xs font-semibold text-white/70 hover:text-white hover:bg-white/10 border border-white/10 hover:border-white/20"
             >
-              <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+              <TrackingAnchor
+                href={downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onTrack={trackDownload}
+              >
                 <ExternalLink className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">New Tab</span>
-              </a>
+              </TrackingAnchor>
             </Button>
             <Button
               variant="ghost"
@@ -167,10 +231,16 @@ export function PdfModalOverlay({
               asChild
               className="h-8 gap-1.5 rounded-lg text-xs font-semibold bg-primary/20 text-primary hover:bg-primary hover:text-white border border-primary/30 hover:border-primary"
             >
-              <a href={downloadUrl} download target="_blank" rel="noopener noreferrer">
+              <TrackingAnchor
+                href={downloadUrl}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                onTrack={trackDownload}
+              >
                 <Download className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Download</span>
-              </a>
+              </TrackingAnchor>
             </Button>
           </div>
 
@@ -202,13 +272,25 @@ export function PdfModalOverlay({
           </div>
 
           {isMobile ? (
-            <MobileFallback downloadUrl={downloadUrl} />
+            <MobileFallback
+              downloadUrl={downloadUrl}
+              onTrack={trackDownload}
+            />
           ) : hasError ? (
-            <ErrorState errorCode={errorCode} downloadUrl={downloadUrl} onRetry={onRetry} />
+            <ErrorState
+              errorCode={errorCode}
+              downloadUrl={downloadUrl}
+              onRetry={onRetry}
+              onTrack={trackDownload}
+            />
           ) : (
             <>
               {showSpinner && (
-                <LoadingState probing={probeState === "probing"} loadTimedOut={loadTimedOut} downloadUrl={downloadUrl} />
+                <LoadingState
+                  probing={probeState === "probing"}
+                  loadTimedOut={loadTimedOut}
+                  downloadUrl={downloadUrl}
+                />
               )}
               {probeState === "ready" && (
                 <iframe
@@ -269,9 +351,10 @@ interface ErrorStateProps {
   errorCode: PdfErrorCode | null
   downloadUrl: string
   onRetry: () => void
+  onTrack?: () => void
 }
 
-function ErrorState({ errorCode, downloadUrl, onRetry }: ErrorStateProps) {
+function ErrorState({ errorCode, downloadUrl, onRetry, onTrack }: ErrorStateProps) {
   const copy = errorCopyFor(errorCode)
   const Icon = copy.icon
   const accent =
@@ -296,21 +379,28 @@ function ErrorState({ errorCode, downloadUrl, onRetry }: ErrorStateProps) {
           <RefreshCw className="h-4 w-4" />
           Retry
         </button>
-        <a
+        <TrackingAnchor
           href={downloadUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onTrack={onTrack}
           className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary/80 hover:bg-primary text-white border border-primary/50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
           <ExternalLink className="h-4 w-4" />
           Open in new tab
-        </a>
+        </TrackingAnchor>
       </div>
     </div>
   )
 }
 
-function MobileFallback({ downloadUrl }: { downloadUrl: string }) {
+function MobileFallback({
+  downloadUrl,
+  onTrack,
+}: {
+  downloadUrl: string
+  onTrack?: () => void
+}) {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-8 text-center bg-[#1a1a1a]">
       <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -325,25 +415,27 @@ function MobileFallback({ downloadUrl }: { downloadUrl: string }) {
       </div>
 
       <div className="flex flex-wrap gap-3 justify-center">
-        <a
+        <TrackingAnchor
           href={downloadUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onTrack={onTrack}
           className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold text-white/80 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
         >
           <ExternalLink className="h-4 w-4" />
           Open in Browser
-        </a>
-        <a
+        </TrackingAnchor>
+        <TrackingAnchor
           href={downloadUrl}
           download
           target="_blank"
           rel="noopener noreferrer"
+          onTrack={onTrack}
           className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary/80 hover:bg-primary text-white border border-primary/50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
           <Download className="h-4 w-4" />
           Download PDF
-        </a>
+        </TrackingAnchor>
       </div>
     </div>
   )

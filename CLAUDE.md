@@ -23,18 +23,49 @@ bun run test path/to/test.test.ts  # Run a single test file
 ```
 ## Identity Ownership Model
 
-The system enforces strict identity separation:
+The system enforces strict identity separation. **The previous "digitopub never holds public-user identity" rule was amended by UIET-P1.** Current rule:
 
-- digitopub.com:
-  - Owns ONLY admin authentication (JWT-based)
-  - Has NO authority over public users
-  - Does NOT persist or validate public user credentials
+- **digitopub.com**:
+  - Owns admin authentication (JWT-based, `auth_token` cookie).
+  - **Also** holds an ORCID-derived public-user identity (`digitopub_identity` cookie). ORCID is the SOLE identity provider for public users; digitopub never sees passwords, never validates credentials, never stores email/password tuples.
+  - The two cookies are wholly separate code paths. Admin auth uses `getSession()` / `jwtVerify`; public auth uses `getIdentity()` / `verifyCookie` from `src/lib/identity-cookie.ts`. They MUST NOT cross-pollinate.
 
-- submitmanager.com (OJS):
-  - Owns ALL public user identities
-  - Handles login, sessions, roles, submissions
+- **submitmanager.com (OJS)**:
+  - Owns canonical public-user identities (editorial workflows still require an OJS account).
+  - Owns ALL submission and editorial workflows.
+  - digitopub writes to OJS via exactly ONE audited path: when `ENABLE_ORCID_OJS_BACKFILL=true`, the ORCID iD is written into OJS `user_settings` on first email-match login. Every such write is logged in `audit_ojs_writes`.
 
-## SSO Behavior
+## Public-User Identity (UIET-P1) — what changed and why
+
+**Why we added it**: anonymous readers can read OA articles freely. Non-OA articles must be gated, but the prior architecture had no way to identify a returning reader without bouncing them through OJS for every action. We now mint a self-contained, HMAC-signed identity cookie after a single ORCID OAuth round-trip. Sliding 30 min / absolute 8 h.
+
+**Cookie design**:
+- Name: `digitopub_identity`. Flags: `httpOnly; Secure; SameSite=Lax; Path=/`. No `Domain` attribute (host-only on `digitopub.com`).
+- Payload: `{orcid, ojs_user_id_or_null, email_hash, iat, exp_sliding, exp_absolute, version: 1}`.
+- HMAC-SHA256 signed with `IDENTITY_COOKIE_SECRET`.
+- ±2 minutes clock-skew tolerance on `iat` and both expiries.
+- Revoked via `revoked_orcids.cookie_iat_min` — cookies with `iat < cookie_iat_min` are rejected even if signature and expiries are valid.
+
+**Open access — no gating**:
+- PDF view, PDF download, abstract reading, and citation export are ALL open to every visitor regardless of `article.isOpenAccess`, ORCID sign-in state, or any other property.
+- An earlier draft of UIET-P1 gated non-OA PDF actions behind the identity cookie; that gate was removed before launch on open-access principle.
+- Sign-in is OPT-IN. It exists so signed-in researchers' engagement is attributed to their ORCID iD and so they can use `/account/stats` and `/account/data` (right-to-erasure).
+- `/api/pdf-proxy` MUST NOT reject requests on identity grounds. It may inspect the cookie for attribution but never block.
+
+**Engagement tracking**: `user_event` rows are written for views, downloads, and citation exports. Server-side dedup:
+- View: once per `(article, identity_or_iphash, UTC day)`.
+- Download: once per `(article, galley, identity_or_iphash)` within 30 s.
+- Citation export: never deduped.
+
+**Consent**: `digitopub_consent` cookie (NOT `httpOnly`, 1-year expiry, `SameSite=Lax`, host-only). Three modes: `all` (full ip/ua hashing), `essential_only` (no hashes), `pre_consent` (no orcid, no hashes, source='pre_consent'). After 31 dismissals without a choice, the banner becomes modal-locked.
+
+**The hard rules** (enforced by ESLint + CI grep):
+- NO public route may call `getSession()` or `jose.jwtVerify` directly. Public routes use `getIdentity(request)` from `src/lib/identity-cookie.ts`.
+- digitopub writes to OJS ONLY through `writeOrcidToOjsWithAudit()` in `src/lib/ojs-write-guard.ts`. Every write produces an `audit_ojs_writes` row.
+- `ENABLE_ORCID_OJS_BACKFILL` defaults to `false` in production. Flip with intent only.
+- Submission flow (registration → OJS) is unchanged. digitopub never intercepts submit clicks.
+
+## Legacy SSO Behavior (still in force for the registration handoff)
 
 Two flows exist:
 
@@ -45,9 +76,9 @@ digitopub → provision → generate token → redirect to OJS
 digitopub → direct link → OJS handles login
 
 digitopub MUST NOT:
-- check session
-- require login
-- intercept submission
+- check the OJS public session (no shared cookie ever existed)
+- require OJS login for digitopub navigation
+- intercept submission clicks
 
 ## Architecture
 

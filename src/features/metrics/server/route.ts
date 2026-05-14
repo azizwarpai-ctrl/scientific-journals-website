@@ -1,10 +1,16 @@
 import { Hono } from "hono"
 import { ojsQuery, isOjsConfigured } from "@/src/features/ojs/server/ojs-client"
 import { prisma } from "@/src/lib/db/config"
+import { metricsEventsRouter } from "@/src/server/routes/metrics-events"
 
 const AUTHOR_ROLE_ID = 65536 // PKP\security\Role::ROLE_ID_AUTHOR
 
 const app = new Hono()
+
+// UIET-P1: ingestion endpoints for view/download/citation events, scoped
+// under /api/metrics/events/* so they never collide with the existing
+// GET /api/metrics/ site-stats endpoint.
+app.route("/events", metricsEventsRouter)
 
 app.get("/", async (c) => {
     try {

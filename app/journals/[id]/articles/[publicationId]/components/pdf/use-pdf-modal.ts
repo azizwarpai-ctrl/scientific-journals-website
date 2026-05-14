@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react"
+import { recordViewEvent } from "@/src/hooks/use-metric-events"
 
 export type PdfProbeState = "idle" | "probing" | "ready" | "error"
 
@@ -64,7 +65,20 @@ function isPdfErrorCode(value: string | null): value is PdfErrorCode {
   )
 }
 
-export function usePdfModal(pdfUrl: string | null) {
+export interface UsePdfModalOptions {
+  /** Kept for backward compat; no longer used for gating. */
+  isOpenAccess?: boolean
+  articleId?: number | string
+  journalId?: number | string
+}
+
+export function usePdfModal(pdfUrl: string | null, options: UsePdfModalOptions | boolean = true) {
+  // Accept legacy boolean callers gracefully but ignore the value — PDF
+  // view is open to everyone regardless of access_status.
+  const opts: UsePdfModalOptions = typeof options === "boolean" ? {} : options
+  const articleId = opts.articleId
+  const journalId = opts.journalId
+
   const [open, setOpen] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [loadTimedOut, setLoadTimedOut] = useState(false)
@@ -75,6 +89,8 @@ export function usePdfModal(pdfUrl: string | null) {
   const panelRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** Fire pdf_view once per modal-open cycle. Reset on closeModal. */
+  const viewFiredRef = useRef(false)
 
   const openModal = useCallback(() => {
     triggerRef.current = document.activeElement as HTMLElement
@@ -82,11 +98,13 @@ export function usePdfModal(pdfUrl: string | null) {
     setLoadTimedOut(false)
     setProbeState("probing")
     setErrorCode(null)
+    viewFiredRef.current = false
     setOpen(true)
   }, [])
 
   const closeModal = useCallback(() => {
     setOpen(false)
+    viewFiredRef.current = false
   }, [])
 
   const retry = useCallback(() => {
@@ -107,6 +125,21 @@ export function usePdfModal(pdfUrl: string | null) {
     setProbeState("error")
     setErrorCode((prev) => prev ?? "NETWORK_ERROR")
   }, [])
+
+  // UIET-P1: fire pdf_view exactly once per modal-open cycle, when the
+  // iframe has both probed successfully AND fully loaded. Server-side
+  // dedup collapses this with the article_page view written on mount.
+  useEffect(() => {
+    if (!open || probeState !== "ready" || !loaded) return
+    if (viewFiredRef.current) return
+    if (!articleId || !journalId) return
+    viewFiredRef.current = true
+    recordViewEvent({
+      article_id: articleId,
+      journal_id: journalId,
+      source: "pdf_view",
+    })
+  }, [open, probeState, loaded, articleId, journalId])
 
   // Probe the URL each time the modal opens (or the user hits retry).
   // `probeState` is set to "probing" synchronously by openModal/retry, so

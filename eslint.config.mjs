@@ -88,4 +88,44 @@ export default [
             '@next/next/no-assign-module-variable': 'error', // Keep it but ignore artifacts via glob
         },
     },
+    // UIET-P1: ban admin-session helpers from public-facing surfaces.
+    // The new public-user identity layer (getIdentity from src/lib/identity-cookie)
+    // is sibling to the admin session and must never be confused with it.
+    {
+        files: [
+            'app/**/*.{ts,tsx}',
+            'src/server/routes/**/*.ts',
+        ],
+        ignores: [
+            'app/admin/**',
+            'app/api/[[...route]]/**',
+        ],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    paths: [
+                        {
+                            name: '@/src/lib/db/auth',
+                            importNames: ['getSession', 'createSession', 'destroySession'],
+                            message:
+                                'UIET-P1: public routes must use getIdentity from @/src/lib/identity-cookie, not the admin session helpers.',
+                        },
+                        {
+                            name: '@/src/lib/db/auth-edge',
+                            importNames: ['getSession'],
+                            message:
+                                'UIET-P1: public routes must use getIdentity from @/src/lib/identity-cookie, not the admin session helpers.',
+                        },
+                        {
+                            name: 'jose',
+                            importNames: ['jwtVerify'],
+                            message:
+                                'UIET-P1: public routes must use verifyCookie from @/src/lib/identity-cookie. jose.jwtVerify is reserved for the admin auth path.',
+                        },
+                    ],
+                },
+            ],
+        },
+    },
 ];

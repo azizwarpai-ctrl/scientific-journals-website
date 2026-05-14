@@ -1,0 +1,276 @@
+openapi: 3.1.0
+info:
+  title: digitopub ORCID Auth API
+  version: "1.0.0-UIET-P1"
+  description: |
+    Public-user identity endpoints. ORCID is the sole identity provider.
+    digitopub never reads or stores passwords. All endpoints are mounted under
+    `/api/auth/orcid/*`. Admin authentication (`/api/auth/login`, `/api/auth/logout`)
+    is a separate, untouched surface.
+
+servers:
+  - url: https://digitopub.com
+    description: Production
+  - url: http://localhost:3000
+    description: Local dev
+
+components:
+  schemas:
+    WhoamiAnonymous:
+      type: object
+      required: [authenticated]
+      properties:
+        authenticated:
+          type: boolean
+          enum: [false]
+
+    WhoamiAuthenticated:
+      type: object
+      required: [authenticated, orcid, exp_sliding, exp_absolute]
+      properties:
+        authenticated:
+          type: boolean
+          enum: [true]
+        orcid:
+          type: string
+          pattern: '^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$'
+          example: "0000-0001-2345-6789"
+        name:
+          type: string
+          nullable: true
+          example: "Maria Researcher"
+        ojs_user_id:
+          type: integer
+          nullable: true
+          example: 4217
+        exp_sliding:
+          type: integer
+          description: Unix seconds; cookie auto-expires after this time of inactivity.
+        exp_absolute:
+          type: integer
+          description: Unix seconds; cookie expires unconditionally at this time.
+
+    ErrorBody:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+          enum:
+            - ORCID_REQUIRED
+            - INVALID_STATE
+            - STATE_EXPIRED
+            - STATE_REUSED
+            - ACCOUNT_DISABLED
+            - ORCID_API_FAILURE
+            - RATE_LIMITED
+            - INVALID_TOKEN
+            - INVALID_REQUEST
+        message:
+          type: string
+
+  securitySchemes:
+    digitopub_identity_cookie:
+      type: apiKey
+      in: cookie
+      name: digitopub_identity
+      description: |
+        HMAC-signed identity cookie minted by `/api/auth/orcid/callback`.
+        Format: `base64url(payload).base64url(HMAC_SHA256(payload, IDENTITY_COOKIE_SECRET))`.
+        Sliding 30 min, absolute 8 h.
+
+    digitopub_oauth_state_cookie:
+      type: apiKey
+      in: cookie
+      name: digitopub_oauth_state
+      description: |
+        One-time signed OAuth state token. Set by `/start`, consumed by `/callback`.
+        Path-scoped to `/api/auth/orcid`. Reused state is rejected.
+
+paths:
+  /api/auth/orcid/start:
+    get:
+      summary: Begin ORCID OAuth flow
+      description: |
+        Sets the `digitopub_oauth_state` cookie and redirects the user to
+        ORCID's `/oauth/authorize` endpoint. After the user completes ORCID's
+        own login, ORCID redirects them to `/api/auth/orcid/callback`.
+      operationId: orcidStart
+      parameters:
+        - in: query
+          name: return_url
+          schema:
+            type: string
+            description: |
+              Absolute or relative URL on `digitopub.com` to return to after
+              successful sign-in. If absent, defaults to `/`.
+          required: false
+      responses:
+        '302':
+          description: Redirect to ORCID's authorize URL.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: "digitopub_oauth_state=...; Path=/api/auth/orcid; HttpOnly; Secure; SameSite=Lax"
+            Location:
+              schema:
+                type: string
+                example: "https://orcid.org/oauth/authorize?response_type=code&client_id=...&scope=/authenticate&redirect_uri=...&state=..."
+
+  /api/auth/orcid/callback:
+    get:
+      summary: ORCID OAuth callback
+      description: |
+        Receives the authorization `code` and `state` from ORCID. Verifies state
+        against the `digitopub_oauth_state` cookie, exchanges the code for an
+        ID token, verifies `iss === 'https://orcid.org'`, links the ORCID iD
+        to an OJS user (best-effort), mints `digitopub_identity`, and redirects
+        to `return_url`. Rate-limited to 10 requests/min/IP.
+      operationId: orcidCallback
+      parameters:
+        - in: query
+          name: code
+          schema:
+            type: string
+          required: true
+        - in: query
+          name: state
+          schema:
+            type: string
+          required: true
+      responses:
+        '302':
+          description: |
+            Success. Sets `digitopub_identity` cookie (httpOnly; Secure;
+            SameSite=Lax; Path=/) and redirects to the `return_url` carried in
+            the state token.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: "digitopub_identity=...; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=28800"
+            Location:
+              schema:
+                type: string
+        '400':
+          description: |
+            State invalid, expired, or reused. The state cookie is cleared.
+            User must retry from `/api/auth/orcid/start`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: |
+            ORCID iD matched an OJS account with `disabled=1`. No cookie minted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              examples:
+                disabled:
+                  value:
+                    success: false
+                    error: ACCOUNT_DISABLED
+                    message: "This account has been disabled. Please contact support."
+        '429':
+          description: Rate limit exceeded (10/min/IP).
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '502':
+          description: |
+            ORCID API returned a 5xx or token verification failed. User is
+            shown a generic retry CTA.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+
+  /api/auth/orcid/whoami:
+    get:
+      summary: Read current identity
+      description: |
+        Returns the contents of the verified `digitopub_identity` cookie or
+        `{authenticated: false}` if absent / invalid. Never returns 401.
+        Always 200. Used by `useIdentity()` hook to drive client-side UI.
+      operationId: orcidWhoami
+      security:
+        - {}  # cookie optional
+        - digitopub_identity_cookie: []
+      responses:
+        '200':
+          description: Anonymous or authenticated identity payload.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/WhoamiAnonymous'
+                  - $ref: '#/components/schemas/WhoamiAuthenticated'
+
+  /api/auth/orcid/refresh:
+    post:
+      summary: Refresh sliding expiry
+      description: |
+        If the caller's identity cookie is valid and within 5 min of its
+        sliding expiry (and absolute expiry has not yet passed), re-mints the
+        cookie with `exp_sliding = now + 30 min`. Otherwise no-op.
+      operationId: orcidRefresh
+      security:
+        - digitopub_identity_cookie: []
+      responses:
+        '200':
+          description: |
+            Always returns 200 with `{refreshed: boolean}`. If `refreshed=true`,
+            a new `Set-Cookie` header is included.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [refreshed]
+                properties:
+                  refreshed:
+                    type: boolean
+        '401':
+          description: No valid identity cookie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+
+  /api/auth/orcid/logout:
+    post:
+      summary: Clear identity cookie
+      description: |
+        Clears `digitopub_identity` and `digitopub_oauth_state`. Does NOT
+        touch the admin `auth_token` cookie. Always returns 200, idempotent.
+      operationId: orcidLogout
+      responses:
+        '200':
+          description: Cookies cleared.
+          headers:
+            Set-Cookie:
+              schema:
+                type: array
+                items:
+                  type: string
+                example:
+                  - "digitopub_identity=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax"
+                  - "digitopub_oauth_state=; Path=/api/auth/orcid; Max-Age=0; HttpOnly; Secure; SameSite=Lax"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
