@@ -8,7 +8,13 @@ import { GlobalToaster } from "@/components/global-toaster"
 import { CommandPalette } from "@/components/command-palette"
 import { ConsentBannerHost } from "@/components/consent-banner-host"
 import { LoginModal } from "@/components/auth/login-modal"
+import { OrganizationJsonLd } from "@/components/seo/organization-jsonld"
 import "./globals.css"
+
+// metadataBase resolves relative OG / Twitter / canonical URLs against the
+// production origin. Without it, those tags emit hostnames like localhost
+// in production HTML.
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://digitopub.com").replace(/\/+$/, "")
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -16,8 +22,13 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: "DigitoPub - Scientific Journals Platform",
-  description: "Professional academic publishing platform showcasing scientific journals with digital innovation",
+  metadataBase: new URL(APP_URL),
+  title: {
+    default: "DigitoPub - Scientific Journals Platform",
+    template: "%s | DigitoPub",
+  },
+  description:
+    "DigitoPub is an open-access scientific journal publishing platform — discover peer-reviewed articles, browse journal archives, and follow current research across multiple disciplines.",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -26,6 +37,9 @@ export const metadata: Metadata = {
     shortcut: "/favicon.ico",
   },
   openGraph: {
+    type: "website",
+    siteName: "DigitoPub",
+    url: "/",
     images: [
       {
         url: "/icon.png",
@@ -49,6 +63,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans antialiased`}>
+        {/* Sitewide Organization schema for search engines (server-rendered). */}
+        <OrganizationJsonLd appUrl={APP_URL} />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
