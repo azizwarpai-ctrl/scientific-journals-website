@@ -4,6 +4,24 @@ import { isPublicRoute, isAdminRoute } from "@/config/routes"
 import { getJwtSecret } from "@/src/lib/db/auth-edge"
 import * as jose from "jose"
 
+// Paths that must never be indexed even if a crawler somehow reaches them.
+// Robots.txt already disallows them, but we send X-Robots-Tag as a second
+// line of defense so an externally-linked URL is dropped from the index
+// rather than surfacing in GSC as "couldn't fetch" / "403 forbidden".
+const NOINDEX_PREFIXES = ["/admin", "/api", "/auth", "/account"] as const
+
+function isNoindexPath(pathname: string): boolean {
+  return NOINDEX_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
+  )
+}
+
+function withNoindex(response: NextResponse, pathname: string): NextResponse {
+  if (isNoindexPath(pathname)) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow")
+  }
+  return response
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -33,7 +51,7 @@ export async function middleware(request: NextRequest) {
 
   // Public routes - allow access
   if (isPublicRoute(pathname)) {
-    return NextResponse.next()
+    return withNoindex(NextResponse.next(), pathname)
   }
 
   // Admin routes - require authentication
@@ -42,24 +60,24 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone()
       url.pathname = "/admin/login"
       url.searchParams.set("redirect", pathname)
-      return NextResponse.redirect(url)
+      return withNoindex(NextResponse.redirect(url), pathname)
     }
 
     try {
       const JWT_SECRET = getJwtSecret()
       await jose.jwtVerify(token, JWT_SECRET)
-      return NextResponse.next()
+      return withNoindex(NextResponse.next(), pathname)
     } catch (error) {
       console.error("JWT verification failed in middleware:", error)
       const url = request.nextUrl.clone()
       url.pathname = "/admin/login"
       url.searchParams.set("redirect", pathname)
-      return NextResponse.redirect(url)
+      return withNoindex(NextResponse.redirect(url), pathname)
     }
   }
 
   // Default: allow access
-  return NextResponse.next()
+  return withNoindex(NextResponse.next(), pathname)
 }
 
 export const config = {
