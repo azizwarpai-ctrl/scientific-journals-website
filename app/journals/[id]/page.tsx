@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -70,14 +70,14 @@ export function JournalDetailView({
   const id = useJournalId()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<JournalDetailTab>(initialTab)
-
-  // Synchronously reconcile activeTab when initialTab changes (e.g. browser
-  // back/forward between `/journals/{id}` and `/journals/{id}/policies/...`).
-  // Calling setState during render schedules an immediate re-render before
-  // commit, avoiding the extra committed paint that useEffect would cause.
-  const prevInitialTabRef = useRef(initialTab)
-  if (prevInitialTabRef.current !== initialTab) {
-    prevInitialTabRef.current = initialTab
+  // Track the previous value of initialTab in state so we can synchronously
+  // reconcile activeTab when the prop changes (e.g. browser back/forward
+  // between `/journals/{id}` and `/journals/{id}/policies/...`).
+  // React re-renders immediately when setState is called during render,
+  // before committing to the DOM — no extra paint, unlike useEffect.
+  const [prevInitialTab, setPrevInitialTab] = useState<JournalDetailTab>(initialTab)
+  if (prevInitialTab !== initialTab) {
+    setPrevInitialTab(initialTab)
     setActiveTab(initialTab)
   }
 

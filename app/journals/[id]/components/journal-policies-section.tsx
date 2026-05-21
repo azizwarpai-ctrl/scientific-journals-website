@@ -68,22 +68,23 @@ export function JournalPoliciesSection({
 }: JournalPoliciesSectionProps) {
   const router = useRouter()
   const [activeTabSlug, setActiveTabSlug] = useState<string | null>(() => initialPolicySlug)
+  // Track the previous value of initialPolicySlug in state so we can
+  // synchronously reconcile activeTabSlug when the prop changes (e.g. browser
+  // back/forward between policy sub-tabs). React re-renders immediately when
+  // setState is called during render, before committing to the DOM — no extra
+  // paint, unlike useEffect.
+  const [prevInitialPolicySlug, setPrevInitialPolicySlug] = useState<string | null>(initialPolicySlug)
+  if (prevInitialPolicySlug !== initialPolicySlug) {
+    setPrevInitialPolicySlug(initialPolicySlug)
+    setActiveTabSlug(initialPolicySlug)
+  }
+
   const { data: policies, isLoading, isError } = useGetJournalPolicies(journalId)
 
   const tabStripRef = useRef<HTMLDivElement | null>(null)
   const activeButtonRef = useRef<HTMLButtonElement | null>(null)
   const hasInitializedRef = useRef(false)
   const tabButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
-
-  // Synchronously reconcile activeTabSlug when initialPolicySlug changes
-  // (e.g. browser back/forward between policy sub-tabs). Calling setState
-  // during render schedules an immediate re-render before commit, avoiding
-  // the extra committed paint that useEffect would cause.
-  const prevInitialPolicySlugRef = useRef(initialPolicySlug)
-  if (prevInitialPolicySlugRef.current !== initialPolicySlug) {
-    prevInitialPolicySlugRef.current = initialPolicySlug
-    setActiveTabSlug(initialPolicySlug)
-  }
 
   const tabs = policies?.tabs || []
 
