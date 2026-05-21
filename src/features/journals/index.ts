@@ -22,8 +22,8 @@ export {
   POLICY_METADATA,
   isValidPolicySlug,
   getPolicyTitleBySlug,
-} from "./policy-slugs"
-export type { PolicyMeta } from "./policy-slugs"
+} from "@/src/features/journals/policy-slugs"
+export type { PolicyMeta } from "@/src/features/journals/policy-slugs"
 // Journal Registration Multi-Step Wizard
 export { 
   journalRegistrationPayloadSchema,

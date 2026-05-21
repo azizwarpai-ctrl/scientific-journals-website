@@ -67,7 +67,7 @@ export function JournalPoliciesSection({
   initialPolicySlug = null,
 }: JournalPoliciesSectionProps) {
   const router = useRouter()
-  const [activeTabSlug, setActiveTabSlug] = useState<string | null>(initialPolicySlug)
+  const [activeTabSlug, setActiveTabSlug] = useState<string | null>(() => initialPolicySlug)
   const { data: policies, isLoading, isError } = useGetJournalPolicies(journalId)
 
   const tabStripRef = useRef<HTMLDivElement | null>(null)
@@ -75,11 +75,15 @@ export function JournalPoliciesSection({
   const hasInitializedRef = useRef(false)
   const tabButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
 
-  // Reflect prop changes (browser back/forward, parent re-renders with a
-  // different URL slug) back into local state.
-  useEffect(() => {
+  // Synchronously reconcile activeTabSlug when initialPolicySlug changes
+  // (e.g. browser back/forward between policy sub-tabs). Calling setState
+  // during render schedules an immediate re-render before commit, avoiding
+  // the extra committed paint that useEffect would cause.
+  const prevInitialPolicySlugRef = useRef(initialPolicySlug)
+  if (prevInitialPolicySlugRef.current !== initialPolicySlug) {
+    prevInitialPolicySlugRef.current = initialPolicySlug
     setActiveTabSlug(initialPolicySlug)
-  }, [initialPolicySlug])
+  }
 
   const tabs = policies?.tabs || []
 
@@ -92,7 +96,9 @@ export function JournalPoliciesSection({
   // keeps the user reading where they were instead of jumping to top.
   const selectTab = (slug: string) => {
     setActiveTabSlug(slug)
-    router.push(`/journals/${journalId}/policies/${slug}`, { scroll: false })
+    if (slug !== activeTabSlug) {
+      router.push(`/journals/${journalId}/policies/${slug}`, { scroll: false })
+    }
   }
 
   // Keep the active tab in view on narrow viewports ONLY on user-initiated changes

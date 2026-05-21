@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 
 import { isValidPolicySlug } from "@/src/features/journals"
-import { JournalDetailView } from "../../page"
+import { JournalDetailView } from "@/app/journals/[id]/page"
 
 interface JournalPoliciesRouteProps {
   params: Promise<{ id: string; slug?: string[] }>

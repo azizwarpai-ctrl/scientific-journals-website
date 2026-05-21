@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useRef, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -71,11 +71,15 @@ export function JournalDetailView({
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<JournalDetailTab>(initialTab)
 
-  // Reconcile activeTab when the route changes underneath us (e.g. browser
+  // Synchronously reconcile activeTab when initialTab changes (e.g. browser
   // back/forward between `/journals/{id}` and `/journals/{id}/policies/...`).
-  useEffect(() => {
+  // Calling setState during render schedules an immediate re-render before
+  // commit, avoiding the extra committed paint that useEffect would cause.
+  const prevInitialTabRef = useRef(initialTab)
+  if (prevInitialTabRef.current !== initialTab) {
+    prevInitialTabRef.current = initialTab
     setActiveTab(initialTab)
-  }, [initialTab])
+  }
 
   // Tab clicks cross a route boundary only when the policies tab is involved
   // (the only tab with URL state). Within non-policies tabs the URL stays at
