@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest"
 import {
   normalizePolicyKey,
   matchApprovedPolicy,
+  isValidPolicySlug,
+  getPolicyTitleBySlug,
+  APPROVED_POLICY_SLUGS,
 } from "@/src/features/journals/server/journal-policies-service"
 
 describe("normalizePolicyKey", () => {
@@ -114,5 +117,62 @@ describe("matchApprovedPolicy", () => {
       "privacyStatement",
     ])
     expect(policy?.slug).toBe("privacy-statement")
+  })
+})
+
+describe("APPROVED_POLICY_SLUGS", () => {
+  it("contains exactly the six canonical policy slugs in fixed order", () => {
+    expect(APPROVED_POLICY_SLUGS).toEqual([
+      "privacy-statement",
+      "policies-on-ethics",
+      "copyright-licensing",
+      "editorial-workflow",
+      "indexing-archiving",
+      "dois-orcid",
+    ])
+  })
+})
+
+describe("isValidPolicySlug", () => {
+  it("accepts every canonical slug", () => {
+    for (const slug of APPROVED_POLICY_SLUGS) {
+      expect(isValidPolicySlug(slug)).toBe(true)
+    }
+  })
+
+  it("rejects unknown slugs", () => {
+    expect(isValidPolicySlug("about")).toBe(false)
+    expect(isValidPolicySlug("privacy")).toBe(false)
+    expect(isValidPolicySlug("Privacy-Statement")).toBe(false)
+    expect(isValidPolicySlug("../etc/passwd")).toBe(false)
+  })
+
+  it("rejects empty / null / undefined", () => {
+    expect(isValidPolicySlug("")).toBe(false)
+    expect(isValidPolicySlug(null)).toBe(false)
+    expect(isValidPolicySlug(undefined)).toBe(false)
+  })
+
+  it("is case-sensitive (canonical lowercase only)", () => {
+    expect(isValidPolicySlug("PRIVACY-STATEMENT")).toBe(false)
+    expect(isValidPolicySlug("Privacy-Statement")).toBe(false)
+  })
+})
+
+describe("getPolicyTitleBySlug", () => {
+  it("returns the canonical title for each approved slug", () => {
+    expect(getPolicyTitleBySlug("privacy-statement")).toBe("Privacy Statement")
+    expect(getPolicyTitleBySlug("policies-on-ethics")).toBe("Policies on Ethics")
+    expect(getPolicyTitleBySlug("copyright-licensing")).toBe(
+      "Copyright & Licensing Policies",
+    )
+    expect(getPolicyTitleBySlug("editorial-workflow")).toBe("Editorial Workflow")
+    expect(getPolicyTitleBySlug("indexing-archiving")).toBe("Indexing & Archiving")
+    expect(getPolicyTitleBySlug("dois-orcid")).toBe("DOIs & ORCID")
+  })
+
+  it("returns null for unknown slugs", () => {
+    expect(getPolicyTitleBySlug("nonexistent")).toBeNull()
+    expect(getPolicyTitleBySlug("")).toBeNull()
   })
 })

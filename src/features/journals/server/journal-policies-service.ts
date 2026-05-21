@@ -24,6 +24,13 @@
 
 import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { POLICY_METADATA } from "@/src/features/journals/policy-slugs"
+
+export {
+  APPROVED_POLICY_SLUGS,
+  isValidPolicySlug,
+  getPolicyTitleBySlug,
+} from "@/src/features/journals/policy-slugs"
 
 // ── Public types ────────────────────────────────────────────────────────────
 
@@ -198,6 +205,31 @@ const APPROVED_POLICIES: ApprovedPolicy[] = [
     builtinTypes: [],
   },
 ]
+
+// ── Sanity check ────────────────────────────────────────────────────────────
+//
+// The slug + title pairs in APPROVED_POLICIES MUST exactly match
+// POLICY_METADATA (the client-safe source of truth). This block runs at
+// module-load and throws if drift is ever introduced — far better than
+// silent SEO/URL mismatches at runtime.
+
+if (process.env.NODE_ENV !== "production") {
+  const expectedSlugs = POLICY_METADATA.map((p) => p.slug).join(",")
+  const actualSlugs = APPROVED_POLICIES.map((p) => p.slug).join(",")
+  if (expectedSlugs !== actualSlugs) {
+    throw new Error(
+      `[journal-policies-service] APPROVED_POLICIES slugs (${actualSlugs}) do not match POLICY_METADATA (${expectedSlugs}). Keep these in sync.`,
+    )
+  }
+  for (const meta of POLICY_METADATA) {
+    const found = APPROVED_POLICIES.find((p) => p.slug === meta.slug)
+    if (!found || found.title !== meta.title) {
+      throw new Error(
+        `[journal-policies-service] Title mismatch for slug "${meta.slug}": APPROVED_POLICIES has "${found?.title}", POLICY_METADATA has "${meta.title}".`,
+      )
+    }
+  }
+}
 
 // ── Normalization & matching ────────────────────────────────────────────────
 
