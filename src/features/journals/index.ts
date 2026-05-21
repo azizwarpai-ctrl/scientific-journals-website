@@ -17,6 +17,13 @@ export { useGetEditorialBoard } from "./api/use-get-editorial-board"
 export { useGetCustomBlocks } from "./api/use-get-custom-blocks"
 export { useGetJournalFees } from "./api/use-get-journal-fees"
 export { useGetJournalAboutContent } from "./api/use-get-journal-about-content"
+export {
+  APPROVED_POLICY_SLUGS,
+  POLICY_METADATA,
+  isValidPolicySlug,
+  getPolicyTitleBySlug,
+} from "./policy-slugs"
+export type { PolicyMeta } from "./policy-slugs"
 // Journal Registration Multi-Step Wizard
 export { 
   journalRegistrationPayloadSchema,

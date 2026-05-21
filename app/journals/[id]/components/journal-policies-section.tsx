@@ -1,12 +1,20 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import DOMPurify, { type Config } from "dompurify"
 import { Shield, AlertCircle, FileText } from "lucide-react"
 import { useGetJournalPolicies } from "@/src/features/journals/api/use-get-journal-policies"
 
 interface JournalPoliciesSectionProps {
   journalId: string
+  /**
+   * Slug of the policy to open initially. When the user picks a different
+   * sub-tab, the URL is rewritten to `/journals/{journalId}/policies/{slug}`
+   * (soft navigation, no scroll reset) so the selection is shareable and
+   * survives reload / back-forward.
+   */
+  initialPolicySlug?: string | null
 }
 
 const SAFE_HTML_OPTIONS: Config = {
@@ -54,8 +62,12 @@ function PolicyContent({
 
 // ── Main component ──────────────────────────────────────────────────────────
 
-export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProps) {
-  const [activeTabSlug, setActiveTabSlug] = useState<string | null>(null)
+export function JournalPoliciesSection({
+  journalId,
+  initialPolicySlug = null,
+}: JournalPoliciesSectionProps) {
+  const router = useRouter()
+  const [activeTabSlug, setActiveTabSlug] = useState<string | null>(initialPolicySlug)
   const { data: policies, isLoading, isError } = useGetJournalPolicies(journalId)
 
   const tabStripRef = useRef<HTMLDivElement | null>(null)
@@ -63,11 +75,25 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
   const hasInitializedRef = useRef(false)
   const tabButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
 
+  // Reflect prop changes (browser back/forward, parent re-renders with a
+  // different URL slug) back into local state.
+  useEffect(() => {
+    setActiveTabSlug(initialPolicySlug)
+  }, [initialPolicySlug])
+
   const tabs = policies?.tabs || []
 
   const defaultTabSlug = tabs.length > 0 ? tabs[0].slug : null
   const currentTabSlug = activeTabSlug || defaultTabSlug
   const navItems = tabs.map((t) => ({ id: t.slug, title: t.title, content: t.content }))
+
+  // Tab selection updates both local state (for an instant UI swap) and the
+  // URL (so the choice is deep-linkable and survives reload). `scroll: false`
+  // keeps the user reading where they were instead of jumping to top.
+  const selectTab = (slug: string) => {
+    setActiveTabSlug(slug)
+    router.push(`/journals/${journalId}/policies/${slug}`, { scroll: false })
+  }
 
   // Keep the active tab in view on narrow viewports ONLY on user-initiated changes
   // (not on initial load). This prevents unwanted scrolling when the page first renders.
@@ -107,7 +133,7 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
 
     if (targetIndex !== null) {
       const target = items[targetIndex]
-      setActiveTabSlug(target.id)
+      selectTab(target.id)
       setTimeout(() => {
         tabButtonRefs.current.get(target.id)?.focus()
       }, 0)
@@ -174,7 +200,7 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
                   aria-selected={isActive}
                   aria-controls={`tabpanel-${item.id}`}
                   tabIndex={isActive ? 0 : -1}
-                  onClick={() => setActiveTabSlug(item.id)}
+                  onClick={() => selectTab(item.id)}
                   onKeyDown={(e) => handleTabKeyDown(e, item.id)}
                   className={[
                     "inline-flex items-center gap-2 whitespace-nowrap px-3.5 py-2 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
@@ -230,7 +256,7 @@ export function JournalPoliciesSection({ journalId }: JournalPoliciesSectionProp
                     aria-selected={isActive}
                     aria-controls={`tabpanel-${item.id}`}
                     tabIndex={isActive ? 0 : -1}
-                    onClick={() => setActiveTabSlug(item.id)}
+                    onClick={() => selectTab(item.id)}
                     onKeyDown={(e) => handleTabKeyDown(e, item.id)}
                     className={[
                       "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",

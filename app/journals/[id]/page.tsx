@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import {
   BookOpen,
   Info,
@@ -49,9 +50,54 @@ import { JournalPoliciesSection } from "./components/journal-policies-section"
 
 const TAB_TRIGGER_CLASSES = "rounded-none border-b-2 border-transparent px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
 
-export default function JournalDetailPage() {
+export type JournalDetailTab = "about" | "author" | "current" | "archive" | "policies"
+
+export interface JournalDetailViewProps {
+  /** Tab to show on first render. Defaults to "about" on the journal root route. */
+  initialTab?: JournalDetailTab
+  /**
+   * When `initialTab === "policies"`, the policy sub-tab to open. The Policies
+   * section pushes URL changes (`/journals/{id}/policies/{slug}`) on user
+   * interaction; this prop seeds the initial selection from the URL.
+   */
+  initialPolicySlug?: string | null
+}
+
+export function JournalDetailView({
+  initialTab = "about",
+  initialPolicySlug = null,
+}: JournalDetailViewProps = {}) {
   const id = useJournalId()
-  const [activeTab, setActiveTab] = useState("about")
+  const router = useRouter()
+  const [activeTab, setActiveTab] = useState<JournalDetailTab>(initialTab)
+
+  // Reconcile activeTab when the route changes underneath us (e.g. browser
+  // back/forward between `/journals/{id}` and `/journals/{id}/policies/...`).
+  useEffect(() => {
+    setActiveTab(initialTab)
+  }, [initialTab])
+
+  // Tab clicks cross a route boundary only when the policies tab is involved
+  // (the only tab with URL state). Within non-policies tabs the URL stays at
+  // `/journals/{id}` and we just flip local state.
+  const handleTabChange = (value: string) => {
+    const next = value as JournalDetailTab
+    if (next === activeTab) return
+    if (next === "policies") {
+      router.push(`/journals/${id}/policies`, { scroll: false })
+      return
+    }
+    if (initialTab === "policies") {
+      // Leaving the /policies/* route. The target tab is intentionally NOT
+      // encoded in the URL (only the policies tab has URL state), so the
+      // root route will mount fresh with `initialTab="about"`. Cross-tab
+      // clicks from the policies route are rare; in-tab policy navigation
+      // — which is the common case — is handled by the policies section.
+      router.push(`/journals/${id}`, { scroll: false })
+      return
+    }
+    setActiveTab(next)
+  }
 
   const { data: journal, isLoading, error } = useGetJournal(id)
   const { data: stats } = useGetJournalStats(id)
@@ -292,7 +338,7 @@ export default function JournalDetailPage() {
           <div className="container mx-auto px-4 md:px-6">
             <div className="grid gap-10 lg:grid-cols-3">
               <div className="lg:col-span-2 space-y-8">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
                   <TabsList className="inline-flex h-auto w-full justify-start gap-1 bg-transparent p-0 border-b border-border rounded-none overflow-x-auto">
                     <TabsTrigger
                       value="about"
@@ -344,7 +390,7 @@ export default function JournalDetailPage() {
                   </TabsContent>
 
                   <TabsContent value="policies" className="mt-8">
-                    <JournalPoliciesSection journalId={id} />
+                    <JournalPoliciesSection journalId={id} initialPolicySlug={initialPolicySlug} />
                   </TabsContent>
 
                   <TabsContent value="about" className="mt-8 space-y-10">
@@ -637,7 +683,7 @@ export default function JournalDetailPage() {
                     <Button
                       variant="outline"
                       className="w-full justify-between border-border/60 hover:bg-muted/50"
-                      onClick={() => setActiveTab("author")}
+                      onClick={() => handleTabChange("author")}
                     >
                       <span className="flex items-center gap-2">
                         <FileText className="h-4 w-4" />
@@ -648,7 +694,7 @@ export default function JournalDetailPage() {
                     <Button
                       variant="outline"
                       className="w-full justify-between border-border/60 hover:bg-muted/50"
-                      onClick={() => setActiveTab("current")}
+                      onClick={() => handleTabChange("current")}
                     >
                       <span className="flex items-center gap-2">
                         <NewspaperIcon className="h-4 w-4" />
@@ -659,7 +705,7 @@ export default function JournalDetailPage() {
                     <Button
                       variant="outline"
                       className="w-full justify-between border-border/60 hover:bg-muted/50"
-                      onClick={() => setActiveTab("archive")}
+                      onClick={() => handleTabChange("archive")}
                     >
                       <span className="flex items-center gap-2">
                         <ArchiveIcon className="h-4 w-4" />
@@ -759,4 +805,11 @@ export default function JournalDetailPage() {
       <Footer />
     </div>
   )
+}
+
+// Default export for the `/journals/[id]` route. Renders with the default
+// initial tab (About); the nested `/journals/[id]/policies/[[...slug]]/page.tsx`
+// route renders `JournalDetailView` directly with `initialTab="policies"`.
+export default function JournalDetailPage() {
+  return <JournalDetailView />
 }
