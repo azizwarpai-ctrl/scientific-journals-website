@@ -8,18 +8,21 @@ import {
 } from "@/app/journals/[id]/tab-config"
 
 describe("resolveTabSegments", () => {
-  it("resolves each non-policies tab segment", () => {
+  it("resolves each non-nestable tab segment", () => {
     expect(resolveTabSegments(["author-guidelines"])).toEqual({
       tab: "author",
       policySlug: null,
+      aboutSlug: null,
     })
     expect(resolveTabSegments(["current-issue"])).toEqual({
       tab: "current",
       policySlug: null,
+      aboutSlug: null,
     })
     expect(resolveTabSegments(["archive"])).toEqual({
       tab: "archive",
       policySlug: null,
+      aboutSlug: null,
     })
   })
 
@@ -27,6 +30,7 @@ describe("resolveTabSegments", () => {
     expect(resolveTabSegments(["policies"])).toEqual({
       tab: "policies",
       policySlug: null,
+      aboutSlug: null,
     })
   })
 
@@ -34,10 +38,12 @@ describe("resolveTabSegments", () => {
     expect(resolveTabSegments(["policies", "privacy-statement"])).toEqual({
       tab: "policies",
       policySlug: "privacy-statement",
+      aboutSlug: null,
     })
     expect(resolveTabSegments(["policies", "editorial-workflow"])).toEqual({
       tab: "policies",
       policySlug: "editorial-workflow",
+      aboutSlug: null,
     })
   })
 
@@ -46,17 +52,42 @@ describe("resolveTabSegments", () => {
     expect(resolveTabSegments(["policies", "privacy"])).toBeNull()
   })
 
+  it("resolves the about-journal tab with no sub-slug", () => {
+    expect(resolveTabSegments(["about-journal"])).toEqual({
+      tab: "about",
+      policySlug: null,
+      aboutSlug: null,
+    })
+  })
+
+  it("resolves the about-journal tab with a valid about slug", () => {
+    expect(resolveTabSegments(["about-journal", "aims-scope"])).toEqual({
+      tab: "about",
+      policySlug: null,
+      aboutSlug: "aims-scope",
+    })
+    expect(resolveTabSegments(["about-journal", "editorial-board"])).toEqual({
+      tab: "about",
+      policySlug: null,
+      aboutSlug: "editorial-board",
+    })
+  })
+
+  it("rejects an unknown about slug", () => {
+    expect(resolveTabSegments(["about-journal", "bogus-about"])).toBeNull()
+  })
+
   it("rejects an unknown top-level segment", () => {
     expect(resolveTabSegments(["bogus-tab"])).toBeNull()
     expect(resolveTabSegments(["author"])).toBeNull()
     expect(resolveTabSegments(["current"])).toBeNull()
   })
 
-  it("rejects 'about' — it is the index route, not a [...tab] segment", () => {
+  it("rejects 'about' — it is the index route, 'about-journal' is the deep link alias", () => {
     expect(resolveTabSegments(["about"])).toBeNull()
   })
 
-  it("rejects a sub-segment on a non-policies tab", () => {
+  it("rejects a sub-segment on a non-nestable tab", () => {
     expect(resolveTabSegments(["archive", "extra"])).toBeNull()
     expect(resolveTabSegments(["author-guidelines", "extra"])).toBeNull()
     expect(resolveTabSegments(["current-issue", "anything"])).toBeNull()
@@ -64,6 +95,7 @@ describe("resolveTabSegments", () => {
 
   it("rejects paths deeper than two segments", () => {
     expect(resolveTabSegments(["policies", "privacy-statement", "deep"])).toBeNull()
+    expect(resolveTabSegments(["about-journal", "aims-scope", "deep"])).toBeNull()
     expect(resolveTabSegments(["archive", "a", "b"])).toBeNull()
   })
 
@@ -75,6 +107,7 @@ describe("resolveTabSegments", () => {
     expect(resolveTabSegments(["Archive"])).toBeNull()
     expect(resolveTabSegments(["Policies"])).toBeNull()
     expect(resolveTabSegments(["policies", "Privacy-Statement"])).toBeNull()
+    expect(resolveTabSegments(["about-journal", "Aims-Scope"])).toBeNull()
   })
 })
 
@@ -105,8 +138,9 @@ describe("TAB_SEGMENTS / SEGMENT_TO_TAB consistency", () => {
     }
   })
 
-  it("keeps About as the index (empty segment, absent from reverse map)", () => {
+  it("keeps About as the index (empty segment) and maps about-journal to about", () => {
     expect(TAB_SEGMENTS.about).toBe("")
     expect(SEGMENT_TO_TAB["about"]).toBeUndefined()
+    expect(SEGMENT_TO_TAB["about-journal"]).toBe("about")
   })
 })

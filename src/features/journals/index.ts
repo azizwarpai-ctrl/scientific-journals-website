@@ -24,6 +24,13 @@ export {
   getPolicyTitleBySlug,
 } from "@/src/features/journals/policy-slugs"
 export type { PolicyMeta } from "@/src/features/journals/policy-slugs"
+export {
+  APPROVED_ABOUT_SLUGS,
+  ABOUT_METADATA,
+  isValidAboutSlug,
+  getAboutTitleBySlug,
+} from "@/src/features/journals/about-slugs"
+export type { AboutMeta } from "@/src/features/journals/about-slugs"
 // Journal Registration Multi-Step Wizard
 export { 
   journalRegistrationPayloadSchema,

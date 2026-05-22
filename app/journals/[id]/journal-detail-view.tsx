@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -29,6 +29,7 @@ import {
 import DOMPurify from "dompurify"
 
 import { useGetJournal, useGetJournalStats, useJournalId, useGetJournalFees, useGetJournalAboutContent } from "@/src/features/journals"
+import { ABOUT_METADATA } from "@/src/features/journals"
 import { parseAimsAndScope } from "@/src/features/journals/utils/aims-scope-parser"
 
 import { Navbar } from "@/components/navbar"
@@ -60,11 +61,16 @@ export interface JournalDetailViewProps {
    * interaction; this prop seeds the initial selection from the URL.
    */
   initialPolicySlug?: string | null
+  /**
+   * When `initialTab === "about"`, the about sub-section to scroll to.
+   */
+  initialAboutSlug?: string | null
 }
 
 export function JournalDetailView({
   initialTab = "about",
   initialPolicySlug = null,
+  initialAboutSlug = null,
 }: JournalDetailViewProps = {}) {
   const id = useJournalId()
   const router = useRouter()
@@ -89,6 +95,89 @@ export function JournalDetailView({
     setActiveTab(next)
     router.push(journalTabPath(id, next), { scroll: false })
   }
+
+  // --- About Journal Scroll Spy & Deep Linking ---
+  const [activeAboutSlug, setActiveAboutSlug] = useState<string | null>(initialAboutSlug)
+  const [prevInitialAbout, setPrevInitialAbout] = useState(initialAboutSlug)
+  const isProgrammaticScroll = useRef(false)
+
+  if (prevInitialAbout !== initialAboutSlug) {
+    setPrevInitialAbout(initialAboutSlug)
+    setActiveAboutSlug(initialAboutSlug)
+  }
+
+  // Initial scroll-to-section on mount or URL change
+  useEffect(() => {
+    if (activeTab === "about" && initialAboutSlug) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`about-${initialAboutSlug}`)
+        if (el) {
+          isProgrammaticScroll.current = true
+          // Calculate offset to account for sticky navbar + pills
+          const yOffset = -140
+          const y = el.getBoundingClientRect().top + window.scrollY + yOffset
+          window.scrollTo({ top: y, behavior: "smooth" })
+          setTimeout(() => {
+            isProgrammaticScroll.current = false
+          }, 1000)
+        }
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [activeTab, initialAboutSlug])
+
+  // IntersectionObserver to update active pill + URL on scroll
+  useEffect(() => {
+    if (activeTab !== "about") return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isProgrammaticScroll.current) return
+
+        const visibleEntries = entries.filter((e) => e.isIntersecting)
+        if (visibleEntries.length > 0) {
+          const mostVisible = visibleEntries.reduce((prev, current) =>
+            current.intersectionRatio > prev.intersectionRatio ? current : prev
+          )
+          const newSlug = mostVisible.target.id.replace("about-", "")
+
+          if (newSlug !== activeAboutSlug) {
+            setActiveAboutSlug(newSlug)
+            // Use replace so we don't spam the history stack on scroll
+            router.replace(`/journals/${id}/about-journal/${newSlug}`, { scroll: false })
+          }
+        }
+      },
+      {
+        rootMargin: "-150px 0px -60% 0px", // Account for sticky headers
+        threshold: [0, 0.25, 0.5, 0.75, 1],
+      }
+    )
+
+    ABOUT_METADATA.forEach(({ slug }) => {
+      const el = document.getElementById(`about-${slug}`)
+      if (el) observer.observe(el)
+    })
+
+    return () => observer.disconnect()
+  }, [activeTab, id, router, activeAboutSlug])
+
+  const handleAboutPillClick = (slug: string) => {
+    setActiveAboutSlug(slug)
+    router.push(`/journals/${id}/about-journal/${slug}`, { scroll: false })
+    
+    const el = document.getElementById(`about-${slug}`)
+    if (el) {
+      isProgrammaticScroll.current = true
+      const yOffset = -140
+      const y = el.getBoundingClientRect().top + window.scrollY + yOffset
+      window.scrollTo({ top: y, behavior: "smooth" })
+      setTimeout(() => {
+        isProgrammaticScroll.current = false
+      }, 1000)
+    }
+  }
+  // ---------------------------------------------
 
   const { data: journal, isLoading, error } = useGetJournal(id)
   const { data: stats } = useGetJournalStats(id)
@@ -385,9 +474,31 @@ export function JournalDetailView({
                     <JournalPoliciesSection journalId={id} initialPolicySlug={initialPolicySlug} />
                   </TabsContent>
 
-                  <TabsContent value="about" className="mt-8 space-y-10">
+                  <TabsContent value="about" className="mt-8 space-y-10 relative">
+                    {/* Compact Navigation Pills for About Tab */}
+                    <div className="sticky top-16 z-30 -mx-4 px-4 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 sm:mx-0 sm:px-0 sm:top-20">
+                      <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 hide-scrollbar scroll-smooth">
+                        {ABOUT_METADATA.map((meta) => {
+                          const isActive = activeAboutSlug === meta.slug || (!activeAboutSlug && meta.slug === "aims-scope")
+                          return (
+                            <button
+                              key={meta.slug}
+                              onClick={() => handleAboutPillClick(meta.slug)}
+                              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                                isActive
+                                  ? "bg-primary text-primary-foreground shadow-sm"
+                                  : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                              }`}
+                            >
+                              {meta.title}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
                     {/* 1. Journal Overview & Aims */}
-                    <div className="space-y-8">
+                    <div id="about-aims-scope" className="space-y-8 scroll-mt-32">
                       <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
                         <div className="flex items-center gap-3 mb-6">
                           <div className="p-2.5 rounded-lg bg-primary/10">
@@ -476,19 +587,19 @@ export function JournalDetailView({
                     </div>
 
                     {/* 2. Editorial Board */}
-                    <div className="pt-2 border-t border-border/30">
+                    <div id="about-editorial-board" className="pt-2 border-t border-border/30 scroll-mt-32">
                       <EditorialBoardSection journalId={id} editorInChief={journal.editor_in_chief} />
                     </div>
 
 
                     {/* 3. Advisory Board */}
-                    <div className="pt-2 border-t border-border/30">
+                    <div id="about-advisory-board" className="pt-2 border-t border-border/30 scroll-mt-32">
                       <AdvisoryBoardSection journalId={id} />
                     </div>
 
 
                     {/* 4. Technical Details Grid — only real data, no N/A fallbacks */}
-                    <div className="pt-2 border-t border-border/30">
+                    <div id="about-journal-details" className="pt-2 border-t border-border/30 scroll-mt-32">
                       <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
                         <div className="flex items-center gap-3 mb-6">
                           <div className="p-2.5 rounded-lg bg-primary/10">

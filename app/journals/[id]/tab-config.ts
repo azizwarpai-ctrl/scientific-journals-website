@@ -7,17 +7,23 @@
  *   - the route (`[id]/[...tab]/page.tsx`, server) calls `resolveTabSegments`
  *   - the view (`journal-detail-view.tsx`, client) calls `journalTabPath`
  *
+ * Two tabs support nested sub-slugs:
+ *   - `policies` → `policies/{policySlug}`
+ *   - `about-journal` → `about-journal/{aboutSlug}`
+ *
  * Keeping both directions here makes this the single source of truth for
  * journal tab routing, and keeps the logic unit-testable in isolation.
  */
 
 import { isValidPolicySlug } from "@/src/features/journals/policy-slugs"
+import { isValidAboutSlug } from "@/src/features/journals/about-slugs"
 
 export type JournalDetailTab = "about" | "author" | "current" | "archive" | "policies"
 
 /**
  * URL path segment for each tab. About is the journal landing page itself
- * (`/journals/{id}`), so it has no segment.
+ * (`/journals/{id}`), so it has no segment. The `about-journal` segment is
+ * handled as a nestable alias in `SEGMENT_TO_TAB` (maps to the `about` tab).
  */
 export const TAB_SEGMENTS: Record<JournalDetailTab, string> = {
   about: "",
@@ -27,8 +33,15 @@ export const TAB_SEGMENTS: Record<JournalDetailTab, string> = {
   policies: "policies",
 }
 
-/** Reverse lookup: URL path segment → tab key. Excludes About (the index). */
+/**
+ * Reverse lookup: URL path segment → tab key.
+ *
+ * `about-journal` maps to the `about` tab (so the catch-all resolves it),
+ * while the bare `/journals/{id}` route (no segment) still renders About via
+ * the index page.tsx.
+ */
 export const SEGMENT_TO_TAB: Record<string, JournalDetailTab> = {
+  "about-journal": "about",
   "author-guidelines": "author",
   "current-issue": "current",
   archive: "archive",
@@ -54,18 +67,23 @@ export interface ResolvedTab {
   tab: JournalDetailTab
   /** Set only for `tab === "policies"` when a specific policy is requested. */
   policySlug: string | null
+  /** Set only for `tab === "about"` when a specific about-journal section is requested. */
+  aboutSlug: string | null
 }
 
 /**
- * Resolve the `[...tab]` catch-all segments into a tab key + optional policy
- * slug. Returns `null` when the URL does not map to a valid tab — the route
- * then renders a 404.
+ * Resolve the `[...tab]` catch-all segments into a tab key + optional
+ * policy/about slug. Returns `null` when the URL does not map to a valid tab —
+ * the route then renders a 404.
  *
- *   ["author-guidelines"]              → { tab: "author",   policySlug: null }
- *   ["policies"]                       → { tab: "policies", policySlug: null }
- *   ["policies", "privacy-statement"]  → { tab: "policies", policySlug: "privacy-statement" }
+ *   ["author-guidelines"]              → { tab: "author",    policySlug: null,                aboutSlug: null }
+ *   ["policies"]                       → { tab: "policies",  policySlug: null,                aboutSlug: null }
+ *   ["policies", "privacy-statement"]  → { tab: "policies",  policySlug: "privacy-statement", aboutSlug: null }
  *   ["policies", "bogus"]              → null  (unknown policy slug)
- *   ["archive", "extra"]               → null  (non-policies tab can't nest)
+ *   ["about-journal"]                  → { tab: "about",     policySlug: null,                aboutSlug: null }
+ *   ["about-journal", "aims-scope"]    → { tab: "about",     policySlug: null,                aboutSlug: "aims-scope" }
+ *   ["about-journal", "bogus"]         → null  (unknown about slug)
+ *   ["archive", "extra"]               → null  (non-nestable tab can't have sub-segments)
  *   ["bogus-tab"]                      → null  (unknown segment)
  *   ["policies", "x", "y"]             → null  (too deep)
  */
@@ -77,12 +95,19 @@ export function resolveTabSegments(segments: string[]): ResolvedTab | null {
   if (!tab) return null
 
   if (tab === "policies") {
-    if (subSegment === undefined) return { tab, policySlug: null }
+    if (subSegment === undefined) return { tab, policySlug: null, aboutSlug: null }
     if (!isValidPolicySlug(subSegment)) return null
-    return { tab, policySlug: subSegment }
+    return { tab, policySlug: subSegment, aboutSlug: null }
   }
 
-  // Non-policies tabs never carry a sub-segment.
+  // about-journal can nest an about sub-slug (aims-scope, editorial-board, etc.).
+  if (mainSegment === "about-journal") {
+    if (subSegment === undefined) return { tab, policySlug: null, aboutSlug: null }
+    if (!isValidAboutSlug(subSegment)) return null
+    return { tab, policySlug: null, aboutSlug: subSegment }
+  }
+
+  // All other tabs never carry a sub-segment.
   if (subSegment !== undefined) return null
-  return { tab, policySlug: null }
+  return { tab, policySlug: null, aboutSlug: null }
 }

@@ -5,6 +5,7 @@ import { notFound } from "next/navigation"
 import { prisma } from "@/src/lib/db/config"
 import { resolveJournalOjsId } from "@/src/features/journals/server/resolve-journal"
 import { getPolicyTitleBySlug } from "@/src/features/journals"
+import { getAboutTitleBySlug } from "@/src/features/journals"
 import { buildCanonical } from "@/src/lib/seo/canonical"
 import { JournalDetailView } from "@/app/journals/[id]/journal-detail-view"
 import {
@@ -51,19 +52,32 @@ export async function generateMetadata({
   const canonicalId =
     ojsResolved.found && ojsResolved.ojsPath ? ojsResolved.ojsPath : id
 
-  const sectionTitle =
-    resolved.tab === "policies" && resolved.policySlug
-      ? getPolicyTitleBySlug(resolved.policySlug) ?? TAB_TITLES.policies
-      : TAB_TITLES[resolved.tab]
+  // Determine section title: prefer sub-tab title over main tab title.
+  let sectionTitle: string
+  if (resolved.tab === "policies" && resolved.policySlug) {
+    sectionTitle = getPolicyTitleBySlug(resolved.policySlug) ?? TAB_TITLES.policies
+  } else if (resolved.tab === "about" && resolved.aboutSlug) {
+    sectionTitle = getAboutTitleBySlug(resolved.aboutSlug) ?? TAB_TITLES.about
+  } else {
+    sectionTitle = TAB_TITLES[resolved.tab]
+  }
 
   const title = [sectionTitle, journalTitle]
     .filter((part): part is string => Boolean(part))
     .join(" — ")
 
-  const canonicalPath =
-    resolved.tab === "policies" && resolved.policySlug
-      ? `/journals/${canonicalId}/policies/${resolved.policySlug}`
-      : `/journals/${canonicalId}/${TAB_SEGMENTS[resolved.tab]}`
+  // Build the canonical path based on which sub-tab (if any) is active.
+  let canonicalPath: string
+  if (resolved.tab === "policies" && resolved.policySlug) {
+    canonicalPath = `/journals/${canonicalId}/policies/${resolved.policySlug}`
+  } else if (resolved.tab === "about" && resolved.aboutSlug) {
+    canonicalPath = `/journals/${canonicalId}/about-journal/${resolved.aboutSlug}`
+  } else if (resolved.tab === "about") {
+    // about-journal with no sub-slug — canonical is the journal root
+    canonicalPath = `/journals/${canonicalId}`
+  } else {
+    canonicalPath = `/journals/${canonicalId}/${TAB_SEGMENTS[resolved.tab]}`
+  }
   const canonicalUrl = buildCanonical(canonicalPath)
 
   const description = journalTitle
@@ -92,6 +106,7 @@ export default async function JournalTabRoute({ params }: JournalTabRouteProps) 
     <JournalDetailView
       initialTab={resolved.tab}
       initialPolicySlug={resolved.policySlug}
+      initialAboutSlug={resolved.aboutSlug}
     />
   )
 }
