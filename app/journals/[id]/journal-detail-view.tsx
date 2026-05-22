@@ -96,6 +96,11 @@ export function JournalDetailView({
     router.push(journalTabPath(id, next), { scroll: false })
   }
 
+  const { data: journal, isLoading, error } = useGetJournal(id)
+  const { data: stats } = useGetJournalStats(id)
+  const { data: ojsFees } = useGetJournalFees(id)
+  const { data: ojsAbout } = useGetJournalAboutContent(id)
+
   // --- About Journal Scroll Spy & Deep Linking ---
   const [activeAboutSlug, setActiveAboutSlug] = useState<string | null>(initialAboutSlug)
   const [prevInitialAbout, setPrevInitialAbout] = useState(initialAboutSlug)
@@ -108,6 +113,7 @@ export function JournalDetailView({
 
   // Initial scroll-to-section on mount or URL change
   useEffect(() => {
+    if (isLoading || !journal) return
     if (activeTab === "about" && initialAboutSlug) {
       const timer = setTimeout(() => {
         const el = document.getElementById(`about-${initialAboutSlug}`)
@@ -124,10 +130,11 @@ export function JournalDetailView({
       }, 100)
       return () => clearTimeout(timer)
     }
-  }, [activeTab, initialAboutSlug])
+  }, [activeTab, initialAboutSlug, isLoading, journal])
 
   // IntersectionObserver to update active pill + URL on scroll
   useEffect(() => {
+    if (isLoading || !journal) return
     if (activeTab !== "about") return
 
     const observer = new IntersectionObserver(
@@ -160,7 +167,7 @@ export function JournalDetailView({
     })
 
     return () => observer.disconnect()
-  }, [activeTab, id, router, activeAboutSlug])
+  }, [activeTab, id, router, activeAboutSlug, isLoading, journal])
 
   const handleAboutPillClick = (slug: string) => {
     setActiveAboutSlug(slug)
@@ -178,11 +185,6 @@ export function JournalDetailView({
     }
   }
   // ---------------------------------------------
-
-  const { data: journal, isLoading, error } = useGetJournal(id)
-  const { data: stats } = useGetJournalStats(id)
-  const { data: ojsFees } = useGetJournalFees(id)
-  const { data: ojsAbout } = useGetJournalAboutContent(id)
 
   const sanitizeContent = (html: string | null | undefined): string => {
     if (!html) return ""
