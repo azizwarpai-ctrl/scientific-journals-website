@@ -41,13 +41,13 @@ import { JournalNotFound } from "@/components/states/not-found-states"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JournalDetailSkeleton } from "@/components/skeletons/journal-detail-skeleton"
 
-import { CurrentIssueSection } from "./components/current-issue-section"
-import { ArchiveSection } from "./components/archive-section"
-import { EditorialBoardSection } from "./components/editorial-board-section"
-import { AdvisoryBoardSection } from "./components/advisory-board-section"
-import { JournalInfoCarousel } from "./components/journal-info-carousel"
-import { JournalPoliciesSection } from "./components/journal-policies-section"
-import { type JournalDetailTab, journalTabPath } from "./tab-config"
+import { CurrentIssueSection } from "@/app/journals/[id]/components/current-issue-section"
+import { ArchiveSection } from "@/app/journals/[id]/components/archive-section"
+import { EditorialBoardSection } from "@/app/journals/[id]/components/editorial-board-section"
+import { AdvisoryBoardSection } from "@/app/journals/[id]/components/advisory-board-section"
+import { JournalInfoCarousel } from "@/app/journals/[id]/components/journal-info-carousel"
+import { JournalPoliciesSection } from "@/app/journals/[id]/components/journal-policies-section"
+import { type JournalDetailTab, journalTabPath } from "@/app/journals/[id]/tab-config"
 
 const TAB_TRIGGER_CLASSES = "rounded-none border-b-2 border-transparent px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
 
@@ -195,7 +195,8 @@ export function JournalDetailView({
     }
   }
 
-  const directUrl = targetSlug ? `${ojsDomain}/index.php/${targetSlug}/submission` : null
+  const encodedSlug = targetSlug ? encodeURIComponent(targetSlug) : null
+  const directUrl = encodedSlug ? `${ojsDomain}/index.php/${encodedSlug}/submission` : null
 
 
   const renderSubmitButton = (buttonClass: string = "", variant: "default" | "outline" = "default", children: React.ReactNode) => {
