@@ -244,4 +244,47 @@ the admin trigger) to populate Prisma from OJS.
 | 7 — Homepage SSR | `feat(seo): server-render the homepage's featured journals` | `app/page.tsx`, `app/home-page-client.tsx` |
 | 8 — Per-page metadata | `feat(seo): unique title/description/canonical for every public page` | `app/{about,help,help/submission-service,help/technical-support,journals,register,contact,solutions,submit-manager}/layout.tsx`, `app/journals/[id]/layout.tsx` |
 | 9 — JSON-LD | `feat(seo): Periodical + ScholarlyArticle JSON-LD…` | `components/seo/periodical-jsonld.tsx`, `app/journals/[id]/layout.tsx`, `app/journals/[id]/articles/[publicationId]/page.tsx` |
+
+---
+
+## Google Scholar — Option A (OJS as system of record)
+
+The same article exists twice: on **digitopub.com** (a read-only gateway that
+server-renders article pages from the external OJS database) and on
+**submitmanager.com** (the canonical OJS install where the article is authored,
+reviewed, and published). digitopub previously emitted the full Google Scholar
+discovery surface for every article — the Highwire `citation_*` meta set
+(`buildCitationMeta`) plus a `ScholarlyArticle` JSON-LD block — which made it
+compete with the OJS copy for the *same* Scholar record. Worse, the emitted
+`citation_pdf_url` resolved to `/api/pdf-proxy?…`, a path digitopub forbids
+crawlers from fetching (`Disallow: /api/` in `app/robots.ts` plus an
+`X-Robots-Tag: noindex` header from `middleware.ts`) — so digitopub advertised
+a full-text PDF at a URL it simultaneously blocked.
+
+**Decision:** OJS is the single Google Scholar system of record ("Option A").
+digitopub no longer emits Scholar discovery metadata by default.
+
+A new env flag, `EMIT_SCHOLAR_CITATION_META` (`"true"`/`"false"`, **default
+`false`**), gates the entire Scholar surface:
+
+- **`generateMetadata`** (`app/journals/[id]/articles/[publicationId]/page.tsx`):
+  the `other: citationMeta` block is attached only when the flag is `true`. At
+  the default, the page emits **zero** `citation_*` meta tags. Title,
+  description, keywords, authors, `alternates.canonical` (self), and OpenGraph
+  are unchanged — digitopub stays a normal, self-canonical, Search-indexable
+  page.
+- **`ScholarlyArticle` JSON-LD** (`components/article-jsonld.tsx`): rendered only
+  when the flag is `true` (gated both at the call site and defensively inside
+  the component). At the default, no `ScholarlyArticle` schema is emitted.
+- **`citation_pdf_url`** (`src/features/journals/server/citation-meta.ts`): never
+  a robots-blocked `/api/…` URL. When (and only when) the flag is `true`, it is
+  built as the real OJS download URL
+  `${ojsBaseUrl}/${journalUrlPath}/article/download/${submissionId}/${galleyId}`
+  from the canonical OJS `submission_id`, PDF galley id, and journal `url_path`
+  — not the route's `[publicationId]` param.
+
+**Unchanged:** the human-facing PDF experience (`/api/pdf-proxy`, the inline
+modal viewer, and `buildGalleyDownloadUrl`'s on-page links), `app/robots.ts`
+(`Disallow: /api/` stays), and full SSR of article content. To make digitopub
+the Scholar record later (Option B), set `EMIT_SCHOLAR_CITATION_META=true`.
 | 11 — Heading hierarchy | `fix(seo): add accessible h1 to /register` | `app/register/page.tsx` |
