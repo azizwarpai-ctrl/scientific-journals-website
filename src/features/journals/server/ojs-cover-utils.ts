@@ -14,7 +14,7 @@
  */
 
 import path from "node:path"
-import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
+import { getOjsPublicAssetsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 
 function findUploadName(obj: unknown): string | null {
   if (obj === null || typeof obj !== "object") return null
@@ -74,7 +74,7 @@ export function parseOjsCoverFilename(raw: string | null): string | null {
 
 export function buildCoverUrl(journalId: number, filename: string | null): string | null {
   if (!filename) return null
-  const baseUrl = getOjsBaseUrl()
+  const baseUrl = getOjsPublicAssetsBaseUrl()
   // Sanitize filename to prevent path traversal and ensure valid URL
   const sanitizedFilename = encodeURIComponent(path.basename(filename))
   return `${baseUrl}/public/journals/${journalId}/${sanitizedFilename}`

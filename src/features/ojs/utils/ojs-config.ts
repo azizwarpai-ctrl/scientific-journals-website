@@ -21,8 +21,19 @@ export function getOjsBaseUrl(): string {
  */
 export function getPublicOjsBaseUrl(): string | null {
   const publicUrl = process.env.PUBLIC_OJS_BASE_URL || process.env.NEXT_PUBLIC_OJS_BASE_URL
-  
+
   if (!publicUrl) return null
-  
+
   return publicUrl.endsWith("/") ? publicUrl.slice(0, -1) : publicUrl
+}
+
+/**
+ * Base URL for OJS public assets (cover images, profile images, etc.).
+ * OJS serves public files from the document root (e.g. submitmanager.com/public/...),
+ * even when the OJS application itself lives under a subpath like `/ojs`. Strip a
+ * trailing `/ojs` segment so cover URLs resolve regardless of which form
+ * OJS_BASE_URL takes.
+ */
+export function getOjsPublicAssetsBaseUrl(): string {
+  return getOjsBaseUrl().replace(/\/ojs$/i, "")
 }

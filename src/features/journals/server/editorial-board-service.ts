@@ -15,6 +15,7 @@
  */
 
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { getOjsPublicAssetsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 import { fetchBoardFromNavPage } from "./board-nav-service"
 
@@ -182,8 +183,12 @@ function resolveProfileImageUrl(rawValue: string | null): string | null {
   const trimmed = rawValue.trim()
   if (!trimmed) return null
 
-  const ojsBaseUrl = process.env.OJS_BASE_URL?.replace(/\/$/, "")
-  if (!ojsBaseUrl) return null
+  let ojsBaseUrl: string
+  try {
+    ojsBaseUrl = getOjsPublicAssetsBaseUrl()
+  } catch {
+    return null
+  }
 
   // JSON format: {"uploadName":"..."}
   if (trimmed.startsWith("{")) {
