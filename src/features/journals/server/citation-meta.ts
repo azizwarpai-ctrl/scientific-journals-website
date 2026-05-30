@@ -1,104 +1,112 @@
-import type { ArticleDetail, ArticleDetailAuthor } from "@/src/features/journals/types/article-detail-types"
+import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config";
+import { isScholarCitationMetaEnabled } from "@/src/lib/env";
+import type { ArticleDetail } from "./article-detail-service";
 
-export function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
+export interface CitationMetaInput {
+  article: ArticleDetail;
+  canonicalUrl: string;
+  pdfUrl?: string | null;
 }
 
-export function formatAuthor(author: ArticleDetailAuthor): string {
-  const family = author.familyName?.trim() || ""
-  const given = author.givenName?.trim() || ""
-  if (family && given) return `${family}, ${given}`
-  if (family) return family
-  if (given) return given
-  return ""
+/**
+ * Returns the real OJS download URL for the article's primary galley, of the
+ * form `${ojsBaseUrl}/${journalUrlPath}/article/download/${submissionId}/${galleyId}`,
+ * built from the actual OJS identifiers (NOT the digitopub publicationId).
+ * Returns null if any required identifier is missing.
+ */
+function buildOjsDownloadUrl(article: ArticleDetail): string | null {
+  const galley = article.primaryGalley;
+  if (!galley) {
+    return null;
+  }
+
+  const submissionId = galley.submissionId ?? article.submissionId;
+  const galleyId = galley.galleyId;
+  const journalUrlPath = galley.journalUrlPath ?? article.journalUrlPath;
+
+  if (submissionId == null || galleyId == null || !journalUrlPath) {
+    return null;
+  }
+
+  const base = getOjsBaseUrl();
+  if (!base) {
+    return null;
+  }
+
+  return `${base}/${journalUrlPath}/article/download/${submissionId}/${galleyId}`;
 }
 
-export function formatScholarDate(dateStr: string | null | undefined): string | null {
-  if (!dateStr) return null
-  const d = new Date(dateStr)
-  if (isNaN(d.getTime())) return null
-  const yyyy = d.getUTCFullYear()
-  const mm = String(d.getUTCMonth() + 1).padStart(2, "0")
-  const dd = String(d.getUTCDate()).padStart(2, "0")
-  return `${yyyy}/${mm}/${dd}`
-}
-
-function parseLocale(locale: string): string {
-  return locale.split(/[_-]/)[0].toLowerCase() || "en"
-}
-
-function parsePagesFromString(pages: string | null): { pageStart: string | null; pageEnd: string | null } {
-  if (!pages) return { pageStart: null, pageEnd: null }
-  const trimmed = pages.trim()
-  const dashMatch = trimmed.match(/[-–—]/)
-  if (!dashMatch) return { pageStart: trimmed || null, pageEnd: null }
-  const dashIdx = dashMatch.index!
-  const start = trimmed.slice(0, dashIdx).trim()
-  const end = trimmed.slice(dashIdx + 1).trim()
-  return { pageStart: start || null, pageEnd: end || null }
-}
-
+/**
+ * Builds Highwire Press citation_* meta tags for Google Scholar discovery.
+ * Returns a flat record suitable for Next.js Metadata `other` field.
+ *
+ * NOTE: this should only be attached to the page metadata when
+ * EMIT_SCHOLAR_CITATION_META is true (Option B). See generateMetadata.
+ */
 export function buildCitationMeta(
-  article: ArticleDetail,
-  articleUrl: string,
-  appBaseUrl: string
+  input: CitationMetaInput,
 ): Record<string, string | string[]> {
-  const meta: Record<string, string | string[]> = {}
+  const { article, pdfUrl } = input;
+  const meta: Record<string, string | string[]> = {};
 
-  const set = (key: string, value: string | null | undefined) => {
-    const v = typeof value === "string" ? value.trim() : value
-    if (v) meta[key] = v
+  if (article.title) {
+    meta["citation_title"] = article.title;
   }
 
-  const setMany = (key: string, values: (string | null | undefined)[]) => {
-    const cleaned = values.map((v) => v?.trim()).filter((v): v is string => !!v)
-    if (cleaned.length) meta[key] = cleaned
+  const authorNames = (article.authors ?? [])
+    .map((a) => a.fullName)
+    .filter((n): n is string => Boolean(n));
+  if (authorNames.length > 0) {
+    meta["citation_author"] = authorNames;
   }
 
-  set("citation_title", article.title ? stripHtml(article.title) : null)
-
-  const authorStrings = article.authors.map(formatAuthor).filter(Boolean)
-  setMany("citation_author", authorStrings.length ? authorStrings : ["Unknown"])
-
-  const pubDate = formatScholarDate(article.datePublished)
-    ?? (article.year ? String(article.year) : null)
-  set("citation_publication_date", pubDate)
-
-  set("citation_journal_title", article.journalTitle)
-  set("citation_issn", article.issn)
-
-  if (article.volume !== null && article.volume !== undefined) {
-    set("citation_volume", String(article.volume))
+  if (article.publishedDate) {
+    meta["citation_publication_date"] = article.publishedDate;
   }
 
-  set("citation_issue", article.issueNumber)
-
-  const { pageStart, pageEnd } = parsePagesFromString(article.pages)
-  set("citation_firstpage", pageStart)
-  set("citation_lastpage", pageEnd)
-
-  set("citation_doi", article.doi)
-
-  const base = appBaseUrl.replace(/\/$/, "")
-  const absoluteArticleUrl = articleUrl.startsWith("http")
-    ? articleUrl
-    : base && `${base}${articleUrl}`
-  set("citation_abstract_html_url", absoluteArticleUrl || null)
-
-  if (article.pdfUrl) {
-    const pdfUrl = article.pdfUrl.startsWith("http")
-      ? article.pdfUrl
-      : base && `${base}${article.pdfUrl}`
-    set("citation_pdf_url", pdfUrl || null)
+  if (article.journalTitle) {
+    meta["citation_journal_title"] = article.journalTitle;
   }
 
-  set("citation_language", parseLocale(article.locale || "en"))
-
-  if (article.keywords.length > 0) {
-    set("citation_keywords", article.keywords.join("; "))
+  if (article.volume) {
+    meta["citation_volume"] = article.volume;
   }
 
-  meta["citation_publisher"] = "DigitoPub"
+  if (article.issue) {
+    meta["citation_issue"] = article.issue;
+  }
 
-  return meta
+  if (article.doi) {
+    meta["citation_doi"] = article.doi;
+  }
+
+  // citation_pdf_url resolution.
+  //
+  // The on-page "View PDF" URL routes through `/api/pdf-proxy` (see
+  // buildGalleyDownloadUrl). A proxy/`/api/` URL must NEVER be emitted as
+  // citation_pdf_url — Scholar would index a non-canonical, blocked path.
+  //
+  // citation_pdf_url is only meaningful at all when Scholar metadata is
+  // enabled (Option B). When enabled, point it at the REAL OJS download URL
+  // built from the actual OJS submissionId/galleyId/journalUrlPath.
+  const pointsAtApi = (url: string): boolean => {
+    // Match both relative ("/api/...") and absolute (".../api/...") forms.
+    return /(^|\/)api\//.test(url) || url.includes("/api/pdf-proxy");
+  };
+
+  if (isScholarCitationMetaEnabled()) {
+    const ojsDownloadUrl = buildOjsDownloadUrl(article);
+    if (ojsDownloadUrl && !pointsAtApi(ojsDownloadUrl)) {
+      meta["citation_pdf_url"] = ojsDownloadUrl;
+    } else if (pdfUrl && !pointsAtApi(pdfUrl)) {
+      // Fall back to a caller-provided URL only if it is not an /api/ path.
+      meta["citation_pdf_url"] = pdfUrl;
+    }
+  }
+  // When the flag is false we omit citation_pdf_url entirely. (The whole
+  // `other` block is also gated off at the call site, so nothing is emitted.)
+
+  return meta;
 }
+
+export default buildCitationMeta;
