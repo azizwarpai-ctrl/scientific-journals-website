@@ -37,3 +37,15 @@ export function getPublicOjsBaseUrl(): string | null {
 export function getOjsPublicAssetsBaseUrl(): string {
   return getOjsBaseUrl().replace(/\/ojs$/i, "")
 }
+
+/**
+ * Defensive read-time fix-up for URLs persisted by earlier syncs that wrote
+ * `https://submitmanager.com/ojs/public/...` paths. The OJS public files
+ * directory is served from the document root, so the `/ojs` segment makes the
+ * upstream return 500. Idempotent: URLs already in the correct shape pass
+ * through unchanged.
+ */
+export function normalizeOjsAssetUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  return url.replace(/\/ojs\/public\//i, "/public/")
+}
