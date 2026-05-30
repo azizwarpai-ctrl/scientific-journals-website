@@ -5,6 +5,7 @@ import { requireAdmin } from "@/src/lib/auth-middleware"
 import { parsePagination, paginatedResponse } from "@/src/lib/pagination"
 import { serializeRecord, serializeMany } from "@/src/lib/serialize"
 import { prisma } from "@/src/lib/db/config"
+import { normalizeOjsAssetUrl } from "@/src/features/ojs/utils/ojs-config"
 import { journalCreateSchema, journalUpdateSchema, journalIdParamSchema, journalSlugParamSchema } from "@/src/features/journals/schemas/journal-schema"
 
 const app = new Hono()
@@ -176,7 +177,11 @@ app.get("/", async (c) => {
     // blocks this response; throttled and single-flight internally.
     scheduleOjsDriftCheck(total)
 
-    return c.json(paginatedResponse(serializeMany(journals), total, pagination), 200)
+    const serialized = (serializeMany(journals) as Array<Record<string, unknown>>).map((j) => ({
+      ...j,
+      cover_image_url: normalizeOjsAssetUrl(j.cover_image_url as string | null | undefined),
+    }))
+    return c.json(paginatedResponse(serialized, total, pagination), 200)
   } catch (error) {
     console.error("Error fetching journals:", error)
     return c.json({ success: false, error: "Failed to fetch journals" }, 500)
@@ -287,7 +292,8 @@ app.get("/:id", zValidator("param", journalSlugParamSchema), async (c) => {
       return c.json({ success: false, error: "Journal not found" }, 404)
     }
 
-    const serializedJournal = serializeRecord(journal) as ReturnType<typeof serializeRecord> & { contact_email?: string }
+    const serializedJournal = serializeRecord(journal) as ReturnType<typeof serializeRecord> & { contact_email?: string; cover_image_url?: string | null }
+    serializedJournal.cover_image_url = normalizeOjsAssetUrl(serializedJournal.cover_image_url)
 
     if (journal.ojs_id) {
       try {

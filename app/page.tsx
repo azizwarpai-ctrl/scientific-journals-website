@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { prisma } from "@/src/lib/db/config"
 import { serializeMany } from "@/src/lib/serialize"
 import { buildCanonical } from "@/src/lib/seo/canonical"
+import { normalizeOjsAssetUrl } from "@/src/features/ojs/utils/ojs-config"
 import type { Journal } from "@/src/features/journals"
 import HomePageClient from "@/app/home-page-client"
 
@@ -31,7 +32,11 @@ async function getInitialJournals(): Promise<Journal[]> {
         ojs_path: true,
       },
     })
-    return serializeMany(journals) as unknown as Journal[]
+    const serialized = serializeMany(journals) as unknown as Journal[]
+    return serialized.map((j) => ({
+      ...j,
+      cover_image_url: normalizeOjsAssetUrl(j.cover_image_url),
+    }))
   } catch (err) {
     console.error("[home] prisma.journal.findMany failed; rendering empty initial state:", err)
     return []

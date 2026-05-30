@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
+import { normalizeOjsAssetUrl } from "@/src/features/ojs/utils/ojs-config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus, Pencil, Eye } from "lucide-react"
@@ -30,6 +31,10 @@ export default async function JournalsPage() {
         }
       }
     })
+    journals = journals.map((j) => ({
+      ...j,
+      cover_image_url: normalizeOjsAssetUrl(j.cover_image_url),
+    }))
   } catch (e) {
     error = e as Error
   }
