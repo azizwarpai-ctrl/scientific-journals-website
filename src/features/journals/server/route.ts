@@ -292,8 +292,8 @@ app.get("/:id", zValidator("param", journalSlugParamSchema), async (c) => {
       return c.json({ success: false, error: "Journal not found" }, 404)
     }
 
-    const serializedJournal = serializeRecord(journal) as ReturnType<typeof serializeRecord> & { contact_email?: string }
-    serializedJournal.cover_image_url = normalizeOjsAssetUrl(serializedJournal.cover_image_url as string | null | undefined)
+    const serializedJournal = serializeRecord(journal) as ReturnType<typeof serializeRecord> & { contact_email?: string; cover_image_url?: string | null }
+    serializedJournal.cover_image_url = normalizeOjsAssetUrl(serializedJournal.cover_image_url)
 
     if (journal.ojs_id) {
       try {
