@@ -244,6 +244,7 @@ the admin trigger) to populate Prisma from OJS.
 | 7 — Homepage SSR | `feat(seo): server-render the homepage's featured journals` | `app/page.tsx`, `app/home-page-client.tsx` |
 | 8 — Per-page metadata | `feat(seo): unique title/description/canonical for every public page` | `app/{about,help,help/submission-service,help/technical-support,journals,register,contact,solutions,submit-manager}/layout.tsx`, `app/journals/[id]/layout.tsx` |
 | 9 — JSON-LD | `feat(seo): Periodical + ScholarlyArticle JSON-LD…` | `components/seo/periodical-jsonld.tsx`, `app/journals/[id]/layout.tsx`, `app/journals/[id]/articles/[publicationId]/page.tsx` |
+| 11 — Heading hierarchy | `fix(seo): add accessible h1 to /register` | `app/register/page.tsx` |
 
 ---
 
@@ -282,9 +283,12 @@ A new env flag, `EMIT_SCHOLAR_CITATION_META` (`"true"`/`"false"`, **default
   `${ojsBaseUrl}/${journalUrlPath}/article/download/${submissionId}/${galleyId}`
   from the canonical OJS `submission_id`, PDF galley id, and journal `url_path`
   — not the route's `[publicationId]` param.
+- **JSON-LD `url` field** (`components/article-jsonld.tsx`): the `url` property in
+  the `ScholarlyArticle` block is never a proxy URL. When the resolved PDF URL
+  points at `/api/pdf-proxy`, the safe OJS public download URL is substituted;
+  if that is also unavailable, the `url` field is omitted entirely.
 
 **Unchanged:** the human-facing PDF experience (`/api/pdf-proxy`, the inline
 modal viewer, and `buildGalleyDownloadUrl`'s on-page links), `app/robots.ts`
 (`Disallow: /api/` stays), and full SSR of article content. To make digitopub
 the Scholar record later (Option B), set `EMIT_SCHOLAR_CITATION_META=true`.
-| 11 — Heading hierarchy | `fix(seo): add accessible h1 to /register` | `app/register/page.tsx` |

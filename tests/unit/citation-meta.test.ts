@@ -74,13 +74,23 @@ describe("buildCitationMeta", () => {
     expect(String(meta.citation_pdf_url)).not.toContain("/api/")
   })
 
-  it("never emits an /api/ citation_pdf_url even when emitPdfUrl is true and only galley data is missing", () => {
+  it("never emits an /api/ citation_pdf_url when emitPdfUrl is true and galleys is empty", () => {
     const meta = buildCitationMeta(
       makeArticle({ galleys: [], submissionId: 100 }),
       articleUrl,
       appBase,
       { emitPdfUrl: true }
     )
+    expect(meta.citation_pdf_url).toBeUndefined()
+  })
+
+  it("omits citation_pdf_url when no galley exactly matches pdfUrl (no fallback to galleys[0])", () => {
+    // pdfUrl doesn't match any galley downloadUrl → no exact match → undefined
+    const article = makeArticle({
+      pdfUrl: "/api/pdf-proxy?x=different",
+      galleys: [{ galleyId: 5, label: "PDF", locale: "en", downloadUrl: "/api/pdf-proxy?x=1" }],
+    })
+    const meta = buildCitationMeta(article, articleUrl, appBase, { emitPdfUrl: true })
     expect(meta.citation_pdf_url).toBeUndefined()
   })
 })

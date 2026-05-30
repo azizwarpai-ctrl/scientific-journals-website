@@ -1,4 +1,5 @@
 import type { ArticleDetail } from "@/src/features/journals/types/article-detail-types"
+import { buildOjsPdfDownloadUrl } from "@/src/features/journals/server/citation-meta"
 
 /**
  * Server Component. Injects JSON-LD structured data for ScholarlyArticle.
@@ -69,9 +70,13 @@ export function ArticleJsonLd({ article }: { article: ArticleDetail }) {
         }),
       },
     },
-    ...(article.pdfUrl && {
-      url: article.pdfUrl,
-    }),
+    // Never emit a robots-blocked /api/pdf-proxy URL in JSON-LD.
+    // Substitute the real OJS public download URL; omit if unavailable.
+    ...((() => {
+      const isProxy = article.pdfUrl && /(^|\/\/[^/]+)?\/api\//.test(article.pdfUrl)
+      const safeUrl = isProxy ? buildOjsPdfDownloadUrl(article) : article.pdfUrl
+      return safeUrl ? { url: safeUrl } : {}
+    })()),
     publisher: {
       "@type": "Organization",
       name: "Digitopub",

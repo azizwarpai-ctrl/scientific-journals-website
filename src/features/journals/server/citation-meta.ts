@@ -54,14 +54,14 @@ function pointsAtApi(url: string): boolean {
  * not guaranteed to equal submission_id). Returns null if any piece is missing
  * or if OJS_BASE_URL is unconfigured.
  */
-function buildOjsPdfDownloadUrl(article: ArticleDetail): string | null {
+export function buildOjsPdfDownloadUrl(article: ArticleDetail): string | null {
   if (!article.submissionId || !article.journalUrlPath) return null
 
-  // Prefer the galley whose download URL matches the resolved PDF; otherwise
-  // fall back to the first galley.
-  const pdfGalley =
-    article.galleys.find((g) => g.downloadUrl && g.downloadUrl === article.pdfUrl) ??
-    article.galleys[0]
+  // Only match the galley whose downloadUrl exactly equals the resolved pdfUrl.
+  // No fallback to galleys[0] — an unmatched galley could be the wrong file.
+  const pdfGalley = article.galleys.find(
+    (g) => g.downloadUrl && g.downloadUrl === article.pdfUrl
+  )
   if (!pdfGalley) return null
 
   let base: string
