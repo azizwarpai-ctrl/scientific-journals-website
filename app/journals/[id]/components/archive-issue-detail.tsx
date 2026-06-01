@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { OjsImage } from "@/src/features/ojs/components/ojs-image"
 import {
   ArrowLeft,
@@ -30,6 +30,11 @@ export function ArchiveIssueDetail({
   const { data: response, isLoading, error, refetch } = useGetIssueDetail(journalId, issueId)
   const [hasCoverError, setHasCoverError] = useState(false)
   const issue = response?.data
+
+  // Reset cover error when switching issues so new covers can attempt to load.
+  useEffect(() => {
+    setHasCoverError(false)
+  }, [issueId])
 
   // ── Loading ───────────────────────────────────────────────────
   if (isLoading) {

@@ -77,7 +77,10 @@ export function parseOjsFilename(raw: string | null | undefined): string | null 
  */
 export function buildOjsPublicUrl(baseUrl: string, subpath: string, filename: string): string {
   const clean = subpath.replace(/^\/|\/$/g, "")
-  const sanitized = encodeURIComponent(path.basename(filename))
+  // Normalize backslashes so `path.basename` on Linux still strips Windows-style
+  // traversal sequences like `..\..\secret.png` down to the leaf name.
+  const normalized = filename.replace(/\\/g, "/")
+  const sanitized = encodeURIComponent(path.basename(normalized))
   return `${baseUrl}/${clean}/${sanitized}`
 }
 

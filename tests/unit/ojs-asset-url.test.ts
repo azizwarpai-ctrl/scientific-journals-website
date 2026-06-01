@@ -142,6 +142,28 @@ describe("buildOjsPublicUrl", () => {
     expect(result).not.toContain("/etc/")
   })
 
+  it("strips Windows-style backslash path traversal", () => {
+    // path.basename on Linux doesn't treat '\\' as a separator, so we normalize
+    // backslashes to forward slashes before basename
+    const result = buildOjsPublicUrl(
+      "https://example.com",
+      "public/journals/10",
+      "..\\..\\secret.png"
+    )
+    expect(result).toBe("https://example.com/public/journals/10/secret.png")
+    expect(result).not.toContain("..")
+    expect(result).not.toContain("%5C")
+  })
+
+  it("strips mixed forward/back slash traversal", () => {
+    const result = buildOjsPublicUrl(
+      "https://example.com",
+      "public/site",
+      "..\\..\\../etc\\passwd"
+    )
+    expect(result).toBe("https://example.com/public/site/passwd")
+  })
+
   it("does not double-encode an already-clean filename", () => {
     const result = buildOjsPublicUrl("https://example.com", "public/journals/1", "cover.png")
     expect(result).toBe("https://example.com/public/journals/1/cover.png")

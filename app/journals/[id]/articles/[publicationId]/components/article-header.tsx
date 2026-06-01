@@ -112,6 +112,14 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
                 fill
                 sizes="(max-width: 1024px) 220px, 220px"
                 className="object-contain p-3"
+                fallback={
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50 bg-gradient-to-br from-muted/40 to-muted/70">
+                    <FileText className="h-10 w-10 mb-2" strokeWidth={1.25} />
+                    <span className="text-[10px] font-semibold uppercase tracking-wider">
+                      No cover
+                    </span>
+                  </div>
+                }
               />
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50 bg-gradient-to-br from-muted/40 to-muted/70">
