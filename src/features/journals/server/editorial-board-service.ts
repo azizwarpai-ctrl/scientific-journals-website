@@ -15,7 +15,7 @@
  */
 
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
-import { getOjsPublicAssetsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
+import { parseOjsFilename, buildOjsAssetUrl } from "@/src/features/ojs/utils/ojs-asset-url"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 import { fetchBoardFromNavPage } from "./board-nav-service"
 
@@ -183,33 +183,14 @@ function resolveProfileImageUrl(rawValue: string | null): string | null {
   const trimmed = rawValue.trim()
   if (!trimmed) return null
 
-  let ojsBaseUrl: string
-  try {
-    ojsBaseUrl = getOjsPublicAssetsBaseUrl()
-  } catch {
-    return null
-  }
-
-  // JSON format: {"uploadName":"..."}
-  if (trimmed.startsWith("{")) {
-    try {
-      const parsed = JSON.parse(trimmed) as Record<string, unknown>
-      const filename = parsed.uploadName ?? parsed.fileName ?? parsed.name
-      if (typeof filename === "string" && filename.trim()) {
-        return `${ojsBaseUrl}/public/site/profileImages/${filename.trim()}`
-      }
-    } catch {
-      // fall through
-    }
-  }
-
-  // Already a full URL
+  // Already a full URL — return as-is
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
     return trimmed
   }
 
-  // Plain filename
-  return `${ojsBaseUrl}/public/site/profileImages/${trimmed}`
+  // Delegate to shared resolver: handles JSON, PHP-serialized, and plain string
+  const filename = parseOjsFilename(trimmed)
+  return buildOjsAssetUrl("public/site/profileImages", filename)
 }
 
 /** Returns `url` only when it uses http/https — rejects everything else. */

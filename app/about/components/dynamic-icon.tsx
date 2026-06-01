@@ -1,5 +1,5 @@
 import {
-  Target, Eye, Award, Globe, BookOpen, Users, FileText, BarChart3,
+  Target, Eye, Award, Globe, Users,
   Shield, Cpu, Zap, Activity, LayoutTemplate, Sparkles, Building2, Workflow,
 } from "lucide-react"
 

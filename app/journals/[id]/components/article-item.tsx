@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import Link from "next/link"
-import Image from "next/image"
+import { OjsImage } from "@/src/features/ojs/components/ojs-image"
 import {
   ChevronDown,
   ChevronUp,
@@ -50,7 +50,7 @@ export function ArticleItem({ article }: ArticleItemProps) {
       {/* Visual Cover Area */}
       <div className="relative sm:w-56 md:w-64 flex-shrink-0 aspect-[16/9] sm:aspect-auto bg-muted/5 border-b sm:border-b-0 sm:border-r border-border/30 overflow-hidden sm:min-h-[280px]">
         {article.articleCoverUrl && !hasCoverError ? (
-          <Image
+          <OjsImage
             src={article.articleCoverUrl}
             alt={`Cover for ${article.title || 'article'}`}
             fill

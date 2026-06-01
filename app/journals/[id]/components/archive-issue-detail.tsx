@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
+import { OjsImage } from "@/src/features/ojs/components/ojs-image"
 import {
   ArrowLeft,
   Calendar,
@@ -29,7 +29,15 @@ export function ArchiveIssueDetail({
 }: ArchiveIssueDetailProps) {
   const { data: response, isLoading, error, refetch } = useGetIssueDetail(journalId, issueId)
   const [hasCoverError, setHasCoverError] = useState(false)
+  const [prevIssueId, setPrevIssueId] = useState(issueId)
   const issue = response?.data
+
+  // "Adjust state during rendering" — reset cover error synchronously when the
+  // issue changes so the next cover can attempt to load without an extra cycle.
+  if (issueId !== prevIssueId) {
+    setPrevIssueId(issueId)
+    setHasCoverError(false)
+  }
 
   // ── Loading ───────────────────────────────────────────────────
   if (isLoading) {
@@ -95,7 +103,7 @@ export function ArchiveIssueDetail({
           <div className="relative md:w-2/5 lg:w-1/3 bg-muted/20 border-b md:border-b-0 md:border-r border-border/50 p-6 flex flex-col items-center justify-center min-h-[400px]">
             {issue.issueCoverUrl && !hasCoverError ? (
               <div className="relative w-full aspect-[3/4] max-w-[320px] overflow-hidden rounded-md shadow-md ring-1 ring-border/30">
-                <Image
+                <OjsImage
                   src={issue.issueCoverUrl}
                   alt={getIssueTitle(issue)}
                   fill

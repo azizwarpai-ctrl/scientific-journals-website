@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
-import Image from "next/image"
+import { OjsImage } from "@/src/features/ojs/components/ojs-image"
 import { useRouter } from "next/navigation"
 import {
   BookOpen,
@@ -311,7 +311,7 @@ export function JournalDetailView({
           {/* Animated Background Pattern */}
           <div className="absolute inset-0 z-0">
             {journal.cover_image_url && (
-              <Image
+              <OjsImage
                 src={journal.cover_image_url}
                 alt=""
                 fill
@@ -334,7 +334,7 @@ export function JournalDetailView({
                 <div className="relative group">
                   <div className="absolute -inset-1 bg-gradient-to-br from-primary/30 via-primary/10 to-transparent rounded-xl blur-lg opacity-50 group-hover:opacity-75 transition-opacity duration-500" />
                   <div className="relative rounded-xl overflow-hidden shadow-2xl shadow-black/30 ring-1 ring-white/10">
-                    <Image
+                    <OjsImage
                       src={journal.cover_image_url || "/images/logodigitopub.png"}
                       alt={journal.title}
                       width={224}
