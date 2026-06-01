@@ -365,7 +365,7 @@ export default function AdminAboutPage() {
                         </Button>
                       </CardHeader>
                       <CardContent className="grid grid-cols-2 gap-4 p-4">
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        { }
                         <FormField
                           control={form.control as any}
                           name={`items.${index}.icon`}
@@ -378,7 +378,7 @@ export default function AdminAboutPage() {
                             </FormItem>
                           )}
                         />
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        { }
                         <FormField
                           control={form.control as any}
                           name={`items.${index}.color_theme`}
@@ -397,7 +397,7 @@ export default function AdminAboutPage() {
                             </FormItem>
                           )}
                         />
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        { }
                         <FormField
                           control={form.control as any}
                           name={`items.${index}.title`}
@@ -410,7 +410,7 @@ export default function AdminAboutPage() {
                             </FormItem>
                           )}
                         />
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        { }
                         <FormField
                           control={form.control as any}
                           name={`items.${index}.description`}

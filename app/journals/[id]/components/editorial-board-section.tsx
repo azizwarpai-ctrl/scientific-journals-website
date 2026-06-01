@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { ChevronDown, ChevronUp } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
 import { useGetEditorialBoard } from "@/src/features/journals/api/use-get-editorial-board"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 import { getRoleConfig } from "./editorial-board/role-styles"

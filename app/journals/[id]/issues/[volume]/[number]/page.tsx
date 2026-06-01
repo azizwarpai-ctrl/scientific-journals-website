@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { cache } from "react"
-import { ArrowLeft, BookOpen, Clock, Calendar, Share2 } from "lucide-react"
+import { ArrowLeft, BookOpen, Clock, Calendar } from "lucide-react"
 import Link from "next/link"
 import { OjsImage } from "@/src/features/ojs/components/ojs-image"
 import { notFound } from "next/navigation"
