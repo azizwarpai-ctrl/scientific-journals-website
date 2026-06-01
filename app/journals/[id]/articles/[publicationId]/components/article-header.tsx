@@ -1,7 +1,7 @@
 // Server Component — no interactivity, fully SSR-rendered for SEO
 
 import Link from "next/link"
-import Image from "next/image"
+import { OjsImage } from "@/src/features/ojs/components/ojs-image"
 import { ChevronRight, Calendar, ExternalLink, FileText, BookOpen, Hash } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { DoiCopyButton } from "./doi-copy-button"
@@ -106,7 +106,7 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
         <div className="order-1 lg:order-2 w-full max-w-[220px] mx-auto lg:mx-0">
           <div className="relative aspect-[3/4] w-full rounded-xl overflow-hidden border border-border/60 bg-muted/30 shadow-sm">
             {article.articleCoverUrl ? (
-              <Image
+              <OjsImage
                 src={article.articleCoverUrl}
                 alt={`Cover for ${article.title || "article"}`}
                 fill

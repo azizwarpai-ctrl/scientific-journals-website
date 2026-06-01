@@ -1,9 +1,8 @@
 import { z } from "zod"
 import sanitizeHtml from "sanitize-html"
-import path from "node:path"
 import { ojsJournalSchema } from "../schemas/ojs-schema"
 import type { OjsJournal } from "../schemas/ojs-schema"
-import { parseOjsCoverFilename } from "@/src/features/journals/server/ojs-cover-utils"
+import { parseOjsFilename, buildOjsPublicUrl } from "@/src/features/ojs/utils/ojs-asset-url"
 
 /** Raw row shape from the OJS MySQL database */
 export const ojsJournalRowSchema = z.object({
@@ -36,11 +35,7 @@ export function mapOjsJournalRow(row: OjsJournalRow, baseUrl: string): OjsJourna
         ? sanitizeHtml(row.description, { allowedTags: [], allowedAttributes: {} }).trim()
         : null;
 
-    const imageFileRaw = parseOjsCoverFilename(row.thumbnail)
-    // Sanitize filename to prevent path traversal (consistent with buildCoverUrl)
-    const imageFile = imageFileRaw
-        ? encodeURIComponent(path.basename(imageFileRaw.replace(/\\/g, '/')))
-        : null
+    const imageFilename = parseOjsFilename(row.thumbnail)
 
     return ojsJournalSchema.parse({
         journal_id: row.journal_id,
@@ -49,7 +44,9 @@ export function mapOjsJournalRow(row: OjsJournalRow, baseUrl: string): OjsJourna
         enabled: row.enabled === 1,   // int → boolean
         name: row.name,
         description: cleanDescription || null,
-        thumbnail_url: imageFile ? `${baseUrl}/public/journals/${row.journal_id}/${imageFile}` : null,
+        thumbnail_url: imageFilename
+            ? buildOjsPublicUrl(baseUrl, `public/journals/${row.journal_id}`, imageFilename)
+            : null,
         issn: row.issn || null,
         e_issn: row.e_issn || null,
         publisher: row.publisher || null,

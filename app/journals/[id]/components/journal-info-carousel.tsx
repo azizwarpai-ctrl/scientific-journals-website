@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
+import { OjsImage } from "@/src/features/ojs/components/ojs-image"
 import { useState, useEffect, useCallback, memo, useRef, useMemo } from "react"
 import { ExternalLink, Sparkles, ChevronLeft, ChevronRight, Bug, Pause, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -104,7 +104,7 @@ const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightIte
     <div className="flex flex-col h-full p-5 select-none">
       {data.image && (
         <div className="relative w-full h-[170px] sm:h-[220px] rounded-xl overflow-hidden border border-border/40 bg-muted/20 mb-4 shadow-inner flex-shrink-0 flex items-center justify-center p-5 outline-none">
-          <Image
+          <OjsImage
             src={data.image}
             alt={data.title}
             width={400}

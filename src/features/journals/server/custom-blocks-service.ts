@@ -32,6 +32,7 @@ import type { AnyNode } from "domhandler"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { CustomBlockSchema } from "@/src/features/journals/types/custom-block-types"
 import type { CustomBlock } from "@/src/features/journals/types/custom-block-types"
+import { normalizeOjsAssetUrl } from "@/src/features/ojs/utils/ojs-config"
 
 // Headings that signal a block-level title (e.g. "Journal Information").
 // Stripped from the root before card splitting so the outer label doesn't
@@ -102,6 +103,15 @@ export async function fetchCustomBlocks(
   if (!/^\d+$/.test(ojsJournalId)) {
     console.error("[CustomBlocks] Invalid OJS journal ID:", ojsJournalId)
     return []
+  }
+
+  // Resolve relative image paths in block HTML against the OJS origin.
+  let ojsBaseUrl: string | undefined
+  try {
+    const { getOjsPublicAssetsBaseUrl } = await import("@/src/features/ojs/utils/ojs-config")
+    ojsBaseUrl = getOjsPublicAssetsBaseUrl()
+  } catch {
+    // OJS not configured — relative image paths will pass through unresolved
   }
 
   const journalId = parseInt(ojsJournalId, 10)
@@ -283,7 +293,7 @@ export async function fetchCustomBlocks(
       const refinedSegments = cardHtmlSegments.flatMap(subSplitSegmentByTitleAnchors)
       for (let idx = 0; idx < refinedSegments.length; idx++) {
         const segHtml = refinedSegments[idx]
-        const { image, link, description } = extractCardFields(segHtml, `${name}-${idx}`)
+        const { image, link, description } = extractCardFields(segHtml, `${name}-${idx}`, ojsBaseUrl)
         const finalTitle = getFinalTitle(segHtml, name, idx)
         const finalDescription = buildFinalDescription(finalTitle, description)
         const itemResult = CustomBlockSchema.safeParse({
@@ -308,7 +318,7 @@ export async function fetchCustomBlocks(
       const singleSegments = subSplitSegmentByTitleAnchors(strippedHtml || cleanContent)
       for (let idx = 0; idx < singleSegments.length; idx++) {
         const segHtml = singleSegments[idx]
-        const cardFields = extractCardFields(segHtml, name)
+        const cardFields = extractCardFields(segHtml, name, ojsBaseUrl)
         const finalTitle = getFinalTitle(segHtml, name, singleSegments.length > 1 ? idx : undefined)
         const finalDescription = buildFinalDescription(
           finalTitle,
@@ -367,7 +377,7 @@ function decodeHtml(html: string): string {
  * Pure helper function for testability.
  * Returns title: undefined if no heading/strong is found (caller may skip such cards).
  */
-export function extractCardFields(html: string, _name: string) {
+export function extractCardFields(html: string, _name: string, ojsBaseUrl?: string) {
   // 1. Title: Look for headings, then strong tags. Return undefined if not found.
   const headingMatch = html.match(/<h[2-6][^>]*>(.*?)<\/h[2-6]>/i)
   const strongMatch = html.match(/<strong>(.*?)<\/strong>/i)
@@ -381,7 +391,19 @@ export function extractCardFields(html: string, _name: string) {
 
   // 2. Image: First img tag source
   const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i)
-  const image = imgMatch ? imgMatch[1] : undefined
+  let image = imgMatch ? imgMatch[1] : undefined
+
+  // Resolve relative OJS image paths (e.g. /public/journals/10/image.png)
+  // against the OJS server origin so they don't resolve to digitopub.com.
+  if (image && ojsBaseUrl) {
+    if (/^\.?\//u.test(image)) {
+      // Relative path — prepend OJS base URL
+      const base = ojsBaseUrl.replace(/\/+$/, "")
+      image = `${base}${image.startsWith("/") ? "" : "/"}${image}`
+    }
+    // Rewrite any persisted /ojs/public/ URLs to /public/
+    image = normalizeOjsAssetUrl(image) ?? image
+  }
 
   // 3. Link: First a tag href
   const linkMatch = html.match(/<a[^>]+href=["']([^"']+)["']/i)

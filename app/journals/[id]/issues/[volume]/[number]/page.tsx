@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { cache } from "react"
 import { ArrowLeft, BookOpen, Clock, Calendar, Share2 } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
+import { OjsImage } from "@/src/features/ojs/components/ojs-image"
 import { notFound } from "next/navigation"
 import sanitizeHtml from "sanitize-html"
 
@@ -97,7 +97,7 @@ export default async function IssueDetailPage({ params }: PageProps) {
         <div className="flex flex-col md:flex-row gap-5 sm:gap-6 md:gap-8 items-start">
           {isValidCoverUrl(issue.issueCoverUrl) && (
             <div className="relative w-40 sm:w-52 md:w-64 mx-auto md:mx-0 aspect-[3/4] rounded-2xl overflow-hidden border border-border/40 shadow-xl flex-shrink-0">
-              <Image
+              <OjsImage
                 src={issue.issueCoverUrl!}
                 alt={issue.title || "Issue Cover"}
                 fill
