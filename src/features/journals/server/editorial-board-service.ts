@@ -18,6 +18,7 @@ import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsFilename, buildOjsAssetUrl } from "@/src/features/ojs/utils/ojs-asset-url"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 import { fetchBoardFromNavPage } from "./board-nav-service"
+import { decodeHtmlEntities } from "@/src/lib/html-utils"
 
 // Roles to exclude from the editorial board:
 //   16=Journal Manager (admin staff, not academic editors), 65536=Author, 4096=Reviewer, 1048576=Reader
@@ -256,17 +257,23 @@ function resolveScopusUrl(raw: string | null): string | null {
 /**
  * Parse biography HTML to extract ORCID, Google Scholar, and Scopus links
  * as a fallback when user_settings keys are absent.
+ *
+ * Exported for unit testing.
  */
-function extractLinksFromBiography(bio: string | null): {
+export function extractLinksFromBiography(bio: string | null): {
   orcid: string | null
   googleScholar: string | null
   scopus: string | null
 } {
   if (!bio) return { orcid: null, googleScholar: null, scopus: null }
 
-  const orcidMatch = bio.match(/https?:\/\/orcid\.org\/(\d{4}-\d{4}-\d{4}-\d{3}[\dX])/i)
-  const scholarMatch = bio.match(/https?:\/\/scholar\.google\.[a-z.]+\/citations\?[^\s"'<>]+/i)
-  const scopusMatch = bio.match(/https?:\/\/(?:www\.)?scopus\.com\/authid\/detail\.uri\?[^\s"'<>]+/i)
+  // Decode HTML entities before regex matching so &amp; in href attributes
+  // resolves to & and multi-param URLs are captured correctly.
+  const decoded = decodeHtmlEntities(bio)
+
+  const orcidMatch = decoded.match(/https?:\/\/orcid\.org\/(\d{4}-\d{4}-\d{4}-\d{3}[\dX])/i)
+  const scholarMatch = decoded.match(/https?:\/\/scholar\.google\.[a-z.]+\/citations\?[^\s"'<>]+/i)
+  const scopusMatch = decoded.match(/https?:\/\/(?:www\.)?scopus\.com\/authid\/detail\.uri\?[^\s"'<>]+/i)
 
   return {
     orcid: orcidMatch ? orcidMatch[1] : null,

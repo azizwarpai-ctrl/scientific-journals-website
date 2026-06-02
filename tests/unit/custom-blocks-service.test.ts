@@ -206,6 +206,56 @@ describe("subSplitSegmentByTitleAnchors", () => {
   })
 })
 
+describe("extractCardFields — HTML entity decoding in URLs", () => {
+  it("decodes &amp; in href (single-param link passes through unchanged)", () => {
+    const html = `<div><strong>Scholar</strong><a href="https://scholar.google.com/citations?user=ABC123">link</a></div>`
+    const { link } = extractCardFields(html, "test")
+    expect(link).toBe("https://scholar.google.com/citations?user=ABC123")
+  })
+
+  it("decodes &amp; in href with multiple query params (the reported iJMP bug)", () => {
+    const html = `<div><strong>Scholar</strong><a href="https://scholar.google.com/citations?hl=en&amp;user=jQuDgSkAAAAJ">link</a></div>`
+    const { link } = extractCardFields(html, "test")
+    expect(link).toBe("https://scholar.google.com/citations?hl=en&user=jQuDgSkAAAAJ")
+  })
+
+  it("decodes &#38; (decimal numeric entity) in href", () => {
+    const html = `<div><strong>T</strong><a href="https://example.com/q?a=1&#38;b=2">link</a></div>`
+    const { link } = extractCardFields(html, "test")
+    expect(link).toBe("https://example.com/q?a=1&b=2")
+  })
+
+  it("decodes &#x26; (hex numeric entity) in href", () => {
+    const html = `<div><strong>T</strong><a href="https://example.com/q?a=1&#x26;b=2">link</a></div>`
+    const { link } = extractCardFields(html, "test")
+    expect(link).toBe("https://example.com/q?a=1&b=2")
+  })
+
+  it("already-clean href is unchanged", () => {
+    const html = `<div><strong>T</strong><a href="https://orcid.org/0000-0002-1825-0097">ORCID</a></div>`
+    const { link } = extractCardFields(html, "test")
+    expect(link).toBe("https://orcid.org/0000-0002-1825-0097")
+  })
+
+  it("decodes &amp; in img src", () => {
+    const html = `<div><strong>T</strong><img src="https://example.com/img?a=1&amp;b=2" alt="x"/></div>`
+    const { image } = extractCardFields(html, "test")
+    expect(image).toBe("https://example.com/img?a=1&b=2")
+  })
+
+  it("already-clean img src is unchanged", () => {
+    const html = `<div><strong>T</strong><img src="https://example.com/photo.jpg" alt="x"/></div>`
+    const { image } = extractCardFields(html, "test")
+    expect(image).toBe("https://example.com/photo.jpg")
+  })
+
+  it("no link returns undefined", () => {
+    const html = `<div><strong>Title</strong><p>No link here.</p></div>`
+    const { link } = extractCardFields(html, "test")
+    expect(link).toBeUndefined()
+  })
+})
+
 describe("extractImgAlt (title fallback)", () => {
   it("returns the alt of the first <img>", () => {
     expect(extractImgAlt(`<div><img src="/x.png" alt="My Label"/></div>`)).toBe(
