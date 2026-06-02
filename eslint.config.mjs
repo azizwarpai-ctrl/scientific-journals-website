@@ -26,6 +26,7 @@ export default [
             'check-db.js',
             'check-rpc.js',
             'check-users.js',
+            'test-parse.js',
         ],
     },
     // Base configuration for JS/TS files
