@@ -18,6 +18,7 @@ import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsFilename, buildOjsAssetUrl } from "@/src/features/ojs/utils/ojs-asset-url"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 import { fetchBoardFromNavPage } from "./board-nav-service"
+import { decodeHtmlEntities } from "@/src/lib/html-utils"
 
 // Roles to exclude from the editorial board:
 //   16=Journal Manager (admin staff, not academic editors), 65536=Author, 4096=Reviewer, 1048576=Reader
@@ -254,23 +255,6 @@ function resolveScopusUrl(raw: string | null): string | null {
 }
 
 /**
- * Decode common HTML entities in a string.
- * Biography HTML is stored with entities encoded (e.g. &amp; in href attributes),
- * so we must decode before using regex-captured URLs as navigation targets.
- */
-function decodeBioEntities(text: string): string {
-  return text
-    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCharCode(parseInt(dec, 10)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-}
-
-/**
  * Parse biography HTML to extract ORCID, Google Scholar, and Scopus links
  * as a fallback when user_settings keys are absent.
  *
@@ -285,7 +269,7 @@ export function extractLinksFromBiography(bio: string | null): {
 
   // Decode HTML entities before regex matching so &amp; in href attributes
   // resolves to & and multi-param URLs are captured correctly.
-  const decoded = decodeBioEntities(bio)
+  const decoded = decodeHtmlEntities(bio)
 
   const orcidMatch = decoded.match(/https?:\/\/orcid\.org\/(\d{4}-\d{4}-\d{4}-\d{3}[\dX])/i)
   const scholarMatch = decoded.match(/https?:\/\/scholar\.google\.[a-z.]+\/citations\?[^\s"'<>]+/i)

@@ -33,6 +33,7 @@ import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { CustomBlockSchema } from "@/src/features/journals/types/custom-block-types"
 import type { CustomBlock } from "@/src/features/journals/types/custom-block-types"
 import { normalizeOjsAssetUrl } from "@/src/features/ojs/utils/ojs-config"
+import { decodeHtmlEntities } from "@/src/lib/html-utils"
 
 // Headings that signal a block-level title (e.g. "Journal Information").
 // Stripped from the root before card splitting so the outer label doesn't
@@ -358,23 +359,7 @@ function buildFinalDescription(title: string, description: string): string {
   return description
 }
 
-/**
- * Simple HTML entity decoder for common named and numeric entities.
- * Applied to titles, descriptions, alt text, and — via cheerio below — URLs.
- * Numeric entities are processed first to avoid double-decoding `&#38;` → `&amp;` → `&`.
- */
-function decodeHtml(html: string): string {
-  return html
-    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCharCode(parseInt(dec, 10)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-}
+const decodeHtml = decodeHtmlEntities
 
 /**
  * Extracts structured fields from sanitized HTML for the Journal Carousel.
