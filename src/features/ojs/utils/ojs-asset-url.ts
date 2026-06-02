@@ -19,6 +19,8 @@ import { getOjsPublicAssetsBaseUrl, normalizeOjsAssetUrl } from "./ojs-config"
 function findUploadName(obj: unknown): string | null {
   if (obj === null || typeof obj !== "object") return null
   const record = obj as Record<string, unknown>
+  // Prefer 'name' (the actual file on disk in OJS 3.x) over 'uploadName' (the original uploaded filename)
+  if (typeof record.name === "string" && record.name) return record.name
   if (typeof record.uploadName === "string" && record.uploadName) return record.uploadName
   for (const key of Object.keys(record)) {
     const found = findUploadName(record[key])
@@ -37,7 +39,7 @@ export function parseOjsFilename(raw: string | null | undefined): string | null 
   const trimmed = raw.trim()
   if (!trimmed) return null
 
-  // 1. JSON — {"en_US":{"uploadName":"cover.png"}} or {"uploadName":"photo.jpg"}
+  // 1. JSON — {"en_US":{"name":"cover.png"}} or {"uploadName":"photo.jpg"}
   if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
     try {
       const parsed = JSON.parse(trimmed)
@@ -48,7 +50,12 @@ export function parseOjsFilename(raw: string | null | undefined): string | null 
     }
   }
 
-  // 2. PHP serialized — a:2:{s:10:"uploadName";s:12:"filename.png"...}
+  // 2. PHP serialized — a:2:{s:4:"name";s:12:"filename.png"...}
+  // Prefer 'name' first
+  if (trimmed.includes('name";s:')) {
+    const match = trimmed.match(/name";s:\d+:"([^"]+)"/)
+    if (match?.[1]) return match[1]
+  }
   if (trimmed.includes('uploadName";s:')) {
     const match = trimmed.match(/uploadName";s:\d+:"([^"]+)"/)
     if (match?.[1]) return match[1]
