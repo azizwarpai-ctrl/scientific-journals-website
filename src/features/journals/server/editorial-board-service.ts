@@ -254,19 +254,42 @@ function resolveScopusUrl(raw: string | null): string | null {
 }
 
 /**
+ * Decode common HTML entities in a string.
+ * Biography HTML is stored with entities encoded (e.g. &amp; in href attributes),
+ * so we must decode before using regex-captured URLs as navigation targets.
+ */
+function decodeBioEntities(text: string): string {
+  return text
+    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCharCode(parseInt(dec, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+}
+
+/**
  * Parse biography HTML to extract ORCID, Google Scholar, and Scopus links
  * as a fallback when user_settings keys are absent.
+ *
+ * Exported for unit testing.
  */
-function extractLinksFromBiography(bio: string | null): {
+export function extractLinksFromBiography(bio: string | null): {
   orcid: string | null
   googleScholar: string | null
   scopus: string | null
 } {
   if (!bio) return { orcid: null, googleScholar: null, scopus: null }
 
-  const orcidMatch = bio.match(/https?:\/\/orcid\.org\/(\d{4}-\d{4}-\d{4}-\d{3}[\dX])/i)
-  const scholarMatch = bio.match(/https?:\/\/scholar\.google\.[a-z.]+\/citations\?[^\s"'<>]+/i)
-  const scopusMatch = bio.match(/https?:\/\/(?:www\.)?scopus\.com\/authid\/detail\.uri\?[^\s"'<>]+/i)
+  // Decode HTML entities before regex matching so &amp; in href attributes
+  // resolves to & and multi-param URLs are captured correctly.
+  const decoded = decodeBioEntities(bio)
+
+  const orcidMatch = decoded.match(/https?:\/\/orcid\.org\/(\d{4}-\d{4}-\d{4}-\d{3}[\dX])/i)
+  const scholarMatch = decoded.match(/https?:\/\/scholar\.google\.[a-z.]+\/citations\?[^\s"'<>]+/i)
+  const scopusMatch = decoded.match(/https?:\/\/(?:www\.)?scopus\.com\/authid\/detail\.uri\?[^\s"'<>]+/i)
 
   return {
     orcid: orcidMatch ? orcidMatch[1] : null,

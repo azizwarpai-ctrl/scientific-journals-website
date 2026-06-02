@@ -359,17 +359,21 @@ function buildFinalDescription(title: string, description: string): string {
 }
 
 /**
- * Simple HTML entity decoder for common characters.
- * Prevents &amp;, &quot;, etc. from appearing in titles/descriptions.
+ * Simple HTML entity decoder for common named and numeric entities.
+ * Applied to titles, descriptions, alt text, and — via cheerio below — URLs.
+ * Numeric entities are processed first to avoid double-decoding `&#38;` → `&amp;` → `&`.
  */
 function decodeHtml(html: string): string {
   return html
+    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCharCode(parseInt(dec, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)))
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ');
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
 }
 
 /**
@@ -378,6 +382,11 @@ function decodeHtml(html: string): string {
  * Returns title: undefined if no heading/strong is found (caller may skip such cards).
  */
 export function extractCardFields(html: string, _name: string, ojsBaseUrl?: string) {
+  // Parse once with cheerio so .attr() gives us entity-decoded values for all
+  // URL fields. Raw regex captures literal HTML-encoded attribute text (&amp; etc.)
+  // which corrupts multi-param URLs when used directly as navigation targets.
+  const $card = load(html)
+
   // 1. Title: Look for headings, then strong tags. Return undefined if not found.
   const headingMatch = html.match(/<h[2-6][^>]*>(.*?)<\/h[2-6]>/i)
   const strongMatch = html.match(/<strong>(.*?)<\/strong>/i)
@@ -389,9 +398,8 @@ export function extractCardFields(html: string, _name: string, ojsBaseUrl?: stri
 
   const title = rawTitleText ? decodeHtml(rawTitleText) : undefined
 
-  // 2. Image: First img tag source
-  const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i)
-  let image = imgMatch ? imgMatch[1] : undefined
+  // 2. Image: first <img src> — cheerio.attr() decodes HTML entities automatically
+  let image = $card("img").first().attr("src") ?? undefined
 
   // Resolve relative OJS image paths (e.g. /public/journals/10/image.png)
   // against the OJS server origin so they don't resolve to digitopub.com.
@@ -405,9 +413,8 @@ export function extractCardFields(html: string, _name: string, ojsBaseUrl?: stri
     image = normalizeOjsAssetUrl(image) ?? image
   }
 
-  // 3. Link: First a tag href
-  const linkMatch = html.match(/<a[^>]+href=["']([^"']+)["']/i)
-  const link = linkMatch ? linkMatch[1] : undefined
+  // 3. Link: first <a href> — cheerio.attr() decodes HTML entities automatically
+  const link = $card("a[href]").first().attr("href") ?? undefined
 
   // 4. Description: Remove title/image/link elements and get remaining text
   // To avoid Frankenstein strings (title merged into description text), explicitly erase the actual title tag from processing
