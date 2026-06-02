@@ -3,10 +3,9 @@
 /**
  * <OjsImage> — canonical component for every OJS-hosted image.
  *
- * Routes OJS URLs (submitmanager.com, journals.digitopub.com) through
- * /api/image-proxy so the fetch is made server-side with a browser UA,
- * bypassing the WAF / hotlink protection that blocks direct cross-origin
- * requests from digitopub.com browsers.
+ * Routes OJS URLs through /api/image-proxy so the fetch is made server-side
+ * with a browser UA, bypassing the WAF / hotlink protection that blocks
+ * direct cross-origin requests from digitopub.com browsers.
  *
  * Non-OJS URLs (external CDN, data: URIs, local /public paths) are passed
  * through unchanged.
@@ -19,9 +18,27 @@
 
 import { type CSSProperties, type ReactNode, useState } from "react"
 
+import { DEFAULT_OJS_LANDING_BASE_URL } from "@/src/features/ojs/utils/ojs-config"
+
 // ─── Internal constants ───────────────────────────────────────────────────────
 
-const OJS_HOSTS = new Set(["submitmanager.com", "journals.digitopub.com"])
+// Client-safe allowlist: only NEXT_PUBLIC_* env is inlined into the bundle.
+// The default end-state host is always included so cutover-window URLs render
+// even when the apex bundle was built before the env was flipped.
+const OJS_HOSTS = ((): Set<string> => {
+  const hosts = new Set<string>()
+  const tryAdd = (raw: string | undefined) => {
+    if (!raw) return
+    try {
+      hosts.add(new URL(raw).hostname)
+    } catch {
+      // ignore malformed env values
+    }
+  }
+  tryAdd(process.env.NEXT_PUBLIC_OJS_BASE_URL)
+  tryAdd(DEFAULT_OJS_LANDING_BASE_URL)
+  return hosts
+})()
 
 function toProxyUrl(src: string): string {
   try {

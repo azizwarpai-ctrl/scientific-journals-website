@@ -265,7 +265,8 @@ export function JournalDetailView({
   const safeAimsAndScopeCombined = chosenCombined ? sanitizeRichContent(chosenCombined) : null
   const safeAuthorGuidelines = sanitizeContent(journal.author_guidelines)
 
-  const ojsBaseUrl = process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://submitmanager.com"
+  const ojsBaseUrl =
+    process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://journals.digitopub.com"
   // Ensure we have a trailing slash removed for consistent URL building
   const ojsDomain = ojsBaseUrl.endsWith('/') ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
 
