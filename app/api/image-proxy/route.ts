@@ -176,7 +176,10 @@ export async function GET(request: NextRequest) {
 
     // Trust content-length only as a fast-path rejection — a malicious upstream
     // can lie, so we still cap the streamed read below.
-    const declaredLength = Number(upstream.headers.get("content-length"))
+    // Use NaN when the header is absent so the isFinite guard doesn't mis-fire
+    // on the Number(null) → 0 coercion.
+    const rawLength = upstream.headers.get("content-length")
+    const declaredLength = rawLength !== null ? Number(rawLength) : NaN
     if (Number.isFinite(declaredLength) && declaredLength > MAX_BYTES) {
       return new NextResponse("Image too large", { status: 502 })
     }

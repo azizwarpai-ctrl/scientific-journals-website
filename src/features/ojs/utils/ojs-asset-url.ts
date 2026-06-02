@@ -58,7 +58,7 @@ export function parseOjsFilename(raw: string | null | undefined): string | null 
   if (trimmed.match(/^(cover_issue_|article_|cover_)/)) return trimmed
 
   // 4. Plain string with a recognised image extension
-  if (trimmed.match(/\.(jpg|jpeg|png|webp|gif)$/i)) return trimmed
+  if (trimmed.match(/\.(jpg|jpeg|png|webp|gif|avif)$/i)) return trimmed
 
   return null
 }
