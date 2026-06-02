@@ -44,8 +44,11 @@ describe("parseOjsFilename", () => {
     expect(parseOjsFilename(raw)).toBe("photo.jpg")
   })
 
-  it("returns null for JSON without uploadName", () => {
-    expect(parseOjsFilename('{"name":"something","value":42}')).toBeNull()
+  it("returns null for JSON without name or uploadName", () => {
+    // Both `name` (preferred, the on-disk filename in OJS 3.x) and `uploadName`
+    // (the original uploaded name) are recognized keys. A JSON object that
+    // carries neither — and no nested object that does — has nothing to extract.
+    expect(parseOjsFilename('{"label":"something","value":42}')).toBeNull()
   })
 
   it("returns null for JSON with empty uploadName", () => {
