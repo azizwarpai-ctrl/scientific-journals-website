@@ -294,8 +294,8 @@ export async function fetchCustomBlocks(
       const refinedSegments = cardHtmlSegments.flatMap(subSplitSegmentByTitleAnchors)
       for (let idx = 0; idx < refinedSegments.length; idx++) {
         const segHtml = refinedSegments[idx]
-        const { image, link, description } = extractCardFields(segHtml, `${name}-${idx}`, ojsBaseUrl)
-        const finalTitle = getFinalTitle(segHtml, name, idx)
+        const { image, link, description, title: extractedTitle } = extractCardFields(segHtml, `${name}-${idx}`, ojsBaseUrl)
+        const finalTitle = getFinalTitle(segHtml, name, idx, extractedTitle)
         const finalDescription = buildFinalDescription(finalTitle, description)
         const itemResult = CustomBlockSchema.safeParse({
           name: `${name}-${idx}`,
@@ -320,7 +320,7 @@ export async function fetchCustomBlocks(
       for (let idx = 0; idx < singleSegments.length; idx++) {
         const segHtml = singleSegments[idx]
         const cardFields = extractCardFields(segHtml, name, ojsBaseUrl)
-        const finalTitle = getFinalTitle(segHtml, name, singleSegments.length > 1 ? idx : undefined)
+        const finalTitle = getFinalTitle(segHtml, name, singleSegments.length > 1 ? idx : undefined, cardFields.title)
         const finalDescription = buildFinalDescription(
           finalTitle,
           cardFields.description
@@ -741,8 +741,9 @@ function getFinalTitle(
   segmentHtml: string,
   baseName: string,
   idx?: number,
+  precomputedTitle?: string | null,
 ): string {
-  const { title } = extractCardFields(segmentHtml, `${baseName}-${idx ?? 0}`)
+  const title = precomputedTitle ?? extractCardFields(segmentHtml, `${baseName}-${idx ?? 0}`).title
   return (
     title ||
     extractImgAlt(segmentHtml) ||
