@@ -31,7 +31,10 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/avif",
 ])
 
-const MAX_BYTES = 1 * 1024 * 1024 // 1 MB
+// OJS homepage/cover images are full-resolution and routinely run 3–4 MB
+// (e.g. journal 1's homepageImage_en.png is ~3.4 MB). The cap exists only to
+// stop pathological responses from exhausting memory, so keep it generous.
+const MAX_BYTES = 15 * 1024 * 1024 // 15 MB
 const MAX_REDIRECTS = 3
 
 // Browser-like UA ensures OJS nginx rules don't block the request as a bot
