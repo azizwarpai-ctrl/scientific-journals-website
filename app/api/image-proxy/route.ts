@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+import { getOjsHostnames } from "@/src/features/ojs/utils/ojs-config"
+
 /**
  * OJS image proxy — fetches public assets from the OJS server using a
  * browser-style User-Agent with no Referer header, bypassing the WAF / hotlink
@@ -12,19 +14,10 @@ import { type NextRequest, NextResponse } from "next/server"
  *   - The response body is read chunk-by-chunk and aborted past MAX_BYTES so a
  *     malicious upstream cannot exhaust memory by lying in content-length.
  *
- * Why we buffer before responding (rather than piping the stream directly):
- *   A mid-stream abort on an over-size image would deliver a partial body to the
- *   client, resulting in a broken image. Buffering up-front lets us return a clean
- *   502 instead. Peak memory is bounded by MAX_BYTES × MAX_CONCURRENT (~300 MB at
- *   the defaults), which is acceptable for this use case.
- *
- * Usage: /api/image-proxy?url=https%3A%2F%2Fsubmitmanager.com%2F...
+ * Usage: /api/image-proxy?url=https%3A%2F%2Fjournals.digitopub.com%2F...
  */
 
-const ALLOWED_HOSTS = new Set([
-  "submitmanager.com",
-  "journals.digitopub.com",
-])
+const ALLOWED_HOSTS = getOjsHostnames()
 
 // SVG is intentionally excluded — it's an executable XML format that can carry
 // <script> and run under the calling origin.
