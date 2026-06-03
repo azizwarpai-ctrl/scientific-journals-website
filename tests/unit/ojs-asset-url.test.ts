@@ -30,6 +30,18 @@ describe("parseOjsFilename", () => {
     expect(parseOjsFilename('{"uploadName":"photo.jpg"}')).toBe("photo.jpg")
   })
 
+  it("returns name when JSON contains only name", () => {
+    // OJS 3.x stores the on-disk filename under `name`; the parser must
+    // extract it even when `uploadName` is absent.
+    expect(parseOjsFilename('{"name":"example.pdf"}')).toBe("example.pdf")
+  })
+
+  it("prefers name over uploadName when both are present", () => {
+    expect(
+      parseOjsFilename('{"name":"on-disk.png","uploadName":"original.png"}')
+    ).toBe("on-disk.png")
+  })
+
   // JSON format — nested locale key
   it("parses nested JSON with locale key", () => {
     const raw = JSON.stringify({ en_US: { uploadName: "cover_issue_1_en_US.png" } })
