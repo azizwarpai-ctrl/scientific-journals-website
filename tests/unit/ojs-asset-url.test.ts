@@ -33,13 +33,27 @@ describe("parseOjsFilename", () => {
   it("returns name when JSON contains only name", () => {
     // OJS 3.x stores the on-disk filename under `name`; the parser must
     // extract it even when `uploadName` is absent.
-    expect(parseOjsFilename('{"name":"example.pdf"}')).toBe("example.pdf")
+    expect(parseOjsFilename('{"name":"example.png"}')).toBe("example.png")
   })
 
   it("prefers name over uploadName when both are present", () => {
     expect(
       parseOjsFilename('{"name":"on-disk.png","uploadName":"original.png"}')
     ).toBe("on-disk.png")
+  })
+
+  it("rejects extracted JSON name that is not filename-shaped", () => {
+    // Belt-and-suspenders: a corrupted settings row carrying a non-filename
+    // value under `name` (e.g. an empty string, a script tag, a bare word)
+    // must not flow into URL construction. Falls back to null.
+    expect(parseOjsFilename('{"name":"<script>"}')).toBeNull()
+    expect(parseOjsFilename('{"name":"justaword"}')).toBeNull()
+    expect(parseOjsFilename('{"name":""}')).toBeNull()
+  })
+
+  it("rejects extracted PHP-serialized name that is not filename-shaped", () => {
+    const raw = 'a:1:{s:4:"name";s:9:"justaword";}'
+    expect(parseOjsFilename(raw)).toBeNull()
   })
 
   // JSON format — nested locale key
