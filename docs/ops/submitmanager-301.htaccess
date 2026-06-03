@@ -1,0 +1,35 @@
+# =============================================================================
+# submitmanager.com → journals.digitopub.com  (host-conditional 301)
+# =============================================================================
+#
+# Closes the legacy door once OJS `base_url` has been flipped (Stage C, step 4).
+# Both names share ONE SiteGround docroot, so a blanket rewrite would loop on
+# the subdomain. The HTTP_HOST condition is what keeps the rule scoped to the
+# legacy host.
+#
+# Apply order
+# -----------
+# Paste this block at the TOP of the docroot's `.htaccess`, ABOVE OJS's own
+# `RewriteEngine On` / `RewriteRule index.php` block. Apache evaluates rules
+# top-down; the [L] flag here stops further processing on the legacy host so
+# the request never reaches OJS's rewriter and never serves OJS content from
+# `submitmanager.com`.
+#
+# Rollback: delete this block. The legacy host will resume serving OJS
+# directly until DNS for `submitmanager.com` is changed.
+# =============================================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Match the legacy host (with or without `www.`) — case-insensitive.
+    # The negated pattern is intentional: ONLY rewrite when the host matches,
+    # which guarantees the rule cannot fire on `journals.digitopub.com` and
+    # produce a redirect loop.
+    RewriteCond %{HTTP_HOST} ^(www\.)?submitmanager\.com$ [NC]
+
+    # 301 (permanent) so Scholar, Crossref resolvers, and browsers update their
+    # cached target. R=301 + L = redirect once, stop processing further rules.
+    # `$1` preserves the original request path & query string verbatim.
+    RewriteRule ^(.*)$ https://journals.digitopub.com/$1 [R=301,L]
+</IfModule>
