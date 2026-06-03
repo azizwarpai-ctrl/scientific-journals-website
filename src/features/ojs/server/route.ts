@@ -14,14 +14,6 @@ import { prisma } from "@/src/lib/db/config"
 const SYNC_LOCK_KEY = "ojs_sync_lock"
 const SYNC_LOCK_WINDOW_MS = 5 * 60 * 1000
 
-function readLockTimestamp(value: unknown): number | null {
-    if (typeof value === "string") {
-        const t = Date.parse(value)
-        return Number.isNaN(t) ? null : t
-    }
-    return null
-}
-
 const app = new Hono()
 
 // GET /ojs/journals

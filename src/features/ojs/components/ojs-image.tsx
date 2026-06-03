@@ -134,6 +134,7 @@ export function OjsImage({
       className={className}
       sizes={sizes}
       loading={priority ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : "auto"}
       decoding="async"
       draggable={draggable}
       style={imgStyle}

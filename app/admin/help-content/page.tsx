@@ -37,7 +37,6 @@ export default function HelpContentPage() {
 
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
   const [topicDialogOpen, setTopicDialogOpen] = useState(false)
-  const [activeCategory, setActiveCategory] = useState<any>(null)
 
   const [catForm, setCatForm] = useState({ id: "", title: "", slug: "" })
   const [topicForm, setTopicForm] = useState({ id: "", categoryId: "", title: "", content: "", order: 0, isActive: true })
