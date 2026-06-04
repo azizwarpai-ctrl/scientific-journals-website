@@ -84,6 +84,30 @@ export function buildOjsArticleLandingUrl(
 }
 
 /**
+ * Build the clean OJS article download URL — the same-host PDF endpoint the
+ * Google-Scholar crawler hits via `citation_pdf_url`, and the URL the apex
+ * exposes to humans for "Download" / "Open in new tab" actions.
+ *
+ * Pattern: `${publicOjsBase}/{journalUrlPath}/article/download/{submissionId}/{galleyId}`.
+ * Note the 2-arg form (no fileId) — OJS resolves the file from the galley.
+ *
+ * Use this for human-visible buttons and any citable/shareable link. The
+ * apex's embedded inline viewer still uses `/api/pdf-proxy?…` because OJS
+ * unconditionally serves `Content-Disposition: attachment`, which the proxy
+ * rewrites to `inline` so the PDF renders inside the iframe instead of
+ * triggering a download.
+ */
+export function buildOjsArticleDownloadUrl(
+  journalUrlPath: string,
+  submissionId: number | string,
+  galleyId: number | string
+): string {
+  const base = (getPublicOjsBaseUrl() ?? DEFAULT_OJS_LANDING_BASE_URL).replace(/\/ojs$/i, "")
+  const slug = encodeURIComponent(journalUrlPath)
+  return `${base}/${slug}/article/download/${submissionId}/${galleyId}`
+}
+
+/**
  * Hostnames the app is allowed to fetch OJS assets from. Derived from the
  * configured base URLs plus the end-state default so the allowlist stays
  * valid through every step of the cutover window:

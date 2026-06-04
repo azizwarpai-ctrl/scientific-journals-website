@@ -25,7 +25,10 @@ export interface CurrentIssueArticle {
   sectionTitle: string | null
   sectionId: number | null
   articleCoverUrl: string | null
+  /** Inline-viewer URL (proxy). See ArticleDetail.pdfUrl for the rationale. */
   pdfUrl: string | null
+  /** Clean shareable OJS download URL. See ArticleDetail.pdfDownloadUrl. */
+  pdfDownloadUrl: string | null
   doi?: string | null
   keywords?: string[]
   isOpenAccess: boolean

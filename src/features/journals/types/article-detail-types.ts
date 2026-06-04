@@ -28,7 +28,21 @@ export interface ArticleDetail {
   sectionTitle: string | null
   articleCoverUrl: string | null
   galleys: ArticleGalley[]
+  /**
+   * Inline-viewer URL — always the same-origin `/api/pdf-proxy?…` for local
+   * galleys (the proxy rewrites OJS's `Content-Disposition: attachment` to
+   * `inline` so the PDF renders inside an iframe). For remote galleys, the
+   * external URL. Use this ONLY as the iframe `src`.
+   */
   pdfUrl: string | null
+  /**
+   * Clean shareable OJS download URL for "Download" / "Open in new tab"
+   * actions. For local galleys this is
+   * `https://journals.digitopub.com/{journalUrlPath}/article/download/{submissionId}/{galleyId}`;
+   * for remote galleys it falls back to the external URL. Never use as an
+   * iframe `src` (OJS forces download via Content-Disposition).
+   */
+  pdfDownloadUrl: string | null
 
   issueId: number
   issueTitle: string | null

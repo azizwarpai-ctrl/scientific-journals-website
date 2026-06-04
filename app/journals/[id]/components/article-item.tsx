@@ -180,6 +180,7 @@ export function ArticleItem({ article }: ArticleItemProps) {
             {article.pdfUrl && (
               <ModalPdfViewer
                 pdfUrl={article.pdfUrl}
+                pdfDownloadUrl={article.pdfDownloadUrl}
                 articleTitle={article.title || undefined}
                 isOpenAccess={article.isOpenAccess}
                 triggerStyle="card"

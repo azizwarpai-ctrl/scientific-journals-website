@@ -2,6 +2,7 @@ import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
 import { buildGalleyDownloadUrl, isOpenAccessStatus } from "@/src/features/journals/server/ojs-galley-utils"
+import { buildOjsArticleDownloadUrl } from "@/src/features/ojs/utils/ojs-config"
 import { fetchNewAuthorAffiliations, resolveAuthorAffiliation } from "@/src/features/journals/server/author-affiliation"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
 
@@ -308,6 +309,21 @@ export async function fetchArticleDetail(
   const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale)
     || galleys.find(g => g.label?.toLowerCase().includes('pdf'))
 
+  // Resolve the clean shareable OJS download URL for the PDF galley — the
+  // human-facing "Download" / "Open in new tab" target. Falls back to the
+  // remote URL for external galleys; null when there is no PDF galley.
+  const pdfDownloadUrl = (() => {
+    if (!pdfGalley) return null
+    const raw = galleyRows.find(r => r.galley_id === pdfGalley.galleyId)
+    if (raw?.remote_url) return raw.remote_url
+    if (!article.journal_url_path) return null
+    return buildOjsArticleDownloadUrl(
+      article.journal_url_path,
+      submissionId,
+      pdfGalley.galleyId
+    )
+  })()
+
   // 5. Fetch Metrics
   let views = 0
   let downloads = 0
@@ -382,6 +398,7 @@ export async function fetchArticleDetail(
     articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(coverImageRaw)),
     galleys,
     pdfUrl: pdfGalley?.downloadUrl || null,
+    pdfDownloadUrl,
 
     issueId: article.issue_id || 0,
     issueTitle: article.issue_title,
