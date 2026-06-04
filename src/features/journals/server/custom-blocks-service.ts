@@ -32,6 +32,8 @@ import type { AnyNode } from "domhandler"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { CustomBlockSchema } from "@/src/features/journals/types/custom-block-types"
 import type { CustomBlock } from "@/src/features/journals/types/custom-block-types"
+import { normalizeOjsAssetUrl } from "@/src/features/ojs/utils/ojs-config"
+import { decodeHtmlEntities } from "@/src/lib/html-utils"
 
 // Headings that signal a block-level title (e.g. "Journal Information").
 // Stripped from the root before card splitting so the outer label doesn't
@@ -102,6 +104,15 @@ export async function fetchCustomBlocks(
   if (!/^\d+$/.test(ojsJournalId)) {
     console.error("[CustomBlocks] Invalid OJS journal ID:", ojsJournalId)
     return []
+  }
+
+  // Resolve relative image paths in block HTML against the OJS origin.
+  let ojsBaseUrl: string | undefined
+  try {
+    const { getOjsPublicAssetsBaseUrl } = await import("@/src/features/ojs/utils/ojs-config")
+    ojsBaseUrl = getOjsPublicAssetsBaseUrl()
+  } catch {
+    // OJS not configured — relative image paths will pass through unresolved
   }
 
   const journalId = parseInt(ojsJournalId, 10)
@@ -283,8 +294,8 @@ export async function fetchCustomBlocks(
       const refinedSegments = cardHtmlSegments.flatMap(subSplitSegmentByTitleAnchors)
       for (let idx = 0; idx < refinedSegments.length; idx++) {
         const segHtml = refinedSegments[idx]
-        const { image, link, description } = extractCardFields(segHtml, `${name}-${idx}`)
-        const finalTitle = getFinalTitle(segHtml, name, idx)
+        const { image, link, description, title: extractedTitle } = extractCardFields(segHtml, `${name}-${idx}`, ojsBaseUrl)
+        const finalTitle = getFinalTitle(segHtml, name, idx, extractedTitle)
         const finalDescription = buildFinalDescription(finalTitle, description)
         const itemResult = CustomBlockSchema.safeParse({
           name: `${name}-${idx}`,
@@ -308,8 +319,8 @@ export async function fetchCustomBlocks(
       const singleSegments = subSplitSegmentByTitleAnchors(strippedHtml || cleanContent)
       for (let idx = 0; idx < singleSegments.length; idx++) {
         const segHtml = singleSegments[idx]
-        const cardFields = extractCardFields(segHtml, name)
-        const finalTitle = getFinalTitle(segHtml, name, singleSegments.length > 1 ? idx : undefined)
+        const cardFields = extractCardFields(segHtml, name, ojsBaseUrl)
+        const finalTitle = getFinalTitle(segHtml, name, singleSegments.length > 1 ? idx : undefined, cardFields.title)
         const finalDescription = buildFinalDescription(
           finalTitle,
           cardFields.description
@@ -348,26 +359,19 @@ function buildFinalDescription(title: string, description: string): string {
   return description
 }
 
-/**
- * Simple HTML entity decoder for common characters.
- * Prevents &amp;, &quot;, etc. from appearing in titles/descriptions.
- */
-function decodeHtml(html: string): string {
-  return html
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ');
-}
+const decodeHtml = decodeHtmlEntities
 
 /**
  * Extracts structured fields from sanitized HTML for the Journal Carousel.
  * Pure helper function for testability.
  * Returns title: undefined if no heading/strong is found (caller may skip such cards).
  */
-export function extractCardFields(html: string, _name: string) {
+export function extractCardFields(html: string, _name: string, ojsBaseUrl?: string) {
+  // Parse once with cheerio so .attr() gives us entity-decoded values for all
+  // URL fields. Raw regex captures literal HTML-encoded attribute text (&amp; etc.)
+  // which corrupts multi-param URLs when used directly as navigation targets.
+  const $card = load(html)
+
   // 1. Title: Look for headings, then strong tags. Return undefined if not found.
   const headingMatch = html.match(/<h[2-6][^>]*>(.*?)<\/h[2-6]>/i)
   const strongMatch = html.match(/<strong>(.*?)<\/strong>/i)
@@ -379,13 +383,23 @@ export function extractCardFields(html: string, _name: string) {
 
   const title = rawTitleText ? decodeHtml(rawTitleText) : undefined
 
-  // 2. Image: First img tag source
-  const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i)
-  const image = imgMatch ? imgMatch[1] : undefined
+  // 2. Image: first <img src> — cheerio.attr() decodes HTML entities automatically
+  let image = $card("img").first().attr("src") ?? undefined
 
-  // 3. Link: First a tag href
-  const linkMatch = html.match(/<a[^>]+href=["']([^"']+)["']/i)
-  const link = linkMatch ? linkMatch[1] : undefined
+  // Resolve relative OJS image paths (e.g. /public/journals/10/image.png)
+  // against the OJS server origin so they don't resolve to digitopub.com.
+  if (image && ojsBaseUrl) {
+    if (/^\.?\//u.test(image)) {
+      // Relative path — prepend OJS base URL
+      const base = ojsBaseUrl.replace(/\/+$/, "")
+      image = `${base}${image.startsWith("/") ? "" : "/"}${image}`
+    }
+    // Rewrite any persisted /ojs/public/ URLs to /public/
+    image = normalizeOjsAssetUrl(image) ?? image
+  }
+
+  // 3. Link: first <a href> — cheerio.attr() decodes HTML entities automatically
+  const link = $card("a[href]").first().attr("href") ?? undefined
 
   // 4. Description: Remove title/image/link elements and get remaining text
   // To avoid Frankenstein strings (title merged into description text), explicitly erase the actual title tag from processing
@@ -727,8 +741,9 @@ function getFinalTitle(
   segmentHtml: string,
   baseName: string,
   idx?: number,
+  precomputedTitle?: string | null,
 ): string {
-  const { title } = extractCardFields(segmentHtml, `${baseName}-${idx ?? 0}`)
+  const title = precomputedTitle ?? extractCardFields(segmentHtml, `${baseName}-${idx ?? 0}`).title
   return (
     title ||
     extractImgAlt(segmentHtml) ||

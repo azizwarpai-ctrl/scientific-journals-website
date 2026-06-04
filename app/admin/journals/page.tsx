@@ -2,11 +2,11 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
 import { normalizeOjsAssetUrl } from "@/src/features/ojs/utils/ojs-config"
+import { OjsImage } from "@/src/features/ojs/components/ojs-image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus, Pencil, Eye } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
 import { BookOpen } from "lucide-react" // Declare the BookOpen variable
 
 export default async function JournalsPage() {
@@ -66,7 +66,7 @@ export default async function JournalsPage() {
             <CardHeader className="p-0">
               {journal.cover_image_url ? (
                 <div className="relative h-48 w-full overflow-hidden bg-muted">
-                  <Image
+                  <OjsImage
                     src={journal.cover_image_url || "/images/logodigitopub.png"}
                     alt={journal.title}
                     fill

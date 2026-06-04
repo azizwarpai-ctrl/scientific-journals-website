@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
+import { OjsImage } from "@/src/features/ojs/components/ojs-image"
 import Link from "next/link"
 import {
   Archive,
@@ -115,7 +115,7 @@ function ArchiveIssueCard({
       {/* Cover Image */}
       <div className="relative aspect-[3/4] w-full bg-gradient-to-br from-muted/30 to-muted/60 overflow-hidden">
         {issue.issueCoverUrl && !hasCoverError ? (
-          <Image
+          <OjsImage
             src={issue.issueCoverUrl}
             alt={getIssueTitle(issue)}
             fill

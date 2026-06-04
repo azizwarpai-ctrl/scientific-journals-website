@@ -1,6 +1,18 @@
 /**
  * Centralized utility for OJS configuration access.
+ *
+ * Single source of truth for every OJS hostname/URL the app touches. New code
+ * MUST go through these helpers — no `submitmanager.com` / `journals.digitopub.com`
+ * literals in app/src code (comments excepted).
  */
+
+/**
+ * End-state public hostname for the OJS install. Used as a safe default when
+ * `NEXT_PUBLIC_OJS_BASE_URL` is not inlined into a client bundle and as a
+ * baseline entry for the image-proxy / <OjsImage> allowlist so cutover-window
+ * URLs continue to render while the apex env is still pre-flip.
+ */
+export const DEFAULT_OJS_LANDING_BASE_URL = "https://journals.digitopub.com"
 
 export function getOjsBaseUrl(): string {
   const baseUrl = process.env.OJS_BASE_URL || process.env.NEXT_PUBLIC_OJS_BASE_URL
@@ -29,7 +41,7 @@ export function getPublicOjsBaseUrl(): string | null {
 
 /**
  * Base URL for OJS public assets (cover images, profile images, etc.).
- * OJS serves public files from the document root (e.g. submitmanager.com/public/...),
+ * OJS serves public files from the document root (e.g. `<host>/public/...`),
  * even when the OJS application itself lives under a subpath like `/ojs`. Strip a
  * trailing `/ojs` segment so cover URLs resolve regardless of which form
  * OJS_BASE_URL takes.
@@ -40,12 +52,63 @@ export function getOjsPublicAssetsBaseUrl(): string {
 
 /**
  * Defensive read-time fix-up for URLs persisted by earlier syncs that wrote
- * `https://submitmanager.com/ojs/public/...` paths. The OJS public files
- * directory is served from the document root, so the `/ojs` segment makes the
- * upstream return 500. Idempotent: URLs already in the correct shape pass
- * through unchanged.
+ * `<host>/ojs/public/...` paths. The OJS public files directory is served from
+ * the document root, so the `/ojs` segment makes the upstream return 500.
+ * Idempotent: URLs already in the correct shape pass through unchanged.
  */
 export function normalizeOjsAssetUrl(url: string | null | undefined): string | null {
   if (!url) return null
   return url.replace(/\/ojs\/public\//i, "/public/")
+}
+
+/**
+ * Build the canonical OJS article landing URL — the page that carries
+ * Highwire `citation_*` metadata and is the Google-Scholar record. Used by the
+ * apex article page as `<link rel="canonical">` so the apex defers all
+ * scholarly authority to the OJS host.
+ *
+ * Pattern: `${publicOjsBase}/index.php/{journalUrlPath}/article/view/{submissionId}`.
+ * `submissionId` is the OJS `submission_id`, NOT the route `[publicationId]`.
+ *
+ * Falls back to `DEFAULT_OJS_LANDING_BASE_URL` when no env var is set so the
+ * canonical is always a real, absolute URL even in client bundles where only
+ * `NEXT_PUBLIC_*` is inlined and a dev forgot to set it.
+ */
+export function buildOjsArticleLandingUrl(
+  journalUrlPath: string,
+  submissionId: number | string
+): string {
+  const base = (getPublicOjsBaseUrl() ?? DEFAULT_OJS_LANDING_BASE_URL).replace(/\/ojs$/i, "")
+  const slug = encodeURIComponent(journalUrlPath)
+  return `${base}/index.php/${slug}/article/view/${submissionId}`
+}
+
+/**
+ * Hostnames the app is allowed to fetch OJS assets from. Derived from the
+ * configured base URLs plus the end-state default so the allowlist stays
+ * valid through every step of the cutover window:
+ *
+ *   - pre-flip: env points at the legacy host → that host is allowed.
+ *   - post-flip, pre-apex-deploy: OJS emits the new host but env still has
+ *     the legacy one. The default keeps the new host allowed.
+ *   - post-apex-deploy: env points at the new host → covered both ways.
+ *
+ * Invalid URLs in env are silently skipped so a misconfigured value can't
+ * brick the proxy.
+ */
+export function getOjsHostnames(): Set<string> {
+  const hosts = new Set<string>()
+  const tryAdd = (url: string | null | undefined) => {
+    if (!url) return
+    try {
+      hosts.add(new URL(url).hostname)
+    } catch {
+      // ignore malformed env values
+    }
+  }
+  tryAdd(process.env.OJS_BASE_URL)
+  tryAdd(process.env.PUBLIC_OJS_BASE_URL)
+  tryAdd(process.env.NEXT_PUBLIC_OJS_BASE_URL)
+  tryAdd(DEFAULT_OJS_LANDING_BASE_URL)
+  return hosts
 }

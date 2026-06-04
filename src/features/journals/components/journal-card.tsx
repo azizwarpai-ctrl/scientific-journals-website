@@ -1,7 +1,7 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
+import { OjsImage } from "@/src/features/ojs/components/ojs-image"
 import { BookOpen, ArrowRight } from "lucide-react"
 import { cn } from "@/src/lib/utils"
 
@@ -61,7 +61,7 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
         <div className="relative w-full aspect-[3/4] overflow-hidden bg-muted/30 dark:bg-zinc-950/50 flex items-center justify-center p-4">
           {coverImage ? (
             <div className="relative w-full h-full shadow-[0_4px_20px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] rounded-md overflow-hidden transition-transform duration-500 ease-out group-hover:scale-[1.03]">
-              <Image
+              <OjsImage
                 src={coverImage}
                 alt={`Cover for ${title}`}
                 fill

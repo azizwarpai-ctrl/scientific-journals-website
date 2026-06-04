@@ -8,10 +8,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'submitmanager.com',
-      },
+      { protocol: 'https', hostname: 'submitmanager.com' },
+      // Future OJS host — images from both origins are proxied through
+      // /api/image-proxy, so this entry is a belt-and-suspenders guard for
+      // any next/image references that may be added in future.
+      { protocol: 'https', hostname: 'journals.digitopub.com' },
     ],
   },
   experimental: {

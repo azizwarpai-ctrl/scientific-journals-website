@@ -8,8 +8,8 @@ import { ArticlePageClient } from "./components/article-page-client"
 import { ArticleJsonLd } from "@/app/journals/[id]/articles/[publicationId]/components/article-jsonld"
 import type { ArticleDetail, ArticleDetailAuthor } from "@/src/features/journals/types/article-detail-types"
 import { buildCitationMeta } from "@/src/features/journals/server/citation-meta"
-import { resolveJournalOjsId } from "@/src/features/journals/server/resolve-journal"
-import { buildCanonical } from "@/src/lib/seo/canonical"
+import { buildOjsArticleLandingUrl } from "@/src/features/ojs/utils/ojs-config"
+import { shouldEmitScholarCitationMeta } from "@/src/lib/seo/scholar-citation-flag"
 
 /**
  * Google Scholar discovery metadata gate (Option A vs Option B).
@@ -86,13 +86,13 @@ export async function generateMetadata(
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
   const isValidAbsoluteUrl = appUrl.startsWith("http://") || appUrl.startsWith("https://")
 
-  // Use the resolved numeric journal id for the canonical URL so renaming the
-  // OJS slug later does not invalidate previously indexed URLs.
-  const resolved = await resolveJournalOjsId(resolvedParams.id)
-  const canonicalJournalId =
-    resolved.found && resolved.ojsId ? resolved.ojsId : resolvedParams.id
-  const canonicalUrl = buildCanonical(
-    `/journals/${canonicalJournalId}/articles/${resolvedParams.publicationId}`
+  // Canonical defers to the OJS landing — that's the Google-Scholar record
+  // surface (full citation_* meta, same-host PDF). Built from the real OJS
+  // submissionId + journalUrlPath; the route [publicationId] is NOT the OJS
+  // submission_id.
+  const canonicalUrl = buildOjsArticleLandingUrl(
+    article.journalUrlPath,
+    article.submissionId
   )
 
   // Option A (default): emit no Scholar discovery metadata at all. Only when
