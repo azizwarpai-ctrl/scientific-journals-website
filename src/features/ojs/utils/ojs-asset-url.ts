@@ -16,12 +16,25 @@ import { getOjsPublicAssetsBaseUrl, normalizeOjsAssetUrl } from "./ojs-config"
 
 // ─── Filename parser ──────────────────────────────────────────────────────────
 
+/**
+ * Shape check applied to every candidate filename — extracted (JSON / PHP)
+ * or plain. A name passes if it has a known OJS file prefix OR a known image
+ * extension. Real OJS settings rows always satisfy this; the guard is
+ * belt-and-suspenders against corrupted data so we never construct a URL
+ * around garbage like `name: "<script>"`, `name: ""`, or `name: "subdir"`.
+ */
+const IMAGE_FILENAME_SHAPE = /^(cover_issue_|article_|cover_)|\.(jpg|jpeg|png|webp|gif|avif)$/i
+
+function isImageFilename(value: unknown): value is string {
+  return typeof value === "string" && IMAGE_FILENAME_SHAPE.test(value)
+}
+
 function findUploadName(obj: unknown): string | null {
   if (obj === null || typeof obj !== "object") return null
   const record = obj as Record<string, unknown>
   // Prefer 'name' (the actual file on disk in OJS 3.x) over 'uploadName' (the original uploaded filename)
-  if (typeof record.name === "string" && record.name) return record.name
-  if (typeof record.uploadName === "string" && record.uploadName) return record.uploadName
+  if (isImageFilename(record.name)) return record.name
+  if (isImageFilename(record.uploadName)) return record.uploadName
   for (const key of Object.keys(record)) {
     const found = findUploadName(record[key])
     if (found) return found
@@ -54,18 +67,15 @@ export function parseOjsFilename(raw: string | null | undefined): string | null 
   // Prefer 'name' first
   if (trimmed.includes('name";s:')) {
     const match = trimmed.match(/name";s:\d+:"([^"]+)"/)
-    if (match?.[1]) return match[1]
+    if (isImageFilename(match?.[1])) return match[1]
   }
   if (trimmed.includes('uploadName";s:')) {
     const match = trimmed.match(/uploadName";s:\d+:"([^"]+)"/)
-    if (match?.[1]) return match[1]
+    if (isImageFilename(match?.[1])) return match[1]
   }
 
-  // 3. Plain string with a well-known OJS file-name prefix
-  if (trimmed.match(/^(cover_issue_|article_|cover_)/)) return trimmed
-
-  // 4. Plain string with a recognised image extension
-  if (trimmed.match(/\.(jpg|jpeg|png|webp|gif|avif)$/i)) return trimmed
+  // 3. Plain string — same shape check as the JSON/PHP branches.
+  if (isImageFilename(trimmed)) return trimmed
 
   return null
 }

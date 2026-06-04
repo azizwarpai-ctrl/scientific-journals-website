@@ -47,6 +47,7 @@ export function ArticleSidebar({ article }: ArticleSidebarProps) {
         {article.pdfUrl ? (
           <ModalPdfViewer
             pdfUrl={article.pdfUrl}
+            pdfDownloadUrl={article.pdfDownloadUrl}
             articleTitle={article.title || undefined}
             isOpenAccess={article.isOpenAccess}
             articleId={article.publicationId}

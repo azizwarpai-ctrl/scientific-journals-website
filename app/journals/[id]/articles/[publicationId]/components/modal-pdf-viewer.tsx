@@ -8,7 +8,20 @@ import { usePdfModal } from "./pdf/use-pdf-modal"
 import { PdfModalOverlay } from "./pdf/pdf-modal-overlay"
 
 interface ModalPdfViewerProps {
+  /**
+   * URL the embedded iframe loads. For local OJS galleys this MUST be the
+   * `/api/pdf-proxy?…` URL, because OJS serves
+   * `Content-Disposition: attachment` on `/article/download/…` which would
+   * trigger a browser download instead of inline rendering. The proxy
+   * rewrites the header to `inline`.
+   */
   pdfUrl: string | null
+  /**
+   * Clean shareable OJS download URL surfaced to humans via the
+   * "Download" / "Open in new tab" buttons in the modal overlay. Defaults
+   * to `pdfUrl` when omitted, preserving prior call-site behaviour.
+   */
+  pdfDownloadUrl?: string | null
   articleTitle?: string
   isOpenAccess?: boolean
   articleId?: number | string
@@ -19,6 +32,7 @@ interface ModalPdfViewerProps {
 
 export function ModalPdfViewer({
   pdfUrl,
+  pdfDownloadUrl,
   articleTitle = "Document",
   isOpenAccess,
   articleId,
@@ -59,6 +73,7 @@ export function ModalPdfViewer({
   }
 
   const iframeSrc = `${pdfUrl}${pdfUrl.includes("#") ? "&" : "#"}toolbar=1&navpanes=1&scrollbar=1&view=FitH`
+  const downloadUrl = pdfDownloadUrl ?? pdfUrl
 
   const trigger = (
     <Button
@@ -96,7 +111,7 @@ export function ModalPdfViewer({
         ? createPortal(
             <PdfModalOverlay
               articleTitle={articleTitle}
-              downloadUrl={pdfUrl}
+              downloadUrl={downloadUrl}
               iframeSrc={iframeSrc}
               isMobile={isMobile}
               isOpenAccess={isOpenAccess}

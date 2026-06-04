@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest"
 
 import {
   DEFAULT_OJS_LANDING_BASE_URL,
+  buildOjsArticleDownloadUrl,
   buildOjsArticleLandingUrl,
   getOjsHostnames,
 } from "@/src/features/ojs/utils/ojs-config"
@@ -67,6 +68,43 @@ describe("buildOjsArticleLandingUrl", () => {
     process.env.PUBLIC_OJS_BASE_URL = "https://journals.digitopub.com"
     expect(buildOjsArticleLandingUrl("j", 12)).toContain("/article/view/12")
     expect(buildOjsArticleLandingUrl("j", "12")).toContain("/article/view/12")
+  })
+})
+
+describe("buildOjsArticleDownloadUrl", () => {
+  it("targets the subdomain and the 2-arg /article/download/{s}/{g} form", () => {
+    process.env.PUBLIC_OJS_BASE_URL = "https://journals.digitopub.com"
+    const url = buildOjsArticleDownloadUrl("ojbr", 32, 42)
+    expect(new URL(url).hostname).toBe("journals.digitopub.com")
+    expect(url).toBe("https://journals.digitopub.com/ojbr/article/download/32/42")
+  })
+
+  it("falls back to the end-state default when no env var is set", () => {
+    delete process.env.OJS_BASE_URL
+    delete process.env.PUBLIC_OJS_BASE_URL
+    delete process.env.NEXT_PUBLIC_OJS_BASE_URL
+    const url = buildOjsArticleDownloadUrl("ojbr", 32, 42)
+    expect(url.startsWith(DEFAULT_OJS_LANDING_BASE_URL)).toBe(true)
+    expect(url).toContain("/ojbr/article/download/32/42")
+  })
+
+  it("strips a trailing /ojs from the base", () => {
+    process.env.PUBLIC_OJS_BASE_URL = "https://journals.digitopub.com/ojs"
+    const url = buildOjsArticleDownloadUrl("ojbr", 1, 2)
+    expect(url).toBe("https://journals.digitopub.com/ojbr/article/download/1/2")
+  })
+
+  it("percent-encodes the journal slug", () => {
+    process.env.PUBLIC_OJS_BASE_URL = "https://journals.digitopub.com"
+    const url = buildOjsArticleDownloadUrl("weird path?x", 1, 2)
+    expect(url).toContain("/weird%20path%3Fx/article/download/1/2")
+  })
+
+  it("does NOT use the /api/pdf-proxy form", () => {
+    process.env.PUBLIC_OJS_BASE_URL = "https://journals.digitopub.com"
+    const url = buildOjsArticleDownloadUrl("ojbr", 32, 42)
+    expect(url).not.toContain("/api/pdf-proxy")
+    expect(url).not.toContain("?journal=")
   })
 })
 

@@ -1,6 +1,7 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
 import { buildGalleyDownloadUrl, isOpenAccessStatus } from "./ojs-galley-utils"
+import { buildOjsArticleDownloadUrl } from "@/src/features/ojs/utils/ojs-config"
 import {
   fetchNewAuthorAffiliations,
   resolveAuthorAffiliation,
@@ -230,6 +231,15 @@ export async function fetchArticlesWithAuthors(
         )
       : null
 
+    // Clean shareable OJS download URL — see ArticleDetail.pdfDownloadUrl
+    // for the rationale (proxy stays for inline iframe; clean URL for buttons).
+    const pdfDownloadUrl = pdfGalley
+      ? pdfGalley.remote_url
+          ?? (journalUrlPath
+              ? buildOjsArticleDownloadUrl(journalUrlPath, row.submission_id, pdfGalley.galley_id)
+              : null)
+      : null
+
     const isOpenAccess = isOpenAccessStatus(row.access_status)
 
     return {
@@ -243,6 +253,7 @@ export async function fetchArticlesWithAuthors(
       sectionId: row.section_id,
       articleCoverUrl: buildCoverUrl(journalId, parseOjsCoverFilename(row.cover_image_raw)),
       pdfUrl,
+      pdfDownloadUrl,
       doi: row.doi,
       keywords: keywordsByPub.get(row.publication_id) || [],
       isOpenAccess,
