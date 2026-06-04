@@ -11,6 +11,20 @@ import { buildCitationMeta } from "@/src/features/journals/server/citation-meta"
 import { buildOjsArticleLandingUrl } from "@/src/features/ojs/utils/ojs-config"
 import { shouldEmitScholarCitationMeta } from "@/src/lib/seo/scholar-citation-flag"
 
+/**
+ * Google Scholar discovery metadata gate (Option A vs Option B).
+ *
+ * When false (production default — Option A), digitopub emits NO Highwire
+ * `citation_*` meta tags and NO ScholarlyArticle JSON-LD, so OJS at
+ * submitmanager.com is the sole Google Scholar record and digitopub does not
+ * compete for the same article. Normal Google Search presence (title,
+ * description, canonical, OpenGraph) is untouched.
+ *
+ * Flip to true only under Option B (digitopub as Scholar record).
+ */
+const EMIT_SCHOLAR_CITATION_META =
+  process.env.EMIT_SCHOLAR_CITATION_META === "true"
+
 interface PageProps {
   params: Promise<{
     id: string
@@ -81,9 +95,14 @@ export async function generateMetadata(
     article.submissionId
   )
 
+  // Option A (default): emit no Scholar discovery metadata at all. Only when
+  // EMIT_SCHOLAR_CITATION_META is true do we build the Highwire citation_* set,
+  // and only then do we ask for the real OJS download URL as citation_pdf_url.
   let citationMeta: Record<string, string | (string | number)[]> = {}
-  if (shouldEmitScholarCitationMeta() && isValidAbsoluteUrl) {
-    citationMeta = buildCitationMeta(article, canonicalUrl, appUrl)
+  if (EMIT_SCHOLAR_CITATION_META && isValidAbsoluteUrl) {
+    citationMeta = buildCitationMeta(article, canonicalUrl, appUrl, {
+      emitPdfUrl: true,
+    })
   }
 
   return {
@@ -154,7 +173,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
 
   return (
     <HydrationBoundary state={dehydratedState}>
-       {article && <ArticleJsonLd article={article} />}
+       {EMIT_SCHOLAR_CITATION_META && article && <ArticleJsonLd article={article} />}
        <ArticlePageClient
           journalIdStr={resolvedParams.id}
           publicationIdStr={resolvedParams.publicationId}

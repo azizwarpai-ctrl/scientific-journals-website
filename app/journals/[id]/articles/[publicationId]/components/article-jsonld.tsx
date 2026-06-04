@@ -1,4 +1,5 @@
 import type { ArticleDetail } from "@/src/features/journals/types/article-detail-types"
+import { buildOjsPdfDownloadUrl } from "@/src/features/journals/server/citation-meta"
 
 /**
  * Server Component. Injects JSON-LD structured data for ScholarlyArticle.
@@ -7,7 +8,22 @@ import type { ArticleDetail } from "@/src/features/journals/types/article-detail
  *
  * @see https://schema.org/ScholarlyArticle
  */
+/**
+ * Whether digitopub emits Google-Scholar discovery metadata. Defaults to false
+ * (Option A — OJS owns the Scholar record), in which case this component renders
+ * nothing. Evaluated server-side; never exposed as NEXT_PUBLIC_.
+ */
+const EMIT_SCHOLAR_CITATION_META =
+  process.env.EMIT_SCHOLAR_CITATION_META === "true"
+
 export function ArticleJsonLd({ article }: { article: ArticleDetail }) {
+  // Defensive self-gate: even though the call site only renders this under the
+  // flag, never emit ScholarlyArticle (a "this is a journal article" signal)
+  // when Scholar discovery metadata is disabled.
+  if (!EMIT_SCHOLAR_CITATION_META) {
+    return null
+  }
+
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "ScholarlyArticle",
@@ -54,9 +70,13 @@ export function ArticleJsonLd({ article }: { article: ArticleDetail }) {
         }),
       },
     },
-    ...(article.pdfUrl && {
-      url: article.pdfUrl,
-    }),
+    // Never emit a robots-blocked /api/pdf-proxy URL in JSON-LD.
+    // Substitute the real OJS public download URL; omit if unavailable.
+    ...((() => {
+      const isProxy = article.pdfUrl && /(^|\/\/[^/]+)?\/api\//.test(article.pdfUrl)
+      const safeUrl = isProxy ? buildOjsPdfDownloadUrl(article) : article.pdfUrl
+      return safeUrl ? { url: safeUrl } : {}
+    })()),
     publisher: {
       "@type": "Organization",
       name: "Digitopub",

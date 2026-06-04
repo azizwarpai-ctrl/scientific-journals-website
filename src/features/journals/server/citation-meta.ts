@@ -1,4 +1,5 @@
 import type { ArticleDetail, ArticleDetailAuthor } from "@/src/features/journals/types/article-detail-types"
+import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 
 export function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
@@ -38,10 +39,56 @@ function parsePagesFromString(pages: string | null): { pageStart: string | null;
   return { pageStart: start || null, pageEnd: end || null }
 }
 
+/** True if the URL points at any path under `/api/` (relative or absolute). */
+function pointsAtApi(url: string): boolean {
+  return /(^|\/\/[^/]+)?\/api\//.test(url) || url.includes("/api/pdf-proxy")
+}
+
+/**
+ * Builds the real OJS download URL for the article's PDF galley, of the form
+ * `${ojsBaseUrl}/${journalUrlPath}/article/download/${submissionId}/${galleyId}`.
+ *
+ * Built from the CANONICAL OJS identifiers carried on the ArticleDetail — the
+ * OJS `submission_id`, the PDF galley's id, and the journal `url_path` — NOT
+ * the route's `[publicationId]` param (which is the OJS publication_id and is
+ * not guaranteed to equal submission_id). Returns null if any piece is missing
+ * or if OJS_BASE_URL is unconfigured.
+ */
+export function buildOjsPdfDownloadUrl(article: ArticleDetail): string | null {
+  if (!article.submissionId || !article.journalUrlPath) return null
+
+  // Only match the galley whose downloadUrl exactly equals the resolved pdfUrl.
+  // No fallback to galleys[0] — an unmatched galley could be the wrong file.
+  const pdfGalley = article.galleys.find(
+    (g) => g.downloadUrl && g.downloadUrl === article.pdfUrl
+  )
+  if (!pdfGalley) return null
+
+  let base: string
+  try {
+    base = getOjsBaseUrl().replace(/\/$/, "")
+  } catch {
+    // OJS_BASE_URL not configured — cannot build a real download URL.
+    return null
+  }
+
+  return `${base}/${article.journalUrlPath}/article/download/${article.submissionId}/${pdfGalley.galleyId}`
+}
+
+export interface BuildCitationMetaOptions {
+  /**
+   * When true, emit `citation_pdf_url` pointing at the real OJS download URL.
+   * Only set this under Option B (EMIT_SCHOLAR_CITATION_META=true). A
+   * robots-blocked `/api/` URL is NEVER emitted regardless of this flag.
+   */
+  emitPdfUrl?: boolean
+}
+
 export function buildCitationMeta(
   article: ArticleDetail,
   articleUrl: string,
-  appBaseUrl: string
+  appBaseUrl: string,
+  options: BuildCitationMetaOptions = {}
 ): Record<string, string | string[]> {
   const meta: Record<string, string | string[]> = {}
 
@@ -85,11 +132,19 @@ export function buildCitationMeta(
     : base && `${base}${articleUrl}`
   set("citation_abstract_html_url", absoluteArticleUrl || null)
 
-  if (article.pdfUrl) {
-    const pdfUrl = article.pdfUrl.startsWith("http")
-      ? article.pdfUrl
-      : base && `${base}${article.pdfUrl}`
-    set("citation_pdf_url", pdfUrl || null)
+  // citation_pdf_url (R4): we must NEVER advertise a robots-blocked PDF URL.
+  // The on-page "View PDF"/download links (article.pdfUrl) route through
+  // `/api/pdf-proxy`, which is `Disallow: /api/` in robots.ts and receives an
+  // `X-Robots-Tag: noindex` header. Emitting it would tell Scholar to fetch a
+  // URL we forbid. So:
+  //   - We only emit citation_pdf_url when explicitly asked (Option B), and
+  //   - even then only the REAL OJS download URL, and
+  //   - never any URL under `/api/`.
+  if (options.emitPdfUrl) {
+    const ojsPdfUrl = buildOjsPdfDownloadUrl(article)
+    if (ojsPdfUrl && !pointsAtApi(ojsPdfUrl)) {
+      set("citation_pdf_url", ojsPdfUrl)
+    }
   }
 
   set("citation_language", parseLocale(article.locale || "en"))
