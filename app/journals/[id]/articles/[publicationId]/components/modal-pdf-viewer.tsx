@@ -17,9 +17,13 @@ interface ModalPdfViewerProps {
    */
   pdfUrl: string | null
   /**
-   * Clean shareable OJS download URL surfaced to humans via the
-   * "Download" / "Open in new tab" buttons in the modal overlay. Defaults
-   * to `pdfUrl` when omitted, preserving prior call-site behaviour.
+   * Clean shareable OJS download URL, used ONLY by the explicit "Download"
+   * button — OJS sends `Content-Disposition: attachment` on this URL so the
+   * browser saves the file. The "Open in new tab" / "Open in Browser" / "New
+   * Tab" anchors instead receive `inlineUrl` (derived inside this component
+   * from `pdfUrl`, i.e. the `/api/pdf-proxy?…` URL), so a fresh tab renders
+   * the PDF inline rather than triggering a download. Defaults to `pdfUrl`
+   * when omitted, preserving prior call-site behaviour.
    */
   pdfDownloadUrl?: string | null
   articleTitle?: string
