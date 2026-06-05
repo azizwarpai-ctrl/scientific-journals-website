@@ -73,6 +73,12 @@ export function ModalPdfViewer({
   }
 
   const iframeSrc = `${pdfUrl}${pdfUrl.includes("#") ? "&" : "#"}toolbar=1&navpanes=1&scrollbar=1&view=FitH`
+  // Two distinct URLs for the two distinct actions:
+  //   - inlineUrl  → `/api/pdf-proxy?…` (Content-Disposition: inline). Used for
+  //     "Open in new tab" / "Open in Browser" so a fresh tab renders the PDF.
+  //   - downloadUrl → clean OJS URL (Content-Disposition: attachment from OJS).
+  //     Used for the explicit Download button.
+  const inlineUrl = pdfUrl
   const downloadUrl = pdfDownloadUrl ?? pdfUrl
 
   const trigger = (
@@ -112,6 +118,7 @@ export function ModalPdfViewer({
             <PdfModalOverlay
               articleTitle={articleTitle}
               downloadUrl={downloadUrl}
+              inlineUrl={inlineUrl}
               iframeSrc={iframeSrc}
               isMobile={isMobile}
               isOpenAccess={isOpenAccess}

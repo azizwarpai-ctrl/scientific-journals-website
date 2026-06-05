@@ -59,7 +59,17 @@ function TrackingAnchor({
 
 interface PdfModalOverlayProps {
   articleTitle: string
+  /**
+   * Clean OJS download URL — forces a file download (OJS sends
+   * `Content-Disposition: attachment`). Use for the explicit Download button.
+   */
   downloadUrl: string
+  /**
+   * Same-origin `/api/pdf-proxy?…` URL — renders inline (the proxy rewrites
+   * `Content-Disposition` to `inline`). Use for "Open in new tab" actions
+   * so a fresh tab shows the PDF instead of triggering a download.
+   */
+  inlineUrl: string
   iframeSrc: string
   isMobile: boolean
   isOpenAccess?: boolean
@@ -136,6 +146,7 @@ function errorCopyFor(code: PdfErrorCode | null): ErrorCopy {
 export function PdfModalOverlay({
   articleTitle,
   downloadUrl,
+  inlineUrl,
   iframeSrc,
   isMobile,
   isOpenAccess,
@@ -216,7 +227,7 @@ export function PdfModalOverlay({
               className="h-8 gap-1.5 rounded-lg text-xs font-semibold text-white/70 hover:text-white hover:bg-white/10 border border-white/10 hover:border-white/20"
             >
               <TrackingAnchor
-                href={downloadUrl}
+                href={inlineUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 onTrack={trackDownload}
@@ -274,12 +285,13 @@ export function PdfModalOverlay({
           {isMobile ? (
             <MobileFallback
               downloadUrl={downloadUrl}
+              inlineUrl={inlineUrl}
               onTrack={trackDownload}
             />
           ) : hasError ? (
             <ErrorState
               errorCode={errorCode}
-              downloadUrl={downloadUrl}
+              inlineUrl={inlineUrl}
               onRetry={onRetry}
               onTrack={trackDownload}
             />
@@ -289,7 +301,7 @@ export function PdfModalOverlay({
                 <LoadingState
                   probing={probeState === "probing"}
                   loadTimedOut={loadTimedOut}
-                  downloadUrl={downloadUrl}
+                  inlineUrl={inlineUrl}
                 />
               )}
               {probeState === "ready" && (
@@ -317,10 +329,10 @@ export function PdfModalOverlay({
 interface LoadingStateProps {
   probing: boolean
   loadTimedOut: boolean
-  downloadUrl: string
+  inlineUrl: string
 }
 
-function LoadingState({ probing, loadTimedOut, downloadUrl }: LoadingStateProps) {
+function LoadingState({ probing, loadTimedOut, inlineUrl }: LoadingStateProps) {
   return (
     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-[#1a1a1a] animate-in fade-in duration-200">
       <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -333,7 +345,7 @@ function LoadingState({ probing, loadTimedOut, downloadUrl }: LoadingStateProps)
         <p className="text-xs text-white/50 max-w-xs text-center">
           Taking longer than expected.{" "}
           <a
-            href={downloadUrl}
+            href={inlineUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-white/70"
@@ -349,12 +361,12 @@ function LoadingState({ probing, loadTimedOut, downloadUrl }: LoadingStateProps)
 
 interface ErrorStateProps {
   errorCode: PdfErrorCode | null
-  downloadUrl: string
+  inlineUrl: string
   onRetry: () => void
   onTrack?: () => void
 }
 
-function ErrorState({ errorCode, downloadUrl, onRetry, onTrack }: ErrorStateProps) {
+function ErrorState({ errorCode, inlineUrl, onRetry, onTrack }: ErrorStateProps) {
   const copy = errorCopyFor(errorCode)
   const Icon = copy.icon
   const accent =
@@ -380,7 +392,7 @@ function ErrorState({ errorCode, downloadUrl, onRetry, onTrack }: ErrorStateProp
           Retry
         </button>
         <TrackingAnchor
-          href={downloadUrl}
+          href={inlineUrl}
           target="_blank"
           rel="noopener noreferrer"
           onTrack={onTrack}
@@ -396,9 +408,11 @@ function ErrorState({ errorCode, downloadUrl, onRetry, onTrack }: ErrorStateProp
 
 function MobileFallback({
   downloadUrl,
+  inlineUrl,
   onTrack,
 }: {
   downloadUrl: string
+  inlineUrl: string
   onTrack?: () => void
 }) {
   return (
@@ -416,7 +430,7 @@ function MobileFallback({
 
       <div className="flex flex-wrap gap-3 justify-center">
         <TrackingAnchor
-          href={downloadUrl}
+          href={inlineUrl}
           target="_blank"
           rel="noopener noreferrer"
           onTrack={onTrack}
