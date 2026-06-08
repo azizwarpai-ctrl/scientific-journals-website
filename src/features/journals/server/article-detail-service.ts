@@ -1,4 +1,5 @@
 import sanitizeHtml from "sanitize-html"
+import { stripHtml } from "@/src/features/journals/server/citation-meta"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
 import { buildGalleyDownloadUrl, isOpenAccessStatus } from "@/src/features/journals/server/ojs-galley-utils"
@@ -126,7 +127,7 @@ export async function fetchArticleDetail(
   // Extract best locales
   for (const s of pubSettings) {
     if (s.setting_name === 'title' && (s.locale === primaryLocale || !title)) {
-      title = s.setting_value
+      title = s.setting_value ? stripHtml(s.setting_value) : null
     } else if (s.setting_name === 'abstract' && (s.locale === primaryLocale || !abstract)) {
       abstract = s.setting_value ? sanitizeHtml(s.setting_value, {
         allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'b', 'i', 'sup', 'sub'],

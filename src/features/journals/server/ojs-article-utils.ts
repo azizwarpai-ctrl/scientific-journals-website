@@ -1,4 +1,5 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { stripHtml } from "@/src/features/journals/server/citation-meta"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
 import { buildGalleyDownloadUrl, isOpenAccessStatus } from "./ojs-galley-utils"
 import { buildOjsArticleDownloadUrl } from "@/src/features/ojs/utils/ojs-config"
@@ -245,7 +246,7 @@ export async function fetchArticlesWithAuthors(
     return {
       publicationId: row.publication_id,
       submissionId: row.submission_id,
-      title: row.title,
+      title: row.title ? stripHtml(row.title) : null,
       abstract: row.abstract,
       authors: authorsByPub.get(row.publication_id) || [],
       datePublished: row.date_published,

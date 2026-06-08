@@ -23,6 +23,7 @@
  */
 
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { stripHtml } from "@/src/features/journals/server/citation-meta"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
 import { fetchArticlesWithAuthors } from "./ojs-article-utils"
 import type { CurrentIssue, CurrentIssueArticle } from "@/src/features/journals/types/current-issue-types"
@@ -188,7 +189,7 @@ export async function fetchCurrentIssue(ojsJournalId: string): Promise<CurrentIs
 function mapIssueRow(journalId: number, row: IssueRow, articles: CurrentIssueArticle[]): CurrentIssue {
   return {
     issueId: row.issue_id,
-    title: row.title,
+    title: row.title ? stripHtml(row.title) : null,
     volume: row.volume,
     number: row.number,
     year: row.year,
