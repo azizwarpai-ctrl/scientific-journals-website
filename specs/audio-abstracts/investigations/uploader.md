@@ -57,7 +57,7 @@ Restated for this codebase: when the admin lands on the audio-management page wi
 
 The page is split into two regions: a left-side **article picker** (search + journal/issue dropdowns) and a right-side **uploader card**. Until an article is selected, the uploader card renders an explicit empty state, e.g.:
 
-```
+```text
 [ icon ]
 Select an article to attach audio
 Search by title, DOI, or submission ID on the left.
