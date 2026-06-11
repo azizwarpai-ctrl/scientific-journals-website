@@ -1,125 +1,101 @@
-import { redirect } from "next/navigation"
-import { getSession } from "@/src/lib/db/auth"
-import { prisma } from "@/src/lib/db/config"
+"use client"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingUp, BookOpen, FileText, Eye, CheckCircle } from "lucide-react"
+import { TrendingUp, BookOpen, FileText, Eye, CheckCircle, Loader2 } from "lucide-react"
+import { useAdminAnalyticsSummary } from "@/src/features/admin-analytics/api/use-admin-analytics-summary"
+import type { AdminAnalyticsSummary } from "@/src/features/admin-analytics/types/admin-analytics-types"
 
-export default async function AnalyticsPage() {
-  const session = await getSession()
+const EMPTY = "—"
 
-  if (!session) {
-    redirect("/admin/login")
+function formatCount(value: number | null): string {
+  return value === null ? EMPTY : value.toLocaleString()
+}
+
+export default function AnalyticsPage() {
+  const { data, isLoading, isError, error } = useAdminAnalyticsSummary()
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
-  // Initialize counts
-  let journalsCount = 0
-  let submissionsCount = 0
-  let acceptedCount = 0
-  let publishedCount = 0
-  let reviewsCount = 0
-  const fieldGroups: Record<string, number> = {}
-
-  // Fetch analytics data
-  try {
-    const [
-      journalsCountRes,
-      submissionsCountRes,
-      acceptedCountRes,
-      publishedCountRes,
-      reviewsCountRes
-    ] = await Promise.all([
-      prisma.journal.count(),
-      prisma.submission.count(),
-      prisma.submission.count({ where: { status: "accepted" } }),
-      prisma.publishedArticle.count(),
-      prisma.review.count()
-    ])
-
-    journalsCount = journalsCountRes
-    submissionsCount = submissionsCountRes
-    acceptedCount = acceptedCountRes
-    publishedCount = publishedCountRes
-    reviewsCount = reviewsCountRes
-  } catch (error) {
-    console.error("Error fetching analytics:", error)
+  if (isError || !data) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Analytics &amp; Reports</h1>
+          <p className="text-muted-foreground mt-1">Overview of platform performance and statistics</p>
+        </div>
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            Failed to load analytics{error instanceof Error ? `: ${error.message}` : ""}.
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
-  // Calculate acceptance rate
-  const acceptanceRate = submissionsCount > 0 ? (acceptedCount / submissionsCount) * 100 : 0
+  return <AnalyticsView summary={data} />
+}
 
-  // Fetch submissions by field
-  try {
-    const journalFields = await prisma.journal.findMany({
-      select: {
-        field: true,
-        _count: {
-          select: { submissions: true }
-        }
-      }
-    })
-
-    journalFields.forEach((item) => {
-      if (item.field) {
-        fieldGroups[item.field] = (fieldGroups[item.field] || 0) + item._count.submissions
-      }
-    })
-  } catch (error) {
-    console.error("Error fetching field groups:", error)
-  }
-
-  const topFields = Object.entries(fieldGroups)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
+function AnalyticsView({ summary }: { summary: AdminAnalyticsSummary }) {
+  const { totals, fieldGroups, last7, health } = summary
 
   const stats = [
     {
       title: "Total Journals",
-      value: journalsCount || 0,
+      value: totals.journals.toLocaleString(),
       icon: BookOpen,
       color: "text-primary",
       bgColor: "bg-primary/20",
     },
     {
       title: "Total Submissions",
-      value: submissionsCount || 0,
+      value: totals.submissions.toLocaleString(),
       icon: FileText,
       color: "text-secondary",
       bgColor: "bg-secondary/20",
     },
     {
       title: "Accepted Articles",
-      value: acceptedCount || 0,
+      value: totals.accepted.toLocaleString(),
       icon: CheckCircle,
       color: "text-emerald-600 dark:text-emerald-400",
       bgColor: "bg-emerald-500/20",
     },
     {
       title: "Published Articles",
-      value: publishedCount || 0,
+      value: totals.published.toLocaleString(),
       icon: TrendingUp,
       color: "text-sky-600 dark:text-sky-400",
       bgColor: "bg-sky-500/20",
     },
     {
       title: "Total Reviews",
-      value: reviewsCount || 0,
+      value: totals.reviews.toLocaleString(),
       icon: Eye,
       color: "text-amber-600 dark:text-amber-400",
       bgColor: "bg-amber-500/20",
     },
     {
       title: "Acceptance Rate",
-      value: `${acceptanceRate.toFixed(1)}%`,
+      value: `${totals.acceptanceRate.toFixed(1)}%`,
       icon: TrendingUp,
       color: "text-teal-600 dark:text-teal-400",
       bgColor: "bg-teal-500/20",
     },
   ]
 
+  const topFields = fieldGroups.slice(0, 5)
+  const submissionsForRatio = totals.submissions || 1
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Analytics & Reports</h1>
+        <h1 className="text-3xl font-bold">Analytics &amp; Reports</h1>
         <p className="text-muted-foreground mt-1">Overview of platform performance and statistics</p>
       </div>
 
@@ -151,19 +127,19 @@ export default async function AnalyticsPage() {
         <CardContent>
           {topFields.length > 0 ? (
             <div className="space-y-4">
-              {topFields.map(([field, count]) => (
+              {topFields.map(({ field, submissions }) => (
                 <div key={field} className="flex items-center justify-between">
                   <span className="font-medium">{field}</span>
                   <div className="flex items-center gap-4">
                     <div className="w-64 bg-muted rounded-full h-2 overflow-hidden">
                       <div
                         className="h-full bg-primary transition-all"
-                        style={{
-                          width: `${((count / (submissionsCount || 1)) * 100).toFixed(0)}%`,
-                        }}
+                        style={{ width: `${((submissions / submissionsForRatio) * 100).toFixed(0)}%` }}
                       />
                     </div>
-                    <span className="text-sm text-muted-foreground w-12 text-right">{count}</span>
+                    <span className="text-sm text-muted-foreground w-12 text-right">
+                      {submissions.toLocaleString()}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -174,25 +150,23 @@ export default async function AnalyticsPage() {
         </CardContent>
       </Card>
 
-      {/* System Health */}
+      {/* System Health + Recent Activity */}
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>System Health</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Database Status</span>
-              <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Operational</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Storage Status</span>
-              <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Operational</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">API Status</span>
-              <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Operational</span>
-            </div>
+            <HealthRow label="Database" probe={health.database} />
+            <HealthRow
+              label="OJS integration"
+              probe={
+                health.ojs.configured
+                  ? { ok: health.ojs.ok, error: health.ojs.error }
+                  : { ok: false, error: "Not configured" }
+              }
+              neutralWhenNotConfigured={!health.ojs.configured}
+            />
           </CardContent>
         </Card>
 
@@ -203,22 +177,69 @@ export default async function AnalyticsPage() {
           <CardContent>
             <div className="space-y-2 text-sm">
               <p className="text-muted-foreground">Last 7 days:</p>
-              <div className="flex items-center justify-between">
-                <span>New Submissions</span>
-                <span className="font-medium">{Math.floor((submissionsCount || 0) * 0.15)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Completed Reviews</span>
-                <span className="font-medium">{Math.floor((reviewsCount || 0) * 0.2)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Published Articles</span>
-                <span className="font-medium">{Math.floor((publishedCount || 0) * 0.1)}</span>
-              </div>
+              <ActivityRow label="New Submissions" value={last7.newSubmissions} />
+              <ActivityRow label="Completed Reviews" value={last7.completedReviews} />
+              <ActivityRow label="Published Articles" value={last7.publishedArticles} />
+              <ActivityRow label="Article Views" value={last7.views} />
+              <ActivityRow label="Article Downloads" value={last7.downloads} />
             </div>
           </CardContent>
         </Card>
       </div>
+    </div>
+  )
+}
+
+function ActivityRow({ label, value }: { label: string; value: number | null }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span>{label}</span>
+      <span
+        className={
+          value === null
+            ? "font-medium text-muted-foreground"
+            : "font-medium tabular-nums"
+        }
+        title={value === null ? "No events recorded yet" : undefined}
+      >
+        {formatCount(value)}
+      </span>
+    </div>
+  )
+}
+
+function HealthRow({
+  label,
+  probe,
+  neutralWhenNotConfigured,
+}: {
+  label: string
+  probe: { ok: boolean; error: string | null }
+  neutralWhenNotConfigured?: boolean
+}) {
+  let statusText: string
+  let statusClass: string
+
+  if (neutralWhenNotConfigured) {
+    statusText = "Not configured"
+    statusClass = "text-muted-foreground"
+  } else if (probe.ok) {
+    statusText = "Healthy"
+    statusClass = "text-emerald-600 dark:text-emerald-400"
+  } else {
+    statusText = "Unhealthy"
+    statusClass = "text-destructive"
+  }
+
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm">{label}</span>
+      <span
+        className={`text-sm font-medium ${statusClass}`}
+        title={probe.error ?? undefined}
+      >
+        {statusText}
+      </span>
     </div>
   )
 }
