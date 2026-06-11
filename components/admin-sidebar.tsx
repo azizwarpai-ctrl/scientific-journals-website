@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   Mail,
+  Music,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
@@ -66,6 +67,11 @@ const sidebarItems = [
     title: "Analytics",
     href: "/admin/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Article Audio",
+    href: "/admin/article-audio",
+    icon: Music,
   },
   {
     title: "Settings",

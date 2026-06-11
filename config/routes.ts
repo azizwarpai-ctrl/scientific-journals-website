@@ -34,6 +34,7 @@ export const ADMIN_ROUTES = [
   "/admin/settings",
   "/admin/email-templates",
   "/admin/pricing",
+  "/admin/article-audio",
 ]
 
 export const API_ROUTES = ["/api"]

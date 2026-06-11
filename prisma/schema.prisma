@@ -28,6 +28,7 @@ model AdminUser {
   created_submissions  Submission[]       @relation("CreatedBy")
   subscription         Subscription?
   updated_settings     SystemSetting[]    @relation("UpdatedBy")
+  uploaded_audios      ArticleAudio[]     @relation("UploadedBy")
 
   @@index([email])
   @@map("admin_users")
@@ -516,4 +517,40 @@ model AuditOjsWrite {
   @@index([ojs_user_id])
   @@index([planned_at])
   @@map("audit_ojs_writes")
+}
+
+// =====================================================================
+// Initiative B — per-article audio (manager-uploaded)
+// =====================================================================
+
+/// Manager-uploaded audio per OJS article, per locale.
+///
+/// Keyed by OJS-side identity (`ojs_journal_id` matches `Journal.ojs_id`,
+/// `submission_id` matches OJS `submissions.submission_id`) so the row
+/// survives publication versioning on the OJS side. Locale uses the empty
+/// string as the "default / unilingual" sentinel — MySQL UNIQUE treats
+/// every NULL as distinct, which would defeat the one-per-locale rule,
+/// so the column is NOT NULL with `""` as the default value.
+///
+/// The actual file lives in object storage at `storage_key`; this row is
+/// the canonical handle. See `src/lib/storage/` for the put/delete path.
+model ArticleAudio {
+  id                BigInt    @id @default(autoincrement())
+  ojs_journal_id    String    @db.VarChar(50)
+  submission_id     BigInt
+  locale            String    @default("") @db.VarChar(14)
+  storage_key       String    @db.VarChar(500)
+  mime_type         String    @db.VarChar(100)
+  size_bytes        BigInt
+  original_filename String    @db.VarChar(255)
+  duration_seconds  Int?
+  uploaded_by       BigInt
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @default(now()) @updatedAt
+  uploader          AdminUser @relation("UploadedBy", fields: [uploaded_by], references: [id])
+
+  @@unique([ojs_journal_id, submission_id, locale], map: "uq_article_audio_journal_submission_locale")
+  @@index([ojs_journal_id, submission_id])
+  @@index([uploaded_by])
+  @@map("article_audio")
 }
