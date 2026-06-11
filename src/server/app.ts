@@ -16,6 +16,7 @@ import { billingRouter } from "@/src/features/billing/server"
 import { searchRouter } from "@/src/features/search/server"
 import { authOrcidRouter } from "@/src/server/routes/auth-orcid"
 import { accountRouter } from "@/src/server/routes/account"
+import { adminAnalyticsRouter } from "@/src/features/admin-analytics/server"
 
 const apiApp = new Hono()
     .route("/journals", journalRouter)
@@ -37,6 +38,7 @@ const apiApp = new Hono()
     .route("/email-templates", emailTemplateRouter)
     .route("/billing", billingRouter)
     .route("/search", searchRouter)
+    .route("/admin-analytics", adminAnalyticsRouter)
 
 
 const app = new Hono().basePath("/api")
