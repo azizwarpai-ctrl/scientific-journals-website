@@ -123,6 +123,9 @@ describe("getStorage factory", () => {
   })
 
   it("throws when a required env var is missing", async () => {
+    // Clear AUDIO_STORAGE_DIR so the factory takes the S3 branch even when a
+    // dev runs the suite with local storage configured at the shell level.
+    vi.stubEnv("AUDIO_STORAGE_DIR", "")
     vi.stubEnv("S3_ENDPOINT", "https://example")
     vi.stubEnv("S3_REGION", "auto")
     vi.stubEnv("S3_BUCKET", "")
