@@ -4,6 +4,7 @@ import Link from "next/link"
 import { OjsImage } from "@/src/features/ojs/components/ojs-image"
 import { BookOpen, ArrowRight } from "lucide-react"
 import { cn } from "@/src/lib/utils"
+import { Button } from "@/components/ui/button"
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -133,10 +134,12 @@ export function JournalCard({
             </div>
           </div>
           
-          <div className="mt-8 self-start px-6 py-3 bg-primary text-primary-foreground font-sans text-xs font-semibold rounded-lg flex items-center gap-2 hover:bg-primary/90 hover:shadow-[0_4px_14px_0_rgba(0,0,0,0.1)] transition-all duration-300 group-active:scale-95 group/btn">
-            VIEW DETAILS
-            <ArrowRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
-          </div>
+          <Button asChild variant="default" className="mt-8 self-start font-sans text-xs font-semibold px-6 py-3 rounded-lg flex items-center gap-2 hover:shadow-[0_4px_14px_0_rgba(0,0,0,0.1)] transition-all duration-300 group-active:scale-95 group/btn">
+            <div>
+              VIEW DETAILS
+              <ArrowRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
+            </div>
+          </Button>
         </div>
       </article>
     </Link>
