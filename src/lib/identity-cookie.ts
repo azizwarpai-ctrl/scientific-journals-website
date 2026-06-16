@@ -11,7 +11,7 @@
 
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { z } from "zod"
-import { getEnv } from "./env"
+import { getIdentityEnv } from "./env"
 import { prisma } from "./db/config"
 
 export const IDENTITY_COOKIE_NAME = "digitopub_identity"
@@ -64,7 +64,7 @@ function sign(payloadB64: string, secret: string): string {
 
 /** Mint a fresh identity cookie value. */
 export function mintCookie(input: MintInput): string {
-  const env = getEnv()
+  const env = getIdentityEnv()
   const now = input.now ?? Math.floor(Date.now() / 1000)
   const payload: IdentityPayload = {
     orcid: input.orcid,
@@ -82,7 +82,7 @@ export function mintCookie(input: MintInput): string {
 
 /** Mint with explicit payload (used by sliding refresh — keeps original iat & exp_absolute). */
 export function mintCookieFromPayload(payload: IdentityPayload): string {
-  const env = getEnv()
+  const env = getIdentityEnv()
   const payloadB64 = base64UrlEncode(JSON.stringify(payload))
   const sig = sign(payloadB64, env.IDENTITY_COOKIE_SECRET)
   return `${payloadB64}.${sig}`
@@ -90,7 +90,7 @@ export function mintCookieFromPayload(payload: IdentityPayload): string {
 
 /** Verify the cookie value. Returns null on any failure. */
 export function verifyCookie(value: string, nowSeconds?: number): IdentityCookieResult | null {
-  const env = getEnv()
+  const env = getIdentityEnv()
   if (!value || typeof value !== "string") return null
   const parts = value.split(".")
   if (parts.length !== 2) return null
