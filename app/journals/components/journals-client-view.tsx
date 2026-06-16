@@ -127,7 +127,7 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
           <GSAPWrapper
             animation="slideUp"
             staggerChildren={0.05}
-            className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+            className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:gap-8"
           >
             {filteredJournals.map((journal) => {
               const slug = String(
@@ -141,6 +141,11 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
                   title={journal.title}
                   coverImage={journal.coverImage}
                   slug={slug}
+                  impactFactor={(journal as any).impact_factor}
+                  accessType={(journal as any).access_type || "Peer-Reviewed"}
+                  editorName={(journal as any).editor_in_chief}
+                  recentPublicationsCount={(journal as any).recent_publications_count}
+                  field={journal.field}
                 />
               )
             })}

@@ -1,7 +1,20 @@
 import type React from "react"
 import type { Metadata, Viewport } from "next"
 
+import { Inter, Playfair_Display } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+})
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+})
 import { ThemeProvider } from "@/components/theme-provider"
 import { QueryProvider } from "@/components/query-provider"
 import { GlobalToaster } from "@/components/global-toaster"
@@ -75,7 +88,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`font-sans antialiased`}>
+      <body className={`${inter.variable} ${playfair.variable} font-sans antialiased`}>
         {/* Sitewide Organization schema for search engines (server-rendered). */}
         <OrganizationJsonLd appUrl={APP_URL} />
         <ThemeProvider

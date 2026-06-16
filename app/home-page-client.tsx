@@ -37,7 +37,7 @@ export default function HomePageClient({ initialJournals = [] }: HomePageClientP
   const scrollRef = useRef<HTMLDivElement>(null)
   const scrollBy = (dir: "left" | "right") => {
     if (!scrollRef.current) return
-    const amount = 300
+    const amount = typeof window !== 'undefined' && window.innerWidth < 768 ? 320 : 500
     scrollRef.current.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" })
   }
 
@@ -123,7 +123,7 @@ export default function HomePageClient({ initialJournals = [] }: HomePageClientP
               {isLoadingOjs ? (
                 <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory scroll-smooth">
                   {[...Array(6)].map((_, i) => (
-                    <div key={i} className="min-w-[260px] max-w-[280px] shrink-0 snap-start">
+                    <div key={i} className="w-[300px] md:w-[480px] shrink-0 snap-start h-full">
                       <JournalCardSkeleton />
                     </div>
                   ))}
@@ -153,11 +153,16 @@ export default function HomePageClient({ initialJournals = [] }: HomePageClientP
                     {journals.map((journal: Journal, idx: number) => {
                       const slug = String([journal.ojs_path, journal.ojs_id, journal.id].find(s => s && String(s).trim()) || journal.id)
                       return (
-                        <GSAPWrapper key={journal.id} animation="slideUp" delay={0.4 + idx * 0.05} className="min-w-[260px] max-w-[280px] shrink-0 snap-start">
+                        <GSAPWrapper key={journal.id} animation="slideUp" delay={0.4 + idx * 0.05} className="w-[300px] md:w-[480px] shrink-0 snap-start h-full">
                           <JournalCard
                             title={journal.title}
                             coverImage={journal.cover_image_url}
                             slug={slug}
+                            impactFactor={(journal as any).impact_factor}
+                            accessType={(journal as any).access_type || "Peer-Reviewed"}
+                            editorName={(journal as any).editor_in_chief}
+                            recentPublicationsCount={(journal as any).recent_publications_count}
+                            field={journal.field}
                           />
                         </GSAPWrapper>
                       )

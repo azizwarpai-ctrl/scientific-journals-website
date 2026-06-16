@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Journal Catalog | Premium Academic Repository</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&amp;family=Inter:wght@300;400;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=Playfair+Display:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-error-container": "#ffdad6",
+                    "surface-container": "#201f1f",
+                    "on-tertiary": "#002e6a",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "background": "#131313",
+                    "on-secondary-fixed-variant": "#5d4201",
+                    "outline": "#909097",
+                    "surface-bright": "#393939",
+                    "secondary-fixed-dim": "#e9c176",
+                    "secondary": "#e9c176",
+                    "surface-container-lowest": "#0e0e0e",
+                    "primary-fixed-dim": "#bec6e0",
+                    "secondary-fixed": "#ffdea5",
+                    "on-surface": "#e5e2e1",
+                    "on-error": "#690005",
+                    "on-primary-fixed": "#131b2e",
+                    "inverse-on-surface": "#313030",
+                    "surface-dim": "#131313",
+                    "on-secondary": "#412d00",
+                    "on-secondary-container": "#dab36a",
+                    "tertiary-fixed": "#d8e2ff",
+                    "surface-tint": "#bec6e0",
+                    "on-tertiary-fixed-variant": "#004395",
+                    "surface-container-low": "#1c1b1b",
+                    "primary-container": "#0f172a",
+                    "primary": "#bec6e0",
+                    "on-secondary-fixed": "#261900",
+                    "tertiary-fixed-dim": "#adc6ff",
+                    "inverse-primary": "#565e74",
+                    "surface-container-high": "#2a2a2a",
+                    "on-primary": "#283044",
+                    "error-container": "#93000a",
+                    "secondary-container": "#604403",
+                    "on-primary-container": "#798098",
+                    "on-background": "#e5e2e1",
+                    "surface": "#131313",
+                    "on-surface-variant": "#c6c6cd",
+                    "surface-variant": "#353534",
+                    "tertiary": "#adc6ff",
+                    "surface-container-highest": "#353534",
+                    "on-tertiary-container": "#357df1",
+                    "primary-fixed": "#dae2fd",
+                    "on-tertiary-fixed": "#001a42",
+                    "inverse-surface": "#e5e2e1",
+                    "tertiary-container": "#00163a",
+                    "outline-variant": "#45464d",
+                    "error": "#ffb4ab"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-sm": "8px",
+                    "section-gap": "120px",
+                    "gutter": "32px",
+                    "stack-md": "16px",
+                    "stack-lg": "32px",
+                    "margin-desktop": "64px",
+                    "margin-mobile": "24px"
+            },
+            "fontFamily": {
+                    "display-lg": ["Playfair Display"],
+                    "display-lg-mobile": ["Playfair Display"],
+                    "headline-lg-mobile": ["Playfair Display"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-lg": ["Playfair Display"],
+                    "headline-md": ["Playfair Display"],
+                    "label-sm": ["Inter"]
+            },
+            "fontSize": {
+                    "display-lg": ["64px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "display-lg-mobile": ["40px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .glass-card:hover {
+            border: 1px solid rgba(188, 198, 224, 0.3); /* Primary color low opacity */
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.4), 0 0 15px rgba(173, 198, 255, 0.1);
+        }
+        .cover-scale {
+            transition: transform 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .glass-card:hover .cover-scale {
+            transform: scale(1.05);
+        }
+        .ambient-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md selection:bg-tertiary/30">
+<div class="ambient-glow">
+<!-- STITCH_SHADER_START:ANIMATION_6 class="absolute inset-0 w-full h-full opacity-40" -->
+<div class="absolute inset-0 w-full h-full opacity-40" style="display:block;">
+<canvas id="shader-canvas-ANIMATION_6" style="display:block;width:100%;height:100%"></canvas>
+<script>
+(function() {
+  const canvas = document.getElementById('shader-canvas-ANIMATION_6');
+
+  // Sync the WebGL drawing-buffer size with the CSS-driven layout size.
+  // This fires on initial layout and whenever the element is resized.
+  function syncSize() {
+    const w = canvas.clientWidth  || 1280;
+    const h = canvas.clientHeight || 720;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width  = w;
+      canvas.height = h;
+    }
+  }
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(syncSize).observe(canvas);
+  }
+  syncSize();
+
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) return;
+  const vs = `attribute vec2 a_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+  const fs = `<webgl-shader>
+precision highp float;
+uniform float u_time;
+uniform vec2 u_resolution;
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+    
+    // Create a very subtle, slow-moving gradient noise
+    float noise = sin(uv.x * 2.0 + u_time * 0.2) * cos(uv.y * 2.0 - u_time * 0.1);
+    
+    // Deep premium background colors: Near black to very dark slate/navy
+    vec3 color1 = vec3(0.02, 0.02, 0.05); // Deep navy
+    vec3 color2 = vec3(0.05, 0.05, 0.08); // Dark charcoal
+    
+    vec3 finalColor = mix(color1, color2, noise * 0.5 + 0.5);
+    
+    // Add a very faint glow effect that shifts slowly
+    float glow = smoothstep(0.4, 0.6, sin(u_time * 0.5) * 0.5 + 0.5);
+    finalColor += vec3(0.01, 0.02, 0.04) * glow;
+    
+    gl_FragColor = vec4(finalColor, 1.0);
+}
+</webgl-shader>`;
+  function cs(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const pos = gl.getAttribLocation(prog, 'a_position');
+  gl.enableVertexAttribArray(pos);
+  gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+  const uTime = gl.getUniformLocation(prog, 'u_time');
+  const uRes = gl.getUniformLocation(prog, 'u_resolution');
+  const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+
+  // u_mouse is in pixel coordinates matching u_resolution (ShaderToy convention).
+  // Shaders that need normalized coords should use: u_mouse / u_resolution.
+  let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+  window.addEventListener('mousemove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      const nx = (event.clientX - rect.left) / rect.width;
+      const ny = 1.0 - (event.clientY - rect.top) / rect.height;
+      mouse.x = nx * canvas.width;
+      mouse.y = ny * canvas.height;
+    }
+  });
+
+  function render(t) {
+    if (typeof ResizeObserver === 'undefined') syncSize();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    if (uTime) gl.uniform1f(uTime, t * 0.001);
+    if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
+    if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+  }
+  render(0);
+})();
+</script>
+</div>
+<!-- STITCH_SHADER_END:ANIMATION_6 -->
+</div>
+<!-- Header: Shared Component TopNavBar -->
+<nav class="fixed top-0 w-full bg-background/80 backdrop-blur-xl border-b border-outline-variant/30 z-50 shadow-sm transition-all duration-300">
+<div class="flex justify-between items-center max-w-[1440px] mx-auto px-margin-desktop h-20">
+<div class="font-display-lg-mobile text-headline-md text-on-background font-bold tracking-tight">Journal Catalog</div>
+<div class="hidden md:flex items-center space-x-8">
+<a class="font-body-md text-body-md text-secondary border-b-2 border-secondary pb-1" href="#">Journals</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors" href="#">Submit</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors" href="#">About</a>
+</div>
+<div class="flex items-center space-x-6">
+<button class="text-on-surface-variant hover:text-primary transition-all duration-300 transform active:scale-95">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-all duration-300 transform active:scale-95">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</div>
+</nav>
+<!-- Hero Section -->
+<header class="pt-40 pb-stack-lg max-w-[1440px] mx-auto px-margin-desktop">
+<h1 class="font-display-lg text-display-lg mb-4">Scientific Archive</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl opacity-80">
+            Discover leading scientific publications through our curated, magazine-style interface. Rigorous peer review meets high-end digital presentation.
+        </p>
+</header>
+<!-- Journal Grid -->
+<main class="max-w-[1440px] mx-auto px-margin-desktop pb-section-gap">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-stack-lg">
+<!-- Card 1 -->
+<article class="glass-card flex flex-col md:flex-row overflow-hidden group">
+<div class="w-full md:w-1/2 overflow-hidden aspect-[4/3] md:aspect-auto">
+<img class="cover-scale w-full h-full object-cover" data-alt="A professional scientific journal cover for Advanced Orthodontics featuring high-resolution 3D medical scans of a dental structure. The visual style is clean, clinical, and high-end with soft gray and blue lighting, suggesting absolute precision and clinical authority. The composition is minimalist with ample white space, aligned with a premium academic publication aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCOspXfCCaFsEdih0xINoQI8L8gDcGANGb_rSk3xfkZ2AanZEGKxLhrcSuPZVovEXDj6lNnoIMa0MbuHAuayUEXS1X7wxnWvTwKk60zHWW1LpqFTBkx_W13AeZKeSCnDX2rkdsbSKBmsePLNSmdeR5N6eXYclbjM7W5ezfkAVv1dqHouCsZMdc-wmjFh-TU89Mci9kTOb9OUJkRQ9LSHZOGtjtT8DlPSaKjySUOEGJQ2bydi2pEmtxuTwGd5_2R_NzuKDnLyhuC-PE"/>
+</div>
+<div class="w-full md:w-1/2 p-stack-lg flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-2 mb-4">
+<span class="bg-tertiary/10 text-tertiary px-3 py-1 rounded-full font-label-sm text-label-sm">IF 3.567</span>
+<span class="text-on-secondary-container/60 font-label-sm text-label-sm uppercase tracking-widest">Open Access</span>
+</div>
+<h2 class="font-headline-md text-headline-md mb-4 text-on-background">International Journal of Advanced Orthodontics</h2>
+<div class="space-y-3 opacity-70">
+<div>
+<p class="font-label-sm text-label-sm text-secondary-fixed uppercase mb-1">Editor-in-Chief</p>
+<p class="font-body-md text-body-md">Dr. Velusamy Paventhy Nath</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-secondary-fixed uppercase mb-1">Recent Publications</p>
+<p class="font-body-md text-body-md">18 articles in last 30 days</p>
+</div>
+</div>
+</div>
+<button class="mt-8 self-start px-6 py-3 bg-tertiary text-on-tertiary font-label-sm text-label-sm rounded-lg flex items-center gap-2 hover:bg-tertiary/90 hover:shadow-lg transition-all duration-300 group/btn active:scale-95">
+                        VIEW DETAILS
+                        <span class="material-symbols-outlined text-[18px] group-hover/btn:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+</article>
+<!-- Card 2 -->
+<article class="glass-card flex flex-col md:flex-row overflow-hidden group">
+<div class="w-full md:w-1/2 overflow-hidden aspect-[4/3] md:aspect-auto">
+<img class="cover-scale w-full h-full object-cover" data-alt="A sophisticated scientific publication cover for Maxillofacial Prosthetics showcasing futuristic biometric data visualizations in deep blue and turquoise hues. The image features glowing network nodes and neural pathways on a dark, technical background. The mood is high-tech, precise, and intellectually rigorous, fitting for a top-tier medical research journal." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBx0EOhE-hZvC1ulVmVlToG-giGC3xt4RAMgTt017GffJZgycqS0h720SbFm9vEBNF30-VSA_QIkNnOyyk4l1SWUObL3-GZZEDVGbvPTKtVLe75zK0JJt4hOyNjC-KLXlcLcCvYgOwXw3JprlUuNL9nd39fD2C1JNoaRyRJzjixhh7ztyCMR4Tk5-Z-htpZKQmf0XuPtOwX2jWvwdFqoavTEWtsHFfyduwbykTucpk-AwRxyWw3zhifrllIy-NOL3FJd47JI9jPkt4"/>
+</div>
+<div class="w-full md:w-1/2 p-stack-lg flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-2 mb-4">
+<span class="bg-tertiary/10 text-tertiary px-3 py-1 rounded-full font-label-sm text-label-sm">IF 4.210</span>
+<span class="text-on-secondary-container/60 font-label-sm text-label-sm uppercase tracking-widest">Peer-Reviewed</span>
+</div>
+<h2 class="font-headline-md text-headline-md mb-4 text-on-background">International Journal of Maxillofacial Prosthetics</h2>
+<div class="space-y-3 opacity-70">
+<div>
+<p class="font-label-sm text-label-sm text-secondary-fixed uppercase mb-1">Editor-in-Chief</p>
+<p class="font-body-md text-body-md">Dr. Mahmoud Elhashiti</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-secondary-fixed uppercase mb-1">Recent Publications</p>
+<p class="font-body-md text-body-md">24 articles in last 30 days</p>
+</div>
+</div>
+</div>
+<button class="mt-8 self-start px-6 py-3 bg-tertiary text-on-tertiary font-label-sm text-label-sm rounded-lg flex items-center gap-2 hover:bg-tertiary/90 hover:shadow-lg transition-all duration-300 group/btn active:scale-95">
+                        VIEW DETAILS
+                        <span class="material-symbols-outlined text-[18px] group-hover/btn:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+</article>
+<!-- Card 3 -->
+<article class="glass-card flex flex-col md:flex-row overflow-hidden group">
+<div class="w-full md:w-1/2 overflow-hidden aspect-[4/3] md:aspect-auto">
+<img class="cover-scale w-full h-full object-cover" data-alt="A luxurious dark-themed journal cover for Musicians Dentistry featuring an abstract golden treble clef morphing into a tooth outline. The design uses deep obsidian backgrounds and high-contrast gold accents, suggesting a niche, premium intersection of dental science and performing arts. The lighting is dramatic and moody, reflecting a high-end magazine aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6iqdS7YPdv8mi54OhAcz_nBlqBpjPv3wpfHlm5GbPnDqC_ewhy_O8K3EJ00ZfKlec4VJ1aN_hbFdyQPIrFV7Y16v07_mW5U-Q-zcMhtkRrLa6sugSRcBrIc0LFv37cxFqZoEwAVUW9yyJxAudssz_m_5DBOp3oAvZBiFXA67R_hty9_NkO2hRgFmV30lCcnRqmdE8tCMAYJaTuIqwnZ8SzXKdV8u1dZMvqY4R28JVTGc1O_O2E-wnNf8UeblgCKRyZpi7ccgs7-o"/>
+</div>
+<div class="w-full md:w-1/2 p-stack-lg flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-2 mb-4">
+<span class="bg-tertiary/10 text-tertiary px-3 py-1 rounded-full font-label-sm text-label-sm">IF 2.894</span>
+<span class="text-on-secondary-container/60 font-label-sm text-label-sm uppercase tracking-widest">Quarterly</span>
+</div>
+<h2 class="font-headline-md text-headline-md mb-4 text-on-background">Journal of Musicians' Dentistry</h2>
+<div class="space-y-3 opacity-70">
+<div>
+<p class="font-label-sm text-label-sm text-secondary-fixed uppercase mb-1">Editor-in-Chief</p>
+<p class="font-body-md text-body-md">Dr. Marko Halten</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-secondary-fixed uppercase mb-1">Recent Publications</p>
+<p class="font-body-md text-body-md">5 articles in last 30 days</p>
+</div>
+</div>
+</div>
+<button class="mt-8 self-start px-6 py-3 bg-tertiary text-on-tertiary font-label-sm text-label-sm rounded-lg flex items-center gap-2 hover:bg-tertiary/90 hover:shadow-lg transition-all duration-300 group/btn active:scale-95">
+                        VIEW DETAILS
+                        <span class="material-symbols-outlined text-[18px] group-hover/btn:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+</article>
+<!-- Card 4 -->
+<article class="glass-card flex flex-col md:flex-row overflow-hidden group">
+<div class="w-full md:w-1/2 overflow-hidden aspect-[4/3] md:aspect-auto">
+<img class="cover-scale w-full h-full object-cover" data-alt="A cutting-edge medical imaging journal cover for Digitodontics, showcasing a translucent 3D dental scan embedded in a futuristic holographic UI. The palette is dominated by electric blues and deep navy with glass-like transparency effects. The overall look is hyper-modern, digital-first, and academically prestigious, emphasizing technological advancement in science." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDzQtwrDQF8ksNeyBd7CF1XIpKEnCp03c6UEoxZ6QjXkyDxYcrlcpTgCz3z2myaW6Pa8bmYcDJ_PqMmArL2trHZhAWeM_90dU0hiTaqXHhyD6N0XWnTa2AzsQJW1u4fzGsxeeE4PaNgk_0I7XSolM8b7sXj8ciHB9gaPuOjsB1pwnNjTBbD-P1vE9lo9qoLSHVlcEPNbBEiTRxyDAYHscCbkS5oVXGU4BFcB8EnJ-O6wt6MAeYKVL4-jzZD9F301UnakbJlTZPyhqc"/>
+</div>
+<div class="w-full md:w-1/2 p-stack-lg flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-2 mb-4">
+<span class="bg-tertiary/10 text-tertiary px-3 py-1 rounded-full font-label-sm text-label-sm">IF 5.122</span>
+<span class="text-on-secondary-container/60 font-label-sm text-label-sm uppercase tracking-widest">Digital First</span>
+</div>
+<h2 class="font-headline-md text-headline-md mb-4 text-on-background">Journal of Advanced Imaging in Digitodontics</h2>
+<div class="space-y-3 opacity-70">
+<div>
+<p class="font-label-sm text-label-sm text-secondary-fixed uppercase mb-1">Editor-in-Chief</p>
+<p class="font-body-md text-body-md">Dr. Dmekeka Bella</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-secondary-fixed uppercase mb-1">Recent Publications</p>
+<p class="font-body-md text-body-md">12 articles in last 30 days</p>
+</div>
+</div>
+</div>
+<button class="mt-8 self-start px-6 py-3 bg-tertiary text-on-tertiary font-label-sm text-label-sm rounded-lg flex items-center gap-2 hover:bg-tertiary/90 hover:shadow-lg transition-all duration-300 group/btn active:scale-95">
+                        VIEW DETAILS
+                        <span class="material-symbols-outlined text-[18px] group-hover/btn:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+</article>
+</div>
+</main>
+<!-- Footer: Shared Component -->
+<footer class="bg-surface-container-lowest border-t border-outline-variant/20 w-full py-stack-lg mt-section-gap">
+<div class="flex flex-col md:flex-row justify-between items-center max-w-[1440px] mx-auto px-margin-desktop space-y-8 md:space-y-0">
+<div class="flex flex-col items-center md:items-start space-y-2">
+<div class="font-display-lg text-headline-md text-primary">Journal Catalog</div>
+<p class="font-body-md text-body-md text-on-surface-variant/70 text-center md:text-left">
+                    © 2024 Scientific Journal Catalog. All scholarly rights reserved.
+                </p>
+</div>
+<div class="flex flex-wrap justify-center gap-x-8 gap-y-4">
+<a class="font-body-md text-body-md text-on-surface-variant/70 hover:text-primary transition-colors" href="#">Ethics Policy</a>
+<a class="font-body-md text-body-md text-on-surface-variant/70 hover:text-primary transition-colors" href="#">Open Access</a>
+<a class="font-body-md text-body-md text-on-surface-variant/70 hover:text-primary transition-colors" href="#">Terms of Service</a>
+<a class="font-body-md text-body-md text-on-surface-variant/70 hover:text-primary transition-colors" href="#">Contact</a>
+</div>
+<div class="flex space-x-4">
+<button class="w-10 h-10 flex items-center justify-center rounded-full border border-outline-variant/30 hover:border-primary text-on-surface-variant hover:text-primary transition-all active:scale-90">
+<span class="material-symbols-outlined">share</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full border border-outline-variant/30 hover:border-primary text-on-surface-variant hover:text-primary transition-all active:scale-90">
+<span class="material-symbols-outlined">mail</span>
+</button>
+</div>
+</div>
+</footer>
+<script>
+        // Smooth scroll reveal or simple micro-interactions can go here
+        document.querySelectorAll('.glass-card').forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                // Optional: Dynamic highlight based on cursor
+                // card.style.setProperty('--x', `${x}px`);
+                // card.style.setProperty('--y', `${y}px`);
+            });
+        });
+
+        // Header scroll behavior
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 20) {
+                nav.classList.add('shadow-xl', 'bg-background/95');
+            } else {
+                nav.classList.remove('shadow-xl', 'bg-background/95');
+            }
+        });
+    </script>
+</body></html>
