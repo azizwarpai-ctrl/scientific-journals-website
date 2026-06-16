@@ -42,10 +42,8 @@ app.get("/", requireAdmin, async (c) => {
 
 // ─── POST /article-audio — Admin upload (multipart) ─────────────────────────
 app.post("/", requireAdmin, async (c) => {
-  const session = c.get("session" as never) as { id: string | bigint } | undefined
-  if (!session) {
-    return c.json({ success: false, error: "Unauthorized" }, 401)
-  }
+  // requireAdmin guarantees a session exists before reaching here.
+  const session = c.get("session" as never) as { id: string }
 
   let body: Record<string, unknown>
   try {
@@ -97,7 +95,7 @@ app.post("/", requireAdmin, async (c) => {
     )
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer())
+  const buffer = Buffer.from(await file.bytes())
   const storage = getStorage()
   const storageKey = buildStorageKey(ojs_journal_id, submission_id, locale)
 
@@ -106,7 +104,7 @@ app.post("/", requireAdmin, async (c) => {
   } catch (error) {
     const message = error instanceof StorageError ? error.message : "Storage put failed"
     console.error("[article-audio] storage put failed:", error)
-    return c.json({ success: false, error: message }, 502)
+    return c.json({ success: false, error: message }, 503)
   }
 
   // Upsert the row, deleting the previous object on replace. The DB write
@@ -159,12 +157,10 @@ app.post("/", requireAdmin, async (c) => {
   }
 
   if (previousStorageKey && previousStorageKey !== storageKey) {
-    // Delete the superseded object out-of-band; do not block the response.
-    try {
-      await storage.delete(previousStorageKey)
-    } catch (cleanupError) {
+    // Fire-and-forget: do not block the response on superseded-object cleanup.
+    void storage.delete(previousStorageKey).catch((cleanupError) => {
       console.warn("[article-audio] failed to delete superseded object", previousStorageKey, cleanupError)
-    }
+    })
   }
 
   return c.json({ success: true, data: serializeRecord(saved) }, 200)

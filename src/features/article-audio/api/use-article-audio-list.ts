@@ -16,6 +16,6 @@ export function useArticleAudioList() {
       )
       return body.data
     },
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   })
 }

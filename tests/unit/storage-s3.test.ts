@@ -79,9 +79,11 @@ describe("S3Storage", () => {
     sendMock.mockRejectedValueOnce(new Error("upstream 403"))
     const storage = makeStorage()
 
-    await expect(
-      storage.put("k", Buffer.from(""), { contentType: "audio/mpeg", size: 0 })
-    ).rejects.toBeInstanceOf(StorageError)
+    const err = await storage
+      .put("k", Buffer.from(""), { contentType: "audio/mpeg", size: 0 })
+      .catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(StorageError)
+    expect((err as StorageError).message).not.toContain("upstream 403")
   })
 
   it("deletes by key", async () => {

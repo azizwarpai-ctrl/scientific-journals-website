@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { Hono } from "hono"
 
 // ── Mock session ────────────────────────────────────────────────────────────
@@ -97,6 +97,10 @@ describe("POST /article-audio — validation", () => {
     mockSession = { id: 7n, email: "admin@x.com", role: "admin" }
   })
 
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it("rejects a non-audio mime with 400", async () => {
     const res = await buildApp().request("/article-audio", {
       method: "POST",
@@ -126,7 +130,6 @@ describe("POST /article-audio — validation", () => {
     expect(res.status).toBe(400)
     const json = (await res.json()) as { error: string }
     expect(json.error).toMatch(/too large/i)
-    vi.unstubAllEnvs()
   })
 
   it("rejects bad submission_id (non-positive integer) with 400", async () => {
@@ -297,5 +300,11 @@ describe("DELETE /article-audio/:id", () => {
     mockSession = null
     const res = await buildApp().request("/article-audio/42", { method: "DELETE" })
     expect(res.status).toBe(401)
+  })
+
+  it("returns 403 when session is not admin", async () => {
+    mockSession = { id: 1n, email: "u@x.com", role: "editor" }
+    const res = await buildApp().request("/article-audio/42", { method: "DELETE" })
+    expect(res.status).toBe(403)
   })
 })

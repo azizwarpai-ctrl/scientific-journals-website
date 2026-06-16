@@ -1,9 +1,10 @@
 import { z } from "zod"
 
 /**
- * Allowed audio MIME types for upload. Restricted to the four formats every
- * modern browser plays natively through `<audio>`, matching the player B3
- * will ship without transcoding.
+ * Allowed audio MIME types for upload. Five entries for four formats: WAV
+ * appears twice (`audio/wav` + `audio/x-wav`) for browser compatibility.
+ * Restricted to formats every modern browser plays natively through `<audio>`,
+ * matching the player B3 will ship without transcoding.
  */
 export const ALLOWED_AUDIO_MIME_TYPES = [
   "audio/mpeg", // .mp3

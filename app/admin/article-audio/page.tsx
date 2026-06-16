@@ -25,7 +25,7 @@ const ACCEPT_LIST = ALLOWED_AUDIO_MIME_TYPES.join(",")
 
 export default function ArticleAudioPage() {
   const { data: journals, isLoading: journalsLoading, isError: journalsError } = useGetJournals()
-  const { data: audios, isLoading: audiosLoading } = useArticleAudioList()
+  const { data: audios, isLoading: audiosLoading, isError: audiosError } = useArticleAudioList()
   const upload = useUploadArticleAudio()
 
   const [journalId, setJournalId] = useState("")
@@ -165,7 +165,7 @@ export default function ArticleAudioPage() {
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    MP3, M4A, WAV, or OGG. Max file size set by MAX_FILE_SIZE_MB.
+                    MP3, M4A, WAV, or OGG. Max file size is enforced server-side via MAX_FILE_SIZE_MB.
                   </p>
                 </div>
 
@@ -204,6 +204,8 @@ export default function ArticleAudioPage() {
         <CardContent>
           {audiosLoading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : audiosError ? (
+            <p className="text-sm text-destructive">Failed to load audio list.</p>
           ) : !audios || audios.length === 0 ? (
             <p className="text-sm text-muted-foreground">No audio uploaded yet.</p>
           ) : (
