@@ -7,21 +7,7 @@ import { Search, SlidersHorizontal } from "lucide-react"
 import { JournalCard } from "@/src/features/journals/components/journal-card"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 
-interface Journal {
-  id: string
-  ojs_id?: string | null
-  ojs_path?: string | null
-  title: string
-  description?: string | null
-  issn?: string | null
-  field?: string | null
-  publisher?: string | null
-  coverImage: string | null
-  impact_factor?: string | null
-  access_type?: string | null
-  editor_in_chief?: string | null
-  recent_publications_count?: number | null
-}
+import type { Journal } from "@/src/features/journals/types/journal-type"
 
 interface JournalsClientViewProps {
   journals: Journal[]
@@ -38,8 +24,8 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
         const query = searchQuery.toLowerCase().trim()
 
         const matchesSearch =
-          journal.title.toLowerCase().includes(query) ||
-          (journal.issn?.toLowerCase().includes(query) ?? false) ||
+          (journal.title || "Currently unavailable").toLowerCase().includes(query) ||
+          ((journal.issn || journal.e_issn)?.toLowerCase().includes(query) ?? false) ||
           (journal.field?.toLowerCase().includes(query) ?? false) ||
           (journal.publisher?.toLowerCase().includes(query) ?? false)
 
@@ -53,7 +39,7 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
           if (isFinite(numA) && isFinite(numB)) return numB - numA
           return b.id.localeCompare(a.id)
         }
-        return a.title.localeCompare(b.title)
+        return (a.title || "").localeCompare(b.title || "")
       })
   }, [searchQuery, selectedField, sortBy, journals])
 
@@ -142,8 +128,8 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
               return (
                 <JournalCard
                   key={journal.id}
-                  title={journal.title}
-                  coverImage={journal.coverImage}
+                  title={journal.title || "Currently unavailable"}
+                  coverImage={journal.cover_image_url || "/images/logodigitopub.png"}
                   slug={slug}
                   impact_factor={journal.impact_factor}
                   access_type={journal.access_type}

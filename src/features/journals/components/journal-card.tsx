@@ -75,11 +75,14 @@ export function JournalCard({
           {coverImage ? (
             <>
               {/* Blurred ambient background layer */}
-              <div
-                className="absolute inset-0 bg-cover bg-center scale-125 opacity-40 blur-3xl"
-                style={{ backgroundImage: `url(${coverImage})` }}
-                aria-hidden="true"
-              />
+              <div className="absolute inset-0 scale-125 opacity-40 blur-3xl" aria-hidden="true">
+                <OjsImage
+                  src={coverImage}
+                  alt=""
+                  fill
+                  className="object-cover"
+                />
+              </div>
 
               {/* Actual cover image — centered with padding for a "book cover" feel */}
               <div
@@ -94,7 +97,7 @@ export function JournalCard({
                     "relative w-[85%] h-[90%] rounded-lg overflow-hidden",
                     "shadow-[0_4px_24px_rgba(0,0,0,0.15)]",
                     "dark:shadow-[0_4px_24px_rgba(0,0,0,0.5)]",
-                    "transition-all duration-600 ease-out",
+                    "transition-all duration-[600ms] ease-out",
                     "group-hover:scale-[1.03] group-hover:-translate-y-0.5",
                     "group-hover:shadow-[0_12px_40px_rgba(0,0,0,0.2)]",
                     "dark:group-hover:shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
@@ -106,6 +109,11 @@ export function JournalCard({
                     fill
                     className="object-contain bg-white dark:bg-zinc-900"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                    fallback={
+                      <div className="flex h-full w-full items-center justify-center bg-gray-50 dark:bg-black/40">
+                        <BookOpen className="h-16 w-16 text-gray-300 dark:text-zinc-700" aria-hidden />
+                      </div>
+                    }
                   />
                 </div>
               </div>
@@ -117,7 +125,7 @@ export function JournalCard({
                 "flex h-full w-full items-center justify-center",
                 "bg-gradient-to-br from-gray-100 to-gray-200/80",
                 "dark:from-slate-900 dark:to-slate-950",
-                "transition-transform duration-600",
+                "transition-transform duration-[600ms]",
                 "group-hover:scale-[1.03]"
               )}
             >
