@@ -10,10 +10,6 @@ import { useGetJournals } from "@/src/features/journals"
 export default function JournalsPage() {
   const { data: journals = [], isLoading, error } = useGetJournals();
 
-
-
-
-
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
