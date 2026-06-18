@@ -1,17 +1,17 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
-import { ShieldCheck, RefreshCw } from "lucide-react"
+import { ShieldCheck, RefreshCw, Loader2 } from "lucide-react"
 import { client } from "@/src/lib/rpc"
 import { AlertBanner } from "@/components/ui/alert-banner"
 
-export default function VerifyCodePage() {
+function VerifyCodeContent() {
     const [code, setCode] = useState(["", "", "", "", "", ""])
     const [error, setError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
@@ -215,5 +215,21 @@ export default function VerifyCodePage() {
                 </Card>
             </div>
         </div>
+    )
+}
+
+function VerifyCodeFallback() {
+    return (
+        <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-blue-50 via-white to-slate-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-6">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+    )
+}
+
+export default function VerifyCodePage() {
+    return (
+        <Suspense fallback={<VerifyCodeFallback />}>
+            <VerifyCodeContent />
+        </Suspense>
     )
 }

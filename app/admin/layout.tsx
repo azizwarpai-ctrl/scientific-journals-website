@@ -11,6 +11,7 @@ const AUTH_PAGES = [
   "/admin/login",
   "/admin/register",
   "/admin/registration-success",
+  "/admin/verify-code",
 ]
 
 export default function AdminRootLayout({
