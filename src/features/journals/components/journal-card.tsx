@@ -2,9 +2,8 @@
 
 import Link from "next/link"
 import { OjsImage } from "@/src/features/ojs/components/ojs-image"
-import { BookOpen, ArrowRight, BarChart2, FileText, User } from "lucide-react"
+import { BookOpen, ArrowRight } from "lucide-react"
 import { cn } from "@/src/lib/utils"
-import { Badge } from "@/components/ui/badge"
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                             */
@@ -33,14 +32,8 @@ export function JournalCard({
   title,
   coverImage,
   slug,
-  impact_factor,
-  access_type,
-  editor_in_chief,
-  recent_publications_count
 }: JournalCardProps) {
   const href = `/journals/${encodeURIComponent(slug)}`
-
-  const isOpenAccess = access_type?.toLowerCase().includes("open")
 
   return (
     <Link
@@ -51,133 +44,149 @@ export function JournalCard({
       <article
         className={cn(
           /* shape & layout */
-          "relative flex flex-col h-full overflow-hidden rounded-2xl",
+          "relative flex flex-col h-full overflow-hidden rounded-2xl cursor-pointer",
 
-          /* surface */
-          "bg-white/5 backdrop-blur-xl",
-          "border border-white/10",
+          /* ─── Light mode: frosted white glass ─── */
+          "bg-white/70 backdrop-blur-xl",
+          "border border-white/60",
+          "shadow-[0_8px_32px_rgba(0,0,0,0.08)]",
 
-          /* dark mode defaults (this is a dark modern grid design, so it defaults to dark style but respects light mode gracefully) */
-          "dark:bg-zinc-900/50 dark:border-zinc-800/80",
-
-          /* shadow & depth */
-          "shadow-[0_8px_30px_rgb(0,0,0,0.12)]",
+          /* ─── Dark mode: deep frosted glass ─── */
+          "dark:bg-white/[0.04] dark:backdrop-blur-2xl",
+          "dark:border-white/[0.08]",
+          "dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]",
 
           /* transitions */
           "transition-all duration-500 ease-out",
 
-          /* hover effects */
-          "hover:-translate-y-2 hover:scale-[1.02]",
-          "hover:shadow-[0_20px_40px_rgba(14,165,233,0.15)] hover:border-sky-500/30",
-          "dark:hover:shadow-[0_20px_40px_rgba(14,165,233,0.2)] dark:hover:border-sky-500/40"
+          /* ─── Hover: light mode ─── */
+          "hover:-translate-y-1.5 hover:scale-[1.015]",
+          "hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)]",
+          "hover:border-primary/30",
+
+          /* ─── Hover: dark mode ─── */
+          "dark:hover:shadow-[0_20px_50px_rgba(14,165,233,0.12)]",
+          "dark:hover:border-sky-500/25",
+          "dark:hover:bg-white/[0.06]"
         )}
       >
-        {/* ── Image area ─────────────────────────────────── */}
-        <div className="relative w-full aspect-[4/3] overflow-hidden bg-gradient-to-br from-slate-800 to-slate-950 flex items-center justify-center">
+        {/* ── Image area ─── fills top of card edge-to-edge ─── */}
+        <div className="relative w-full aspect-[3/4] overflow-hidden">
           {coverImage ? (
             <>
-              {/* Background blur for images that don't cover the full aspect ratio */}
+              {/* Blurred ambient background layer */}
               <div
-                className="absolute inset-0 bg-cover bg-center opacity-30 blur-2xl scale-110"
+                className="absolute inset-0 bg-cover bg-center scale-125 opacity-40 blur-3xl"
                 style={{ backgroundImage: `url(${coverImage})` }}
                 aria-hidden="true"
               />
-              <div className="relative w-[75%] h-[85%] shadow-2xl rounded-md overflow-hidden transition-transform duration-700 ease-out group-hover:scale-[1.05] group-hover:-translate-y-1">
-                <OjsImage
-                  src={coverImage}
-                  alt={`Cover for ${title}`}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                />
+
+              {/* Actual cover image — centered with padding for a "book cover" feel */}
+              <div
+                className={cn(
+                  "absolute inset-0 flex items-center justify-center p-4",
+                  "bg-gradient-to-b from-gray-100/50 to-gray-200/30",
+                  "dark:from-slate-900/60 dark:to-slate-950/40"
+                )}
+              >
+                <div
+                  className={cn(
+                    "relative w-[85%] h-[90%] rounded-lg overflow-hidden",
+                    "shadow-[0_4px_24px_rgba(0,0,0,0.15)]",
+                    "dark:shadow-[0_4px_24px_rgba(0,0,0,0.5)]",
+                    "transition-all duration-600 ease-out",
+                    "group-hover:scale-[1.03] group-hover:-translate-y-0.5",
+                    "group-hover:shadow-[0_12px_40px_rgba(0,0,0,0.2)]",
+                    "dark:group-hover:shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+                  )}
+                >
+                  <OjsImage
+                    src={coverImage}
+                    alt={`Cover for ${title}`}
+                    fill
+                    className="object-contain bg-white dark:bg-zinc-900"
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                  />
+                </div>
               </div>
             </>
           ) : (
             /* Fallback when no image */
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 transition-transform duration-700 group-hover:scale-[1.05]">
+            <div
+              className={cn(
+                "flex h-full w-full items-center justify-center",
+                "bg-gradient-to-br from-gray-100 to-gray-200/80",
+                "dark:from-slate-900 dark:to-slate-950",
+                "transition-transform duration-600",
+                "group-hover:scale-[1.03]"
+              )}
+            >
               <BookOpen
-                className="h-20 w-20 text-slate-700 transition-colors duration-500 group-hover:text-sky-500/50"
+                className="h-16 w-16 text-gray-300 dark:text-slate-700 transition-colors duration-500 group-hover:text-primary/40 dark:group-hover:text-sky-500/40"
                 aria-hidden
               />
             </div>
           )}
 
-          {/* Badges overlay */}
-          <div className="absolute top-3 left-3 flex flex-wrap gap-2 z-10">
-            {isOpenAccess && (
-              <Badge variant="secondary" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 backdrop-blur-md px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider">
-                Open Access
-              </Badge>
-            )}
-            {access_type && !isOpenAccess && (
-              <Badge variant="outline" className="bg-black/40 text-slate-200 border-white/20 backdrop-blur-md px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider">
-                {access_type}
-              </Badge>
-            )}
-          </div>
-
-          {/* Subtle vignette/overlay effect for depth */}
+          {/* Bottom gradient vignette for depth */}
           <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent"
+            className={cn(
+              "pointer-events-none absolute inset-0",
+              "bg-gradient-to-t from-black/[0.03] via-transparent to-transparent",
+              "dark:from-black/30 dark:via-transparent dark:to-black/10"
+            )}
             aria-hidden
           />
         </div>
 
-        {/* ── Content area ───────────────────────────────── */}
-        <div className="flex flex-col flex-grow p-5 gap-4">
-
-          <div className="flex flex-col gap-2">
-            {/* Title */}
-            <h3
-              className={cn(
-                "text-lg font-bold leading-tight tracking-tight",
-                "line-clamp-2 w-full",
-                "text-slate-100 dark:text-zinc-50",
-                "transition-colors duration-300",
-                "group-hover:text-sky-400"
-              )}
-              title={title}
-            >
-              {title}
-            </h3>
-
-            {/* Editor in Chief */}
-            {editor_in_chief && (
-              <div className="flex items-center gap-1.5 text-sm text-slate-400">
-                <User className="h-3.5 w-3.5" />
-                <span className="line-clamp-1">{editor_in_chief}</span>
-              </div>
+        {/* ── Content area ─── title + CTA ─── */}
+        <div className="flex flex-col flex-grow items-center justify-center gap-2.5 p-4">
+          {/* Title */}
+          <h3
+            className={cn(
+              "text-sm font-semibold leading-tight tracking-tight text-center",
+              "line-clamp-2 w-full",
+              "text-foreground/90 dark:text-zinc-100",
+              "transition-colors duration-300",
+              "group-hover:text-primary dark:group-hover:text-sky-400"
             )}
-          </div>
+            title={title}
+          >
+            {title}
+          </h3>
 
-          <div className="flex-grow" />
+          {/* "View Details" Button */}
+          <div className="flex w-full justify-center">
+            <span
+              className={cn(
+                "inline-flex items-center justify-center gap-1.5",
+                "rounded-lg px-3.5 py-1.5",
 
-          {/* Metrics */}
-          <div className="grid grid-cols-2 gap-3 py-3 border-y border-white/10">
-            <div className="flex flex-col">
-              <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Impact Factor</span>
-              <div className="flex items-center gap-1.5 text-slate-200 font-medium">
-                <BarChart2 className="h-4 w-4 text-sky-400" />
-                <span>{impact_factor || "N/A"}</span>
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Articles</span>
-              <div className="flex items-center gap-1.5 text-slate-200 font-medium">
-                <FileText className="h-4 w-4 text-indigo-400" />
-                <span>{recent_publications_count ?? "N/A"}</span>
-              </div>
-            </div>
-          </div>
+                /* Light mode */
+                "bg-gray-100/80 text-foreground/70",
+                "border border-gray-200/60",
 
-          {/* "View Details" Call to Action */}
-          <div className="flex w-full items-center justify-between pt-1">
-            <span className="text-sm font-medium text-sky-400 group-hover:text-sky-300 transition-colors duration-300">
-              Explore Journal
+                /* Dark mode */
+                "dark:bg-white/[0.06] dark:text-zinc-300",
+                "dark:border-white/[0.08]",
+
+                /* Typography */
+                "text-xs font-medium",
+
+                /* Transitions */
+                "transition-all duration-300",
+
+                /* Hover */
+                "group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary/50",
+                "group-hover:shadow-[0_4px_16px_rgba(var(--color-primary),0.25)]",
+                "dark:group-hover:bg-sky-500 dark:group-hover:text-white dark:group-hover:border-sky-400/50",
+                "dark:group-hover:shadow-[0_4px_16px_rgba(14,165,233,0.3)]"
+              )}
+              aria-hidden
+            >
+              View Details
+              <ArrowRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
             </span>
-            <div className="h-8 w-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-sky-500 group-hover:border-sky-400 transition-all duration-300">
-              <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-white transition-transform duration-300 group-hover:translate-x-0.5" />
-            </div>
           </div>
         </div>
       </article>
