@@ -17,13 +17,13 @@ export interface JournalCardProps {
   /** URL-safe slug used for /journals/[slug] routing */
   slug: string
   /** Optional Impact Factor (e.g., "3.567") */
-  impactFactor?: string
+  impactFactor?: string | null
   /** Access Type (e.g., "Open Access") */
-  accessType?: string
+  accessType?: string | null
   /** Editor-in-Chief name */
-  editorName?: string
+  editorName?: string | null
   /** Recent publications count */
-  recentPublicationsCount?: number
+  recentPublicationsCount?: number | null
   /** Fallback category/field */
   field?: string | null
 }

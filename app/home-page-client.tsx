@@ -158,10 +158,10 @@ export default function HomePageClient({ initialJournals = [] }: HomePageClientP
                             title={journal.title}
                             coverImage={journal.cover_image_url}
                             slug={slug}
-                            impactFactor={(journal as any).impact_factor}
-                            accessType={(journal as any).access_type || "Peer-Reviewed"}
-                            editorName={(journal as any).editor_in_chief}
-                            recentPublicationsCount={(journal as any).recent_publications_count}
+                            impactFactor={journal.impact_factor}
+                            accessType={journal.access_type || "Peer-Reviewed"}
+                            editorName={journal.editor_in_chief}
+                            recentPublicationsCount={journal.recent_publications_count}
                             field={journal.field}
                           />
                         </GSAPWrapper>

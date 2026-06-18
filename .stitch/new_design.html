@@ -193,12 +193,18 @@ void main() {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
     gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      console.error(gl.getShaderInfoLog(s));
+    }
     return s;
   }
   const prog = gl.createProgram();
   gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
   gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
   gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    console.error(gl.getProgramInfoLog(prog));
+  }
   gl.useProgram(prog);
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
