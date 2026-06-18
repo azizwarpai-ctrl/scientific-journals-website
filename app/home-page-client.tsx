@@ -158,6 +158,10 @@ export default function HomePageClient({ initialJournals = [] }: HomePageClientP
                             title={journal.title}
                             coverImage={journal.cover_image_url}
                             slug={slug}
+                            impact_factor={journal.impact_factor}
+                            access_type={journal.access_type}
+                            editor_in_chief={journal.editor_in_chief}
+                            recent_publications_count={journal.recent_publications_count}
                           />
                         </GSAPWrapper>
                       )

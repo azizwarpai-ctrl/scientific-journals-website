@@ -21,6 +21,9 @@ export interface Journal {
   ojs_path: string | null
   aims_and_scope: string | null
   author_guidelines: string | null
+  impact_factor?: string | null
+  access_type?: string | null
+  recent_publications_count?: number | null
 }
 
 export interface JournalResponse {

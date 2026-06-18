@@ -17,6 +17,10 @@ interface Journal {
   field?: string | null
   publisher?: string | null
   coverImage: string | null
+  impact_factor?: string | null
+  access_type?: string | null
+  editor_in_chief?: string | null
+  recent_publications_count?: number | null
 }
 
 interface JournalsClientViewProps {
@@ -141,6 +145,10 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
                   title={journal.title}
                   coverImage={journal.coverImage}
                   slug={slug}
+                  impact_factor={journal.impact_factor}
+                  access_type={journal.access_type}
+                  editor_in_chief={journal.editor_in_chief}
+                  recent_publications_count={journal.recent_publications_count}
                 />
               )
             })}
