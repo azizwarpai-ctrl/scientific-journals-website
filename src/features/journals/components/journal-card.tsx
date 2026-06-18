@@ -38,164 +38,64 @@ export function JournalCard({
   return (
     <Link
       href={href}
-      className="group block outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-2xl h-full"
+      className="group block outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-3xl h-full"
       aria-label={`View details for ${title}`}
     >
       <article
         className={cn(
-          /* shape & layout */
-          "relative flex flex-col h-full overflow-hidden rounded-2xl cursor-pointer",
-
-          /* ─── Light mode: frosted white glass ─── */
-          "bg-white/70 backdrop-blur-xl",
-          "border border-white/60",
-          "shadow-[0_8px_32px_rgba(0,0,0,0.08)]",
-
-          /* ─── Dark mode: deep frosted glass ─── */
-          "dark:bg-white/[0.04] dark:backdrop-blur-2xl",
-          "dark:border-white/[0.08]",
-          "dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]",
-
-          /* transitions */
-          "transition-all duration-500 ease-out",
-
-          /* ─── Hover: light mode ─── */
-          "hover:-translate-y-1.5 hover:scale-[1.015]",
-          "hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)]",
-          "hover:border-primary/30",
-
-          /* ─── Hover: dark mode ─── */
-          "dark:hover:shadow-[0_20px_50px_rgba(14,165,233,0.12)]",
-          "dark:hover:border-sky-500/25",
-          "dark:hover:bg-white/[0.06]"
+          "relative flex flex-col h-full rounded-3xl cursor-pointer overflow-hidden",
+          "bg-white dark:bg-slate-900/60 dark:backdrop-blur-md",
+          "border border-slate-100 dark:border-slate-800",
+          "shadow-md shadow-slate-200/50 dark:shadow-none",
+          "transition-all duration-[600ms] ease-out",
+          "hover:-translate-y-1.5 hover:shadow-[0_0_25px_rgba(59,130,246,0.15)] dark:hover:shadow-[0_0_20px_rgba(59,130,246,0.3)]",
+          "hover:border-blue-500/40 dark:hover:border-blue-500/50"
         )}
       >
-        {/* ── Image area ─── fills top of card edge-to-edge ─── */}
-        <div className="relative w-full aspect-[3/4] overflow-hidden">
+        {/* Cover Image */}
+        <div className="relative w-full aspect-[3/4] overflow-hidden bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800/50 shrink-0">
           {coverImage ? (
-            <>
-              {/* Blurred ambient background layer */}
-              <div className="absolute inset-0 scale-125 opacity-40 blur-3xl" aria-hidden="true">
-                <OjsImage
-                  src={coverImage}
-                  alt=""
-                  fill
-                  className="object-cover"
-                />
-              </div>
-
-              {/* Actual cover image */}
-              <div
-                className={cn(
-                  "absolute inset-0 flex items-center justify-center",
-                  "bg-gradient-to-b from-gray-100/50 to-gray-200/30",
-                  "dark:from-slate-900/60 dark:to-slate-950/40"
-                )}
-              >
-                <div
-                  className={cn(
-                    "relative w-full h-full overflow-hidden",
-                    "shadow-[0_4px_24px_rgba(0,0,0,0.15)]",
-                    "dark:shadow-[0_4px_24px_rgba(0,0,0,0.5)]",
-                    "transition-all duration-[600ms] ease-out",
-                    "group-hover:scale-[1.05]",
-                    "group-hover:shadow-[0_12px_40px_rgba(0,0,0,0.2)]",
-                    "dark:group-hover:shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
-                  )}
-                >
-                  <OjsImage
-                    src={coverImage}
-                    alt={`Cover for ${title}`}
-                    fill
-                    className="object-contain bg-transparent"
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                    fallback={
-                      <div className="flex h-full w-full items-center justify-center bg-gray-50 dark:bg-black/40">
-                        <BookOpen className="h-16 w-16 text-gray-300 dark:text-zinc-700" aria-hidden />
-                      </div>
-                    }
-                  />
+            <OjsImage
+              src={coverImage}
+              alt={`Cover for ${title}`}
+              fill
+              className="object-cover transition-transform duration-[600ms] group-hover:scale-105"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+              fallback={
+                <div className="flex h-full w-full items-center justify-center">
+                  <BookOpen className="h-16 w-16 text-slate-300 dark:text-slate-600" aria-hidden />
                 </div>
-              </div>
-            </>
+              }
+            />
           ) : (
-            /* Fallback when no image */
-            <div
-              className={cn(
-                "flex h-full w-full items-center justify-center",
-                "bg-gradient-to-br from-gray-100 to-gray-200/80",
-                "dark:from-slate-900 dark:to-slate-950",
-                "transition-transform duration-[600ms]",
-                "group-hover:scale-[1.03]"
-              )}
-            >
-              <BookOpen
-                className="h-16 w-16 text-gray-300 dark:text-slate-700 transition-colors duration-500 group-hover:text-primary/40 dark:group-hover:text-sky-500/40"
-                aria-hidden
-              />
+            <div className="flex h-full w-full items-center justify-center transition-transform duration-[600ms] group-hover:scale-105">
+              <BookOpen className="h-16 w-16 text-slate-300 dark:text-slate-600 transition-colors duration-500 group-hover:text-blue-500/40" aria-hidden />
             </div>
           )}
-
-          {/* Bottom gradient vignette for depth */}
-          <div
-            className={cn(
-              "pointer-events-none absolute inset-0",
-              "bg-gradient-to-t from-black/[0.03] via-transparent to-transparent",
-              "dark:from-black/30 dark:via-transparent dark:to-black/10"
-            )}
-            aria-hidden
-          />
         </div>
 
-        {/* ── Content area ─── title + CTA ─── */}
-        <div className="flex flex-col flex-grow items-center justify-center gap-2.5 p-4">
-          {/* Title */}
+        {/* Content */}
+        <div className="flex flex-col flex-grow justify-between p-5">
           <h3
-            className={cn(
-              "text-sm font-semibold leading-tight tracking-tight text-center",
-              "line-clamp-2 w-full",
-              "text-foreground/90 dark:text-zinc-100",
-              "transition-colors duration-300",
-              "group-hover:text-primary dark:group-hover:text-sky-400"
-            )}
+            className="text-base font-semibold leading-tight text-center text-slate-900 dark:text-white line-clamp-2 w-full mb-5 transition-colors duration-300 group-hover:text-blue-600 dark:group-hover:text-blue-400"
             title={title}
           >
             {title}
           </h3>
 
-          {/* "View Details" Button */}
-          <div className="flex w-full justify-center">
-            <span
-              className={cn(
-                "inline-flex items-center justify-center gap-1.5",
-                "rounded-lg px-3.5 py-1.5",
-
-                /* Light mode */
-                "bg-gray-100/80 text-foreground/70",
-                "border border-gray-200/60",
-
-                /* Dark mode */
-                "dark:bg-white/[0.06] dark:text-zinc-300",
-                "dark:border-white/[0.08]",
-
-                /* Typography */
-                "text-xs font-medium",
-
-                /* Transitions */
-                "transition-all duration-300",
-
-                /* Hover */
-                "group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary/50",
-                "group-hover:shadow-[0_4px_16px_rgba(var(--color-primary),0.25)]",
-                "dark:group-hover:bg-sky-500 dark:group-hover:text-white dark:group-hover:border-sky-400/50",
-                "dark:group-hover:shadow-[0_4px_16px_rgba(14,165,233,0.3)]"
-              )}
-              aria-hidden
-            >
-              View Details
-              <ArrowRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
-            </span>
-          </div>
+          <span
+            className={cn(
+              "flex items-center justify-center gap-1.5 w-full mt-auto",
+              "bg-blue-600 text-white",
+              "py-2.5 px-5 rounded-xl font-semibold text-sm",
+              "transition-all duration-300 ease-out",
+              "group-hover:bg-blue-500 group-hover:shadow-md group-hover:shadow-blue-500/20"
+            )}
+            aria-hidden
+          >
+            View Details
+            <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+          </span>
         </div>
       </article>
     </Link>
