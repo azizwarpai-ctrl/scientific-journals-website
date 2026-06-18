@@ -127,9 +127,6 @@
   "trustedDependencies": [
     "pg-native"
   ],
-  "prisma": {
-    "seed": "ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} prisma/seed.ts"
-  },
   "optionalDependencies": {
     "@tailwindcss/oxide-linux-x64-gnu": "^4.2.1",
     "lightningcss-linux-x64-gnu": "^1.31.1"

@@ -212,16 +212,14 @@ export async function initializeDatabase() {
         throw new Error('[DB Init] CRITICAL: Missing required seed credentials.')
       }
 
-      console.log(`[DB Init] Atomic seeding of privileged accounts...`)
+      console.log(`[DB Init] Ensuring privileged accounts exist (create-if-absent)...`)
 
-      // Atomic Upsert for Super Admin
+      // Create-if-absent for Super Admin — never overwrite an existing
+      // account so that passwords rotated via the admin UI persist.
       const adminHash = await bcrypt.hash(adminPasswordRaw, 10)
       await prisma.adminUser.upsert({
         where: { email: adminEmail },
-        update: {
-          password_hash: adminHash,
-          role: 'super_admin' // Ensure role is correct if email matches
-        },
+        update: {},
         create: {
           email: adminEmail,
           password_hash: adminHash,
@@ -231,14 +229,11 @@ export async function initializeDatabase() {
       })
       console.log(`[DB Init] Super Admin (${maskEmail(adminEmail)}) synchronized.`)
 
-      // Atomic Upsert for Support User
+      // Create-if-absent for Support User
       const supportHash = await bcrypt.hash(supportPasswordRaw, 10)
       await prisma.adminUser.upsert({
         where: { email: supportEmail },
-        update: {
-          password_hash: supportHash,
-          role: 'admin'
-        },
+        update: {},
         create: {
           email: supportEmail,
           password_hash: supportHash,
