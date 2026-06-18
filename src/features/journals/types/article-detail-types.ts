@@ -58,6 +58,9 @@ export interface ArticleDetail {
 
   isOpenAccess: boolean
 
+  audioUrl: string | null
+  audioDurationSeconds: number | null
+
   views: number
   downloads: number
   citations: number

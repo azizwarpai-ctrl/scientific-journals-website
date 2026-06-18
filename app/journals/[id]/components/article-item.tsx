@@ -16,6 +16,7 @@ import type { CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/jou
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ModalPdfViewer } from "../articles/[publicationId]/components/modal-pdf-viewer"
+import { AudioPlayer } from "@/src/components/audio-player"
 
 interface ArticleItemProps {
   article: CurrentIssueArticle
@@ -172,6 +173,13 @@ export function ArticleItem({ article }: ArticleItemProps) {
           )}
 
           <div className="flex items-center gap-2">
+            {article.audioUrl && (
+              <AudioPlayer
+                src={article.audioUrl}
+                durationSeconds={article.audioDurationSeconds}
+                variant="compact"
+              />
+            )}
             <Button asChild variant="outline" size="sm" className="h-8 gap-2 rounded-full px-4">
               <Link href={articleUrl}>
                 View Article

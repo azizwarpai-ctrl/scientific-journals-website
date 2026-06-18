@@ -15,6 +15,7 @@ import { CurrentIssueSkeleton } from "@/components/skeletons/current-issue-skele
 import { CurrentIssueError } from "@/components/errors/current-issue-error"
 import { ArticleItem } from "./article-item"
 import { getIssueTitle, getIssueSubtitle } from "./issue-helpers"
+import { AudioPlayerProvider } from "@/src/components/audio-player-context"
 
 interface ArchiveIssueDetailProps {
   journalId: string
@@ -177,27 +178,29 @@ export function ArchiveIssueDetail({
 
       {/* ─── Article Groups ─── */}
       {issue.articles.length > 0 ? (
-        <div className="space-y-12 pb-16">
-          {Object.entries(groupedArticles).map(([section, articles]) => (
-            <div key={section} className="space-y-6">
-              <div className="flex items-center gap-4">
-                <h3 className="text-sm font-extrabold text-foreground uppercase tracking-[0.15em] shrink-0">
-                  {section}
-                </h3>
-                <div className="h-px flex-1 bg-gradient-to-r from-border/80 to-transparent" />
-              </div>
+        <AudioPlayerProvider>
+          <div className="space-y-12 pb-16">
+            {Object.entries(groupedArticles).map(([section, articles]) => (
+              <div key={section} className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-sm font-extrabold text-foreground uppercase tracking-[0.15em] shrink-0">
+                    {section}
+                  </h3>
+                  <div className="h-px flex-1 bg-gradient-to-r from-border/80 to-transparent" />
+                </div>
 
-              <div className="flex flex-col gap-6">
-                {articles.map((article) => (
-                  <ArticleItem
-                    key={article.publicationId}
-                    article={article}
-                  />
-                ))}
+                <div className="flex flex-col gap-6">
+                  {articles.map((article) => (
+                    <ArticleItem
+                      key={article.publicationId}
+                      article={article}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </AudioPlayerProvider>
       ) : (
         <div className="rounded-2xl border border-border/60 bg-card p-8 text-center">
           <p className="text-muted-foreground">

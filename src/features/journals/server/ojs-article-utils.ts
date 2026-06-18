@@ -216,6 +216,34 @@ export async function fetchArticlesWithAuthors(
     keywordsByPub.set(row.publication_id, existing)
   }
 
+  // ── Batch-fetch audio from digitopub's article_audio table ──────
+  const audioBySubmission = new Map<number, { url: string; duration: number | null }>()
+  try {
+    const { prisma: localPrisma } = await import("@/src/lib/db/config")
+    const submissionIds = articleRows.map((a) => BigInt(a.submission_id))
+    const audioRows = await localPrisma.articleAudio.findMany({
+      where: {
+        ojs_journal_id: String(journalId),
+        submission_id: { in: submissionIds },
+      },
+      orderBy: { created_at: "desc" },
+    })
+    if (audioRows.length > 0) {
+      const { getStorage } = await import("@/src/lib/storage")
+      const storage = getStorage()
+      const seen = new Set<number>()
+      for (const row of audioRows) {
+        const sid = Number(row.submission_id)
+        if (seen.has(sid)) continue
+        seen.add(sid)
+        const url = await storage.signedReadUrl(row.storage_key, 3600)
+        audioBySubmission.set(sid, { url, duration: row.duration_seconds })
+      }
+    }
+  } catch (audioError) {
+    console.warn("[ojs-article-utils] audio batch lookup failed:", audioError)
+  }
+
   // ── Map articles with their authors and pdfUrl ───────────────────
   return articleRows.map((row) => {
     const galleys = galleysByPub.get(row.publication_id) || []
@@ -242,6 +270,7 @@ export async function fetchArticlesWithAuthors(
       : null
 
     const isOpenAccess = isOpenAccessStatus(row.access_status)
+    const audio = audioBySubmission.get(row.submission_id)
 
     return {
       publicationId: row.publication_id,
@@ -258,6 +287,8 @@ export async function fetchArticlesWithAuthors(
       doi: row.doi,
       keywords: keywordsByPub.get(row.publication_id) || [],
       isOpenAccess,
+      audioUrl: audio?.url ?? null,
+      audioDurationSeconds: audio?.duration ?? null,
     }
   })
 }
