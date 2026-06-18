@@ -107,7 +107,7 @@ export function JournalCard({
                     src={coverImage}
                     alt={`Cover for ${title}`}
                     fill
-                    className="object-cover bg-white dark:bg-zinc-900"
+                    className="object-contain bg-transparent"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                     fallback={
                       <div className="flex h-full w-full items-center justify-center bg-gray-50 dark:bg-black/40">
