@@ -84,21 +84,21 @@ export function JournalCard({
                 />
               </div>
 
-              {/* Actual cover image — centered with padding for a "book cover" feel */}
+              {/* Actual cover image */}
               <div
                 className={cn(
-                  "absolute inset-0 flex items-center justify-center p-4",
+                  "absolute inset-0 flex items-center justify-center",
                   "bg-gradient-to-b from-gray-100/50 to-gray-200/30",
                   "dark:from-slate-900/60 dark:to-slate-950/40"
                 )}
               >
                 <div
                   className={cn(
-                    "relative w-[85%] h-[90%] rounded-lg overflow-hidden",
+                    "relative w-full h-full overflow-hidden",
                     "shadow-[0_4px_24px_rgba(0,0,0,0.15)]",
                     "dark:shadow-[0_4px_24px_rgba(0,0,0,0.5)]",
                     "transition-all duration-[600ms] ease-out",
-                    "group-hover:scale-[1.03] group-hover:-translate-y-0.5",
+                    "group-hover:scale-[1.05]",
                     "group-hover:shadow-[0_12px_40px_rgba(0,0,0,0.2)]",
                     "dark:group-hover:shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
                   )}
@@ -107,7 +107,7 @@ export function JournalCard({
                     src={coverImage}
                     alt={`Cover for ${title}`}
                     fill
-                    className="object-contain bg-white dark:bg-zinc-900"
+                    className="object-cover bg-white dark:bg-zinc-900"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                     fallback={
                       <div className="flex h-full w-full items-center justify-center bg-gray-50 dark:bg-black/40">
