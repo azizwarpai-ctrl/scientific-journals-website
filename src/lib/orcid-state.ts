@@ -9,7 +9,7 @@
 
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 import { z } from "zod"
-import { getEnv } from "./env"
+import { getOrcidEnv } from "./env"
 
 export const STATE_COOKIE_NAME = "digitopub_oauth_state"
 export const STATE_COOKIE_PATH = "/api/auth/orcid"
@@ -85,7 +85,7 @@ export interface MintStateInput {
 
 /** Mint a fresh state token. Returns the token string and the nonce inside it. */
 export function mintState(input: MintStateInput): { token: string; nonce: string } {
-  const env = getEnv()
+  const env = getOrcidEnv()
   const now = input.now ?? Math.floor(Date.now() / 1000)
   const nonce = b64u(randomBytes(24))
   const payload: StatePayload = {
@@ -103,7 +103,7 @@ export function mintState(input: MintStateInput): { token: string; nonce: string
  * Throws StateInvalidError / StateExpiredError / StateReusedError on failure.
  */
 export function verifyAndConsumeState(token: string, nowSeconds?: number): StatePayload {
-  const env = getEnv()
+  const env = getOrcidEnv()
   if (!token || typeof token !== "string") throw new StateInvalidError()
   const parts = token.split(".")
   if (parts.length !== 2) throw new StateInvalidError()

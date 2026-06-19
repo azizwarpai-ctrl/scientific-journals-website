@@ -13,7 +13,7 @@ import {
   type FlattenedJWSInput,
   type JWSHeaderParameters,
 } from "jose"
-import { getEnv, getOrcidRedirectUri } from "./env"
+import { getOrcidEnv, getOrcidRedirectUri } from "./env"
 
 export const ORCID_ISSUER = "https://orcid.org"
 export const ORCID_AUTHORIZE_URL = "https://orcid.org/oauth/authorize"
@@ -62,7 +62,7 @@ function getJwks(): ReturnType<typeof createRemoteJWKSet> {
 }
 
 export function buildAuthorizeUrl(state: string): string {
-  const env = getEnv()
+  const env = getOrcidEnv()
   const u = new URL(ORCID_AUTHORIZE_URL)
   u.searchParams.set("response_type", "code")
   u.searchParams.set("client_id", env.ORCID_CLIENT_ID)
@@ -77,7 +77,7 @@ export function buildAuthorizeUrl(state: string): string {
  * Throws on non-2xx ORCID responses.
  */
 export async function exchangeCode(code: string): Promise<OrcidTokenResponse> {
-  const env = getEnv()
+  const env = getOrcidEnv()
   const body = new URLSearchParams({
     client_id: env.ORCID_CLIENT_ID,
     client_secret: env.ORCID_CLIENT_SECRET,
@@ -118,7 +118,7 @@ export interface VerifiedOrcidToken {
  * Throws on any verification failure.
  */
 export async function verifyOrcidToken(idToken: string): Promise<VerifiedOrcidToken> {
-  const env = getEnv()
+  const env = getOrcidEnv()
   const jwks = getJwks()
   const { payload } = await jwtVerify(idToken, jwks as never, {
     issuer: ORCID_ISSUER,

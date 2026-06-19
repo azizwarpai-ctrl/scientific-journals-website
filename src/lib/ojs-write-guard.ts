@@ -9,7 +9,7 @@
 import { randomUUID } from "node:crypto"
 import { prisma } from "./db/config"
 import { getOjsConnection } from "@/src/features/ojs/server/ojs-client"
-import { getEnv } from "./env"
+import { getFlagsEnv } from "./env"
 
 export interface WriteOrcidInput {
   orcid: string
@@ -27,7 +27,7 @@ export interface WriteOrcidResult {
 }
 
 export function isBackfillEnabled(): boolean {
-  return getEnv().ENABLE_ORCID_OJS_BACKFILL
+  return getFlagsEnv().ENABLE_ORCID_OJS_BACKFILL
 }
 
 /**

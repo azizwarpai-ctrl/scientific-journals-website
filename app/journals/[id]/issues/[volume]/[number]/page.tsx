@@ -12,6 +12,7 @@ import { ArticleItem } from "../../../components/article-item"
 import type { CurrentIssueArticle } from "@/src/features/journals"
 import { ShareIssueButton } from "./share-issue-button"
 import { buildCanonical } from "@/src/lib/seo/canonical"
+import { AudioPlayerProvider } from "@/src/components/audio-player-context"
 
 interface PageProps {
   params: Promise<{
@@ -150,11 +151,13 @@ export default async function IssueDetailPage({ params }: PageProps) {
             <span className="text-sm text-muted-foreground font-medium">{issue.articles.length} total articles</span>
           </div>
 
-          <div className="grid gap-6">
-            {issue.articles.map((article: CurrentIssueArticle) => (
-              <ArticleItem key={article.publicationId} article={article} />
-            ))}
-          </div>
+          <AudioPlayerProvider>
+            <div className="grid gap-6">
+              {issue.articles.map((article: CurrentIssueArticle) => (
+                <ArticleItem key={article.publicationId} article={article} />
+              ))}
+            </div>
+          </AudioPlayerProvider>
         </div>
       </div>
     </div>

@@ -151,6 +151,48 @@ export async function initializeDatabase() {
         }
       }
 
+      try {
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS \`article_audio\` (
+            \`id\` BIGINT NOT NULL AUTO_INCREMENT,
+            \`ojs_journal_id\` VARCHAR(50) NOT NULL,
+            \`submission_id\` BIGINT NOT NULL,
+            \`locale\` VARCHAR(14) NOT NULL DEFAULT '',
+            \`storage_key\` VARCHAR(500) NOT NULL,
+            \`mime_type\` VARCHAR(100) NOT NULL,
+            \`size_bytes\` BIGINT NOT NULL,
+            \`original_filename\` VARCHAR(255) NOT NULL,
+            \`duration_seconds\` INTEGER NULL,
+            \`uploaded_by\` BIGINT NOT NULL,
+            \`created_at\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+            \`updated_at\` DATETIME(3) NOT NULL,
+            INDEX \`article_audio_ojs_journal_id_submission_id_idx\`(\`ojs_journal_id\`, \`submission_id\`),
+            INDEX \`article_audio_uploaded_by_idx\`(\`uploaded_by\`),
+            UNIQUE INDEX \`uq_article_audio_journal_submission_locale\`(\`ojs_journal_id\`, \`submission_id\`, \`locale\`),
+            PRIMARY KEY (\`id\`)
+          ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        `)
+        console.log('[DB Init] Applied schema patch: Synchronized article_audio table')
+      } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e)
+        console.error('[DB Init] Failed to create article_audio table:', errorMsg)
+      }
+
+      try {
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE \`article_audio\`
+            ADD CONSTRAINT \`article_audio_uploaded_by_fkey\`
+            FOREIGN KEY (\`uploaded_by\`) REFERENCES \`admin_users\`(\`id\`)
+            ON DELETE RESTRICT ON UPDATE CASCADE;
+        `)
+        console.log('[DB Init] Applied schema patch: Added article_audio FK to admin_users')
+      } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e)
+        if (!errorMsg.includes('Duplicate') && !errorMsg.includes('already exists')) {
+          console.error('[DB Init] Failed to add article_audio FK:', errorMsg)
+        }
+      }
+
       // --- END MIGRATIONS ---
 
       console.log('[DB Init] Starting runtime database seeding...')
@@ -170,16 +212,14 @@ export async function initializeDatabase() {
         throw new Error('[DB Init] CRITICAL: Missing required seed credentials.')
       }
 
-      console.log(`[DB Init] Atomic seeding of privileged accounts...`)
+      console.log(`[DB Init] Ensuring privileged accounts exist (create-if-absent)...`)
 
-      // Atomic Upsert for Super Admin
+      // Create-if-absent for Super Admin — never overwrite an existing
+      // account so that passwords rotated via the admin UI persist.
       const adminHash = await bcrypt.hash(adminPasswordRaw, 10)
       await prisma.adminUser.upsert({
         where: { email: adminEmail },
-        update: {
-          password_hash: adminHash,
-          role: 'super_admin' // Ensure role is correct if email matches
-        },
+        update: {},
         create: {
           email: adminEmail,
           password_hash: adminHash,
@@ -189,14 +229,11 @@ export async function initializeDatabase() {
       })
       console.log(`[DB Init] Super Admin (${maskEmail(adminEmail)}) synchronized.`)
 
-      // Atomic Upsert for Support User
+      // Create-if-absent for Support User
       const supportHash = await bcrypt.hash(supportPasswordRaw, 10)
       await prisma.adminUser.upsert({
         where: { email: supportEmail },
-        update: {
-          password_hash: supportHash,
-          role: 'admin'
-        },
+        update: {},
         create: {
           email: supportEmail,
           password_hash: supportHash,

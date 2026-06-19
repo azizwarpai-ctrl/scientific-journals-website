@@ -1,4 +1,4 @@
-import { getEnv } from "@/src/lib/env"
+import { getFlagsEnv } from "@/src/lib/env"
 import { ConsentBanner } from "./consent-banner"
 
 /**
@@ -9,7 +9,7 @@ import { ConsentBanner } from "./consent-banner"
 export function ConsentBannerHost() {
     let enabled = false
     try {
-        enabled = getEnv().UIET_P1_ENABLED
+        enabled = getFlagsEnv().UIET_P1_ENABLED
     } catch {
         enabled = false
     }

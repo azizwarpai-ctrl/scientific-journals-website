@@ -1,10 +1,11 @@
 "use client"
 
-import { Download, FileText, BarChart3, Quote, Share2 } from "lucide-react"
+import { Download, FileText, BarChart3, Quote, Share2, Headphones } from "lucide-react"
 import { useState } from "react"
 import type { ArticleDetail } from "@/src/features/journals"
 import { CitationBox } from "./citation-box"
 import { ModalPdfViewer } from "./modal-pdf-viewer"
+import { AudioPlayer } from "@/src/components/audio-player"
 
 interface ArticleSidebarProps {
   article: ArticleDetail
@@ -38,6 +39,20 @@ export function ArticleSidebar({ article }: ArticleSidebarProps) {
 
   return (
     <div className="space-y-6">
+      {/* Listen */}
+      {article.audioUrl && (
+        <div className="rounded-xl border border-border/60 bg-card p-5 space-y-4 shadow-sm">
+          <h3 className="font-semibold text-base flex items-center gap-2">
+            <Headphones className="h-4 w-4 text-primary" /> Listen
+          </h3>
+          <AudioPlayer
+            src={article.audioUrl}
+            durationSeconds={article.audioDurationSeconds}
+            variant="full"
+          />
+        </div>
+      )}
+
       {/* Full Text */}
       <div className="rounded-xl border border-border/60 bg-card p-5 space-y-4 shadow-sm">
         <h3 className="font-semibold text-base flex items-center gap-2">

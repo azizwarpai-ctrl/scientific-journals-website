@@ -9,7 +9,7 @@
  */
 
 import { createHash, createHmac } from "node:crypto"
-import { getEnv } from "./env"
+import { getMetricsEnv } from "./env"
 
 /** Return today's UTC date string in `YYYY-MM-DD` format. */
 export function dayKey(now: Date = new Date()): string {
@@ -18,7 +18,7 @@ export function dayKey(now: Date = new Date()): string {
 
 /** Internal helper: salt for a given day. */
 function dailySalt(day: string): Buffer {
-  const env = getEnv()
+  const env = getMetricsEnv()
   return createHmac("sha256", env.EVENT_IP_HASH_SALT_SEED).update(day).digest()
 }
 

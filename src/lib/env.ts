@@ -1,6 +1,9 @@
 /**
  * Centralized runtime env loader for UIET-P1.
  *
+ * Env vars are split into focused schemas so that a missing ORCID credential
+ * does not break the metrics/identity paths (and vice-versa).
+ *
  * - Production: missing required vars throw at first read.
  * - Development / test: missing required vars fall back to dev defaults
  *   and emit a console warning.
@@ -41,35 +44,118 @@ const requiredSecret = (name: string) =>
 
 const optionalString = z.string().optional().transform((v) => v || null)
 
+// ---------------------------------------------------------------------------
+// Focused schemas — each domain validates only its own vars.
+// ---------------------------------------------------------------------------
+
+const metricsEnvSchema = z.object({
+  EVENT_IP_HASH_SALT_SEED: requiredSecret("EVENT_IP_HASH_SALT_SEED"),
+})
+
+const identityEnvSchema = z.object({
+  IDENTITY_COOKIE_SECRET: requiredSecret("IDENTITY_COOKIE_SECRET"),
+})
+
+const orcidEnvSchema = z.object({
+  ORCID_CLIENT_ID: requiredSecret("ORCID_CLIENT_ID"),
+  ORCID_CLIENT_SECRET: requiredSecret("ORCID_CLIENT_SECRET"),
+  ORCID_STATE_SECRET: requiredSecret("ORCID_STATE_SECRET"),
+  ORCID_REDIRECT_URI: optionalString,
+})
+
+const flagsEnvSchema = z.object({
+  ENABLE_ORCID_OJS_BACKFILL: booleanFromString.default(!isProduction),
+  UIET_P1_ENABLED: booleanFromString.default(false),
+})
+
+// ---------------------------------------------------------------------------
+// Combined schema — kept for callers that need the full set (e.g. getEnv()).
+// ---------------------------------------------------------------------------
+
 const envSchema = z.object({
-  /** OAuth client credentials issued by orcid.org/developer-tools */
   ORCID_CLIENT_ID: requiredSecret("ORCID_CLIENT_ID"),
   ORCID_CLIENT_SECRET: requiredSecret("ORCID_CLIENT_SECRET"),
   ORCID_REDIRECT_URI: optionalString,
-
-  /** HMAC secrets — independent values, rotating any one invalidates its cookies */
   IDENTITY_COOKIE_SECRET: requiredSecret("IDENTITY_COOKIE_SECRET"),
   ORCID_STATE_SECRET: requiredSecret("ORCID_STATE_SECRET"),
   EVENT_IP_HASH_SALT_SEED: requiredSecret("EVENT_IP_HASH_SALT_SEED"),
-
-  /** Feature flags */
   ENABLE_ORCID_OJS_BACKFILL: booleanFromString.default(!isProduction),
   UIET_P1_ENABLED: booleanFromString.default(false),
 })
 
 export type UietEnv = z.infer<typeof envSchema>
+export type MetricsEnv = z.infer<typeof metricsEnvSchema>
+export type IdentityEnv = z.infer<typeof identityEnvSchema>
+export type OrcidEnv = z.infer<typeof orcidEnvSchema>
+export type FlagsEnv = z.infer<typeof flagsEnvSchema>
 
+// ---------------------------------------------------------------------------
+// Cached, focused readers.
+// ---------------------------------------------------------------------------
+
+let cachedMetrics: MetricsEnv | null = null
+let cachedIdentity: IdentityEnv | null = null
+let cachedOrcid: OrcidEnv | null = null
+let cachedFlags: FlagsEnv | null = null
 let cached: UietEnv | null = null
 
+function parseOrThrow<T>(schema: z.ZodType<T>, data: Record<string, unknown>, label: string): T {
+  const parsed = schema.safeParse(data)
+  if (!parsed.success) {
+    throw new Error(
+      `[env] ${label} environment validation failed: ${JSON.stringify(
+        parsed.error.flatten()
+      )}`
+    )
+  }
+  return parsed.data
+}
+
+export function getMetricsEnv(): MetricsEnv {
+  if (cachedMetrics) return cachedMetrics
+  cachedMetrics = parseOrThrow(metricsEnvSchema, {
+    EVENT_IP_HASH_SALT_SEED: process.env.EVENT_IP_HASH_SALT_SEED,
+  }, "metrics")
+  return cachedMetrics
+}
+
+export function getIdentityEnv(): IdentityEnv {
+  if (cachedIdentity) return cachedIdentity
+  cachedIdentity = parseOrThrow(identityEnvSchema, {
+    IDENTITY_COOKIE_SECRET: process.env.IDENTITY_COOKIE_SECRET,
+  }, "identity")
+  return cachedIdentity
+}
+
+export function getOrcidEnv(): OrcidEnv {
+  if (cachedOrcid) return cachedOrcid
+  cachedOrcid = parseOrThrow(orcidEnvSchema, {
+    ORCID_CLIENT_ID: process.env.ORCID_CLIENT_ID,
+    ORCID_CLIENT_SECRET: process.env.ORCID_CLIENT_SECRET,
+    ORCID_STATE_SECRET: process.env.ORCID_STATE_SECRET,
+    ORCID_REDIRECT_URI: process.env.ORCID_REDIRECT_URI,
+  }, "orcid")
+  return cachedOrcid
+}
+
+export function getFlagsEnv(): FlagsEnv {
+  if (cachedFlags) return cachedFlags
+  cachedFlags = parseOrThrow(flagsEnvSchema, {
+    ENABLE_ORCID_OJS_BACKFILL: process.env.ENABLE_ORCID_OJS_BACKFILL,
+    UIET_P1_ENABLED: process.env.UIET_P1_ENABLED,
+  }, "flags")
+  return cachedFlags
+}
+
 /**
- * Read & validate UIET-P1 env vars. Safe to call repeatedly — result cached.
+ * Read & validate ALL UIET-P1 env vars. Safe to call repeatedly — result cached.
  *
  * Falls back to fail-soft defaults during `NEXT_PHASE=phase-production-build`
  * so that `next build` does not crash when secrets are absent at compile time.
  */
 export function getEnv(): UietEnv {
   if (cached) return cached
-  const parsed = envSchema.safeParse({
+  cached = parseOrThrow(envSchema, {
     ORCID_CLIENT_ID: process.env.ORCID_CLIENT_ID,
     ORCID_CLIENT_SECRET: process.env.ORCID_CLIENT_SECRET,
     ORCID_REDIRECT_URI: process.env.ORCID_REDIRECT_URI,
@@ -78,28 +164,23 @@ export function getEnv(): UietEnv {
     EVENT_IP_HASH_SALT_SEED: process.env.EVENT_IP_HASH_SALT_SEED,
     ENABLE_ORCID_OJS_BACKFILL: process.env.ENABLE_ORCID_OJS_BACKFILL,
     UIET_P1_ENABLED: process.env.UIET_P1_ENABLED,
-  })
-  if (!parsed.success) {
-    // Surface the precise failing field — Zod's flatten() format.
-    throw new Error(
-      `[env] UIET-P1 environment validation failed: ${JSON.stringify(
-        parsed.error.flatten()
-      )}`
-    )
-  }
-  cached = parsed.data
+  }, "UIET-P1")
   return cached
 }
 
 /** Derived: the ORCID callback URL, computed from NEXT_PUBLIC_APP_URL when not set explicitly. */
 export function getOrcidRedirectUri(): string {
-  const env = getEnv()
+  const env = getOrcidEnv()
   if (env.ORCID_REDIRECT_URI) return env.ORCID_REDIRECT_URI
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "http://localhost:3000"
   return `${appUrl}/api/auth/orcid/callback`
 }
 
-/** Reset cache — TEST ONLY. */
+/** Reset all caches — TEST ONLY. */
 export function __resetEnvCacheForTests() {
   cached = null
+  cachedMetrics = null
+  cachedIdentity = null
+  cachedOrcid = null
+  cachedFlags = null
 }

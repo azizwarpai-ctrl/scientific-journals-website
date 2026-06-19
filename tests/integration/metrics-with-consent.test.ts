@@ -42,10 +42,7 @@ vi.mock("@prisma/client", () => ({
 }))
 
 process.env.IDENTITY_COOKIE_SECRET ||= "test-secret"
-process.env.ORCID_STATE_SECRET ||= "test-secret"
 process.env.EVENT_IP_HASH_SALT_SEED ||= "test-secret"
-process.env.ORCID_CLIENT_ID ||= "test-orcid-client"
-process.env.ORCID_CLIENT_SECRET ||= "test-secret"
 
 import { Hono } from "hono"
 import { metricsEventsRouter } from "@/src/server/routes/metrics-events"

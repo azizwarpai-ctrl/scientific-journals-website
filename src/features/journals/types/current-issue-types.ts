@@ -32,6 +32,8 @@ export interface CurrentIssueArticle {
   doi?: string | null
   keywords?: string[]
   isOpenAccess: boolean
+  audioUrl?: string | null
+  audioDurationSeconds?: number | null
 }
 
 export interface CurrentIssue {

@@ -359,7 +359,28 @@ export async function fetchArticleDetail(
     console.warn(`[ArticleDetail] Could not fetch citations for publication ${publicationId} (perhaps table does not exist):`, citationError)
   }
 
-  // 6.5. UIET-P1: Add digitopub's own aggregated counts on top of OJS's.
+  // 6.5. Fetch audio (from digitopub's article_audio table, not OJS)
+  let audioUrl: string | null = null
+  let audioDurationSeconds: number | null = null
+  try {
+    const { prisma: localPrisma } = await import("@/src/lib/db/config")
+    const audioRow = await localPrisma.articleAudio.findFirst({
+      where: {
+        ojs_journal_id: String(article.journal_id),
+        submission_id: BigInt(submissionId),
+      },
+      orderBy: { created_at: "desc" },
+    })
+    if (audioRow) {
+      const { getStorage } = await import("@/src/lib/storage")
+      audioUrl = await getStorage().signedReadUrl(audioRow.storage_key, 3600)
+      audioDurationSeconds = audioRow.duration_seconds
+    }
+  } catch (audioError) {
+    console.warn(`[ArticleDetail] audio lookup failed for submission ${submissionId}:`, audioError)
+  }
+
+  // 6.6. UIET-P1: Add digitopub's own aggregated counts on top of OJS's.
   //      The backfill script seeds OJS's pre-launch totals into
   //      metrics_article_monthly under source='ojs_legacy_backfill', so the
   //      sum is correct without double-counting historical OJS events.
@@ -414,6 +435,9 @@ export async function fetchArticleDetail(
     journalUrlPath: article.journal_url_path || "",
 
     isOpenAccess,
+
+    audioUrl,
+    audioDurationSeconds,
 
     views,
     downloads,
