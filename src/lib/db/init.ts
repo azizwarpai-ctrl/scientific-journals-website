@@ -101,7 +101,7 @@ export async function initializeDatabase() {
             \`id\` BIGINT NOT NULL AUTO_INCREMENT,
             \`user_id\` BIGINT NOT NULL,
             \`email\` VARCHAR(255) NOT NULL,
-            \`code\` VARCHAR(10) NOT NULL,
+            \`code\` VARCHAR(72) NOT NULL,
             \`expires_at\` DATETIME(3) NOT NULL,
             \`used\` BOOLEAN NOT NULL DEFAULT false,
             \`created_at\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -117,6 +117,16 @@ export async function initializeDatabase() {
       } catch (e) {
         const errorMsg = e instanceof Error ? e.message : String(e)
         console.error('[DB Init] Failed to create verification_codes table:', errorMsg)
+      }
+
+      try {
+        await prisma.$executeRawUnsafe(
+          'ALTER TABLE `verification_codes` MODIFY COLUMN `code` VARCHAR(72) NOT NULL;'
+        )
+        console.log('[DB Init] Applied schema patch: Widened verification_codes.code to VARCHAR(72)')
+      } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e)
+        console.error('[DB Init] Failed to widen verification_codes.code column:', errorMsg)
       }
 
       // --- Patch: Add OJS extended profile columns to admin_users ---
