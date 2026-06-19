@@ -7,6 +7,7 @@ import { loginSchema } from "../schemas/auth-schema"
 import { verifyPassword, getUserById } from "@/src/lib/db/users"
 import { createSession, getSession, destroySession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
+import { sendOtpEmail } from "./send-otp-email"
 
 /** Extended type for verification codes that includes custom lockout fields */
 interface VerificationCodeRecord {
@@ -68,10 +69,17 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
     })
 
     if (deliveryMethod === 'console') {
-      // Log ONLY in development/console mode (showing only masked/no code)
       console.log(`[OTP] Verification generated for ${user.email}`)
     } else {
-      console.log(`[OTP] Verification generated for ${user.email} (Email delivery enabled but not yet implemented)`)
+      const emailResult = await sendOtpEmail(user.email, code)
+      if (!emailResult.success) {
+        console.error(`[OTP] Failed to send verification email to ${user.email}: ${emailResult.error}`)
+        return c.json({
+          success: false,
+          error: "Failed to send verification code. Please try again.",
+        }, 503)
+      }
+      console.log(`[OTP] Verification email sent to ${user.email}`)
     }
 
     return c.json({
@@ -80,7 +88,7 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
       email: user.email,
       message: deliveryMethod === 'console'
         ? "Verification code generated in server console."
-        : "Email delivery not yet implemented. Please check server logs.",
+        : "Verification code sent to your email.",
     })
   } catch (error) {
     console.error("Login error:", error)
@@ -226,14 +234,22 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
     if (deliveryMethod === 'console') {
       console.log(`[OTP] Resent verification for ${user.email}`)
     } else {
-      console.log(`[OTP] Resent verification generated for ${user.email} (Email delivery enabled but not yet implemented)`)
+      const emailResult = await sendOtpEmail(user.email, code)
+      if (!emailResult.success) {
+        console.error(`[OTP] Failed to resend verification email to ${user.email}: ${emailResult.error}`)
+        return c.json({
+          success: false,
+          error: "Failed to send verification code. Please try again.",
+        }, 503)
+      }
+      console.log(`[OTP] Verification email resent to ${user.email}`)
     }
 
     return c.json({
       success: true,
       message: deliveryMethod === 'console'
         ? "New verification code generated in server console."
-        : "Email delivery not yet implemented.",
+        : "Verification code sent to your email.",
     })
   } catch (error) {
     console.error("Resend code error:", error)
