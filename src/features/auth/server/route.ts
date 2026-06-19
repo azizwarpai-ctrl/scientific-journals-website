@@ -23,6 +23,13 @@ interface VerificationCodeRecord {
   last_failed_at: Date | null
 }
 
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@")
+  if (!domain) return "***"
+  const visiblePrefix = local.length > 2 ? local.slice(0, 2) : local.slice(0, 1)
+  return `${visiblePrefix}***@${domain}`
+}
+
 const app = new Hono()
 
 // POST /auth/login
@@ -69,17 +76,17 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
     })
 
     if (deliveryMethod === 'console') {
-      console.log(`[OTP] Verification generated for ${user.email}`)
+      console.log(`[OTP] Verification generated for ${maskEmail(user.email)}`)
     } else {
       const emailResult = await sendOtpEmail(user.email, code)
       if (!emailResult.success) {
-        console.error(`[OTP] Failed to send verification email to ${user.email}: ${emailResult.error}`)
+        console.error(`[OTP] Failed to send verification email to ${maskEmail(user.email)}: ${emailResult.error}`)
         return c.json({
           success: false,
           error: "Failed to send verification code. Please try again.",
         }, 503)
       }
-      console.log(`[OTP] Verification email sent to ${user.email}`)
+      console.log(`[OTP] Verification email sent to ${maskEmail(user.email)}`)
     }
 
     return c.json({
@@ -232,17 +239,17 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
     })
 
     if (deliveryMethod === 'console') {
-      console.log(`[OTP] Resent verification for ${user.email}`)
+      console.log(`[OTP] Resent verification for ${maskEmail(user.email)}`)
     } else {
       const emailResult = await sendOtpEmail(user.email, code)
       if (!emailResult.success) {
-        console.error(`[OTP] Failed to resend verification email to ${user.email}: ${emailResult.error}`)
+        console.error(`[OTP] Failed to resend verification email to ${maskEmail(user.email)}: ${emailResult.error}`)
         return c.json({
           success: false,
           error: "Failed to send verification code. Please try again.",
         }, 503)
       }
-      console.log(`[OTP] Verification email resent to ${user.email}`)
+      console.log(`[OTP] Verification email resent to ${maskEmail(user.email)}`)
     }
 
     return c.json({
