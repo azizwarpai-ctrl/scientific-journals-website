@@ -7,6 +7,7 @@ import { loginSchema } from "../schemas/auth-schema"
 import { verifyPassword, getUserById } from "@/src/lib/db/users"
 import { createSession, getSession, destroySession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
+import { sendOtpEmail } from "./send-otp-email"
 
 /** Extended type for verification codes that includes custom lockout fields */
 interface VerificationCodeRecord {
@@ -20,6 +21,13 @@ interface VerificationCodeRecord {
   attempts: number | null
   locked_until: Date | null
   last_failed_at: Date | null
+}
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@")
+  if (!domain) return "***"
+  const visiblePrefix = local.length > 2 ? local.slice(0, 2) : local.slice(0, 1)
+  return `${visiblePrefix}***@${domain}`
 }
 
 const app = new Hono()
@@ -68,10 +76,17 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
     })
 
     if (deliveryMethod === 'console') {
-      // Log ONLY in development/console mode (showing only masked/no code)
-      console.log(`[OTP] Verification generated for ${user.email}`)
+      console.log(`[OTP] Verification generated for ${maskEmail(user.email)}`)
     } else {
-      console.log(`[OTP] Verification generated for ${user.email} (Email delivery enabled but not yet implemented)`)
+      const emailResult = await sendOtpEmail(user.email, code)
+      if (!emailResult.success) {
+        console.error(`[OTP] Failed to send verification email to ${maskEmail(user.email)}: ${emailResult.error}`)
+        return c.json({
+          success: false,
+          error: "Failed to send verification code. Please try again.",
+        }, 503)
+      }
+      console.log(`[OTP] Verification email sent to ${maskEmail(user.email)}`)
     }
 
     return c.json({
@@ -80,7 +95,7 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
       email: user.email,
       message: deliveryMethod === 'console'
         ? "Verification code generated in server console."
-        : "Email delivery not yet implemented. Please check server logs.",
+        : "Verification code sent to your email.",
     })
   } catch (error) {
     console.error("Login error:", error)
@@ -224,16 +239,24 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
     })
 
     if (deliveryMethod === 'console') {
-      console.log(`[OTP] Resent verification for ${user.email}`)
+      console.log(`[OTP] Resent verification for ${maskEmail(user.email)}`)
     } else {
-      console.log(`[OTP] Resent verification generated for ${user.email} (Email delivery enabled but not yet implemented)`)
+      const emailResult = await sendOtpEmail(user.email, code)
+      if (!emailResult.success) {
+        console.error(`[OTP] Failed to resend verification email to ${maskEmail(user.email)}: ${emailResult.error}`)
+        return c.json({
+          success: false,
+          error: "Failed to send verification code. Please try again.",
+        }, 503)
+      }
+      console.log(`[OTP] Verification email resent to ${maskEmail(user.email)}`)
     }
 
     return c.json({
       success: true,
       message: deliveryMethod === 'console'
         ? "New verification code generated in server console."
-        : "Email delivery not yet implemented.",
+        : "Verification code sent to your email.",
     })
   } catch (error) {
     console.error("Resend code error:", error)
