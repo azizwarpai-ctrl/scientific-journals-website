@@ -472,6 +472,10 @@ function BrowseTab() {
                           {upload.isPending ? "Uploading…" : audioForArticle ? "Replace" : "Upload"}
                         </Button>
                       </div>
+
+                      {upload.isPending && (
+                        <UploadProgressBar progress={upload.progress} />
+                      )}
                     </div>
 
                     {errorMessage && (
@@ -612,6 +616,23 @@ function AudioLibraryTab() {
 }
 
 // ─── Shared Components ───────────────────────────────────────────────────────
+
+function UploadProgressBar({ progress }: { progress: number }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>Uploading…</span>
+        <span>{progress}%</span>
+      </div>
+      <div className="h-2 w-full bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+        <div
+          className="h-full bg-primary rounded-full transition-[width] duration-200"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
+  )
+}
 
 function AudioPlayButton({ url }: { url: string | null }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -836,6 +857,9 @@ function ManualEntryFallback() {
               {upload.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               {upload.isPending ? "Uploading…" : "Upload"}
             </Button>
+            {upload.isPending && (
+              <UploadProgressBar progress={upload.progress} />
+            )}
           </form>
         </CardContent>
       )}
