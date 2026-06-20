@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Music,
   Upload,
@@ -118,6 +118,7 @@ function BrowseTab() {
     queryKey: ["journals", selectedOjsId, "current-issue"],
     queryFn: async () => {
       const res = await fetch(`/api/journals/${selectedOjsId}/current-issue`)
+      if (!res.ok) throw new Error(`Failed to fetch current issue (HTTP ${res.status})`)
       const json = await res.json()
       return json.data ?? null
     },
@@ -129,6 +130,7 @@ function BrowseTab() {
     queryKey: ["journals", selectedOjsId, "archive"],
     queryFn: async () => {
       const res = await fetch(`/api/journals/${selectedOjsId}/archive`)
+      if (!res.ok) throw new Error(`Failed to fetch archive issues (HTTP ${res.status})`)
       const json = await res.json()
       return json.data ?? []
     },
@@ -140,6 +142,7 @@ function BrowseTab() {
     queryKey: ["journals", selectedOjsId, "issues", selectedIssueId],
     queryFn: async () => {
       const res = await fetch(`/api/journals/${selectedOjsId}/issues/${selectedIssueId}`)
+      if (!res.ok) throw new Error(`Failed to fetch issue articles (HTTP ${res.status})`)
       const json = await res.json()
       return json.data ?? null
     },
@@ -577,6 +580,7 @@ function AudioLibraryTab() {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-destructive hover:text-destructive"
+                          aria-label="Delete audio"
                           onClick={() =>
                             setDeleteTarget({
                               id: row.id,
@@ -613,12 +617,21 @@ function AudioPlayButton({ url }: { url: string | null }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [playing, setPlaying] = useState(false)
 
-  const toggle = () => {
+  useEffect(() => {
     if (!url) return
-    if (!audioRef.current) {
-      audioRef.current = new Audio(url)
-      audioRef.current.addEventListener("ended", () => setPlaying(false))
+    const audio = new Audio(url)
+    const onEnded = () => setPlaying(false)
+    audio.addEventListener("ended", onEnded)
+    audioRef.current = audio
+    return () => {
+      audio.pause()
+      audio.removeEventListener("ended", onEnded)
+      audioRef.current = null
     }
+  }, [url])
+
+  const toggle = () => {
+    if (!audioRef.current) return
     if (playing) {
       audioRef.current.pause()
       setPlaying(false)
@@ -635,6 +648,7 @@ function AudioPlayButton({ url }: { url: string | null }) {
       className="h-7 w-7"
       disabled={!url}
       onClick={toggle}
+      aria-label={playing ? "Pause audio" : "Play audio"}
     >
       {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
     </Button>
@@ -660,7 +674,7 @@ function ExistingAudioPanel({
           {formatDate(audio.created_at)}
         </p>
       </div>
-      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={onDelete}>
+      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={onDelete} aria-label="Delete audio">
         <Trash2 className="h-3.5 w-3.5" />
       </Button>
     </div>
