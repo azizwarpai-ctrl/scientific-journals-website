@@ -31,13 +31,79 @@ function buildStorageKey(ojsJournalId: string, submissionId: bigint, locale: str
 
 const app = new Hono()
 
-// ─── GET /article-audio — Admin list (latest 100) ───────────────────────────
+// ─── GET /article-audio — Admin list (latest 100, enriched with OJS titles) ─
 app.get("/", requireAdmin, async (c) => {
   const rows = await prisma.articleAudio.findMany({
     orderBy: { created_at: "desc" },
     take: 100,
   })
-  return c.json({ success: true, data: serializeMany(rows) })
+
+  const serialized = serializeMany(rows) as Array<Record<string, unknown>>
+
+  // Batch-fetch article titles from OJS for all submission IDs
+  const titleMap = new Map<string, string>()
+  const submissionIds = rows.map((r) => Number(r.submission_id)).filter((id) => id > 0)
+
+  if (submissionIds.length > 0) {
+    try {
+      const { isOjsConfigured, ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
+      if (isOjsConfigured()) {
+        const placeholders = submissionIds.map(() => "?").join(",")
+        const titleRows = await ojsQuery<{ submission_id: number; title: string }>(
+          `SELECT s.submission_id, ps.setting_value AS title
+           FROM submissions s
+           JOIN publications p ON p.submission_id = s.submission_id
+           JOIN publication_settings ps ON ps.publication_id = p.publication_id
+             AND ps.setting_name = 'title'
+           WHERE s.submission_id IN (${placeholders})
+             AND p.status = 3
+           ORDER BY p.publication_id DESC`,
+          submissionIds
+        )
+        for (const row of titleRows) {
+          if (!titleMap.has(String(row.submission_id))) {
+            titleMap.set(String(row.submission_id), row.title)
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[article-audio] OJS title enrichment failed (non-fatal):", e)
+    }
+  }
+
+  // Also fetch journal titles from Prisma for display
+  const ojsJournalIds = [...new Set(rows.map((r) => r.ojs_journal_id))]
+  const journalTitleMap = new Map<string, string>()
+  if (ojsJournalIds.length > 0) {
+    const journals = await prisma.journal.findMany({
+      where: { ojs_id: { in: ojsJournalIds } },
+      select: { ojs_id: true, title: true },
+    })
+    for (const j of journals) {
+      if (j.ojs_id) journalTitleMap.set(j.ojs_id, j.title)
+    }
+  }
+
+  // Generate signed audio URLs for playback
+  const storage = getStorage()
+  const enriched = await Promise.all(
+    serialized.map(async (row) => {
+      let audioUrl: string | null = null
+      try {
+        audioUrl = await storage.signedReadUrl(row.storage_key as string, 3600)
+      } catch {
+        // Non-fatal — admin can still see metadata
+      }
+      return {
+        ...row,
+        article_title: titleMap.get(row.submission_id as string) ?? null,
+        journal_title: journalTitleMap.get(row.ojs_journal_id as string) ?? null,
+        audio_url: audioUrl,
+      }
+    })
+  )
+
+  return c.json({ success: true, data: enriched })
 })
 
 // ─── POST /article-audio — Admin upload (multipart) ─────────────────────────
