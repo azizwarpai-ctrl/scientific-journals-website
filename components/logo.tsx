@@ -27,16 +27,16 @@ export function Logo({ className, width = 180, height = 60 }: LogoProps) {
     : "/images/logodigitopub.png"
 
   return (
-    <Image 
-      src={logoSrc} 
-      alt="DigitoPub Logo" 
-      width={width} 
-      height={height} 
+    <Image
+      src={logoSrc}
+      alt="DigitoPub Logo"
+      width={width}
+      height={height}
       className={cn(
-        "transition-opacity duration-300", 
+        "object-contain transition-opacity duration-300",
         !mounted ? "opacity-0" : "opacity-100",
         className
-      )} 
+      )}
       priority
     />
   )
