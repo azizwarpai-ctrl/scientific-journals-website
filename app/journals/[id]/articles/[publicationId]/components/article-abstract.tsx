@@ -1,20 +1,32 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
+import { AudioPlayer } from "@/src/components/audio-player"
 
 interface ArticleAbstractProps {
   abstract: string | null
   keywords?: string[]
+  audioUrl?: string | null
+  audioDurationSeconds?: number | null
 }
 
-export function ArticleAbstract({ abstract, keywords }: ArticleAbstractProps) {
+export function ArticleAbstract({ abstract, keywords, audioUrl, audioDurationSeconds }: ArticleAbstractProps) {
   if (!abstract && (!keywords || keywords.length === 0)) return null
 
   return (
     <div className="space-y-6">
       {abstract && (
         <div className="space-y-4">
-          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Abstract</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Abstract</h3>
+            {audioUrl && (
+              <AudioPlayer
+                src={audioUrl}
+                durationSeconds={audioDurationSeconds}
+                variant="compact"
+              />
+            )}
+          </div>
           <div
             className="text-[13px] leading-relaxed text-muted-foreground/90 max-w-none prose prose-sm dark:prose-invert prose-p:leading-relaxed prose-li:my-1"
             dangerouslySetInnerHTML={{ __html: abstract }}
