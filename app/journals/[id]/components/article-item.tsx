@@ -120,45 +120,58 @@ export function ArticleItem({ article }: ArticleItemProps) {
           )}
         </div>
 
-        {/* Abstract Toggle */}
-        {article.abstract && (
+        {/* Abstract Toggle + Audio */}
+        {(article.abstract || article.audioUrl) && (
           <div className="pt-2 relative z-20">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault()
-                setIsExpanded(!isExpanded)
-              }}
-              aria-expanded={isExpanded}
-              aria-controls={`abstract-${article.publicationId}`}
-              className="group/btn flex items-center gap-1.5 text-[11px] font-bold text-primary hover:text-primary/80 uppercase tracking-wider transition-colors py-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              {isExpanded ? (
-                <>
-                  <ChevronUp className="h-3.5 w-3.5 group-hover/btn:-translate-y-0.5 transition-transform" />
-                  <span>Hide Abstract</span>
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="h-3.5 w-3.5 group-hover/btn:translate-y-0.5 transition-transform" />
-                  <span>View Abstract</span>
-                </>
+            <div className="flex items-center gap-3">
+              {article.abstract && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setIsExpanded(!isExpanded)
+                  }}
+                  aria-expanded={isExpanded}
+                  aria-controls={`abstract-${article.publicationId}`}
+                  className="group/btn flex items-center gap-1.5 text-[11px] font-bold text-primary hover:text-primary/80 uppercase tracking-wider transition-colors py-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  {isExpanded ? (
+                    <>
+                      <ChevronUp className="h-3.5 w-3.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+                      <span>Hide Abstract</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3.5 w-3.5 group-hover/btn:translate-y-0.5 transition-transform" />
+                      <span>View Abstract</span>
+                    </>
+                  )}
+                </button>
               )}
-            </button>
-
-            <div
-              id={`abstract-${article.publicationId}`}
-              role="region"
-              aria-label={`Abstract for ${article.title}`}
-              className={`overflow-hidden transition-all duration-300 ${isExpanded ? "mt-4 max-h-[400px] opacity-100" : "max-h-0 opacity-0"}`}
-            >
-              <div className="rounded-xl bg-muted/40 p-4 border border-border/30 overflow-y-auto max-h-[350px] scrollbar-thin">
-                <div
-                  className="text-sm leading-relaxed text-muted-foreground prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: sanitizeAbstract(article.abstract) }}
+              {article.audioUrl && (
+                <AudioPlayer
+                  src={article.audioUrl}
+                  durationSeconds={article.audioDurationSeconds}
+                  variant="compact"
                 />
-              </div>
+              )}
             </div>
+
+            {article.abstract && (
+              <div
+                id={`abstract-${article.publicationId}`}
+                role="region"
+                aria-label={`Abstract for ${article.title}`}
+                className={`overflow-hidden transition-all duration-300 ${isExpanded ? "mt-4 max-h-[400px] opacity-100" : "max-h-0 opacity-0"}`}
+              >
+                <div className="rounded-xl bg-muted/40 p-4 border border-border/30 overflow-y-auto max-h-[350px] scrollbar-thin">
+                  <div
+                    className="text-sm leading-relaxed text-muted-foreground prose prose-sm max-w-none dark:prose-invert"
+                    dangerouslySetInnerHTML={{ __html: sanitizeAbstract(article.abstract) }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -173,13 +186,6 @@ export function ArticleItem({ article }: ArticleItemProps) {
           )}
 
           <div className="flex items-center gap-2">
-            {article.audioUrl && (
-              <AudioPlayer
-                src={article.audioUrl}
-                durationSeconds={article.audioDurationSeconds}
-                variant="compact"
-              />
-            )}
             <Button asChild variant="outline" size="sm" className="h-8 gap-2 rounded-full px-4">
               <Link href={articleUrl}>
                 View Article

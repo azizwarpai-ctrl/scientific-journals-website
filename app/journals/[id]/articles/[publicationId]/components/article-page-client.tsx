@@ -80,7 +80,7 @@ export function ArticlePageClient({ journalIdStr, publicationIdStr }: ArticlePag
           
           <div className="h-px bg-border/60 w-full" />
           
-          <ArticleAbstract abstract={article.abstract} keywords={article.keywords} />
+          <ArticleAbstract abstract={article.abstract} keywords={article.keywords} audioUrl={article.audioUrl} audioDurationSeconds={article.audioDurationSeconds} />
         </div>
 
         {/* Sidebar & PDF Interactive Elements (Hydrated Client Boundary) */}
