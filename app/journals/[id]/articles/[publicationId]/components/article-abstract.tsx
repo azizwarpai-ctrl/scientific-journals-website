@@ -11,11 +11,11 @@ interface ArticleAbstractProps {
 }
 
 export function ArticleAbstract({ abstract, keywords, audioUrl, audioDurationSeconds }: ArticleAbstractProps) {
-  if (!abstract && (!keywords || keywords.length === 0)) return null
+  if (!abstract && (!keywords || keywords.length === 0) && !audioUrl) return null
 
   return (
     <div className="space-y-6">
-      {abstract && (
+      {(abstract || audioUrl) && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Abstract</h3>
@@ -27,10 +27,12 @@ export function ArticleAbstract({ abstract, keywords, audioUrl, audioDurationSec
               />
             )}
           </div>
-          <div
-            className="text-[13px] leading-relaxed text-muted-foreground/90 max-w-none prose prose-sm dark:prose-invert prose-p:leading-relaxed prose-li:my-1"
-            dangerouslySetInnerHTML={{ __html: abstract }}
-          />
+          {abstract && (
+            <div
+              className="text-[13px] leading-relaxed text-muted-foreground/90 max-w-none prose prose-sm dark:prose-invert prose-p:leading-relaxed prose-li:my-1"
+              dangerouslySetInnerHTML={{ __html: abstract }}
+            />
+          )}
         </div>
       )}
 
