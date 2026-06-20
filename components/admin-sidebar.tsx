@@ -122,7 +122,7 @@ export function AdminSidebar() {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex h-16 items-center border-b px-6">
-            <Logo width={140} height={40} />
+            <Logo width={140} height={40} className="h-10 w-auto" />
           </div>
 
           {/* Navigation */}
