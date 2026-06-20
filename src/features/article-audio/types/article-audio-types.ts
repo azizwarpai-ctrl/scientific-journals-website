@@ -16,4 +16,7 @@ export interface ArticleAudioRecord {
   uploaded_by: string
   created_at: string
   updated_at: string
+  article_title?: string | null
+  journal_title?: string | null
+  audio_url?: string | null
 }
