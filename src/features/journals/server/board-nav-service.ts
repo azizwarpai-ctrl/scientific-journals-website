@@ -13,6 +13,7 @@
 
 import { load } from "cheerio"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { normalizeOjsImageSrc } from "@/src/features/ojs/utils/rewrite-inline-images"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -120,7 +121,9 @@ export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMemb
   const safeUrl = (src: string): string | null => {
     const s = src.trim()
     if (!s) return null
-    if (s.startsWith("https://") || s.startsWith("http://")) return s
+    if (s.startsWith("https://") || s.startsWith("http://")) {
+      return normalizeOjsImageSrc(s)
+    }
     if (
       s.startsWith("data:image/") &&
       s.length <= MAX_DATA_URI_BYTES &&

@@ -42,6 +42,49 @@ export const DEAD_EXTERNAL_HOSTS = new Set([
 
 const warnedHosts = new Set<string>()
 
+// ── Single-URL normalizer (shared) ──────────────────────────────────────────
+
+/**
+ * Normalize a single OJS image URL to the canonical host.
+ *
+ * Returns:
+ *   string — the normalized URL (may equal input if already correct)
+ *   null   — image should be discarded (dead host)
+ *
+ * This is the shared normalization primitive. `rewriteOjsInlineImages` calls
+ * it per `<img>` and adds the `/api/image-proxy` wrapping on top.
+ * `board-nav-service` calls it directly — `<OjsImage>` handles proxying.
+ */
+export function normalizeOjsImageSrc(src: string): string | null {
+  if (!src) return null
+  if (src.startsWith("data:")) return src
+  if (src.startsWith("/api/image-proxy")) return src
+
+  let parsed: URL
+  try {
+    parsed = new URL(src)
+  } catch {
+    return src
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return src
+
+  const hostname = parsed.hostname.toLowerCase()
+
+  if (DEAD_EXTERNAL_HOSTS.has(hostname)) return null
+
+  if (OJS_ALIAS_HOSTS.has(hostname)) {
+    const canonicalUrl = `https://${CANONICAL_OJS_HOST}${parsed.pathname}${parsed.search}`
+    return normalizeOjsAssetUrl(canonicalUrl) ?? canonicalUrl
+  }
+
+  if (hostname === CANONICAL_OJS_HOST) {
+    return normalizeOjsAssetUrl(src) ?? src
+  }
+
+  return src
+}
+
 // ── Core rewriter ────────────────────────────────────────────────────────────
 
 /**
@@ -98,49 +141,30 @@ export function rewriteOjsInlineImages(html: string): string {
 
 // ── Per-src logic ────────────────────────────────────────────────────────────
 
-/**
- * Returns:
- *   string — the rewritten src (may equal input if already correct)
- *   null   — remove the <img> entirely
- */
 function rewriteSrc(src: string): string | null {
-  if (src.startsWith("data:")) return src
+  const normalized = normalizeOjsImageSrc(src)
+  if (normalized === null) return null
+  if (normalized.startsWith("data:") || normalized.startsWith("/api/image-proxy")) return normalized
 
-  if (src.startsWith("/api/image-proxy")) return src
-
-  let parsed: URL
   try {
-    parsed = new URL(src)
+    const { hostname, protocol } = new URL(normalized)
+    if (protocol !== "http:" && protocol !== "https:") return normalized
+
+    if (hostname === CANONICAL_OJS_HOST) {
+      return `/api/image-proxy?url=${encodeURIComponent(normalized)}`
+    }
+
+    if (!warnedHosts.has(hostname)) {
+      warnedHosts.add(hostname)
+      console.warn(
+        `[rewrite-inline-images] Unknown external host in <img src>: ${hostname} — leaving untouched`,
+      )
+    }
   } catch {
-    return src
+    // relative or malformed — pass through
   }
 
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return src
-
-  const hostname = parsed.hostname.toLowerCase()
-
-  if (DEAD_EXTERNAL_HOSTS.has(hostname)) {
-    return null
-  }
-
-  if (OJS_ALIAS_HOSTS.has(hostname)) {
-    const canonicalUrl = `https://${CANONICAL_OJS_HOST}${parsed.pathname}${parsed.search}`
-    const normalized = normalizeOjsAssetUrl(canonicalUrl) ?? canonicalUrl
-    return `/api/image-proxy?url=${encodeURIComponent(normalized)}`
-  }
-
-  if (hostname === CANONICAL_OJS_HOST) {
-    const normalized = normalizeOjsAssetUrl(src) ?? src
-    return `/api/image-proxy?url=${encodeURIComponent(normalized)}`
-  }
-
-  if (!warnedHosts.has(hostname)) {
-    warnedHosts.add(hostname)
-    console.warn(
-      `[rewrite-inline-images] Unknown external host in <img src>: ${hostname} — leaving untouched`,
-    )
-  }
-  return src
+  return normalized
 }
 
 function escapeAttr(value: string): string {

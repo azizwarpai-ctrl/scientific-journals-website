@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import {
   rewriteOjsInlineImages,
+  normalizeOjsImageSrc,
   CANONICAL_OJS_HOST,
   OJS_ALIAS_HOSTS,
   DEAD_EXTERNAL_HOSTS,
@@ -173,5 +174,68 @@ describe("rewriteOjsInlineImages", () => {
     expect(CANONICAL_OJS_HOST).toBe("journals.digitopub.com")
     expect(OJS_ALIAS_HOSTS.size).toBeGreaterThan(0)
     expect(DEAD_EXTERNAL_HOSTS.size).toBeGreaterThan(0)
+  })
+})
+
+describe("normalizeOjsImageSrc", () => {
+  it("rewrites alias host to canonical", () => {
+    const result = normalizeOjsImageSrc("https://submitmanager.com/public/journals/10/homepageImage_en.png")
+    expect(result).toBe("https://journals.digitopub.com/public/journals/10/homepageImage_en.png")
+  })
+
+  it("rewrites all known alias hosts to canonical", () => {
+    for (const host of OJS_ALIAS_HOSTS) {
+      const result = normalizeOjsImageSrc(`https://${host}/public/test.png`)
+      expect(result).toBe("https://journals.digitopub.com/public/test.png")
+    }
+  })
+
+  it("normalizes /ojs/public/ to /public/", () => {
+    const result = normalizeOjsImageSrc("https://digitodontics.com/ojs/public/journals/3/cover.png")
+    expect(result).toBe("https://journals.digitopub.com/public/journals/3/cover.png")
+  })
+
+  it("normalizes /ojs/public/ on canonical host", () => {
+    const result = normalizeOjsImageSrc("https://journals.digitopub.com/ojs/public/journals/3/cover.png")
+    expect(result).toBe("https://journals.digitopub.com/public/journals/3/cover.png")
+  })
+
+  it("returns null for dead hosts", () => {
+    for (const host of DEAD_EXTERNAL_HOSTS) {
+      expect(normalizeOjsImageSrc(`https://${host}/public/image.png`)).toBeNull()
+    }
+  })
+
+  it("returns canonical host URL unchanged", () => {
+    const url = "https://journals.digitopub.com/public/journals/5/cover.png"
+    expect(normalizeOjsImageSrc(url)).toBe(url)
+  })
+
+  it("returns data: URIs unchanged", () => {
+    const url = "data:image/png;base64,iVBORw0KGgo="
+    expect(normalizeOjsImageSrc(url)).toBe(url)
+  })
+
+  it("returns unknown external hosts unchanged", () => {
+    const url = "https://cdn.example.com/badge.png"
+    expect(normalizeOjsImageSrc(url)).toBe(url)
+  })
+
+  it("returns already-proxied URLs unchanged", () => {
+    const url = "/api/image-proxy?url=https%3A%2F%2Fjournals.digitopub.com%2Fpublic%2Fcover.png"
+    expect(normalizeOjsImageSrc(url)).toBe(url)
+  })
+
+  it("returns null for empty string", () => {
+    expect(normalizeOjsImageSrc("")).toBeNull()
+  })
+
+  it("returns relative paths unchanged", () => {
+    expect(normalizeOjsImageSrc("/images/local.png")).toBe("/images/local.png")
+  })
+
+  it("preserves query parameters through normalization", () => {
+    const result = normalizeOjsImageSrc("https://submitmanager.com/public/journals/10/img.png?v=2")
+    expect(result).toBe("https://journals.digitopub.com/public/journals/10/img.png?v=2")
   })
 })
