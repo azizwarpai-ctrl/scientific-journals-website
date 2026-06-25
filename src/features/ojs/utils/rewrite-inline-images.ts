@@ -20,7 +20,7 @@
 import {
   DEFAULT_OJS_LANDING_BASE_URL,
   normalizeOjsAssetUrl,
-} from "./ojs-config"
+} from "@/src/features/ojs/utils/ojs-config"
 
 // ── Host classifications ─────────────────────────────────────────────────────
 
@@ -128,15 +128,20 @@ export function rewriteOjsInlineImages(html: string): string {
         return _fullMatch
       }
 
+      const escaped = escapeAttr(rewritten)
+      const finalSrc = hadEscapedSlashes
+        ? escaped.replace(/\//g, "\\/")
+        : escaped
+
       const newAttrs = attrsStr.replace(
         /\bsrc\s*=\s*(?:"[^"]*"|'[^']*')/i,
-        `src="${escapeAttr(rewritten)}"`,
+        `src="${finalSrc}"`,
       )
       return `<img${newAttrs}>`
     },
   )
 
-  return hadEscapedSlashes ? result.replace(/\//g, "\\/") : result
+  return result
 }
 
 // ── Per-src logic ────────────────────────────────────────────────────────────

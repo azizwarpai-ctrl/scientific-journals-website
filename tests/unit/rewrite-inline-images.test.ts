@@ -28,12 +28,14 @@ describe("rewriteOjsInlineImages", () => {
     expect(decoded).not.toContain("/ojs/public/")
   })
 
-  it("handles escaped \\/ slashes from JSON blockContent", () => {
-    const html = `<img src="https:\\/\\/submitmanager.com\\/public\\/journals\\/10\\/image.png">`
+  it("handles escaped \\/ slashes from JSON blockContent without corrupting surrounding HTML", () => {
+    const html = `<p>Indexing<\\/p><img src="https:\\/\\/submitmanager.com\\/public\\/journals\\/10\\/image.png"><p>End<\\/p>`
     const result = rewriteOjsInlineImages(html)
 
     expect(result).toContain("\\/api\\/image-proxy?url=")
     expect(result).not.toContain("submitmanager.com")
+    expect(result).toContain("<p>Indexing</p>")
+    expect(result).toContain("<p>End</p>")
   })
 
   it("removes <img> tags pointing to dead external hosts", () => {
