@@ -33,6 +33,7 @@ import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { CustomBlockSchema } from "@/src/features/journals/types/custom-block-types"
 import type { CustomBlock } from "@/src/features/journals/types/custom-block-types"
 import { normalizeOjsAssetUrl } from "@/src/features/ojs/utils/ojs-config"
+import { rewriteOjsInlineImages } from "@/src/features/ojs/utils/rewrite-inline-images"
 import { decodeHtmlEntities } from "@/src/lib/html-utils"
 
 // Headings that signal a block-level title (e.g. "Journal Information").
@@ -256,21 +257,23 @@ export async function fetchCustomBlocks(
       }
     }
 
-    const cleanContent = sanitizeHtml(extractVmlFallbackImgs(contentToSanitize), {
-      allowedTags: ALLOWED_TAGS,
-      allowedAttributes: ALLOWED_ATTRS,
-      allowedSchemesByTag: { img: ["http", "https", "data"] },
-      transformTags: {
-        a: (tagName: string, attribs: { [attr: string]: string }) => ({
-          tagName,
-          attribs: {
-            ...attribs,
-            rel: "noopener noreferrer",
-            target: attribs["target"] || "_blank",
-          },
-        }),
-      },
-    }).trim()
+    const cleanContent = rewriteOjsInlineImages(
+      sanitizeHtml(extractVmlFallbackImgs(contentToSanitize), {
+        allowedTags: ALLOWED_TAGS,
+        allowedAttributes: ALLOWED_ATTRS,
+        allowedSchemesByTag: { img: ["http", "https", "data"] },
+        transformTags: {
+          a: (tagName: string, attribs: { [attr: string]: string }) => ({
+            tagName,
+            attribs: {
+              ...attribs,
+              rel: "noopener noreferrer",
+              target: attribs["target"] || "_blank",
+            },
+          }),
+        },
+      }),
+    ).trim()
 
     if (!cleanContent) continue
     

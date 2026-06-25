@@ -26,6 +26,9 @@ const ALLOWED_RAW_IMG_FILES = new Set([
   // The canonical render component — this is the only blessed <img> JSX in
   // the repo and is exempt from the guard.
   "src/features/ojs/components/ojs-image.tsx",
+  // Server-side HTML string rewriter for inline OJS images — manipulates <img>
+  // in sanitized HTML strings, not JSX.
+  "src/features/ojs/utils/rewrite-inline-images.ts",
 ])
 
 const ALLOWED_URL_BUILDERS = new Set([
