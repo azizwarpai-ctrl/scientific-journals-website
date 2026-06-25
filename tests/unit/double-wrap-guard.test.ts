@@ -15,10 +15,10 @@ describe("double-wrap guard — composition test", () => {
 
     expect(finalSrc).toBe(image)
 
-    const proxyCount = (finalSrc.match(/image-proxy/g) ?? []).length
+    const proxyCount = (finalSrc!.match(/image-proxy/g) ?? []).length
     expect(proxyCount).toBe(1)
 
-    const urlParam = new URL(finalSrc, "https://digitopub.com").searchParams.get("url")
+    const urlParam = new URL(finalSrc!, "https://digitopub.com").searchParams.get("url")
     expect(urlParam).toBe("https://journals.digitopub.com/public/journals/10/issn.png")
     expect(urlParam).not.toContain("image-proxy")
   })
@@ -30,10 +30,10 @@ describe("double-wrap guard — composition test", () => {
     const { image } = extractCardFields(rewritten, "test-block", OJS_BASE)
     const finalSrc = toProxyUrl(image ?? "")
 
-    const proxyCount = (finalSrc.match(/image-proxy/g) ?? []).length
+    const proxyCount = (finalSrc!.match(/image-proxy/g) ?? []).length
     expect(proxyCount).toBe(1)
 
-    const urlParam = new URL(finalSrc, "https://digitopub.com").searchParams.get("url")
+    const urlParam = new URL(finalSrc!, "https://digitopub.com").searchParams.get("url")
     expect(urlParam).toBe("https://journals.digitopub.com/public/journals/5/cover.png")
   })
 
@@ -76,55 +76,62 @@ describe("toProxyUrl — idempotency", () => {
   })
 })
 
-describe("toProxyUrl — alias host coverage", () => {
-  it("proxies submitmanager.com cover URLs", () => {
+describe("toProxyUrl — alias host normalization + proxying", () => {
+  const CANONICAL = "https://journals.digitopub.com"
+
+  it("normalizes submitmanager.com to canonical before proxying", () => {
     const src = "https://submitmanager.com/public/journals/2/homepageImage_en.png"
     const result = toProxyUrl(src)
-    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
+    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(`${CANONICAL}/public/journals/2/homepageImage_en.png`)}`)
   })
 
-  it("proxies www.submitmanager.com cover URLs", () => {
+  it("normalizes www.submitmanager.com to canonical before proxying", () => {
     const src = "https://www.submitmanager.com/public/journals/5/cover.png"
     const result = toProxyUrl(src)
-    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
+    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(`${CANONICAL}/public/journals/5/cover.png`)}`)
   })
 
-  it("proxies ij-mp.com cover URLs", () => {
+  it("normalizes ij-mp.com to canonical before proxying", () => {
     const src = "https://ij-mp.com/public/journals/3/homepageImage_en.png"
     const result = toProxyUrl(src)
-    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
+    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(`${CANONICAL}/public/journals/3/homepageImage_en.png`)}`)
   })
 
-  it("proxies www.ij-mp.com cover URLs", () => {
+  it("normalizes www.ij-mp.com to canonical before proxying", () => {
     const src = "https://www.ij-mp.com/public/journals/1/cover.png"
     const result = toProxyUrl(src)
-    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
+    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(`${CANONICAL}/public/journals/1/cover.png`)}`)
   })
 
-  it("proxies digitodontics.com cover URLs", () => {
+  it("normalizes digitodontics.com to canonical before proxying", () => {
     const src = "https://digitodontics.com/public/journals/7/homepageImage_en.png"
     const result = toProxyUrl(src)
-    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
+    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(`${CANONICAL}/public/journals/7/homepageImage_en.png`)}`)
   })
 
-  it("proxies www.digitodontics.com cover URLs", () => {
+  it("normalizes www.digitodontics.com to canonical before proxying", () => {
     const src = "https://www.digitodontics.com/public/journals/4/cover.png"
     const result = toProxyUrl(src)
-    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
+    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(`${CANONICAL}/public/journals/4/cover.png`)}`)
   })
 
   it("wraps alias-host URL exactly once (no double-wrap)", () => {
     const src = "https://submitmanager.com/public/journals/2/homepageImage_en.png"
     const once = toProxyUrl(src)
-    const twice = toProxyUrl(once)
+    const twice = toProxyUrl(once!)
     expect(twice).toBe(once)
-    expect((once.match(/image-proxy/g) ?? []).length).toBe(1)
+    expect((once!.match(/image-proxy/g) ?? []).length).toBe(1)
   })
 
   it("canonical host journals.digitopub.com is still proxied", () => {
     const src = "https://journals.digitopub.com/public/journals/10/cover.png"
     const result = toProxyUrl(src)
     expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
+  })
+
+  it("returns null for dead hosts (zu.edu.ly, cit.edu.ly)", () => {
+    expect(toProxyUrl("https://journals.zu.edu.ly/public/site/images/admin/orcid.png")).toBeNull()
+    expect(toProxyUrl("https://jtr.cit.edu.ly/public/site/images/admin/crossref.png")).toBeNull()
   })
 })
 

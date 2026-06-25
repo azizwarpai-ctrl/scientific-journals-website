@@ -19,15 +19,12 @@
 import { type CSSProperties, type ReactNode, useState } from "react"
 
 import { DEFAULT_OJS_LANDING_BASE_URL } from "@/src/features/ojs/utils/ojs-config"
-import { OJS_ALIAS_HOSTS } from "@/src/features/ojs/utils/rewrite-inline-images"
+import { normalizeOjsImageSrc } from "@/src/features/ojs/utils/rewrite-inline-images"
 
 // ─── Internal constants ───────────────────────────────────────────────────────
 
-// Client-safe allowlist: only NEXT_PUBLIC_* env is inlined into the bundle.
-// The default end-state host is always included so cutover-window URLs render
-// even when the apex bundle was built before the env was flipped.
-// OJS_ALIAS_HOSTS covers legacy hostnames (submitmanager.com, ij-mp.com, etc.)
-// so cover URLs built server-side from OJS_BASE_URL are still proxied.
+// Client-safe allowlist — only canonical + env hosts needed because
+// normalizeOjsImageSrc rewrites alias hosts to canonical before lookup.
 const OJS_HOSTS = ((): Set<string> => {
   const hosts = new Set<string>()
   const tryAdd = (raw: string | undefined) => {
@@ -40,22 +37,22 @@ const OJS_HOSTS = ((): Set<string> => {
   }
   tryAdd(process.env.NEXT_PUBLIC_OJS_BASE_URL)
   tryAdd(DEFAULT_OJS_LANDING_BASE_URL)
-  for (const alias of OJS_ALIAS_HOSTS) {
-    hosts.add(alias)
-  }
   return hosts
 })()
 
-export function toProxyUrl(src: string): string {
+export function toProxyUrl(src: string): string | null {
+  const normalized = normalizeOjsImageSrc(src)
+  if (normalized === null) return null
+
   try {
-    const { hostname, pathname } = new URL(src)
+    const { hostname, pathname } = new URL(normalized)
     if (OJS_HOSTS.has(hostname) && !pathname.startsWith("/api/image-proxy")) {
-      return `/api/image-proxy?url=${encodeURIComponent(src)}`
+      return `/api/image-proxy?url=${encodeURIComponent(normalized)}`
     }
   } catch {
     // Relative path or data: URI — pass through unchanged
   }
-  return src
+  return normalized
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -116,6 +113,9 @@ export function OjsImage({
   }
 
   const imgSrc = toProxyUrl(src)
+  if (imgSrc === null) {
+    return <>{fallback}</>
+  }
 
   const imgStyle: CSSProperties = fill
     ? {
