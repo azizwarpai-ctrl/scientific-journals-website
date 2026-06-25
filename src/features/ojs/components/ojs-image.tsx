@@ -19,12 +19,15 @@
 import { type CSSProperties, type ReactNode, useState } from "react"
 
 import { DEFAULT_OJS_LANDING_BASE_URL } from "@/src/features/ojs/utils/ojs-config"
+import { OJS_ALIAS_HOSTS } from "@/src/features/ojs/utils/rewrite-inline-images"
 
 // ─── Internal constants ───────────────────────────────────────────────────────
 
 // Client-safe allowlist: only NEXT_PUBLIC_* env is inlined into the bundle.
 // The default end-state host is always included so cutover-window URLs render
 // even when the apex bundle was built before the env was flipped.
+// OJS_ALIAS_HOSTS covers legacy hostnames (submitmanager.com, ij-mp.com, etc.)
+// so cover URLs built server-side from OJS_BASE_URL are still proxied.
 const OJS_HOSTS = ((): Set<string> => {
   const hosts = new Set<string>()
   const tryAdd = (raw: string | undefined) => {
@@ -37,6 +40,9 @@ const OJS_HOSTS = ((): Set<string> => {
   }
   tryAdd(process.env.NEXT_PUBLIC_OJS_BASE_URL)
   tryAdd(DEFAULT_OJS_LANDING_BASE_URL)
+  for (const alias of OJS_ALIAS_HOSTS) {
+    hosts.add(alias)
+  }
   return hosts
 })()
 

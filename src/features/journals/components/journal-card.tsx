@@ -67,10 +67,17 @@ export function JournalCard({ title, coverImage, slug }: JournalCardProps) {
                 fill
                 className="object-contain bg-white dark:bg-zinc-900"
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                fallback={
+                  <div className="flex h-full w-full items-center justify-center rounded-md bg-gradient-to-br from-muted to-muted/60 dark:from-zinc-800 dark:to-zinc-900 shadow-sm">
+                    <BookOpen
+                      className="h-16 w-16 text-muted-foreground/30"
+                      aria-hidden
+                    />
+                  </div>
+                }
               />
             </div>
           ) : (
-            /* Fallback when no image */
             <div className="flex h-full w-full items-center justify-center rounded-md bg-gradient-to-br from-muted to-muted/60 dark:from-zinc-800 dark:to-zinc-900 shadow-sm transition-transform duration-500 group-hover:scale-[1.03]">
               <BookOpen
                 className="h-16 w-16 text-muted-foreground/30"

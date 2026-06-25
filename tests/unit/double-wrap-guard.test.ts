@@ -76,6 +76,58 @@ describe("toProxyUrl — idempotency", () => {
   })
 })
 
+describe("toProxyUrl — alias host coverage", () => {
+  it("proxies submitmanager.com cover URLs", () => {
+    const src = "https://submitmanager.com/public/journals/2/homepageImage_en.png"
+    const result = toProxyUrl(src)
+    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
+  })
+
+  it("proxies www.submitmanager.com cover URLs", () => {
+    const src = "https://www.submitmanager.com/public/journals/5/cover.png"
+    const result = toProxyUrl(src)
+    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
+  })
+
+  it("proxies ij-mp.com cover URLs", () => {
+    const src = "https://ij-mp.com/public/journals/3/homepageImage_en.png"
+    const result = toProxyUrl(src)
+    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
+  })
+
+  it("proxies www.ij-mp.com cover URLs", () => {
+    const src = "https://www.ij-mp.com/public/journals/1/cover.png"
+    const result = toProxyUrl(src)
+    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
+  })
+
+  it("proxies digitodontics.com cover URLs", () => {
+    const src = "https://digitodontics.com/public/journals/7/homepageImage_en.png"
+    const result = toProxyUrl(src)
+    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
+  })
+
+  it("proxies www.digitodontics.com cover URLs", () => {
+    const src = "https://www.digitodontics.com/public/journals/4/cover.png"
+    const result = toProxyUrl(src)
+    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
+  })
+
+  it("wraps alias-host URL exactly once (no double-wrap)", () => {
+    const src = "https://submitmanager.com/public/journals/2/homepageImage_en.png"
+    const once = toProxyUrl(src)
+    const twice = toProxyUrl(once)
+    expect(twice).toBe(once)
+    expect((once.match(/image-proxy/g) ?? []).length).toBe(1)
+  })
+
+  it("canonical host journals.digitopub.com is still proxied", () => {
+    const src = "https://journals.digitopub.com/public/journals/10/cover.png"
+    const result = toProxyUrl(src)
+    expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
+  })
+})
+
 describe("extractCardFields — proxy-path preservation", () => {
   it("does not prepend OJS base to a /api/image-proxy src", () => {
     const html = `<img src="/api/image-proxy?url=https%3A%2F%2Fjournals.digitopub.com%2Fpublic%2Fissn.png">`
