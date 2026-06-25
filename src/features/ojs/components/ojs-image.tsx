@@ -40,10 +40,10 @@ const OJS_HOSTS = ((): Set<string> => {
   return hosts
 })()
 
-function toProxyUrl(src: string): string {
+export function toProxyUrl(src: string): string {
   try {
-    const { hostname } = new URL(src)
-    if (OJS_HOSTS.has(hostname)) {
+    const { hostname, pathname } = new URL(src)
+    if (OJS_HOSTS.has(hostname) && !pathname.startsWith("/api/image-proxy")) {
       return `/api/image-proxy?url=${encodeURIComponent(src)}`
     }
   } catch {

@@ -392,7 +392,7 @@ export function extractCardFields(html: string, _name: string, ojsBaseUrl?: stri
   // Resolve relative OJS image paths (e.g. /public/journals/10/image.png)
   // against the OJS server origin so they don't resolve to digitopub.com.
   if (image && ojsBaseUrl) {
-    if (/^\.?\//u.test(image)) {
+    if (/^\.?\//u.test(image) && !image.startsWith("/api/image-proxy")) {
       // Relative path — prepend OJS base URL
       const base = ojsBaseUrl.replace(/\/+$/, "")
       image = `${base}${image.startsWith("/") ? "" : "/"}${image}`
