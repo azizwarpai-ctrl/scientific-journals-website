@@ -24,6 +24,7 @@
 
 import sanitizeHtml from "sanitize-html"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { rewriteOjsInlineImages } from "@/src/features/ojs/utils/rewrite-inline-images"
 import { POLICY_METADATA } from "@/src/features/journals/policy-slugs"
 
 export {
@@ -298,7 +299,7 @@ const POLICY_SANITIZE_OPTIONS = {
 
 function sanitizePolicy(raw: string | null): string {
   if (!raw) return ""
-  return sanitizeHtml(raw, POLICY_SANITIZE_OPTIONS)
+  return rewriteOjsInlineImages(sanitizeHtml(raw, POLICY_SANITIZE_OPTIONS))
 }
 
 // ── Locale resolution ───────────────────────────────────────────────────────
