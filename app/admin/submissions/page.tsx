@@ -1,252 +1,179 @@
-import { redirect } from "next/navigation"
-import { getSession } from "@/src/lib/db/auth"
-import { prisma } from "@/src/lib/db/config"
-import { Prisma } from "@prisma/client"
-import { Card, CardContent } from "@/components/ui/card"
+"use client"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Eye, FileText } from "lucide-react"
-import Link from "next/link"
-import { SubmissionsFilter } from "@/components/submissions-filter"
-import { Suspense } from "react"
-import { STATUS_STYLES } from "@/src/lib/utils"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  useGetOjsSubmissions,
+  ReviewsList,
+  OjsStatusBanner,
+} from "@/src/features/reviews"
 
-async function SubmissionsList({ searchParams }: { searchParams: { status?: string; search?: string } }) {
-  const { status, search } = searchParams
+const STAGE_OPTIONS = [
+  { value: "1", label: "Submission" },
+  { value: "2", label: "Internal Review" },
+  { value: "3", label: "External Review" },
+  { value: "4", label: "Copyediting" },
+  { value: "5", label: "Production" },
+]
 
-  const where: Prisma.SubmissionWhereInput = {}
+const STATUS_OPTIONS = [
+  { value: "1", label: "Queued" },
+  { value: "3", label: "Published" },
+  { value: "4", label: "Declined" },
+  { value: "5", label: "Scheduled" },
+]
 
-  if (status && status !== "all") {
-    where.status = status
-  }
-
-  if (search) {
-    where.OR = [
-      { manuscript_title: { contains: search } },
-      { author_name: { contains: search } },
-      { author_email: { contains: search } }
-    ]
-  }
-
-  type SubmissionWithJournal = Prisma.SubmissionGetPayload<{
-    include: {
-      journal: {
-        select: {
-          title: true,
-          field: true
-        }
-      }
-    }
-  }>
-
-  let submissions: SubmissionWithJournal[] = []
-  let error: Error | null = null
-
-  try {
-    submissions = await prisma.submission.findMany({
-      where,
-      orderBy: { submission_date: "desc" },
-      include: {
-        journal: {
-          select: {
-            title: true,
-            field: true
-          }
-        }
-      }
-    })
-  } catch (e) {
-    error = e as Error
-  }
-
-  return (
-    <Card>
-      <CardContent className="p-0">
-        {error && (
-          <div className="p-4">
-            <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
-              <p className="text-sm text-red-600 dark:text-red-400">Error loading submissions: {error.message}</p>
-            </div>
-          </div>
-        )}
-
-        {submissions && submissions.length > 0 ? (
-          <div className="divide-y">
-            {submissions.map((submission: SubmissionWithJournal) => {
-              const safeStatus = submission.status ?? "unknown"
-              return (
-              <div key={submission.id} className="p-4 hover:bg-muted/50 transition-colors">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg line-clamp-1">{submission.manuscript_title}</h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {submission.journal?.title} • {submission.journal?.field}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-                      <span>
-                        <span className="font-medium">Author:</span> {submission.author_name}
-                      </span>
-                      <span className="text-muted-foreground">{submission.author_email}</span>
-                      <span className="text-muted-foreground">
-                        {new Date(submission.submission_date).toLocaleDateString()}
-                      </span>
-                    </div>
-
-                    {submission.keywords && Array.isArray(submission.keywords) && (submission.keywords as string[]).length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {(submission.keywords as string[]).slice(0, 3).map((keyword: string, idx: number) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium"
-                          >
-                            {keyword}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-end gap-3">
-                    <span
-                      className={`inline-flex rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap ${
-                        STATUS_STYLES[safeStatus] || "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {safeStatus.replace("_", " ")}
-                    </span>
-
-                    <Button asChild size="sm" variant="outline" className="bg-transparent">
-                      <Link href={`/admin/submissions/${submission.id}`}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Details
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )})}
-          </div>
-        ) : (
-          <div className="py-12 text-center">
-            <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">No submissions found</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {searchParams.status || searchParams.search
-                ? "Try adjusting your filters"
-                : "Submissions will appear here"}
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
+function isOjsUnavailable(error: unknown): boolean {
+  return error instanceof Error && error.message === "OJS_UNAVAILABLE"
 }
 
-export default async function SubmissionsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ status?: string; search?: string }>
-}) {
-  const session = await getSession()
-  const params = await searchParams
+export default function SubmissionsPage() {
+  const [search, setSearch] = useState("")
+  const [stageId, setStageId] = useState<string>("all")
+  const [status, setStatus] = useState<string>("all")
+  const [page, setPage] = useState(1)
 
-  if (!session) {
-    redirect("/admin/login")
+  const { data, isLoading, error } = useGetOjsSubmissions({
+    page,
+    search: search || undefined,
+    stageId: stageId === "all" ? undefined : Number(stageId),
+    status: status === "all" ? undefined : Number(status),
+  })
+
+  if (data && data.configured === false) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Submission Management</h1>
+          <p className="text-muted-foreground mt-1">Live submissions from OJS</p>
+        </div>
+        <OjsStatusBanner state="unconfigured" />
+      </div>
+    )
   }
 
-  // Build query for stats
-  let allSubmissions: { status: string | null }[] = []
-  try {
-    allSubmissions = await prisma.submission.findMany({
-      select: {
-        status: true
-      }
-    })
-  } catch (error) {
-    console.error("Error fetching submissions stats:", error)
-  }
-
-  const statusCounts = {
-    all: allSubmissions?.length || 0,
-    submitted: allSubmissions?.filter((s) => s.status === "submitted").length || 0,
-    under_review: allSubmissions?.filter((s) => s.status === "under_review").length || 0,
-    revision_required: allSubmissions?.filter((s) => s.status === "revision_required").length || 0,
-    accepted: allSubmissions?.filter((s) => s.status === "accepted").length || 0,
-    rejected: allSubmissions?.filter((s) => s.status === "rejected").length || 0,
+  if (isOjsUnavailable(error)) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Submission Management</h1>
+          <p className="text-muted-foreground mt-1">Live submissions from OJS</p>
+        </div>
+        <OjsStatusBanner state="unavailable" />
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Submission Management</h1>
-        <p className="text-muted-foreground mt-1">Manage all manuscript submissions</p>
+        <p className="text-muted-foreground mt-1">
+          Live submissions from OJS with review progress
+        </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">All Submissions</div>
-            <div className="text-2xl font-bold">{statusCounts.all}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Submitted</div>
-            <div className="text-2xl font-bold text-primary">{statusCounts.submitted}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Under Review</div>
-            <div className="text-2xl font-bold text-secondary dark:text-secondary-foreground">{statusCounts.under_review}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Revision Required</div>
-            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-              {statusCounts.revision_required}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="Search by title..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
+          className="max-w-sm"
+        />
+        <Select
+          value={stageId}
+          onValueChange={(v) => {
+            setStageId(v)
+            setPage(1)
+          }}
+        >
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="All stages" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All stages</SelectItem>
+            {STAGE_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={status}
+          onValueChange={(v) => {
+            setStatus(v)
+            setPage(1)
+          }}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            {STATUS_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {isLoading ? (
+        <div className="py-12 text-center text-muted-foreground animate-pulse">
+          Loading submissions...
+        </div>
+      ) : error ? (
+        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Error loading submissions: {(error as Error).message}
+          </p>
+        </div>
+      ) : (
+        <>
+          <ReviewsList submissions={data?.data || []} />
+          {data?.pagination && data.pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Page {data.pagination.page} of {data.pagination.totalPages} (
+                {data.pagination.total} submissions)
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!data.pagination.hasPrev}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="bg-transparent transition-transform duration-150 ease-out active:scale-[0.97]"
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!data.pagination.hasNext}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="bg-transparent transition-transform duration-150 ease-out active:scale-[0.97]"
+                >
+                  Next
+                </Button>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Accepted</div>
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{statusCounts.accepted}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Rejected</div>
-            <div className="text-2xl font-bold text-destructive">{statusCounts.rejected}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <Suspense fallback={<div className="h-10 bg-muted animate-pulse rounded" />}>
-            <SubmissionsFilter />
-          </Suspense>
-        </CardContent>
-      </Card>
-
-      {/* Submissions List */}
-      <Suspense
-        fallback={
-          <Card>
-            <CardContent className="py-12 text-center">Loading submissions...</CardContent>
-          </Card>
-        }
-      >
-        <SubmissionsList searchParams={params} />
-      </Suspense>
+          )}
+        </>
+      )}
     </div>
   )
 }

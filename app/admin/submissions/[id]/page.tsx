@@ -1,214 +1,133 @@
-import { redirect } from "next/navigation"
-import { getSession } from "@/src/lib/db/auth"
-import { prisma } from "@/src/lib/db/config"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { ArrowLeft, FileText, Download, User, Mail, Calendar, Tag } from "lucide-react"
-import Link from "next/link"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+"use client"
+
+import { useParams } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowLeft, ExternalLink, FileText } from "lucide-react"
+import Link from "next/link"
+import {
+  useGetOjsSubmission,
+  SubmissionReviewDetail,
+  DecisionsTimeline,
+  OjsStatusBanner,
+} from "@/src/features/reviews"
 
-export default async function SubmissionDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await getSession()
-  const { id } = await params
+function isOjsUnavailable(error: unknown): boolean {
+  return error instanceof Error && error.message === "OJS_UNAVAILABLE"
+}
 
-  if (!session) {
-    redirect("/admin/login")
+export default function SubmissionDetailPage() {
+  const params = useParams<{ id: string }>()
+  const submissionId = Number(params?.id)
+  const validId = Number.isInteger(submissionId) && submissionId > 0
+
+  const { data, isLoading, error } = useGetOjsSubmission(validId ? submissionId : 0)
+
+  const header = (
+    <div className="flex items-center gap-4">
+      <Button
+        asChild
+        variant="outline"
+        size="icon"
+        className="transition-transform duration-150 ease-out active:scale-[0.97]"
+      >
+        <Link href="/admin/submissions">
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
+      </Button>
+      <h1 className="text-3xl font-bold">Submission Review</h1>
+    </div>
+  )
+
+  if (!validId) {
+    return <div className="space-y-6">{header}<p className="text-muted-foreground">Invalid submission id.</p></div>
   }
 
-  let submission: any = null
-  let reviews: any[] = []
-
-  try {
-    submission = await prisma.submission.findUnique({
-      where: { id: BigInt(id) },
-      include: {
-        journal: true,
-        reviews: {
-          orderBy: { created_at: "asc" }
-        }
-      }
-    })
-
-    if (submission) {
-      reviews = submission.reviews
-    }
-  } catch (error) {
-    console.error("Error fetching submission details:", error)
+  if (data && data.configured === false) {
+    return <div className="space-y-6">{header}<OjsStatusBanner state="unconfigured" /></div>
   }
 
-  if (!submission) {
+  if (isOjsUnavailable(error)) {
+    return <div className="space-y-6">{header}<OjsStatusBanner state="unavailable" /></div>
+  }
+
+  if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button asChild variant="outline" size="icon">
-            <Link href="/admin/submissions">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <h1 className="text-3xl font-bold">Submission Not Found</h1>
+        {header}
+        <div className="py-12 text-center text-muted-foreground animate-pulse">
+          Loading submission...
         </div>
       </div>
     )
   }
 
+  if (error) {
+    const notFound = error instanceof Error && error.message === "Not found"
+    return (
+      <div className="space-y-6">
+        {header}
+        <Card>
+          <CardContent className="py-12 text-center">
+            <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-lg font-medium">
+              {notFound ? "Submission not found" : "Error loading submission"}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {notFound
+                ? `No OJS submission with id #${submissionId}`
+                : (error as Error).message}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const detail = data?.data
+  if (!detail) return null
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button asChild variant="outline" size="icon">
+        <Button
+          asChild
+          variant="outline"
+          size="icon"
+          className="transition-transform duration-150 ease-out active:scale-[0.97]"
+        >
           <Link href="/admin/submissions">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold line-clamp-1">{submission.manuscript_title}</h1>
-          <p className="text-muted-foreground mt-1">Submission ID: {submission.id.slice(0, 8)}</p>
+          <h1 className="text-3xl font-bold line-clamp-1">{detail.title}</h1>
+          <p className="text-muted-foreground mt-1">
+            {detail.journalTitle} • Submission #{detail.submissionId}
+          </p>
         </div>
-        <Badge
-          variant="outline"
-          className={`text-sm px-3 py-1 ${submission.status === "submitted"
-            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200"
-            : submission.status === "under_review"
-              ? "bg-secondary/10 text-secondary dark:bg-secondary/20 dark:text-secondary-foreground border-secondary/20"
-              : submission.status === "accepted"
-                ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200"
-                : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400 border-gray-200"
-            }`}
-        >
-          {submission.status.replace("_", " ")}
+        <Badge variant="outline" className="text-sm px-3 py-1">
+          {detail.stageLabel}
         </Badge>
+        <Badge variant="outline" className="text-sm px-3 py-1">
+          {detail.statusLabel}
+        </Badge>
+        <Button
+          asChild
+          className="transition-transform duration-150 ease-out active:scale-[0.97]"
+        >
+          <a href={detail.ojsUrl} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="mr-2 h-4 w-4" />
+            Open in OJS
+          </a>
+        </Button>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          <Tabs defaultValue="manuscript">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="manuscript">Manuscript</TabsTrigger>
-              <TabsTrigger value="reviews">Reviews ({reviews?.length || 0})</TabsTrigger>
-              <TabsTrigger value="history">History</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="manuscript" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Abstract</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{submission.abstract}</p>
-                </CardContent>
-              </Card>
-
-              {submission.keywords && submission.keywords.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Keywords</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {submission.keywords.map((keyword: string, idx: number) => (
-                        <Badge key={idx} variant="secondary">
-                          <Tag className="mr-1 h-3 w-3" />
-                          {keyword}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {submission.manuscript_file_url && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Manuscript File</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Button asChild>
-                      <a href={submission.manuscript_file_url} download>
-                        <Download className="mr-2 h-4 w-4" />
-                        Download Manuscript
-                      </a>
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-
-              {submission.notes && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Internal Notes</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{submission.notes}</p>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-
-            <TabsContent value="reviews" className="space-y-4">
-              {reviews && reviews.length > 0 ? (
-                reviews.map((review: any) => (
-                  <Card key={review.id}>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{review.reviewer_name}</CardTitle>
-                        <Badge
-                          variant="outline"
-                          className={`${review.review_status === "completed"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                            : review.review_status === "in_progress"
-                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
-                              : "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400"
-                            }`}
-                        >
-                          {review.review_status.replace("_", " ")}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{review.reviewer_email}</p>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {review.recommendation && (
-                        <div>
-                          <span className="text-sm font-medium">Recommendation: </span>
-                          <Badge variant="outline">{review.recommendation.replace("_", " ")}</Badge>
-                        </div>
-                      )}
-                      {review.comments_to_author && (
-                        <div>
-                          <p className="text-sm font-medium mb-1">Comments to Author:</p>
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                            {review.comments_to_author}
-                          </p>
-                        </div>
-                      )}
-                      {review.review_date && (
-                        <p className="text-xs text-muted-foreground">
-                          Reviewed: {new Date(review.review_date).toLocaleString()}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-lg font-medium">No reviews yet</p>
-                    <p className="text-sm text-muted-foreground mt-1">Reviews will appear here once assigned</p>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-
-            <TabsContent value="history">
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-lg font-medium">Submission Timeline</p>
-                  <p className="text-sm text-muted-foreground mt-1">History tracking coming soon</p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+          <SubmissionReviewDetail detail={detail} />
+          <DecisionsTimeline decisions={detail.decisions} />
         </div>
 
         <div className="space-y-6">
@@ -216,82 +135,57 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
             <CardHeader>
               <CardTitle>Submission Info</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">Type:</span>
-                  <span className="text-muted-foreground">
-                    {submission.submission_type?.replace("_", " ") || "N/A"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">Submitted:</span>
-                  <span className="text-muted-foreground">
-                    {new Date(submission.submission_date).toLocaleDateString()}
-                  </span>
-                </div>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Submitted</span>
+                <span>
+                  {detail.dateSubmitted
+                    ? new Date(detail.dateSubmitted).toLocaleDateString()
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Last activity</span>
+                <span>
+                  {detail.dateLastActivity
+                    ? new Date(detail.dateLastActivity).toLocaleDateString()
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Current round</span>
+                <span>{detail.currentRound ?? "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Reviews</span>
+                <span>
+                  {detail.reviewsCompleted} completed / {detail.reviewsPending} pending
+                </span>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Journal</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <p className="font-semibold">{submission.journal?.title}</p>
-                <p className="text-sm text-muted-foreground">{submission.journal?.field}</p>
-                {submission.journal?.issn && (
-                  <p className="text-sm">
-                    <span className="font-medium">ISSN:</span> {submission.journal.issn}
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Author Information</CardTitle>
+              <CardTitle>Assigned Editors</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">{submission.author_name}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">{submission.author_email}</span>
-                </div>
-              </div>
-
-              {submission.corresponding_author_name && (
-                <div className="pt-3 border-t">
-                  <p className="text-sm font-medium mb-1">Corresponding Author:</p>
-                  <div className="space-y-1">
-                    <p className="text-sm">{submission.corresponding_author_name}</p>
-                    <p className="text-sm text-muted-foreground">{submission.corresponding_author_email}</p>
+              {detail.editors.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No editors assigned</p>
+              ) : (
+                detail.editors.map((editor) => (
+                  <div key={`${editor.userId}-${editor.userGroupId}`} className="text-sm">
+                    <p className="font-medium">{editor.name}</p>
+                    <p className="text-muted-foreground">
+                      {editor.roleId === 16 ? "Journal Manager" : editor.roleId === 17 ? "Section Editor" : `Role ${editor.roleId}`}
+                      {editor.recommendOnly ? " • recommend only" : ""}
+                      {editor.dateAssigned
+                        ? ` • since ${new Date(editor.dateAssigned).toLocaleDateString()}`
+                        : ""}
+                    </p>
                   </div>
-                </div>
+                ))
               )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button asChild className="w-full">
-                <Link href={`/admin/submissions/${id}/edit`}>Update Status</Link>
-              </Button>
-              <Button asChild variant="outline" className="w-full bg-transparent">
-                <Link href={`/admin/reviews/new?submission=${id}`}>Assign Reviewer</Link>
-              </Button>
             </CardContent>
           </Card>
         </div>
