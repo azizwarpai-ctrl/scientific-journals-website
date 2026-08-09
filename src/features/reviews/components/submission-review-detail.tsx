@@ -11,28 +11,40 @@ function formatDate(iso: string | null): string {
     return iso ? new Date(iso).toLocaleDateString() : "—"
 }
 
+const STATE_BADGES = {
+    declined: {
+        label: "Declined",
+        className: "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400 border-gray-200",
+    },
+    cancelled: {
+        label: "Cancelled",
+        className: "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400 border-gray-200",
+    },
+    completed: {
+        label: "Completed",
+        className: "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200",
+    },
+    overdue: {
+        label: "Overdue",
+        className: "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 border-red-200",
+    },
+    pending: {
+        label: "Pending",
+        className: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400 border-yellow-200",
+    },
+} as const
+
+/** Priority order: declined > cancelled > completed > overdue > pending. */
+function assignmentState(assignment: ReviewAssignment): keyof typeof STATE_BADGES {
+    if (assignment.declined) return "declined"
+    if (assignment.cancelled) return "cancelled"
+    if (assignment.dateCompleted) return "completed"
+    if (assignment.isOverdue) return "overdue"
+    return "pending"
+}
+
 function AssignmentCard({ assignment }: { assignment: ReviewAssignment }) {
-    const stateBadge = assignment.declined ? (
-        <Badge variant="outline" className="bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400 border-gray-200">
-            Declined
-        </Badge>
-    ) : assignment.cancelled ? (
-        <Badge variant="outline" className="bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400 border-gray-200">
-            Cancelled
-        </Badge>
-    ) : assignment.dateCompleted ? (
-        <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200">
-            Completed
-        </Badge>
-    ) : assignment.isOverdue ? (
-        <Badge variant="outline" className="bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 border-red-200">
-            Overdue
-        </Badge>
-    ) : (
-        <Badge variant="outline" className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400 border-yellow-200">
-            Pending
-        </Badge>
-    )
+    const stateBadge = STATE_BADGES[assignmentState(assignment)]
 
     return (
         <div
@@ -53,7 +65,9 @@ function AssignmentCard({ assignment }: { assignment: ReviewAssignment }) {
                     {assignment.reviewMethodLabel && (
                         <Badge variant="secondary">{assignment.reviewMethodLabel}</Badge>
                     )}
-                    {stateBadge}
+                    <Badge variant="outline" className={stateBadge.className}>
+                        {stateBadge.label}
+                    </Badge>
                 </div>
             </div>
 
@@ -100,7 +114,9 @@ export function SubmissionReviewDetail({ detail }: SubmissionReviewDetailProps) 
                         <AccordionItem key={round.reviewRoundId} value={String(round.reviewRoundId)}>
                             <AccordionTrigger className="transition-colors duration-200 ease-out">
                                 <div className="flex items-center gap-3">
-                                    <span className="font-semibold">Round {round.round}</span>
+                                    <span className="font-semibold">
+                                        {round.round === 0 ? "Unassigned" : `Round ${round.round}`}
+                                    </span>
                                     <Badge variant="outline">{round.statusLabel}</Badge>
                                     <span className="text-sm text-muted-foreground">
                                         {round.assignments.length} assignment

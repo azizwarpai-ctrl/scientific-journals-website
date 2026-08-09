@@ -8,6 +8,7 @@ export { SubmissionReviewDetail } from "./components/submission-review-detail"
 export { DecisionsTimeline } from "./components/decisions-timeline"
 export { ReviewerWorkloadTable } from "./components/reviewer-workload-table"
 export { OjsStatusBanner } from "./components/ojs-status-banner"
+export { isOjsUnavailable } from "./utils/ojs-unavailable"
 export type {
     PersonRef,
     SubmissionSummary,

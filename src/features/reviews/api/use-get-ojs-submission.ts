@@ -20,6 +20,7 @@ export function useGetOjsSubmission(submissionId: number) {
             })
             return parseRpcResponse<OjsSubmissionResponse>(res, "Failed to load submission")
         },
-        staleTime: 60_000,
+        enabled: submissionId > 0,
+        staleTime: 300_000,
     })
 }

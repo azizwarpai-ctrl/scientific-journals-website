@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono"
+import { zValidator } from "@hono/zod-validator"
 import { requireAdmin } from "@/src/lib/auth-middleware"
 import { isOjsConfigured } from "@/src/features/ojs/server/ojs-client"
 import { paginatedResponse, parsePagination } from "@/src/lib/pagination"
@@ -8,7 +9,11 @@ import {
     listOjsReviewers,
     listOjsSubmissions,
 } from "./ojs-review-service"
-import { submissionIdParamSchema } from "../schemas/review-schema"
+import {
+    reviewersListQuerySchema,
+    submissionIdParamObjectSchema,
+    submissionsListQuerySchema,
+} from "@/src/features/reviews/schemas/review-schema"
 
 /**
  * Arbitration panel API (Stream A) — read-only, live from the OJS database.
@@ -21,14 +26,10 @@ import { submissionIdParamSchema } from "../schemas/review-schema"
 
 const app = new Hono()
 
-function parseOptionalInt(value: string | undefined): number | undefined {
-    if (value === undefined || value === "") return undefined
-    const n = Number(value)
-    return Number.isInteger(n) ? n : undefined
-}
-
 function ojsUnavailable(c: Context, error: unknown, label: string) {
-    console.error(`[reviews] ${label} failed:`, error)
+    // Redacted: driver errors can carry the raw SQL (error.sql) — log message only.
+    const message = error instanceof Error ? error.message : "unknown error"
+    console.error(`[reviews] ${label} failed: ${message}`)
     return c.json({ success: false, error: "OJS_UNAVAILABLE" }, 503)
 }
 
@@ -44,19 +45,20 @@ app.get("/overview", requireAdmin, async (c) => {
     }
 })
 
-app.get("/submissions", requireAdmin, async (c) => {
+app.get("/submissions", requireAdmin, zValidator("query", submissionsListQuerySchema), async (c) => {
     if (!isOjsConfigured()) {
         return c.json({ success: true, configured: false, data: [] }, 200)
     }
     const params = parsePagination(c)
+    const query = c.req.valid("query")
     try {
         const { rows, total } = await listOjsSubmissions({
             page: params.page,
             limit: params.limit,
-            journalId: parseOptionalInt(c.req.query("journalId")),
-            stageId: parseOptionalInt(c.req.query("stageId")),
-            status: parseOptionalInt(c.req.query("status")),
-            search: c.req.query("search"),
+            journalId: query.journalId,
+            stageId: query.stageId,
+            status: query.status,
+            search: query.search,
         })
         return c.json({ ...paginatedResponse(rows, total, params), configured: true }, 200)
     } catch (error) {
@@ -64,16 +66,13 @@ app.get("/submissions", requireAdmin, async (c) => {
     }
 })
 
-app.get("/submissions/:id", requireAdmin, async (c) => {
+app.get("/submissions/:id", requireAdmin, zValidator("param", submissionIdParamObjectSchema), async (c) => {
     if (!isOjsConfigured()) {
         return c.json({ success: true, configured: false, data: null }, 200)
     }
-    const parsed = submissionIdParamSchema.safeParse(c.req.param("id"))
-    if (!parsed.success) {
-        return c.json({ success: false, error: "Invalid submission id" }, 400)
-    }
+    const { id } = c.req.valid("param")
     try {
-        const detail = await getOjsSubmissionDetail(parsed.data)
+        const detail = await getOjsSubmissionDetail(id)
         if (!detail) {
             return c.json({ success: false, error: "Not found" }, 404)
         }
@@ -83,16 +82,17 @@ app.get("/submissions/:id", requireAdmin, async (c) => {
     }
 })
 
-app.get("/reviewers", requireAdmin, async (c) => {
+app.get("/reviewers", requireAdmin, zValidator("query", reviewersListQuerySchema), async (c) => {
     if (!isOjsConfigured()) {
         return c.json({ success: true, configured: false, data: [] }, 200)
     }
     const params = parsePagination(c)
+    const query = c.req.valid("query")
     try {
         const { rows, total } = await listOjsReviewers({
             page: params.page,
             limit: params.limit,
-            search: c.req.query("search"),
+            search: query.search,
         })
         return c.json({ ...paginatedResponse(rows, total, params), configured: true }, 200)
     } catch (error) {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
     DECISION_LABELS,
     RECOMMENDATION_LABELS,
@@ -58,8 +58,17 @@ describe("completeSubmissionPredicate", () => {
 })
 
 describe("buildOjsWorkflowUrl", () => {
+    // Clear the public-base env vars so the default-URL assertions can't be
+    // broken by values inherited from the developer's shell ("" reads as unset).
+    beforeEach(() => {
+        vi.stubEnv("PUBLIC_OJS_BASE_URL", "")
+        vi.stubEnv("NEXT_PUBLIC_OJS_BASE_URL", "")
+    })
+    afterEach(() => {
+        vi.unstubAllEnvs()
+    })
+
     it("builds the workflow access URL with the default public base", () => {
-        // vitest env sets no PUBLIC_OJS_BASE_URL/NEXT_PUBLIC_OJS_BASE_URL → default landing base
         expect(buildOjsWorkflowUrl("jmed", 123)).toBe(
             "https://journals.digitopub.com/index.php/jmed/workflow/access/123"
         )
@@ -71,6 +80,14 @@ describe("buildOjsWorkflowUrl", () => {
 })
 
 describe("buildOjsReviewerUrl", () => {
+    beforeEach(() => {
+        vi.stubEnv("PUBLIC_OJS_BASE_URL", "")
+        vi.stubEnv("NEXT_PUBLIC_OJS_BASE_URL", "")
+    })
+    afterEach(() => {
+        vi.unstubAllEnvs()
+    })
+
     it("points at the users & roles management screen", () => {
         expect(buildOjsReviewerUrl("jmed")).toBe(
             "https://journals.digitopub.com/index.php/jmed/management/settings/users"

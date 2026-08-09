@@ -418,14 +418,14 @@ export async function getOjsSubmissionDetail(submissionId: number): Promise<Subm
     if (!submissionRow) return null
     const summary = mapSubmissionSummaryRow(submissionRow)
 
-    const roundRows = await ojsQuery<RoundRow>(
-        `SELECT review_round_id AS reviewRoundId, round, stage_id AS stageId, status
+    const [roundRows, assignmentRows, decisionRows, editorRows] = await Promise.all([
+        ojsQuery<RoundRow>(
+            `SELECT review_round_id AS reviewRoundId, round, stage_id AS stageId, status
          FROM review_rounds WHERE submission_id = ? ORDER BY round ASC`,
-        [submissionId]
-    )
-
-    const assignmentRows = await ojsQuery<AssignmentRow>(
-        `SELECT
+            [submissionId]
+        ),
+        ojsQuery<AssignmentRow>(
+            `SELECT
             ra.review_id AS reviewId,
             ra.review_round_id AS reviewRoundId,
             ra.reviewer_id AS reviewerId,
@@ -451,31 +451,16 @@ export async function getOjsSubmissionDetail(submissionId: number): Promise<Subm
          JOIN users u ON u.user_id = ra.reviewer_id
          WHERE ra.submission_id = ?
          ORDER BY ra.round ASC, ra.review_id ASC`,
-        [submissionId]
-    )
-    const assignmentsByRound = new Map<number, ReviewAssignment[]>()
-    for (const row of assignmentRows) {
-        const assignment = mapReviewAssignmentRow(row)
-        const key = row.reviewRoundId === null ? 0 : Number(row.reviewRoundId)
-        const list = assignmentsByRound.get(key) ?? []
-        list.push(assignment)
-        assignmentsByRound.set(key, list)
-    }
-
-    const rounds = roundRows.map((row) =>
-        mapReviewRoundRow(row, assignmentsByRound.get(Number(row.reviewRoundId)) ?? [])
-    )
-
-    const decisionRows = await ojsQuery<DecisionRow>(
-        `SELECT edit_decision_id AS editDecisionId, editor_id AS editorId, decision,
+            [submissionId]
+        ),
+        ojsQuery<DecisionRow>(
+            `SELECT edit_decision_id AS editDecisionId, editor_id AS editorId, decision,
                 review_round_id AS reviewRoundId, round, date_decided AS dateDecided
          FROM edit_decisions WHERE submission_id = ? ORDER BY date_decided ASC`,
-        [submissionId]
-    )
-    const decisions = decisionRows.map(mapDecisionRow)
-
-    const editorRows = await ojsQuery<EditorRow>(
-        `SELECT
+            [submissionId]
+        ),
+        ojsQuery<EditorRow>(
+            `SELECT
             sa.user_id AS userId,
             sa.user_group_id AS userGroupId,
             ug.role_id AS roleId,
@@ -490,8 +475,41 @@ export async function getOjsSubmissionDetail(submissionId: number): Promise<Subm
          JOIN users u ON u.user_id = sa.user_id
          WHERE sa.submission_id = ? AND ug.role_id IN (16, 17)
          ORDER BY sa.date_assigned ASC`,
-        [submissionId]
+            [submissionId]
+        ),
+    ])
+
+    const assignmentsByRound = new Map<number, ReviewAssignment[]>()
+    for (const row of assignmentRows) {
+        const assignment = mapReviewAssignmentRow(row)
+        const key = row.reviewRoundId === null ? 0 : Number(row.reviewRoundId)
+        const list = assignmentsByRound.get(key) ?? []
+        list.push(assignment)
+        assignmentsByRound.set(key, list)
+    }
+
+    const rounds = roundRows.map((row) =>
+        mapReviewRoundRow(row, assignmentsByRound.get(Number(row.reviewRoundId)) ?? [])
     )
+
+    // Assignments whose review_round_id is NULL (grouped under key 0) belong to
+    // no known round — surface them in a synthetic "Unassigned" entry (round 0)
+    // instead of silently dropping them.
+    const unassigned = assignmentsByRound.get(0)
+    if (unassigned && unassigned.length > 0) {
+        rounds.push(
+            reviewRoundSchema.parse({
+                reviewRoundId: 0,
+                round: 0,
+                stageId: summary.stageId,
+                status: null,
+                statusLabel: "Unassigned",
+                assignments: unassigned,
+            })
+        )
+    }
+
+    const decisions = decisionRows.map(mapDecisionRow)
     const editors = editorRows.map(mapEditorRow)
 
     return submissionReviewDetailSchema.parse({

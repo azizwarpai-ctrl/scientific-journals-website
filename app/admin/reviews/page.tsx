@@ -9,17 +9,16 @@ import {
   ReviewStatCards,
   ReviewerWorkloadTable,
   OjsStatusBanner,
+  isOjsUnavailable,
 } from "@/src/features/reviews"
-
-function isOjsUnavailable(error: unknown): boolean {
-  return error instanceof Error && error.message === "OJS_UNAVAILABLE"
-}
+import { useDebouncedValue } from "@/src/hooks/use-debounced-value"
 
 export default function ReviewsPage() {
   const overview = useGetReviewOverview()
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
-  const reviewers = useGetReviewers({ page, search: search || undefined })
+  const debouncedSearch = useDebouncedValue(search)
+  const reviewers = useGetReviewers({ page, search: debouncedSearch || undefined })
 
   const unconfigured =
     (overview.data && overview.data.configured === false) ||

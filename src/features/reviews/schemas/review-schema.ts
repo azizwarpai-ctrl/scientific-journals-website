@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { STAGE_LABELS, SUBMISSION_STATUS_LABELS } from "../server/ojs-review-constants"
 
 /**
  * Zod schemas for the arbitration panel DTOs (Stream A).
@@ -104,3 +105,41 @@ export const reviewOverviewSchema = z.object({
 
 /** Path param validator for /submissions/:id. */
 export const submissionIdParamSchema = z.coerce.number().int().positive()
+
+/** zValidator("param") wrapper for /submissions/:id. */
+export const submissionIdParamObjectSchema = z.object({
+    id: submissionIdParamSchema,
+})
+
+// Known enum values come from the label maps — the panel only filters on
+// stages/statuses it can render.
+const KNOWN_STAGE_IDS = Object.keys(STAGE_LABELS).map(Number)
+const KNOWN_SUBMISSION_STATUSES = Object.keys(SUBMISSION_STATUS_LABELS).map(Number)
+
+const pageQuerySchema = z.coerce.number().int().positive().optional()
+const limitQuerySchema = z.coerce.number().int().positive().max(100).optional()
+
+/** Query validator for GET /reviews/submissions. */
+export const submissionsListQuerySchema = z.object({
+    page: pageQuerySchema,
+    limit: limitQuerySchema,
+    journalId: z.coerce.number().int().positive().optional(),
+    stageId: z.coerce
+        .number()
+        .int()
+        .refine((v) => KNOWN_STAGE_IDS.includes(v), { message: "Unknown stage id" })
+        .optional(),
+    status: z.coerce
+        .number()
+        .int()
+        .refine((v) => KNOWN_SUBMISSION_STATUSES.includes(v), { message: "Unknown submission status" })
+        .optional(),
+    search: z.string().optional(),
+})
+
+/** Query validator for GET /reviews/reviewers. */
+export const reviewersListQuerySchema = z.object({
+    page: pageQuerySchema,
+    limit: limitQuerySchema,
+    search: z.string().optional(),
+})

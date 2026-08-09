@@ -11,11 +11,8 @@ import {
   SubmissionReviewDetail,
   DecisionsTimeline,
   OjsStatusBanner,
+  isOjsUnavailable,
 } from "@/src/features/reviews"
-
-function isOjsUnavailable(error: unknown): boolean {
-  return error instanceof Error && error.message === "OJS_UNAVAILABLE"
-}
 
 export default function SubmissionDetailPage() {
   const params = useParams<{ id: string }>()

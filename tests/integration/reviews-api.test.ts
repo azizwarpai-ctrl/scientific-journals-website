@@ -204,6 +204,18 @@ describe("GET /reviews/submissions", () => {
         const res = await buildApp().request("/reviews/submissions")
         expect(res.status).toBe(503)
     })
+
+    it.each([
+        "/reviews/submissions?journalId=abc",
+        "/reviews/submissions?stageId=9",
+        "/reviews/submissions?status=2",
+        "/reviews/submissions?page=0",
+        "/reviews/submissions?limit=101",
+    ])("returns 400 for invalid query (%s) without touching OJS", async (path) => {
+        const res = await buildApp().request(path)
+        expect(res.status).toBe(400)
+        expect(ojsQueryMock).not.toHaveBeenCalled()
+    })
 })
 
 describe("GET /reviews/submissions/:id", () => {
@@ -332,5 +344,11 @@ describe("GET /reviews/reviewers", () => {
         ojsQueryMock.mockRejectedValueOnce(new Error("down"))
         const res = await buildApp().request("/reviews/reviewers")
         expect(res.status).toBe(503)
+    })
+
+    it("returns 400 for invalid pagination without touching OJS", async () => {
+        const res = await buildApp().request("/reviews/reviewers?page=-1")
+        expect(res.status).toBe(400)
+        expect(ojsQueryMock).not.toHaveBeenCalled()
     })
 })

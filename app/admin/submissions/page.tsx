@@ -14,7 +14,9 @@ import {
   useGetOjsSubmissions,
   ReviewsList,
   OjsStatusBanner,
+  isOjsUnavailable,
 } from "@/src/features/reviews"
+import { useDebouncedValue } from "@/src/hooks/use-debounced-value"
 
 const STAGE_OPTIONS = [
   { value: "1", label: "Submission" },
@@ -31,19 +33,16 @@ const STATUS_OPTIONS = [
   { value: "5", label: "Scheduled" },
 ]
 
-function isOjsUnavailable(error: unknown): boolean {
-  return error instanceof Error && error.message === "OJS_UNAVAILABLE"
-}
-
 export default function SubmissionsPage() {
   const [search, setSearch] = useState("")
   const [stageId, setStageId] = useState<string>("all")
   const [status, setStatus] = useState<string>("all")
   const [page, setPage] = useState(1)
+  const debouncedSearch = useDebouncedValue(search)
 
   const { data, isLoading, error } = useGetOjsSubmissions({
     page,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
     stageId: stageId === "all" ? undefined : Number(stageId),
     status: status === "all" ? undefined : Number(status),
   })
