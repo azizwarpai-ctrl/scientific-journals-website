@@ -1,6 +1,10 @@
 /**
  * Client-side CSV export for DataTable. BigInt-safe (everything is
- * stringified), quotes fields per RFC 4180.
+ * stringified), quotes fields per RFC 4180, and neutralizes spreadsheet
+ * formula injection: exported values come from user-supplied content
+ * (submission titles, author names, …), so a leading `=`, `+`, `-`, `@`,
+ * tab, or CR would otherwise execute as a formula when the CSV is opened
+ * in Excel/Sheets. Such values get the standard OWASP single-quote prefix.
  */
 
 export interface CsvColumn<TData> {
@@ -8,8 +12,13 @@ export interface CsvColumn<TData> {
     accessor: (row: TData) => unknown
 }
 
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/
+
 function csvEscape(value: unknown): string {
-    const s = value === null || value === undefined ? "" : String(value)
+    let s = value === null || value === undefined ? "" : String(value)
+    if (FORMULA_TRIGGER.test(s)) {
+        s = `'${s}`
+    }
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
