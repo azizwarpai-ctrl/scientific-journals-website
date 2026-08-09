@@ -13,23 +13,23 @@ interface AlertBannerProps {
 
 const variantStyles: Record<AlertVariant, { container: string; icon: string; IconComponent: typeof AlertCircle }> = {
     error: {
-        container: "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800",
-        icon: "text-red-600 dark:text-red-400",
+        container: "bg-destructive/10 border-destructive/20",
+        icon: "text-destructive",
         IconComponent: XCircle,
     },
     success: {
-        container: "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800",
-        icon: "text-green-600 dark:text-green-400",
+        container: "bg-emerald-500/10 border-emerald-500/20",
+        icon: "text-emerald-600 dark:text-emerald-400",
         IconComponent: CheckCircle2,
     },
     info: {
-        container: "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800",
-        icon: "text-blue-600 dark:text-blue-400",
+        container: "bg-sky-500/10 border-sky-500/20",
+        icon: "text-sky-600 dark:text-sky-400",
         IconComponent: Info,
     },
     warning: {
-        container: "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800",
-        icon: "text-yellow-600 dark:text-yellow-400",
+        container: "bg-amber-500/10 border-amber-500/20",
+        icon: "text-amber-600 dark:text-amber-400",
         IconComponent: AlertCircle,
     },
 }

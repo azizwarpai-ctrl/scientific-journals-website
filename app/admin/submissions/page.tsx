@@ -3,12 +3,9 @@ import { getSession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
 import { Prisma } from "@prisma/client"
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Eye, FileText } from "lucide-react"
-import Link from "next/link"
 import { SubmissionsFilter } from "@/components/submissions-filter"
 import { Suspense } from "react"
-import { STATUS_STYLES } from "@/src/lib/utils"
+import { SubmissionsTable, type SubmissionRow } from "./submissions-table"
 
 async function SubmissionsList({ searchParams }: { searchParams: { status?: string; search?: string } }) {
   const { status, search } = searchParams
@@ -58,89 +55,31 @@ async function SubmissionsList({ searchParams }: { searchParams: { status?: stri
     error = e as Error
   }
 
+  // Serialize BigInt-safe plain rows for the client table
+  const rows: SubmissionRow[] = submissions.map((submission: SubmissionWithJournal) => ({
+    id: String(submission.id),
+    title: submission.manuscript_title,
+    journalTitle: submission.journal?.title ?? "",
+    journalField: submission.journal?.field ?? "",
+    author: submission.author_name,
+    authorEmail: submission.author_email,
+    status: submission.status ?? "unknown",
+    date: new Date(submission.submission_date).toISOString(),
+  }))
+
   return (
     <Card>
-      <CardContent className="p-0">
+      <CardContent className="p-4">
         {error && (
-          <div className="p-4">
-            <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
-              <p className="text-sm text-red-600 dark:text-red-400">Error loading submissions: {error.message}</p>
-            </div>
+          <div className="mb-4 rounded-lg bg-destructive/10 border border-destructive/20 p-4">
+            <p className="text-sm text-destructive">Error loading submissions: {error.message}</p>
           </div>
         )}
 
-        {submissions && submissions.length > 0 ? (
-          <div className="divide-y">
-            {submissions.map((submission: SubmissionWithJournal) => {
-              const safeStatus = submission.status ?? "unknown"
-              return (
-              <div key={submission.id} className="p-4 hover:bg-muted/50 transition-colors">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg line-clamp-1">{submission.manuscript_title}</h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {submission.journal?.title} • {submission.journal?.field}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-                      <span>
-                        <span className="font-medium">Author:</span> {submission.author_name}
-                      </span>
-                      <span className="text-muted-foreground">{submission.author_email}</span>
-                      <span className="text-muted-foreground">
-                        {new Date(submission.submission_date).toLocaleDateString()}
-                      </span>
-                    </div>
-
-                    {submission.keywords && Array.isArray(submission.keywords) && (submission.keywords as string[]).length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {(submission.keywords as string[]).slice(0, 3).map((keyword: string, idx: number) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium"
-                          >
-                            {keyword}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-end gap-3">
-                    <span
-                      className={`inline-flex rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap ${
-                        STATUS_STYLES[safeStatus] || "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {safeStatus.replace("_", " ")}
-                    </span>
-
-                    <Button asChild size="sm" variant="outline" className="bg-transparent">
-                      <Link href={`/admin/submissions/${submission.id}`}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Details
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )})}
-          </div>
-        ) : (
-          <div className="py-12 text-center">
-            <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">No submissions found</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {searchParams.status || searchParams.search
-                ? "Try adjusting your filters"
-                : "Submissions will appear here"}
-            </p>
-          </div>
-        )}
+        <SubmissionsTable
+          rows={rows}
+          hasFilters={Boolean(searchParams.status || searchParams.search)}
+        />
       </CardContent>
     </Card>
   )

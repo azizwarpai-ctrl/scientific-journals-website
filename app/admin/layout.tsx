@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic"
 import { usePathname } from "next/navigation"
 import { AdminSidebar } from "@/components/admin-sidebar"
 import { AdminHeader } from "@/components/admin-header"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 
 // Pages that should NOT show the sidebar/header (auth-related pages)
 const AUTH_PAGES = [
@@ -29,12 +30,12 @@ export default function AdminRootLayout({
 
   // Dashboard pages render with sidebar + header
   return (
-    <div className="flex min-h-screen">
+    <SidebarProvider>
       <AdminSidebar />
-      <div className="flex flex-1 flex-col lg:ml-64">
+      <SidebarInset>
         <AdminHeader />
-        <main className="flex-1 p-6">{children}</main>
-      </div>
-    </div>
+        <main className="flex-1 p-4 sm:p-6">{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

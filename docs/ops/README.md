@@ -122,3 +122,6 @@ presence — only the operator's deliberate application does.
   rollback procedure.
 - [`cron-schedule.md`](./cron-schedule.md) — recurring-job schedule and the exact hPanel /
   external-scheduler entries.
+- [`backfill-runbook.md`](./backfill-runbook.md) — one-time OJS legacy metrics backfill
+  procedure (dry-run, execution, rollback).
+- [`lighthouse.md`](./lighthouse.md) — performance budget and how to run the audit.

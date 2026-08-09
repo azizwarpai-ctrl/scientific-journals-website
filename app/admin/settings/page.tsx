@@ -14,12 +14,14 @@ export default async function SettingsPage() {
   }
 
   let adminUser: any = null
+  let loadFailed = false
   try {
     adminUser = await prisma.adminUser.findUnique({
       where: { email: session.email }
     })
   } catch (error) {
     console.error("Error fetching admin user:", error)
+    loadFailed = true
   }
 
   return (
@@ -29,6 +31,16 @@ export default async function SettingsPage() {
         <p className="text-muted-foreground mt-1">Manage system settings and configurations</p>
       </div>
 
+      {loadFailed && (
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-lg p-4">
+          <p className="text-sm font-medium">Failed to load your admin profile.</p>
+          <p className="text-sm mt-1">
+            The database could not be reached. Refresh the page to try again, or check the server logs if the problem persists.
+          </p>
+        </div>
+      )}
+
+      {!loadFailed && (
       <Card>
         <CardHeader>
           <CardTitle>Admin Profile</CardTitle>
@@ -52,6 +64,7 @@ export default async function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+      )}
 
       <Card>
         <CardHeader>

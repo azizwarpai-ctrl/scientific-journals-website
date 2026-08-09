@@ -12,6 +12,18 @@ Documented 2026-08-08 from live-host inspection (see [`discovery-2026-08.md`](./
 - Builds go through Hostinger's managed pipeline under `public_html/.builds/`
   (source checkout → build → standalone output copied to `nodejs/`).
 
+## Pre-deploy checklist
+
+- [ ] CI green on `main` — including the `e2e` Playwright job.
+- [ ] Production env (`.builds/config/.env` via hPanel) contains everything the
+      release needs. **Known gaps as of 2026-08 discovery:** `CRON_SECRET` and
+      all UIET-P1 identity secrets are MISSING — cron endpoints and ORCID
+      sign-in fail closed until they are added.
+- [ ] hPanel/external cron entries match [`cron-schedule.md`](./cron-schedule.md).
+- [ ] Any new migration is additive-safe (project policy) — check
+      `prisma/migrations/` diff since the last deploy.
+- [ ] Optional: Lighthouse budget run per [`lighthouse.md`](./lighthouse.md).
+
 ## Deploy procedure
 
 1. Merge to `main`; CI (`.github/workflows/ci.yml`) must be green.
@@ -30,6 +42,9 @@ Documented 2026-08-08 from live-host inspection (see [`discovery-2026-08.md`](./
 5. Smoke-verify:
    ```bash
    curl -fsS https://digitopub.com/api/ojs/health
+   # New endpoints fail closed — 401 without credentials proves they're wired:
+   curl -s -o /dev/null -w "%{http_code}\n" https://digitopub.com/api/admin-analytics/sync-health   # expect 401
+   curl -s -o /dev/null -w "%{http_code}\n" -X POST https://digitopub.com/api/metrics/cron/daily     # expect 401
    bash docs/ops/verify-cutover.sh   # full read-only matrix
    ```
 

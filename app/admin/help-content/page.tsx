@@ -51,22 +51,30 @@ export default function HelpContentPage() {
   }
 
   const handleSaveCategory = async () => {
-    if (catForm.id) {
-      await updateCategory.mutateAsync(
-        { id: catForm.id, values: { title: catForm.title, slug: catForm.slug } },
-        { onSuccess: () => setCategoryDialogOpen(false) }
-      )
-    } else {
-      await createCategory.mutateAsync(
-        { title: catForm.title, slug: catForm.slug },
-        { onSuccess: () => setCategoryDialogOpen(false) }
-      )
+    try {
+      if (catForm.id) {
+        await updateCategory.mutateAsync(
+          { id: catForm.id, values: { title: catForm.title, slug: catForm.slug } },
+          { onSuccess: () => setCategoryDialogOpen(false) }
+        )
+      } else {
+        await createCategory.mutateAsync(
+          { title: catForm.title, slug: catForm.slug },
+          { onSuccess: () => setCategoryDialogOpen(false) }
+        )
+      }
+    } catch {
+      // Error toast is handled by the mutation hook's onError.
     }
   }
 
   const handleDeleteCategory = async (id: string) => {
     if (confirm("Are you sure you want to delete this category? All its topics will be cascadingly deleted!")) {
-      await deleteCategory.mutateAsync(id)
+      try {
+        await deleteCategory.mutateAsync(id)
+      } catch {
+        // Error toast is handled by the mutation hook's onError.
+      }
     }
   }
 
@@ -88,22 +96,30 @@ export default function HelpContentPage() {
       isActive: topicForm.isActive
     }
 
-    if (topicForm.id) {
-      await updateTopic.mutateAsync(
-        { id: topicForm.id, values: payload },
-        { onSuccess: () => setTopicDialogOpen(false) }
-      )
-    } else {
-      await createTopic.mutateAsync(
-        payload,
-        { onSuccess: () => setTopicDialogOpen(false) }
-      )
+    try {
+      if (topicForm.id) {
+        await updateTopic.mutateAsync(
+          { id: topicForm.id, values: payload },
+          { onSuccess: () => setTopicDialogOpen(false) }
+        )
+      } else {
+        await createTopic.mutateAsync(
+          payload,
+          { onSuccess: () => setTopicDialogOpen(false) }
+        )
+      }
+    } catch {
+      // Error toast is handled by the mutation hook's onError.
     }
   }
 
   const handleDeleteTopic = async (id: string) => {
     if (confirm("Are you sure you want to delete this topic?")) {
-      await deleteTopic.mutateAsync(id)
+      try {
+        await deleteTopic.mutateAsync(id)
+      } catch {
+        // Error toast is handled by the mutation hook's onError.
+      }
     }
   }
 

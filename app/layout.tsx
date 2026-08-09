@@ -1,5 +1,6 @@
 import type React from "react"
 import type { Metadata, Viewport } from "next"
+import { Geist, Geist_Mono } from "next/font/google"
 
 import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -10,6 +11,13 @@ import { ConsentBannerHost } from "@/components/consent-banner-host"
 import { LoginModal } from "@/components/auth/login-modal"
 import { OrganizationJsonLd } from "@/components/seo/organization-jsonld"
 import "./globals.css"
+
+// The design tokens in globals.css have always named Geist as --font-sans,
+// but no font was actually loaded until now — browsers silently fell back to
+// the system stack. next/font self-hosts the files at build time (no runtime
+// Google request) and exposes them via CSS variables consumed in @theme.
+const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" })
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
 
 // metadataBase resolves relative OG / Twitter / canonical URLs against the
 // production origin. Without it, those tags emit hostnames like localhost
@@ -74,7 +82,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className={`font-sans antialiased`}>
         {/* Sitewide Organization schema for search engines (server-rendered). */}
         <OrganizationJsonLd appUrl={APP_URL} />

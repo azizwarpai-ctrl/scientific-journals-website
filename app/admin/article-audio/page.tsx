@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 import {
   Music,
   Upload,
@@ -104,8 +105,6 @@ function BrowseTab() {
   const [locale, setLocale] = useState("__default__")
   const [file, setFile] = useState<File | null>(null)
   const [dragActive, setDragActive] = useState(false)
-  const [statusMessage, setStatusMessage] = useState<string | null>(null)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -170,29 +169,21 @@ function BrowseTab() {
     setSelectedIssueId(null)
     setSelectedArticle(null)
     setFile(null)
-    setStatusMessage(null)
-    setErrorMessage(null)
   }
 
   const handleIssueClick = (issueId: number) => {
     setSelectedIssueId(issueId === selectedIssueId ? null : issueId)
     setSelectedArticle(null)
     setFile(null)
-    setStatusMessage(null)
-    setErrorMessage(null)
   }
 
   const handleArticleClick = (article: CurrentIssueArticle) => {
     setSelectedArticle(article.submissionId === selectedArticle?.submissionId ? null : article)
     setFile(null)
-    setStatusMessage(null)
-    setErrorMessage(null)
   }
 
   const handleUpload = async () => {
     if (!file || !selectedArticle) return
-    setStatusMessage(null)
-    setErrorMessage(null)
     try {
       await upload.mutateAsync({
         file,
@@ -200,11 +191,11 @@ function BrowseTab() {
         submissionId: String(selectedArticle.submissionId),
         locale: locale === "__default__" ? "" : locale,
       })
-      setStatusMessage("Audio uploaded successfully.")
+      toast.success("Audio uploaded successfully.")
       setFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ""
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Upload failed")
+      toast.error(err instanceof Error ? err.message : "Upload failed")
     }
   }
 
@@ -212,10 +203,10 @@ function BrowseTab() {
     if (!deleteTarget) return
     try {
       await deleteMut.mutateAsync(deleteTarget.id)
-      setStatusMessage("Audio deleted.")
+      toast.success("Audio deleted.")
       setDeleteTarget(null)
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Delete failed")
+      toast.error(err instanceof Error ? err.message : "Delete failed")
       setDeleteTarget(null)
     }
   }
@@ -477,15 +468,6 @@ function BrowseTab() {
                         <UploadProgressBar progress={upload.progress} />
                       )}
                     </div>
-
-                    {errorMessage && (
-                      <p className="text-sm text-destructive" role="alert">{errorMessage}</p>
-                    )}
-                    {statusMessage && !errorMessage && (
-                      <p className="text-sm text-emerald-600 dark:text-emerald-400" role="status">
-                        {statusMessage}
-                      </p>
-                    )}
                   </CardContent>
                 </Card>
               )}
@@ -519,8 +501,10 @@ function AudioLibraryTab() {
     if (!deleteTarget) return
     try {
       await deleteMut.mutateAsync(deleteTarget.id)
+      toast.success("Audio deleted.")
       setDeleteTarget(null)
-    } catch {
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed")
       setDeleteTarget(null)
     }
   }
@@ -745,8 +729,6 @@ function ManualEntryFallback() {
   const [submissionId, setSubmissionId] = useState("")
   const [locale, setLocale] = useState("__default__")
   const [file, setFile] = useState<File | null>(null)
-  const [statusMessage, setStatusMessage] = useState<string | null>(null)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const eligibleJournals = useMemo(
     () => (journals ?? []).filter((j) => Boolean(j.ojs_id)),
@@ -757,8 +739,6 @@ function ManualEntryFallback() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setStatusMessage(null)
-    setErrorMessage(null)
     if (!articleSelected || !file) return
 
     try {
@@ -768,14 +748,14 @@ function ManualEntryFallback() {
         submissionId,
         locale: locale === "__default__" ? "" : locale,
       })
-      setStatusMessage(
+      toast.success(
         `Saved audio for submission #${saved.submission_id} (locale "${saved.locale || "default"}").`
       )
       setFile(null)
       const fileInput = event.currentTarget.elements.namedItem("manual-audio-file")
       if (fileInput instanceof HTMLInputElement) fileInput.value = ""
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Upload failed")
+      toast.error(err instanceof Error ? err.message : "Upload failed")
     }
   }
 
@@ -849,10 +829,6 @@ function ManualEntryFallback() {
               />
               <p className="text-xs text-muted-foreground">MP3, M4A, WAV, or OGG.</p>
             </div>
-            {errorMessage && <p className="text-sm text-destructive" role="alert">{errorMessage}</p>}
-            {statusMessage && !errorMessage && (
-              <p className="text-sm text-emerald-600 dark:text-emerald-400" role="status">{statusMessage}</p>
-            )}
             <Button type="submit" disabled={!articleSelected || !file || upload.isPending} className="gap-2">
               {upload.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               {upload.isPending ? "Uploading…" : "Upload"}

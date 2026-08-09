@@ -23,6 +23,16 @@ const MESSAGE_SELECT = {
 // GET /messages - List all messages (admin only, paginated)
 app.get("/", requireAdmin, async (c) => {
   try {
+    // Lightweight count mode for the header alert badge — avoids paying for
+    // a full page of message rows on every poll.
+    if (c.req.query("countOnly") === "true") {
+      const [unread, total] = await Promise.all([
+        prisma.message.count({ where: { status: "unread" } }),
+        prisma.message.count(),
+      ])
+      return c.json({ success: true, data: { unread, total } }, 200)
+    }
+
     const pagination = parsePagination(c)
 
     const [messages, total] = await Promise.all([

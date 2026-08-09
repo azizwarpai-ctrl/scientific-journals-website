@@ -41,3 +41,7 @@ check-sync.ts
 test-serialize.ts
 verify-db.ts
 check_env.ts
+# Playwright
+e2e/.auth/
+e2e/.results/
+playwright-report/

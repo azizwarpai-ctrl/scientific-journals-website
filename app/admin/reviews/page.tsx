@@ -26,8 +26,8 @@ export default function ReviewsPage() {
       {isLoading ? (
         <div className="py-12 text-center text-muted-foreground animate-pulse">Loading reviews...</div>
       ) : error ? (
-        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
-          <p className="text-sm text-red-600 dark:text-red-400">Error loading reviews: {(error as Error).message}</p>
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-4">
+          <p className="text-sm text-destructive">Error loading reviews: {(error as Error).message}</p>
         </div>
       ) : (
         <>

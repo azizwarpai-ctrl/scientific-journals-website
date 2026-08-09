@@ -18,12 +18,14 @@ export default async function MessagesPage() {
 
   // Fetch messages with counts
   let messages: any[] = []
+  let loadFailed = false
   try {
     messages = await prisma.message.findMany({
       orderBy: { created_at: "desc" }
     })
   } catch (error) {
     console.error("Error fetching messages:", error)
+    loadFailed = true
   }
 
   const unreadCount = messages?.filter((m) => m.status === "unread").length || 0
@@ -37,6 +39,17 @@ export default async function MessagesPage() {
         <p className="text-muted-foreground">Manage submission help and technical support requests</p>
       </div>
 
+      {loadFailed && (
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-lg p-4">
+          <p className="text-sm font-medium">Failed to load messages.</p>
+          <p className="text-sm mt-1">
+            The database could not be reached. Refresh the page to try again, or check the server logs if the problem persists.
+          </p>
+        </div>
+      )}
+
+      {!loadFailed && (
+      <>
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
@@ -207,6 +220,8 @@ export default async function MessagesPage() {
           </Tabs>
         </CardContent>
       </Card>
+      </>
+      )}
     </div>
   )
 }

@@ -113,7 +113,7 @@ export default function EmailTemplatesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">This page &mdash; Active</CardTitle>
-            <MailCheck className="h-4 w-4 text-green-500" />
+            <MailCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activeCount}</div>
@@ -123,7 +123,7 @@ export default function EmailTemplatesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">This page &mdash; Inactive</CardTitle>
-            <MailX className="h-4 w-4 text-orange-500" />
+            <MailX className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{inactiveCount}</div>
@@ -148,7 +148,7 @@ export default function EmailTemplatesPage() {
               </Badge>
             ) : smtpStatus?.smtpConfigured ? (
               <div className="space-y-1">
-                <Badge className="bg-green-500 hover:bg-green-600 flex w-fit items-center gap-1">
+                <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex w-fit items-center gap-1">
                   <MailCheck className="h-3 w-3" />
                   Configured
                 </Badge>

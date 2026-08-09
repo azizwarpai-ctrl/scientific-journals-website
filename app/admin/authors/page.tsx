@@ -2,7 +2,8 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Mail, FileText } from "lucide-react"
+import { Users } from "lucide-react"
+import { AuthorsTable, type AuthorRow } from "./authors-table"
 
 export default async function AuthorsPage() {
   const session = await getSession()
@@ -13,6 +14,7 @@ export default async function AuthorsPage() {
 
   // Fetch unique authors from submissions
   let submissions: any[] = []
+  let error: Error | null = null
   try {
     submissions = await prisma.submission.findMany({
       select: {
@@ -22,11 +24,13 @@ export default async function AuthorsPage() {
       },
       orderBy: { submission_date: "desc" }
     })
-  } catch (error) {
-    console.error("Error fetching submissions:", error)
+  } catch (e) {
+    console.error("Error fetching submissions:", e)
+    error = e as Error
   }
 
-  // Group by email to get unique authors
+  // Group by email to get unique authors (submissions are ordered newest-first,
+  // so the first occurrence carries each author's latest submission date)
   const authorsMap = new Map()
   if (submissions) {
     for (const submission of submissions) {
@@ -48,12 +52,25 @@ export default async function AuthorsPage() {
     (a, b) => new Date(b.firstSubmission).getTime() - new Date(a.firstSubmission).getTime(),
   )
 
+  const rows: AuthorRow[] = authors.map((author) => ({
+    name: author.name,
+    email: author.email,
+    submissions: author.submissions,
+    latestSubmission: new Date(author.firstSubmission).toISOString(),
+  }))
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Author Management</h1>
         <p className="text-muted-foreground mt-1">View and manage authors who have submitted to the platform</p>
       </div>
+
+      {error && (
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-4">
+          <p className="text-sm text-destructive">Error loading authors: {error.message}</p>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -63,41 +80,7 @@ export default async function AuthorsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {authors.length > 0 ? (
-            <div className="space-y-4">
-              {authors.map((author) => (
-                <div
-                  key={author.email}
-                  className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
-                >
-                  <div className="space-y-1">
-                    <p className="font-medium">{author.name}</p>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Mail className="h-3 w-3" />
-                        {author.email}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <FileText className="h-3 w-3" />
-                        {author.submissions} submission{author.submissions !== 1 ? "s" : ""}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Joined: {new Date(author.firstSubmission).toLocaleDateString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-12 text-center">
-              <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-lg font-medium">No authors yet</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Authors will appear here after submitting manuscripts
-              </p>
-            </div>
-          )}
+          <AuthorsTable rows={rows} />
         </CardContent>
       </Card>
     </div>

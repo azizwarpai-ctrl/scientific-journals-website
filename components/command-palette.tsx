@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { Command } from "cmdk"
 import { Search, BookOpen, Zap, HelpCircle, Loader2, X, ArrowUpRight, FileText, User, Tag, ScrollText } from "lucide-react"
 import { useSearch, useSearchStore } from "@/src/features/search"
 import type { SearchResult } from "@/src/features/search"
+import { ADMIN_NAV_FLAT } from "@/src/config/admin-nav"
 
 // ─── Type configuration ──────────────────────────────────────────────────────
 const TYPE_CONFIG = {
@@ -161,6 +162,16 @@ export function CommandPalette() {
   // ── Loading state delay to prevent flicker ────────────────────────────────
   const showLoadingState = useDelayedLoading(isFetching && debouncedQuery.length >= 1, 200)
 
+  // ── Admin navigation group (only inside /admin) ───────────────────────────
+  // cmdk runs with shouldFilter={false} (results come from the search API),
+  // so admin nav items are filtered manually against the raw input.
+  const pathname = usePathname()
+  const isAdminContext = pathname?.startsWith("/admin") ?? false
+  const adminQuery = inputValue.trim().toLowerCase()
+  const adminMatches = isAdminContext
+    ? ADMIN_NAV_FLAT.filter((item) => !adminQuery || item.title.toLowerCase().includes(adminQuery))
+    : []
+
 
 
   // ── Guard: nothing to render when closed ─────────────────────────────────
@@ -168,7 +179,7 @@ export function CommandPalette() {
 
   const isIdle = !debouncedQuery || debouncedQuery.length < 1
   const showLoading = !isIdle && showLoadingState
-  const showNoResults = !isIdle && !isFetching && results.length === 0
+  const showNoResults = !isIdle && !isFetching && results.length === 0 && adminMatches.length === 0
   const showResults = !isIdle && results.length > 0
 
   return (
@@ -246,7 +257,29 @@ export function CommandPalette() {
           {/* ── Results list ──────────────────────────────────────────────── */}
           <Command.List className="max-h-[55vh] scroll-smooth overflow-y-auto overscroll-contain">
             {/* Idle / empty query */}
-            {isIdle && (
+            {/* Admin navigation — shown in the admin area, both idle and while typing */}
+            {adminMatches.length > 0 && (isIdle || !showLoading) && (
+              <Command.Group
+                heading="Admin navigation"
+                className="py-2 [&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:text-muted-foreground/60"
+              >
+                {adminMatches.map((item) => (
+                  <Command.Item
+                    key={item.href}
+                    value={`admin-nav-${item.href}`}
+                    onSelect={() => handleNavigate(item.href)}
+                    className="group mx-2 flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm outline-none transition-colors aria-selected:bg-accent aria-selected:text-accent-foreground data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <item.icon className="h-4 w-4" />
+                    </div>
+                    <p className="truncate text-sm font-medium leading-tight">{item.title}</p>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {isIdle && !isAdminContext && (
               <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
                   <Search className="h-5 w-5 text-muted-foreground" />

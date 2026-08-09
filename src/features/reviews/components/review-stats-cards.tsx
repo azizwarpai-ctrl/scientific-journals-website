@@ -24,19 +24,19 @@ export function ReviewStatCards({ reviews }: ReviewStatCardsProps) {
             <Card>
                 <CardContent className="p-4">
                     <div className="text-sm text-muted-foreground">Pending</div>
-                    <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pending}</div>
+                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{stats.pending}</div>
                 </CardContent>
             </Card>
             <Card>
                 <CardContent className="p-4">
                     <div className="text-sm text-muted-foreground">In Progress</div>
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.in_progress}</div>
+                    <div className="text-2xl font-bold text-sky-600 dark:text-sky-400">{stats.in_progress}</div>
                 </CardContent>
             </Card>
             <Card>
                 <CardContent className="p-4">
                     <div className="text-sm text-muted-foreground">Completed</div>
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.completed}</div>
+                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.completed}</div>
                 </CardContent>
             </Card>
         </div>
