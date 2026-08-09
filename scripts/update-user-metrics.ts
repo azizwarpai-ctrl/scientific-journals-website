@@ -1,58 +1,22 @@
 /**
- * Recompute lifetime per-ORCID totals into user_metrics.
+ * Recompute lifetime per-ORCID totals into user_metrics — thin CLI wrapper
+ * around `updateUserMetrics()` in src/features/metrics/server/jobs.ts
+ * (shared with the POST /api/metrics/cron/user endpoint).
  * Idempotent. Run nightly after aggregate-daily-metrics.
  */
 
 import "dotenv/config"
 import { prisma } from "@/src/lib/db/config"
-
-interface AggRow {
-    orcid: string
-    views: bigint
-    downloads: bigint
-    citations: bigint
-    first_seen_at: Date
-    last_event_at: Date
-}
+import { updateUserMetrics } from "@/src/features/metrics/server/jobs"
+import { withSyncRun } from "@/src/features/ojs/server/sync-runs"
 
 async function main() {
-    const rows = await prisma.$queryRawUnsafe<AggRow[]>(
-        `SELECT
-            orcid,
-            SUM(CASE WHEN event_type='view' THEN 1 ELSE 0 END) AS views,
-            SUM(CASE WHEN event_type='download' THEN 1 ELSE 0 END) AS downloads,
-            SUM(CASE WHEN event_type='citation_export' THEN 1 ELSE 0 END) AS citations,
-            MIN(created_at) AS first_seen_at,
-            MAX(created_at) AS last_event_at
-         FROM user_event
-         WHERE orcid IS NOT NULL
-         GROUP BY orcid`
-    )
-
-    let upserted = 0
-    for (const r of rows) {
-        await prisma.userMetrics.upsert({
-            where: { orcid: r.orcid },
-            create: {
-                orcid: r.orcid,
-                views: Number(r.views ?? 0n),
-                downloads: Number(r.downloads ?? 0n),
-                citations: Number(r.citations ?? 0n),
-                first_seen_at: r.first_seen_at,
-                last_event_at: r.last_event_at,
-            },
-            update: {
-                views: Number(r.views ?? 0n),
-                downloads: Number(r.downloads ?? 0n),
-                citations: Number(r.citations ?? 0n),
-                last_event_at: r.last_event_at,
-            },
-        })
-        upserted++
-    }
-
+    const result = await withSyncRun("user_metrics_update", "cron", async () => {
+        const r = await updateUserMetrics()
+        return { status: "success" as const, stats: { ...r }, result: r }
+    })
     // eslint-disable-next-line no-console
-    console.log(`[update-user-metrics] upserted=${upserted}`)
+    console.log(`[update-user-metrics] upserted=${result.upserted}`)
 }
 
 main()

@@ -57,3 +57,64 @@ export interface AdminAnalyticsSummary {
   /** ISO timestamp of when the response was computed (server clock). */
   computedAt: string
 }
+
+// ─── Timeseries (GET /admin-analytics/timeseries) ────────────────────
+
+export interface TimeseriesPoint {
+  /** `YYYY-MM-DD` (interval=day) or `YYYY-MM` (interval=month). */
+  date: string
+  /**
+   * `null` only when the series' `hasData` is false (source table empty —
+   * render "No data yet"). With data present, absent buckets are honest 0s.
+   */
+  value: number | null
+}
+
+export interface TimeseriesSeries {
+  metric: string
+  /** False when the metric's source table has no rows at all. */
+  hasData: boolean
+  /** Dense date spine — one point per day/month in [from, to]. */
+  points: TimeseriesPoint[]
+}
+
+export interface TimeseriesResponse {
+  interval: "day" | "month"
+  from: string
+  to: string
+  series: TimeseriesSeries[]
+  computedAt: string
+}
+
+// ─── Sync health (GET /admin-analytics/sync-health) ──────────────────
+
+export interface SyncHealthRunSummary {
+  status: string
+  startedAt: string
+  durationMs: number | null
+}
+
+export interface SyncHealthJob {
+  jobName: string
+  lastRun: {
+    id: string
+    status: string
+    triggeredBy: string
+    startedAt: string
+    finishedAt: string | null
+    durationMs: number | null
+    error: string | null
+    stats: Record<string, unknown> | null
+  }
+  lastSuccessAt: string | null
+  /** Consecutive failed/partial runs from the most recent backwards. */
+  failureStreak: number
+  recentRuns: SyncHealthRunSummary[]
+}
+
+export interface SyncHealthResponse {
+  jobs: SyncHealthJob[]
+  /** Sum of per-job failure streaks — drives the header alert badge. */
+  totalFailureStreak: number
+  computedAt: string
+}

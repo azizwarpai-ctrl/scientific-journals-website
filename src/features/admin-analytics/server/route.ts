@@ -1,8 +1,13 @@
 import { Hono } from "hono"
+import { zValidator } from "@hono/zod-validator"
 import { requireAdmin } from "@/src/lib/auth-middleware"
 import { serializeRecord } from "@/src/lib/serialize"
 import { prisma } from "@/src/lib/db/config"
 import { ojsHealthCheck } from "@/src/features/ojs/server/ojs-client"
+import { getOrSetCache, CACHE_HEADERS } from "@/src/lib/server-cache"
+import { timeseriesQuerySchema } from "@/src/features/admin-analytics/schemas/timeseries-schema"
+import { getTimeseries } from "./timeseries"
+import { getSyncHealth } from "./sync-health"
 import type { AdminAnalyticsSummary } from "@/src/features/admin-analytics/types/admin-analytics-types"
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
@@ -89,6 +94,34 @@ app.get("/summary", requireAdmin, async (c) => {
   }
 
   return c.json({ success: true, data: serializeRecord(summary) })
+})
+
+// GET /admin-analytics/timeseries?metrics=views,downloads&interval=day&from=…&to=…
+app.get("/timeseries", requireAdmin, zValidator("query", timeseriesQuerySchema), async (c) => {
+  try {
+    const query = c.req.valid("query")
+    const cacheKey = `admin-analytics:timeseries:${JSON.stringify({ ...query, journalId: query.journalId?.toString() })}`
+    const data = await getOrSetCache(cacheKey, 60_000, () => getTimeseries(query))
+    return c.json({ success: true, data }, 200, CACHE_HEADERS)
+  } catch (error) {
+    console.error("[admin-analytics] timeseries failed:", error)
+    return c.json({ success: false, error: "Failed to compute timeseries" }, 500)
+  }
+})
+
+// GET /admin-analytics/sync-health?limit=10 — recurring-job ledger feed
+app.get("/sync-health", requireAdmin, async (c) => {
+  try {
+    const limitRaw = Number(c.req.query("limit") ?? 10)
+    const limit = Number.isInteger(limitRaw) && limitRaw >= 1 && limitRaw <= 50 ? limitRaw : 10
+    const data = await getOrSetCache(`admin-analytics:sync-health:${limit}`, 30_000, () =>
+      getSyncHealth(limit)
+    )
+    return c.json({ success: true, data }, 200, CACHE_HEADERS)
+  } catch (error) {
+    console.error("[admin-analytics] sync-health failed:", error)
+    return c.json({ success: false, error: "Failed to load sync health" }, 500)
+  }
 })
 
 export { app as adminAnalyticsRouter }

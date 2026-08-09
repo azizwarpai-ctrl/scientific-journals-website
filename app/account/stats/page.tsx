@@ -92,9 +92,9 @@ export default function AccountStatsPage() {
                             <YAxis fontSize={11} allowDecimals={false} />
                             <Tooltip />
                             <Legend />
-                            <Bar dataKey="views" fill="#3b82f6" />
-                            <Bar dataKey="downloads" fill="#10b981" />
-                            <Bar dataKey="citations" fill="#f59e0b" />
+                            <Bar dataKey="views" fill="var(--chart-1)" />
+                            <Bar dataKey="downloads" fill="var(--chart-2)" />
+                            <Bar dataKey="citations" fill="var(--chart-3)" />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>

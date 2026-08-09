@@ -4,9 +4,12 @@ import { isOjsConfigured, ojsHealthCheck } from "./ojs-client"
 import { syncOjsJournals } from "./sync-ojs-journals"
 import { fetchFromDatabase } from "./ojs-service"
 import { ssoRouter } from "./sso-route"
-import { ojsCache, CACHE_TTL } from "./ojs-cache"
+import { ojsCache, isFresh, isServableStale, isErrorCached, setCacheEntry, markCacheError } from "./ojs-cache"
 import { provisionRouter } from "./provision-route"
 import { prisma } from "@/src/lib/db/config"
+import { verifyCronSecret } from "@/src/lib/cron-auth"
+import { withSyncRun } from "./sync-runs"
+import { refreshOjsJournalSnapshots } from "./ojs-journal-snapshots"
 
 // Window during which a fresh sync request will be rejected. Covers both
 // "another sync is in flight" and "a sync just finished" — Google/cron
@@ -25,11 +28,36 @@ app.get("/journals", async (c) => {
 
         const start = Date.now()
 
-        if (ojsCache.journals.data && Date.now() < ojsCache.journals.expiresAt) {
+        if (isFresh(ojsCache.journals)) {
             return c.json({ ...ojsCache.journals.data, latencyMs: Date.now() - start }, 200)
         }
 
-        const journals = await fetchFromDatabase()
+        // Negative cache: a fetch just failed — serve stale if we have it
+        // rather than re-hammering the 3-connection OJS pool.
+        if (isErrorCached(ojsCache.journals)) {
+            if (isServableStale(ojsCache.journals)) {
+                return c.json({ ...ojsCache.journals.data, stale: true, latencyMs: Date.now() - start }, 200)
+            }
+            return c.json({ success: false, configured: true, error: "OJS temporarily unavailable" }, 503)
+        }
+
+        let journals
+        try {
+            journals = await fetchFromDatabase()
+        } catch (fetchError) {
+            // Stale-while-revalidate: degrade to stale data on OJS outage
+            // (e.g. a SiteGround IP-whitelist flap) instead of failing.
+            console.error("Error fetching OJS journals:", fetchError)
+            markCacheError(ojsCache.journals)
+            if (isServableStale(ojsCache.journals)) {
+                return c.json({ ...ojsCache.journals.data, stale: true, latencyMs: Date.now() - start }, 200)
+            }
+            return c.json(
+                { success: false, configured: true, error: "Failed to fetch OJS journals" },
+                500
+            )
+        }
+
         const responsePayload = { success: true as const, data: journals, configured: true as const }
 
         const validated = ojsJournalsResponseSchema.safeParse(responsePayload)
@@ -42,10 +70,7 @@ app.get("/journals", async (c) => {
         }
 
         const validatedData = validated.data
-        ojsCache.journals = {
-            data: validatedData,
-            expiresAt: Date.now() + CACHE_TTL
-        }
+        setCacheEntry(ojsCache.journals, validatedData)
 
         return c.json({ ...validatedData, latencyMs: Date.now() - start }, 200)
     } catch (error) {
@@ -60,12 +85,13 @@ app.get("/journals", async (c) => {
 // GET /ojs/sync — Cron-triggered synchronization endpoint
 // Protected by Authorization: Bearer <CRON_SECRET> header
 app.get("/sync", async (c) => {
-    const authHeader = c.req.header("authorization")
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null
-    const cronSecret = process.env.CRON_SECRET
-
-    if (!cronSecret || token !== cronSecret) {
+    if (!verifyCronSecret(c.req.header("authorization"))) {
         return c.json({ success: false, error: "Unauthorized" }, 401)
+    }
+
+    if (process.env.OJS_SYNC_ENABLED === "false") {
+        console.log("[OJS_SYNC] Skipped: OJS_SYNC_ENABLED=false")
+        return c.json({ success: false, error: "OJS sync disabled (OJS_SYNC_ENABLED=false)" }, 503)
     }
 
     if (!isOjsConfigured()) {
@@ -104,9 +130,18 @@ app.get("/sync", async (c) => {
         }
 
         const start = Date.now()
-        // Sync everything, including disabled journals, so they get marked inactive
-        const journals = await fetchFromDatabase(true)
-        const syncResult = await syncOjsJournals(journals)
+        const syncResult = await withSyncRun("ojs_journals_sync", "http", async () => {
+            // Sync everything, including disabled journals, so they get marked
+            // inactive; deactivateMissing soft-deletes journals removed in OJS.
+            const journals = await fetchFromDatabase(true)
+            const result = await syncOjsJournals(journals, { deactivateMissing: true })
+            const snapshots = await refreshOjsJournalSnapshots()
+            return {
+                status: result.errors > 0 ? ("partial" as const) : ("success" as const),
+                stats: { ...result, snapshots },
+                result: { ...result, snapshots },
+            }
+        })
 
         const success = syncResult.errors === 0
         const status = success ? 200 : 207

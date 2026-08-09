@@ -1,90 +1,33 @@
 /**
- * Monthly rollup. Reads metrics_article_daily for the target month (default:
- * previous month UTC) and upserts one row per article into metrics_article_monthly.
+ * Monthly rollup — thin CLI wrapper around `aggregateMonthlyMetrics()` in
+ * src/features/metrics/server/jobs.ts (shared with the
+ * POST /api/metrics/cron/monthly endpoint).
+ *
+ * Usage:
+ *   bun run scripts/aggregate-monthly-metrics.ts
+ *   bun run scripts/aggregate-monthly-metrics.ts --month=2026-05
  */
 
 import "dotenv/config"
 import { prisma } from "@/src/lib/db/config"
+import { aggregateMonthlyMetrics } from "@/src/features/metrics/server/jobs"
+import { withSyncRun } from "@/src/features/ojs/server/sync-runs"
 
-function parseTargetMonth(argv: string[]): { year: number; month: number } {
+function parseTargetMonth(argv: string[]): { year: number; month: number } | undefined {
     const flag = argv.find((a) => a.startsWith("--month="))
-    if (flag) {
-        const [y, m] = flag.slice(8).split("-").map(Number)
-        return { year: y, month: m }
-    }
-    const now = new Date()
-    const target = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
-    return { year: target.getUTCFullYear(), month: target.getUTCMonth() + 1 }
-}
-
-interface AggRow {
-    article_id: bigint
-    journal_id: bigint
-    views: bigint
-    unique_views: bigint
-    downloads: bigint
-    unique_downloads: bigint
-    citations: bigint
+    if (!flag) return undefined
+    const [y, m] = flag.slice(8).split("-").map(Number)
+    return { year: y, month: m }
 }
 
 async function main() {
-    const { year, month } = parseTargetMonth(process.argv)
-    const mm = String(month).padStart(2, "0")
-    const dayPrefix = `${year}-${mm}-`
-
-    const rows = await prisma.$queryRawUnsafe<AggRow[]>(
-        `SELECT
-            article_id,
-            journal_id,
-            SUM(views) AS views,
-            SUM(unique_views) AS unique_views,
-            SUM(downloads) AS downloads,
-            SUM(unique_downloads) AS unique_downloads,
-            SUM(citations) AS citations
-         FROM metrics_article_daily
-         WHERE day LIKE ? AND source='digitopub'
-         GROUP BY article_id, journal_id`,
-        `${dayPrefix}%`
-    )
-
-    let upserted = 0
-    for (const r of rows) {
-        await prisma.metricsArticleMonthly.upsert({
-            where: {
-                article_id_year_month_source: {
-                    article_id: r.article_id,
-                    year,
-                    month,
-                    source: "digitopub",
-                },
-            },
-            create: {
-                article_id: r.article_id,
-                journal_id: r.journal_id,
-                year,
-                month,
-                views: Number(r.views ?? 0n),
-                unique_views: Number(r.unique_views ?? 0n),
-                downloads: Number(r.downloads ?? 0n),
-                unique_downloads: Number(r.unique_downloads ?? 0n),
-                citations: Number(r.citations ?? 0n),
-                source: "digitopub",
-            },
-            update: {
-                journal_id: r.journal_id,
-                views: Number(r.views ?? 0n),
-                unique_views: Number(r.unique_views ?? 0n),
-                downloads: Number(r.downloads ?? 0n),
-                unique_downloads: Number(r.unique_downloads ?? 0n),
-                citations: Number(r.citations ?? 0n),
-                computed_at: new Date(),
-            },
-        })
-        upserted++
-    }
-
+    const result = await withSyncRun("metrics_monthly_aggregation", "cron", async () => {
+        const r = await aggregateMonthlyMetrics(parseTargetMonth(process.argv))
+        return { status: "success" as const, stats: { ...r }, result: r }
+    })
+    const mm = String(result.month).padStart(2, "0")
     // eslint-disable-next-line no-console
-    console.log(`[aggregate-monthly-metrics] ${year}-${mm} upserted=${upserted}`)
+    console.log(`[aggregate-monthly-metrics] ${result.year}-${mm} upserted=${result.upserted}`)
 }
 
 main()

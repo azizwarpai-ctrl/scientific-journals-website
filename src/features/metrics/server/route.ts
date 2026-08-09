@@ -1,7 +1,17 @@
 import { Hono } from "hono"
+import type { Context } from "hono"
 import { ojsQuery, isOjsConfigured } from "@/src/features/ojs/server/ojs-client"
 import { prisma } from "@/src/lib/db/config"
 import { metricsEventsRouter } from "@/src/server/routes/metrics-events"
+import { verifyCronSecret } from "@/src/lib/cron-auth"
+import { acquireJobLock } from "@/src/lib/cron-lock"
+import { withSyncRun } from "@/src/features/ojs/server/sync-runs"
+import {
+    aggregateDailyMetrics,
+    aggregateMonthlyMetrics,
+    updateUserMetrics,
+    retentionCleanup,
+} from "./jobs"
 
 const AUTHOR_ROLE_ID = 65536 // PKP\security\Role::ROLE_ID_AUTHOR
 
@@ -11,6 +21,79 @@ const app = new Hono()
 // under /api/metrics/events/* so they never collide with the existing
 // GET /api/metrics/ site-stats endpoint.
 app.route("/events", metricsEventsRouter)
+
+// ─── Cron endpoints ──────────────────────────────────────────────────
+// The production host has no crontab (see docs/ops/discovery-2026-08.md),
+// so the metrics jobs are triggered over HTTP by hPanel cron / an external
+// scheduler. Same protection stack as /api/ojs/sync: Bearer CRON_SECRET
+// (timing-safe), a self-expiring DB lock (429 when held), and a SyncRun
+// ledger row per execution. Schedule: docs/ops/cron-schedule.md.
+
+const CRON_LOCK_WINDOW_MS = 5 * 60 * 1000
+// Soft wall-clock budget below typical shared-hosting request timeouts; a
+// job that exceeds it reports partial (207) and resumes on the next tick.
+const CRON_SOFT_DEADLINE_MS = 50 * 1000
+
+function cronEndpoint(
+    jobName: string,
+    run: (c: Context) => Promise<{ partial: boolean; stats: Record<string, unknown> }>
+) {
+    return async (c: Context) => {
+        if (!verifyCronSecret(c.req.header("authorization"))) {
+            return c.json({ success: false, error: "Unauthorized" }, 401)
+        }
+        if (!(await acquireJobLock(`${jobName}_lock`, CRON_LOCK_WINDOW_MS))) {
+            return c.json(
+                { success: false, error: "Job already in progress or recently completed" },
+                429
+            )
+        }
+        try {
+            const outcome = await withSyncRun(jobName, "http", async () => {
+                const { partial, stats } = await run(c)
+                return {
+                    status: partial ? ("partial" as const) : ("success" as const),
+                    stats,
+                    result: { partial, stats },
+                }
+            })
+            return c.json(
+                { success: !outcome.partial, ...outcome.stats },
+                outcome.partial ? 207 : 200
+            )
+        } catch (error) {
+            console.error(`[${jobName}] cron run failed:`, error)
+            return c.json({ success: false, error: "Job failed" }, 500)
+        }
+    }
+}
+
+app.post("/cron/daily", cronEndpoint("metrics_daily_aggregation", async (c) => {
+    const day = c.req.query("day")
+    const result = await aggregateDailyMetrics(day || undefined)
+    return { partial: false, stats: { ...result } }
+}))
+
+app.post("/cron/monthly", cronEndpoint("metrics_monthly_aggregation", async (c) => {
+    const monthParam = c.req.query("month")
+    let target: { year: number; month: number } | undefined
+    if (monthParam) {
+        const [y, m] = monthParam.split("-").map(Number)
+        target = { year: y, month: m }
+    }
+    const result = await aggregateMonthlyMetrics(target)
+    return { partial: false, stats: { ...result } }
+}))
+
+app.post("/cron/user", cronEndpoint("user_metrics_update", async () => {
+    const result = await updateUserMetrics()
+    return { partial: false, stats: { ...result } }
+}))
+
+app.post("/cron/retention", cronEndpoint("retention_cleanup", async () => {
+    const result = await retentionCleanup({ deadlineMs: CRON_SOFT_DEADLINE_MS })
+    return { partial: !result.completed, stats: { ...result } }
+}))
 
 app.get("/", async (c) => {
     try {

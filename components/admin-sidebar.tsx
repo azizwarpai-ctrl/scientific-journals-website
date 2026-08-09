@@ -2,93 +2,28 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { cn } from "@/src/lib/utils"
+import { LogOut } from "lucide-react"
 import {
-  LayoutDashboard,
-  BookOpen,
-  FileText,
-  Users,
-  Eye,
-  Settings,
-  LogOut,
-  BarChart3,
-  Menu,
-  X,
-  Mail,
-  Music,
-} from "lucide-react"
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
 import { Logo } from "@/components/logo"
-
-const sidebarItems = [
-  {
-    title: "Dashboard",
-    href: "/admin/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Journals",
-    href: "/admin/journals",
-    icon: BookOpen,
-  },
-  {
-    title: "Submissions",
-    href: "/admin/submissions",
-    icon: FileText,
-  },
-  {
-    title: "Reviews",
-    href: "/admin/reviews",
-    icon: Eye,
-  },
-  {
-    title: "Messages",
-    href: "/admin/messages",
-    icon: Mail,
-  },
-
-  {
-    title: "Help Content",
-    href: "/admin/help-content",
-    icon: BookOpen,
-  },
-  {
-    title: "About Page",
-    href: "/admin/about",
-    icon: FileText,
-  },
-  {
-    title: "Authors",
-    href: "/admin/authors",
-    icon: Users,
-  },
-  {
-    title: "Analytics",
-    href: "/admin/analytics",
-    icon: BarChart3,
-  },
-  {
-    title: "Article Audio",
-    href: "/admin/article-audio",
-    icon: Music,
-  },
-  {
-    title: "Settings",
-    href: "/admin/settings",
-    icon: Settings,
-  },
-  {
-    title: "Email Templates",
-    href: "/admin/email-templates",
-    icon: Mail,
-  },
-]
+import { ADMIN_NAV } from "@/src/config/admin-nav"
 
 export function AdminSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { setOpenMobile } = useSidebar()
 
   const handleLogout = async () => {
     try {
@@ -101,69 +36,46 @@ export function AdminSidebar() {
   }
 
   return (
-    <>
-      {/* Mobile Menu Button */}
-      <Button
-        variant="outline"
-        size="icon"
-        className="fixed top-4 left-4 z-50 lg:hidden bg-transparent"
-        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-      >
-        {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-      </Button>
+    <Sidebar collapsible="offcanvas">
+      <SidebarHeader className="h-16 justify-center border-b px-4">
+        <Logo width={140} height={40} className="h-10 w-auto" />
+      </SidebarHeader>
 
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          "fixed left-0 top-0 z-40 h-screen w-64 border-r bg-card transition-transform duration-300 lg:translate-x-0",
-          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full",
-        )}
-      >
-        <div className="flex h-full flex-col">
-          {/* Logo */}
-          <div className="flex h-16 items-center border-b px-6">
-            <Logo width={140} height={40} className="h-10 w-auto" />
-          </div>
+      <SidebarContent>
+        {ADMIN_NAV.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                        <Link href={item.href} onClick={() => setOpenMobile(false)}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
 
-          {/* Navigation */}
-          <nav className="flex-1 space-y-1 px-3 py-4">
-            {sidebarItems.map((item) => {
-              const Icon = item.icon
-              const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  {item.title}
-                </Link>
-              )
-            })}
-          </nav>
-
-          {/* Logout Button */}
-          <div className="border-t p-4">
-            <Button variant="outline" className="w-full justify-start bg-transparent" onClick={handleLogout}>
-              <LogOut className="mr-2 h-5 w-5" />
-              Logout
-            </Button>
-          </div>
-        </div>
-      </aside>
-
-      {/* Mobile Overlay */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setIsMobileMenuOpen(false)} />
-      )}
-    </>
+      <SidebarFooter className="border-t">
+        <Button
+          variant="outline"
+          className="w-full justify-start bg-transparent"
+          onClick={handleLogout}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Logout
+        </Button>
+      </SidebarFooter>
+    </Sidebar>
   )
 }

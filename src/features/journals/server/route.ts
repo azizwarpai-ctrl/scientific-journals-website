@@ -13,13 +13,18 @@ const app = new Hono()
 let runningFullSyncPromise: Promise<void> | null = null;
 
 // ─── OJS drift self-heal ─────────────────────────────────────────────
-// Once Prisma has >=1 journal, the cold-start sync in GET / never runs again.
-// New journals added in OJS would stay invisible until an external cron
-// (/api/ojs/sync) or manual `bun run ojs:sync` runs. The drift check below
-// closes that gap: after every public listing response, we cheaply compare
-// COUNT(*) on OJS vs Prisma; if OJS has more, we fire a single-flight
-// background sync. Throttled to avoid hammering the OJS DB.
+// Once Prisma has >=1 journal, journals added/edited/deleted in OJS would
+// stay stale until an external cron (/api/ojs/sync) or manual
+// `bun run ojs:sync` runs. The drift check below closes that gap: after
+// every public listing response, we compare a cheap fingerprint of the OJS
+// journals table (count + CRC32 sum over id/enabled/path) against the value
+// stored at last successful sync; on mismatch we fire a single-flight
+// background sync. Unlike the previous count-only comparison, this detects
+// deletions and edits, not just additions. Set OJS_DRIFT_FINGERPRINT=0 to
+// fall back to the legacy count-only comparison (kept for one release).
+// Throttled to avoid hammering the OJS DB.
 let lastOjsDriftCheckTs = 0;
+let pendingDriftCheckPromise: Promise<void> | null = null;
 const DEFAULT_DRIFT_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 function getDriftCheckIntervalMs(): number {
@@ -36,6 +41,17 @@ function getDriftCheckIntervalMs(): number {
 export function __resetOjsDriftCheckStateForTests(): void {
   lastOjsDriftCheckTs = 0;
   runningFullSyncPromise = null;
+  pendingDriftCheckPromise = null;
+}
+
+/**
+ * Test-only hook: awaits the currently pending fire-and-forget drift check
+ * (including any background sync it launched) so specs can assert its
+ * effects deterministically instead of sleeping. Resolves immediately when
+ * nothing is pending.
+ */
+export async function __waitForOjsDriftCheckForTests(): Promise<void> {
+  await pendingDriftCheckPromise;
 }
 
 function scheduleOjsDriftCheck(prismaTotal: number): void {
@@ -46,30 +62,56 @@ function scheduleOjsDriftCheck(prismaTotal: number): void {
   if (Date.now() - lastOjsDriftCheckTs < interval) return;
   lastOjsDriftCheckTs = Date.now();
 
-  void (async () => {
+  pendingDriftCheckPromise = (async () => {
     try {
       const { isOjsConfigured, ojsQuery } = await import("@/src/features/ojs/server/ojs-client");
       if (!isOjsConfigured()) return;
 
-      const rows = await ojsQuery<{ c: number }>("SELECT COUNT(*) AS c FROM journals");
-      const ojsTotal = Number(rows?.[0]?.c ?? 0);
-      if (ojsTotal <= prismaTotal) return;
+      let driftDetected: boolean;
+      let driftReason: string;
+      if (process.env.OJS_DRIFT_FINGERPRINT === "0") {
+        // Legacy additions-only comparison (fallback flag, one release).
+        const rows = await ojsQuery<{ c: number }>("SELECT COUNT(*) AS c FROM journals");
+        const ojsTotal = Number(rows?.[0]?.c ?? 0);
+        driftDetected = ojsTotal > prismaTotal;
+        driftReason = `OJS=${ojsTotal} > Prisma=${prismaTotal}`;
+      } else {
+        const { computeOjsJournalsFingerprint, getStoredJournalsFingerprint } = await import("@/src/features/ojs/server/sync-ojs-journals");
+        const [current, stored] = await Promise.all([
+          computeOjsJournalsFingerprint(),
+          getStoredJournalsFingerprint(),
+        ]);
+        driftDetected = current !== stored;
+        driftReason = `fingerprint ${stored ?? "<none>"} -> ${current}`;
+      }
+      if (!driftDetected) return;
 
       if (runningFullSyncPromise) return;
-      console.log(`[journals/self-heal] Drift detected: OJS=${ojsTotal} > Prisma=${prismaTotal}. Triggering single-flight background sync.`);
+      console.log(`[journals/self-heal] Drift detected (${driftReason}). Triggering single-flight background sync.`);
       runningFullSyncPromise = (async () => {
         try {
           const { fetchFromDatabase } = await import("@/src/features/ojs/server/ojs-service");
           const { syncOjsJournals } = await import("@/src/features/ojs/server/sync-ojs-journals");
-          const ojsData = await fetchFromDatabase(true);
-          const result = await syncOjsJournals(ojsData);
-          console.log(`[journals/self-heal] Background sync complete: synced=${result.synced}, errors=${result.errors}`);
+          const { withSyncRun } = await import("@/src/features/ojs/server/sync-runs");
+          const result = await withSyncRun("ojs_journals_sync", "drift", async () => {
+            const ojsData = await fetchFromDatabase(true);
+            const syncResult = await syncOjsJournals(ojsData, { deactivateMissing: true });
+            return {
+              status: syncResult.errors > 0 ? ("partial" as const) : ("success" as const),
+              stats: { ...syncResult },
+              result: syncResult,
+            };
+          });
+          console.log(`[journals/self-heal] Background sync complete: synced=${result.synced}, errors=${result.errors}, deactivated=${result.deactivated.length}`);
         } catch (syncError) {
           console.error("[journals/self-heal] Background sync failed:", syncError);
         } finally {
           runningFullSyncPromise = null;
         }
       })();
+      // Fold the sync into this promise so the test hook can await the full
+      // chain; production callers never await either promise.
+      await runningFullSyncPromise;
     } catch (err) {
       console.error("[journals/self-heal] Drift check failed:", err);
     }
@@ -132,7 +174,7 @@ app.get("/debug-covers", requireAdmin, async (c) => {
 app.get("/", async (c) => {
   try {
     const pagination = parsePagination(c)
-    let [journals, total] = await Promise.all([
+    const [journals, total] = await Promise.all([
       prisma.journal.findMany({
         select: LIST_JOURNAL_SELECT,
         orderBy: { created_at: "desc" },
@@ -142,33 +184,16 @@ app.get("/", async (c) => {
       prisma.journal.count(),
     ])
 
-    // If local Prisma is empty but OJS is configured, block and await a sync before returning.
-    // This prevents the "No journals available yet" empty state on the very first visit after a cold start.
-    if (total === 0) {
+    // Cold start (empty Prisma mirror): kick off a background sync via the
+    // same single-flight machinery the drift check uses and return the empty
+    // page immediately. The previous behavior blocked this request on a full
+    // OJS fetch — a live-OJS dependency on the request path that turned any
+    // whitelist flap or OJS outage into a 500 for every first visitor.
+    if (total === 0 && runningFullSyncPromise === null) {
       const { isOjsConfigured } = await import("@/src/features/ojs/server/ojs-client")
       if (isOjsConfigured()) {
-        const { fetchFromDatabase } = await import("@/src/features/ojs/server/ojs-service")
-        const { syncOjsJournals } = await import("@/src/features/ojs/server/sync-ojs-journals")
-        try {
-          const ojsData = await fetchFromDatabase(true)
-          await syncOjsJournals(ojsData)
-
-          // Re-query after sync
-          const [newJournals, newTotal] = await Promise.all([
-            prisma.journal.findMany({
-              select: LIST_JOURNAL_SELECT,
-              orderBy: { created_at: "desc" },
-              take: pagination.limit,
-              skip: pagination.offset,
-            }),
-            prisma.journal.count(),
-          ])
-          journals = newJournals
-          total = newTotal
-        } catch (syncError) {
-          console.error("Inline sync fallback failed:", syncError)
-          return c.json({ success: false, error: "OJS DB Connection or Sync failed" }, 500)
-        }
+        // Bypass the drift throttle: an empty mirror is always worth a sync.
+        lastOjsDriftCheckTs = 0
       }
     }
 

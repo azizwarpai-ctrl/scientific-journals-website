@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Inbox, Clock, CheckCircle2, XCircle } from "lucide-react"
+import { statusBadgeClass } from "@/src/lib/utils"
 
 import { useGetEmailLogs } from "@/src/features/email-templates/api/use-get-email-logs"
 import type { EmailLog } from "@/src/features/email-templates/types/email-template-type"
@@ -25,12 +26,12 @@ export default function EmailLogsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "sent":
-        return <Badge className="bg-green-500 hover:bg-green-600"><CheckCircle2 className="w-3 h-3 mr-1"/> Sent</Badge>
+        return <Badge className={statusBadgeClass("sent")}><CheckCircle2 className="w-3 h-3 mr-1"/> Sent</Badge>
       case "failed":
-        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1"/> Failed</Badge>
+        return <Badge className={statusBadgeClass("failed")}><XCircle className="w-3 h-3 mr-1"/> Failed</Badge>
       case "pending":
       default:
-        return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1"/> Pending</Badge>
+        return <Badge className={statusBadgeClass("pending")}><Clock className="w-3 h-3 mr-1"/> Pending</Badge>
     }
   }
 

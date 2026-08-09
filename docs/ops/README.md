@@ -111,3 +111,17 @@ inspect headers / Location / content-type.
 
 This directory contains no code that affects production behaviour by its
 presence — only the operator's deliberate application does.
+
+---
+
+## Other ops docs
+
+- [`discovery-2026-08.md`](./discovery-2026-08.md) — August 2026 read-only SSH audit of both
+  production hosts (runtime versions, Passenger setup, env gaps, OJS timestamp go/no-go).
+- [`deploy.md`](./deploy.md) — how digitopub.com actually deploys on Hostinger, restart and
+  rollback procedure.
+- [`cron-schedule.md`](./cron-schedule.md) — recurring-job schedule and the exact hPanel /
+  external-scheduler entries.
+- [`backfill-runbook.md`](./backfill-runbook.md) — one-time OJS legacy metrics backfill
+  procedure (dry-run, execution, rollback).
+- [`lighthouse.md`](./lighthouse.md) — performance budget and how to run the audit.

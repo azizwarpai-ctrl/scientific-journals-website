@@ -11,8 +11,8 @@ export default function RegistrationSuccessPage() {
       <div className="w-full max-w-md">
         <Card>
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
-              <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
+              <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
             </div>
             <CardTitle className="text-2xl">Registration Successful!</CardTitle>
             <CardDescription>Please check your email to verify your account</CardDescription>

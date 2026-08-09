@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookOpen, FileText, Eye, TrendingUp, Users, CheckCircle2, Clock, XCircle } from "lucide-react"
 import { STATUS_STYLES } from "@/src/lib/utils"
+import { DashboardWidgets } from "@/components/admin/dashboard-widgets"
 
 export default async function AdminDashboardPage() {
   const user = await getSession()
@@ -146,6 +147,9 @@ export default async function AdminDashboardPage() {
           )
         })}
       </div>
+
+      {/* Engagement sparklines + sync-run health (client, live data) */}
+      <DashboardWidgets />
 
       {/* Recent Submissions */}
       <Card>

@@ -57,9 +57,11 @@ model Journal {
   ojs_path           String?            @unique @db.VarChar(100)
   aims_and_scope     String?            @db.Text
   author_guidelines  String?            @db.Text
+  last_synced_at     DateTime?
   creator            AdminUser?         @relation("CreatedBy", fields: [created_by], references: [id])
   published_articles PublishedArticle[]
   submissions        Submission[]
+  ojs_snapshot       OjsJournalSnapshot?
 
   @@index([field])
   @@index([status])
@@ -553,4 +555,42 @@ model ArticleAudio {
   @@index([ojs_journal_id, submission_id])
   @@index([uploaded_by])
   @@map("article_audio")
+}
+
+/// Observability ledger for every recurring-job execution (OJS sync, metrics
+/// aggregation, retention cleanup) regardless of trigger path. This is the
+/// shared-hosting substitute for a job queue: locking stays in
+/// `system_settings` (`ojs_sync_lock`), SyncRun is the audit trail the
+/// admin sync-health widget reads.
+model SyncRun {
+  id           BigInt    @id @default(autoincrement())
+  job_name     String    @db.VarChar(100)
+  status       String    @default("running") @db.VarChar(20)
+  triggered_by String    @db.VarChar(20)
+  started_at   DateTime  @default(now())
+  finished_at  DateTime?
+  stats        Json?
+  error        String?   @db.Text
+
+  @@index([job_name, started_at])
+  @@index([status])
+  @@map("sync_runs")
+}
+
+/// Per-journal aggregate snapshot mirrored from OJS by the sync job so the
+/// admin dashboard never reads OJS MySQL on the request path. One row per
+/// journal, upserted each sync run. OJS stays canonical (master-slave,
+/// pull-only) — this is a cache with provenance, not a source of truth.
+model OjsJournalSnapshot {
+  id                    BigInt    @id @default(autoincrement())
+  journal_id            BigInt    @unique
+  article_count         Int       @default(0)
+  issue_count           Int       @default(0)
+  latest_publication_at DateTime?
+  views_total           BigInt    @default(0)
+  downloads_total       BigInt    @default(0)
+  captured_at           DateTime  @default(now())
+  journal               Journal   @relation(fields: [journal_id], references: [id], onDelete: Cascade)
+
+  @@map("ojs_journal_snapshots")
 }
