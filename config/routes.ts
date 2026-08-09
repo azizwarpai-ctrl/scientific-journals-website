@@ -12,8 +12,6 @@ export const PUBLIC_ROUTES = [
   "/submit-manager",
   "/register",
   "/admin/login",
-  "/admin/register",
-  "/admin/registration-success",
   "/admin/verify-code",
   // UIET-P1: public-user self-service pages. Not behind admin auth.
   "/account/stats",

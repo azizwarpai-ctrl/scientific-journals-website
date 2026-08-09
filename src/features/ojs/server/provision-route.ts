@@ -3,8 +3,6 @@ import { zValidator } from "@hono/zod-validator"
 import { registerSchema } from "../../auth/schemas/auth-schema"
 import { provisionOjsUser } from "./ojs-user-service"
 import { dispatchEmailEvent } from "@/src/lib/email/event-dispatcher"
-import crypto from "crypto"
-import { getSsoSecret } from "@/src/features/ojs/server/sso-utils"
 import { checkRateLimit } from "@/src/lib/rate-limiter"
 
 /** Registration rate limit: 5 requests per IP per 15 minutes */
@@ -14,10 +12,20 @@ const REGISTRATION_RATE_LIMIT = {
   keyPrefix: "reg",
 } as const
 
+/** Build the OJS login URL for a journal, e.g. https://journals.digitopub.com/index.php/myjournal/login */
+function buildOjsLoginUrl(journalPath: string): string {
+  const base = (
+    process.env.PUBLIC_OJS_BASE_URL
+    || process.env.OJS_BASE_URL
+    || "https://journals.digitopub.com"
+  ).replace(/\/+$/, "")
+  return `${base}/index.php/${journalPath}/login`
+}
+
 const app = new Hono()
 
 // POST /ojs/register
-// Provision a new user into OJS and redirect to SSO
+// Provision a new user into OJS, then hand them the journal's login page.
 app.post("/register", zValidator("json", registerSchema), async (c) => {
   try {
     // Rate limiting — extract real IP from proxy headers or fall back to socket
@@ -39,11 +47,17 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
     const payload = c.req.valid("json")
     const { email, firstName, lastName } = payload
 
-    // 1. Provision into OJS DB
-    const provisionPayload = {
-      ...payload,
-      journalPath: c.req.query("journalPath") || ""
+    // Guard BEFORE provisioning: a journal is required to assign OJS roles.
+    const journalPath = c.req.query("journalPath")?.trim() || ""
+    if (!journalPath) {
+      return c.json({
+        success: false,
+        error: "Please choose a journal before registering.",
+      }, 400)
     }
+
+    // 1. Provision into OJS DB
+    const provisionPayload = { ...payload, journalPath }
     const { success: ojsOk, error: ojsError } = await provisionOjsUser(provisionPayload)
 
     if (!ojsOk) {
@@ -54,17 +68,7 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
       return c.json({ success: false, error: "OJS Provisioning Failed: " + ojsError }, 500)
     }
 
-    // 2. Generate the SSO Tracking Token (Stateless HMAC)
-    const timestamp = Date.now()
-    const payloadStr = JSON.stringify({ email, timestamp })
-    const payloadBase64 = Buffer.from(payloadStr).toString("base64")
-    
-    const activeSecret = getSsoSecret()
-    const signature = crypto.createHmac("sha256", activeSecret).update(payloadBase64).digest("hex")
-    
-    const token = `${payloadBase64}.${signature}`
-
-    // 3. Email event (fire-and-forget)
+    // 2. Email event (fire-and-forget)
     void dispatchEmailEvent({
       type: "registration_confirmation",
       payload: {
@@ -74,21 +78,18 @@ app.post("/register", zValidator("json", registerSchema), async (c) => {
       }
     })
 
-    // 4. Construct SSO redirect URL
-    const ojsBaseUrl = process.env.OJS_BASE_URL || ""
-    const ssoReturnDomain = ojsBaseUrl.endsWith("/") ? ojsBaseUrl.slice(0, -1) : ojsBaseUrl
-    
-    const afterLoginPath = provisionPayload.journalPath ? `/index.php/${provisionPayload.journalPath}/submission` : "/index.php/index/login"
-    const ssoUrl = `${ssoReturnDomain}/sso_login.php?token=${encodeURIComponent(token)}&redirect=${encodeURIComponent(afterLoginPath)}&source=${encodeURIComponent(afterLoginPath)}`
+    // 3. Point the user at the journal's own login page (OJS 3.5 has no SSO
+    //    entry point — the legacy sso_login.php handoff is dead).
+    const ojsLoginUrl = buildOjsLoginUrl(journalPath)
 
-    console.log(`[OJS_PROVISION] Success for ${email}. Jumping to SSO.`)
+    console.log(`[OJS_PROVISION] Success for ${email}.`)
 
     return c.json({
       success: true,
-      status: "sso_redirect",
-      ssoUrl,
+      status: "created",
+      ojsLoginUrl,
       email,
-      message: "Registration successful. Redirecting to journal..."
+      message: "Account created successfully. Sign in on the journal site to continue.",
     }, 201)
   } catch (error) {
     console.error("Registration error:", error)

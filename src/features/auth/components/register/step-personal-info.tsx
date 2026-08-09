@@ -37,7 +37,7 @@ export function StepPersonalInfo() {
 
   const onSubmit = (values: PersonalInfoValues) => {
     setPersonalInfo(values)
-    markStepCompleted(0)
+    markStepCompleted(1)
     nextStep()
   }
 

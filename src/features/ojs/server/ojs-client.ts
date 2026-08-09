@@ -146,8 +146,12 @@ export async function provisionUser(payload: OjsUserProvisionData): Promise<{ su
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
         try {
-            // Assume the PHP bridge is located here as requested by integration plan options
-            const response = await fetch(`${baseUrlStr}/ojs-user-bridge.php`, {
+            // OJS_BRIDGE_URL overrides the default bridge location (the env
+            // templates have documented this var for a while, but it was
+            // never consumed — the URL was always hardcoded off OJS_BASE_URL).
+            const bridgeUrl =
+                process.env.OJS_BRIDGE_URL?.replace(/\/$/, "") || `${baseUrlStr}/ojs-user-bridge.php`;
+            const response = await fetch(bridgeUrl, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
@@ -8,19 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import Link from "next/link"
 import { RegistrationWizard } from "@/src/features/auth/components/register/registration-wizard"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
-import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
 
 export default function RegisterPage() {
   const searchParams = useSearchParams()
-  const { setSelectedJournalPath } = useRegistrationStore()
 
-  // Hydrate the journal path from URL so SSO redirects to the correct journal
-  useEffect(() => {
-    const journalPath = searchParams.get("journalPath")
-    if (journalPath) {
-      setSelectedJournalPath(journalPath)
-    }
-  }, [searchParams, setSelectedJournalPath])
+  // Deep links like /register?journalPath=xyz pre-select the journal and
+  // skip the journal-picker step (handled inside the wizard).
+  const journalPath = searchParams.get("journalPath") ?? undefined
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
@@ -44,7 +38,7 @@ export default function RegisterPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <RegistrationWizard />
+                  <RegistrationWizard initialJournalPath={journalPath} />
 
                   <div className="mt-6 text-center text-sm">
                     <span className="text-muted-foreground">Already have an account? </span>

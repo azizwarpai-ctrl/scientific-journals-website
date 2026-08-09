@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { OrcidSignInCard } from "@/components/auth/orcid-sign-in-card"
 import { useIdentity } from "@/src/hooks/use-identity"
 import { useDeleteAccountData } from "@/src/features/account/api/use-account"
 import { toast } from "sonner"
@@ -21,13 +22,15 @@ export default function AccountDataPage() {
         )
     }
 
+    // Anonymous visitors get an explicit sign-in card instead of the old
+    // auto-redirect to /api/auth/orcid/start (a dead-end when ORCID is
+    // unconfigured in production).
     if (!identity?.authenticated) {
-        if (typeof window !== "undefined") {
-            window.location.assign(
-                `/api/auth/orcid/start?return_url=${encodeURIComponent("/account/data")}`
-            )
-        }
-        return null
+        return (
+            <div className="container max-w-[760px] py-10 lg:py-16 mx-auto px-4 sm:px-6">
+                <OrcidSignInCard returnUrl="/account/data" />
+            </div>
+        )
     }
 
     const canDelete = confirmText.trim().toUpperCase() === "DELETE"

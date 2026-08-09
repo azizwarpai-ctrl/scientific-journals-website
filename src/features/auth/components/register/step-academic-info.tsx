@@ -31,7 +31,7 @@ export function StepAcademicInfo() {
 
   const onSubmit = (values: AcademicInfoValues) => {
     setAcademicInfo(values)
-    markStepCompleted(1)
+    markStepCompleted(2)
     nextStep()
   }
 

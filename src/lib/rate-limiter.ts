@@ -92,3 +92,11 @@ export function checkRateLimit(ip: string, config: RateLimitConfig): RateLimitRe
     retryAfter: Math.ceil((entry.resetAt - now) / 1000),
   }
 }
+
+/**
+ * Test-only hook: clears all rate-limit state so specs can exercise limits
+ * deterministically. Not for production use.
+ */
+export function __resetRateLimiterForTests(): void {
+  store.clear()
+}
