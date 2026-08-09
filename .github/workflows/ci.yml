@@ -65,6 +65,7 @@ jobs:
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       ADMIN_EMAIL: e2e-admin@example.com
       ADMIN_PASSWORD: e2e-ci-password-1
+      E2E_ADMIN_ID: "1"
       OTP_DELIVERY_METHOD: console
     steps:
       - uses: actions/checkout@v4
