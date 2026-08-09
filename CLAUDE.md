@@ -59,7 +59,7 @@ The system enforces strict identity separation. **The previous "digitopub never 
 
 **Consent**: `digitopub_consent` cookie (NOT `httpOnly`, 1-year expiry, `SameSite=Lax`, host-only). Three modes: `all` (full ip/ua hashing), `essential_only` (no hashes), `pre_consent` (no orcid, no hashes, source='pre_consent'). After 31 dismissals without a choice, the banner becomes modal-locked.
 
-**The hard rules** (enforced by ESLint + CI grep):
+**The hard rules** (enforced by ESLint `no-restricted-imports` in `eslint.config.mjs`, which bans importing `getSession`/`createSession`/`destroySession` and `jose.jwtVerify` in `app/**` and `src/server/routes/**` outside admin paths — there is no separate CI grep):
 - NO public route may call `getSession()` or `jose.jwtVerify` directly. Public routes use `getIdentity(request)` from `src/lib/identity-cookie.ts`.
 - digitopub writes to OJS ONLY through `writeOrcidToOjsWithAudit()` in `src/lib/ojs-write-guard.ts`. Every write produces an `audit_ojs_writes` row.
 - `ENABLE_ORCID_OJS_BACKFILL` defaults to `false` in production. Flip with intent only.
@@ -87,12 +87,14 @@ digitopub MUST NOT:
 The API uses Hono framework with RPC-style endpoints. The main app is defined in `src/server/app.ts` and mounted at `/api/[[...route]]/route.ts`.
 
 - **Route definitions**: Each feature has a `server/route.ts` file defining Hono routes
+- **Standalone routers**: `src/server/routes/` holds routers that are NOT features — notably `auth-orcid` (public ORCID OAuth) and `account`. `/auth/orcid` is deliberately mounted BEFORE `/auth` in `src/server/app.ts` so public identity requests never hit the admin auth router.
+- **Global middleware** in `src/server/app.ts`: CORS (from `ALLOWED_ORIGINS`), logger, and a `Cache-Control: no-store` header on all API responses
 - **Validation**: Uses `@hono/zod-validator` for request validation with Zod schemas
 - **Client**: Use `client` from `src/lib/rpc.ts` for type-safe API calls from frontend
 
 ### Feature Structure
 
-Features are organized under `src/features/{feature}/`:
+Features are organized under `src/features/{feature}/` (~19 features, incl. `journals`, `auth`, `account`, `billing`, `metrics`, `search`, `article-audio`, `admin-analytics`, `email-templates`, `reviews`, `statistics`, `ojs`):
 ```
 src/features/{feature}/
 ├── server/route.ts    # Hono route definitions
@@ -120,15 +122,16 @@ The API is built with Hono and mounted via Next.js catch-all route:
 
 ### Database (Prisma + MySQL)
 
-- Schema: `prisma/schema.prisma` - MySQL with BigInt auto-increment IDs
-- Client: `lib/db/config.ts` - Uses PrismaMariaDb adapter
-- Auth: `lib/db/auth.ts` - JWT session management
+- Schema: `prisma/schema.prisma` - MySQL with BigInt auto-increment IDs (Prisma 7)
+- Client: `src/lib/db/config.ts` - Uses `PrismaMariaDb` adapter from `@prisma/adapter-mariadb`
+- Auth: `src/lib/db/auth.ts` - JWT session management (there is no root-level `lib/` directory; everything lives under `src/lib/`)
+- Notable UIET-P1/auth models: `UserEvent` (`user_event`), `RevokedOrcid` (`revoked_orcids`), `AuditOjsWrite` (`audit_ojs_writes`), `UserOrcidLink`, `VerificationCode` (`verification_codes`)
 - **Important**: All BigInt fields must be serialized using `serializeRecord()` or `serializeMany()` from `src/lib/serialize.ts` before returning JSON responses
 
 ### Authentication
 
 - JWT-based auth using `jose` library
-- Session management in `lib/db/auth.ts`
+- Session management in `src/lib/db/auth.ts`
 - Route configuration in `config/routes.ts`:
   - `PUBLIC_ROUTES` - Routes accessible without authentication
   - `ADMIN_ROUTES` - Routes requiring admin/superadmin role
@@ -138,12 +141,25 @@ The API is built with Hono and mounted via Next.js catch-all route:
   - `requireAdmin` - Requires admin or superadmin role
   - `requireRole(...roles)` - Requires specific roles
 
+### OTP Email Verification (auth feature)
+
+- Endpoints in `src/features/auth/server/route.ts`: `POST /auth/register` (generates code), `POST /auth/verify-code`, `POST /auth/resend-code`; verify page at `/admin/verify-code`
+- Codes are 6-digit (`crypto.randomInt`), stored **bcrypt-hashed** in `verification_codes` (VARCHAR(72)), 5-minute expiry, with `attempts`/`locked_until` lockout
+- Delivery controlled by `OTP_DELIVERY_METHOD`: `console` (default) | `email` | `disabled`. Email path: `src/features/auth/server/send-otp-email.ts` → `sendEmail()` in `src/lib/email/service` (SMTP via nodemailer). Email addresses are masked in logs.
+
 ### OJS Integration
 
 Read-only integration with Open Journal Systems database:
 - Client: `src/features/ojs/server/ojs-client.ts`
 - Configured via `OJS_DATABASE_*` environment variables
 - Uses separate MySQL connection pool with retry logic
+
+### Other Subsystems
+
+- **Article audio** (`src/features/article-audio/`): audio abstracts with a storage abstraction — S3 adapter and `LocalFileStorage` adapter (for Hostinger); configured via `AUDIO_STORAGE_DIR`, `MAX_FILE_SIZE_MB`
+- **Billing** (`src/features/billing/`): Stripe integration (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`); models `PricingPlan`, `CheckoutSession`, `Subscription`, `Invoice`
+- **Recurring jobs**: job logic lives in `src/features/metrics/server/jobs.ts` and is triggered two ways — Bearer-`CRON_SECRET` HTTP endpoints (`POST /api/metrics/cron/{daily,monthly,user,retention}`, plus `GET /api/ojs/sync`) for the production scheduler (the host has no crontab), and thin CLI wrappers in `scripts/` for manual runs. All triggers share `verifyCronSecret()` (`src/lib/cron-auth.ts`, timing-safe), `acquireJobLock()` (`src/lib/cron-lock.ts`, 429 when held), and write a `sync_runs` ledger row via `src/features/ojs/server/sync-runs.ts`. Schedule: `docs/ops/cron-schedule.md`.
+- **OJS sync hardening**: journals sync soft-deletes vanished journals (`status: inactive`, never hard-delete), stamps `Journal.last_synced_at`, and refreshes per-journal aggregates into `ojs_journal_snapshots` (watermark-gated on OJS `last_modified`). Drift self-heal uses a count+CRC32 fingerprint (detects deletions/edits, not just additions; legacy count-only path behind `OJS_DRIFT_FINGERPRINT=0`). `/api/ojs/journals` serves stale-while-revalidate (30 min) with 60 s negative caching on OJS outages.
 
 ### Frontend Patterns
 
@@ -183,15 +199,27 @@ Read-only integration with Open Journal Systems database:
 
 ## Environment Variables
 
-Required:
+Validation lives in `src/lib/env.ts` (schemas are split so metrics/identity paths don't all require ORCID; `requiredSecret()` throws in production for identity secrets). Full reference: `docs/system_variables.md`, `.env.example`, `.env.production.template`.
+
+Core:
 - `DATABASE_URL` or `DATABASE_HOST/PORT/NAME/USER/PASSWORD` - MySQL connection
 - `JWT_SECRET` - Secret for JWT signing
 - `NEXT_PUBLIC_APP_URL` - Public URL for the app
 - `ALLOWED_ORIGINS` - CORS allowed origins (comma-separated)
 
-Optional (OJS integration):
+Identity / UIET-P1 (required in production):
+- `IDENTITY_COOKIE_SECRET`, `ORCID_CLIENT_ID`, `ORCID_CLIENT_SECRET`, `ORCID_STATE_SECRET`, `ORCID_REDIRECT_URI`, `EVENT_IP_HASH_SALT_SEED`
+- `ENABLE_ORCID_OJS_BACKFILL` (defaults OFF in production), `UIET_P1_ENABLED`
+
+Email / OTP:
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`
+- `OTP_DELIVERY_METHOD` (`console` | `email` | `disabled`)
+
+OJS integration:
 - `OJS_DATABASE_HOST`, `OJS_DATABASE_PORT`, `OJS_DATABASE_NAME`, `OJS_DATABASE_USER`, `OJS_DATABASE_PASSWORD`
-- `OJS_BASE_URL`, `OJS_SYNC_ENABLED`
+- `OJS_BASE_URL`, `PUBLIC_OJS_BASE_URL`, `NEXT_PUBLIC_OJS_BASE_URL`, `OJS_API_URL`, `OJS_API_KEY`, `OJS_DRIFT_CHECK_INTERVAL_MS`
+
+Other: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `AUDIO_STORAGE_DIR`, `MAX_FILE_SIZE_MB`, `CRON_SECRET`, `SSO_SECRET`
 
 ## Testing
 
@@ -199,4 +227,10 @@ Tests are in `tests/` directory:
 - `tests/unit/` - Unit tests for schemas and utilities
 - `tests/integration/` - Integration tests for API routes
 
-Run with `bun run test`. Tests use Vitest with Node environment.
+Run with `bun run test`. Vitest, Node environment, `globals: true`, forked pool with `fileParallelism: false` (test files run sequentially — don't assume parallel isolation issues). Vitest aliases: `@` → project root, `@/src` → `./src`.
+
+## Docs & Specs
+
+- `specs/UIET-P1/` - full spec, plan, data model, and API contracts for the public-identity/engagement-tracking system
+- `docs/system_variables.md` - environment variable reference
+- `docs/` also contains architecture, Hostinger deployment, and OJS image pipeline reports

@@ -21,6 +21,8 @@ import { prisma } from '../src/lib/db/config';
 import { fetchFromDatabase } from '../src/features/ojs/server/ojs-service';
 import { closeOjsPool, ojsHealthCheck } from '../src/features/ojs/server/ojs-client';
 import { syncOjsJournals } from '../src/features/ojs/server/sync-ojs-journals';
+import { refreshOjsJournalSnapshots } from '../src/features/ojs/server/ojs-journal-snapshots';
+import { withSyncRun } from '../src/features/ojs/server/sync-runs';
 
 /**
  * Main sync function
@@ -28,10 +30,15 @@ import { syncOjsJournals } from '../src/features/ojs/server/sync-ojs-journals';
 async function main(): Promise<number> {
   const startTime = Date.now();
   let exitCode = 0;
-  
+
   console.log('🚀 Starting OJS data synchronization...');
   console.log(`⏰ ${new Date().toISOString()}\n`);
-  
+
+  if (process.env.OJS_SYNC_ENABLED === 'false') {
+    console.log('⏭️  OJS_SYNC_ENABLED=false — skipping sync.');
+    return 0;
+  }
+
   try {
     // 1. Test OJS connection
     const healthy = await ojsHealthCheck();
@@ -40,37 +47,53 @@ async function main(): Promise<number> {
     }
     console.log('✅ Connected to OJS database');
 
-    // 2. Fetch journals from OJS
-    console.log('📚 Fetching journals from OJS...');
-    const ojsJournals = await fetchFromDatabase();
-    console.log(`   Found ${ojsJournals.length} journals`);
+    const result = await withSyncRun('ojs_journals_sync', 'cron', async () => {
+      // 2. Fetch the FULL journal set (incl. disabled) so disabled journals
+      //    get marked inactive and vanished journals get soft-deleted.
+      console.log('📚 Fetching journals from OJS...');
+      const ojsJournals = await fetchFromDatabase(true);
+      console.log(`   Found ${ojsJournals.length} journals`);
 
-    // 3. Sync to internal database
-    console.log('🔄 Synchronizing data...');
-    const result = await syncOjsJournals(ojsJournals);
-    
-    // 4. Update sync timestamp (best effort)
+      // 3. Sync to internal database
+      console.log('🔄 Synchronizing data...');
+      const syncResult = await syncOjsJournals(ojsJournals, { deactivateMissing: true });
+
+      // 4. Refresh per-journal aggregate snapshots (watermark-gated)
+      console.log('📸 Refreshing journal snapshots...');
+      const snapshotResult = await refreshOjsJournalSnapshots();
+      console.log(snapshotResult.skipped
+        ? '   Snapshots unchanged since last watermark — skipped'
+        : `   ${snapshotResult.refreshed} snapshot(s) refreshed`);
+
+      return {
+        status: syncResult.errors > 0 ? ('partial' as const) : ('success' as const),
+        stats: { ...syncResult, snapshots: snapshotResult },
+        result: { ...syncResult, snapshots: snapshotResult },
+      };
+    });
+
+    // 5. Update sync timestamp (best effort)
     try {
       await prisma.$executeRaw`
         INSERT INTO system_settings (setting_key, setting_value, description)
         VALUES ('ojs_last_sync', JSON_QUOTE(${new Date().toISOString()}), 'Last successful OJS sync timestamp')
-        ON DUPLICATE KEY UPDATE 
+        ON DUPLICATE KEY UPDATE
           setting_value = VALUES(setting_value),
           updated_at = CURRENT_TIMESTAMP
       `;
     } catch (tsError) {
       console.warn('Could not update sync timestamp:', tsError);
     }
-    
+
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    
+
     console.log('\n✅ Synchronization completed successfully!');
     console.log('───────────────────────────────────────');
-    console.log(`📚 Journals: ${result.synced} synced, ${result.errors} errors`);
+    console.log(`📚 Journals: ${result.synced} synced, ${result.errors} errors, ${result.deactivated.length} deactivated`);
     console.log(`⏱️  Duration: ${duration}s`);
     console.log('───────────────────────────────────────\n');
-    
-    
+
+
     exitCode = result.errors > 0 ? 2 : 0;
   } catch (error) {
     console.error('\n❌ Synchronization failed:', error);

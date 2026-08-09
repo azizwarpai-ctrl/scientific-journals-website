@@ -30,6 +30,8 @@ const ojsQueryMock = vi.fn()
 const isOjsConfiguredMock = vi.fn(() => true)
 const fetchFromDatabaseMock = vi.fn()
 const syncOjsJournalsMock = vi.fn()
+const computeFingerprintMock = vi.fn()
+const getStoredFingerprintMock = vi.fn()
 
 vi.mock('@/src/features/ojs/server/ojs-client', () => ({
     ojsQuery: ojsQueryMock,
@@ -40,10 +42,19 @@ vi.mock('@/src/features/ojs/server/ojs-service', () => ({
 }))
 vi.mock('@/src/features/ojs/server/sync-ojs-journals', () => ({
     syncOjsJournals: syncOjsJournalsMock,
+    computeOjsJournalsFingerprint: computeFingerprintMock,
+    getStoredJournalsFingerprint: getStoredFingerprintMock,
+}))
+// Ledger is best-effort observability; pass the job straight through.
+vi.mock('@/src/features/ojs/server/sync-runs', () => ({
+    withSyncRun: vi.fn(async (_job: string, _trigger: string, body: () => Promise<{ result: unknown }>) => {
+        const outcome = await body()
+        return outcome.result
+    }),
 }))
 
 // Import after mocks are wired.
-import { journalRouter, __resetOjsDriftCheckStateForTests } from '@/src/features/journals/server/route'
+import { journalRouter, __resetOjsDriftCheckStateForTests, __waitForOjsDriftCheckForTests } from '@/src/features/journals/server/route'
 import { prisma } from '@/src/lib/db/config'
 
 function createApp() {
@@ -52,40 +63,44 @@ function createApp() {
     return app
 }
 
-/** Flush microtasks + a macrotask so fire-and-forget work inside `void (async () => ...)()`
- *  — including dynamic `import()` resolution — has time to settle.
+/** Awaits the pending fire-and-forget drift check (and any background sync
+ *  it launched) via the route's test hook — deterministic, no sleeps.
  */
 async function flushAsync(): Promise<void> {
-    // A short real timer reliably drains all pending dynamic-import microtasks
-    // in Vitest, even on cold first-call where the module loader is warming up.
-    await new Promise((resolve) => setTimeout(resolve, 30))
-    for (let i = 0; i < 5; i++) {
-        await new Promise((resolve) => setImmediate(resolve))
-    }
+    await __waitForOjsDriftCheckForTests()
 }
 
-describe('Journals listing — OJS drift self-heal', () => {
+const SYNC_RESULT = { synced: 0, errors: 0, deactivated: [] as string[] }
+
+describe('Journals listing — OJS drift self-heal (fingerprint)', () => {
     beforeEach(() => {
         vi.resetAllMocks()
         __resetOjsDriftCheckStateForTests()
         // 0 disables the feature; use 1ms so the throttle is effectively a
         // no-op for tests that fire a single request.
         process.env.OJS_DRIFT_CHECK_INTERVAL_MS = '1'
+        delete process.env.OJS_DRIFT_FINGERPRINT
         isOjsConfiguredMock.mockReturnValue(true)
         fetchFromDatabaseMock.mockResolvedValue([])
-        syncOjsJournalsMock.mockResolvedValue({ synced: 0, errors: 0 })
+        syncOjsJournalsMock.mockResolvedValue(SYNC_RESULT)
+        computeFingerprintMock.mockResolvedValue('13:12345')
+        getStoredFingerprintMock.mockResolvedValue('13:12345')
     })
 
-    afterEach(() => {
+    afterEach(async () => {
+        // Drain any in-flight drift work so it cannot leak into the next test.
+        await __waitForOjsDriftCheckForTests()
         delete process.env.OJS_DRIFT_CHECK_INTERVAL_MS
+        delete process.env.OJS_DRIFT_FINGERPRINT
     })
 
-    it('schedules a background sync when OJS has more journals than Prisma', async () => {
+    it('schedules a background sync when the OJS fingerprint differs from the stored one', async () => {
         vi.mocked(prisma.journal.findMany).mockResolvedValue([
             { id: BigInt(1), title: 'jod', field: 'X', status: 'active', created_at: new Date() } as any,
         ])
         vi.mocked(prisma.journal.count).mockResolvedValue(11)
-        ojsQueryMock.mockResolvedValue([{ c: 12 }])
+        computeFingerprintMock.mockResolvedValue('12:99999')
+        getStoredFingerprintMock.mockResolvedValue('11:11111')
 
         const app = createApp()
         const res = await app.request('/api/journals')
@@ -93,18 +108,18 @@ describe('Journals listing — OJS drift self-heal', () => {
         expect(res.status).toBe(200)
         await flushAsync()
 
-        expect(ojsQueryMock).toHaveBeenCalledTimes(1)
-        expect(ojsQueryMock.mock.calls[0][0]).toMatch(/COUNT\(\*\)/i)
+        expect(computeFingerprintMock).toHaveBeenCalledTimes(1)
         expect(fetchFromDatabaseMock).toHaveBeenCalledTimes(1)
+        expect(fetchFromDatabaseMock).toHaveBeenCalledWith(true)
         expect(syncOjsJournalsMock).toHaveBeenCalledTimes(1)
+        expect(syncOjsJournalsMock).toHaveBeenCalledWith([], { deactivateMissing: true })
     })
 
-    it('does not trigger a sync when OJS count equals Prisma count', async () => {
+    it('does not trigger a sync when the fingerprint matches the stored one', async () => {
         vi.mocked(prisma.journal.findMany).mockResolvedValue([
             { id: BigInt(1), title: 'jod', field: 'X', status: 'active', created_at: new Date() } as any,
         ])
         vi.mocked(prisma.journal.count).mockResolvedValue(11)
-        ojsQueryMock.mockResolvedValue([{ c: 11 }])
 
         const app = createApp()
         const res = await app.request('/api/journals')
@@ -112,15 +127,35 @@ describe('Journals listing — OJS drift self-heal', () => {
         expect(res.status).toBe(200)
         await flushAsync()
 
-        expect(ojsQueryMock).toHaveBeenCalledTimes(1)
+        expect(computeFingerprintMock).toHaveBeenCalledTimes(1)
         expect(fetchFromDatabaseMock).not.toHaveBeenCalled()
         expect(syncOjsJournalsMock).not.toHaveBeenCalled()
+    })
+
+    it('REGRESSION: detects drift when the count is unchanged but content changed (old count-only check missed this)', async () => {
+        vi.mocked(prisma.journal.findMany).mockResolvedValue([
+            { id: BigInt(1), title: 'jod', field: 'X', status: 'active', created_at: new Date() } as any,
+        ])
+        vi.mocked(prisma.journal.count).mockResolvedValue(13)
+        // Same row count (13) on both sides, different CRC32 sum — e.g. a
+        // journal was disabled or its path edited in OJS.
+        computeFingerprintMock.mockResolvedValue('13:22222')
+        getStoredFingerprintMock.mockResolvedValue('13:11111')
+
+        const app = createApp()
+        const res = await app.request('/api/journals')
+
+        expect(res.status).toBe(200)
+        await flushAsync()
+
+        expect(syncOjsJournalsMock).toHaveBeenCalledTimes(1)
     })
 
     it('is fully disabled when OJS_DRIFT_CHECK_INTERVAL_MS is 0', async () => {
         vi.mocked(prisma.journal.findMany).mockResolvedValue([])
         vi.mocked(prisma.journal.count).mockResolvedValue(11)
-        ojsQueryMock.mockResolvedValue([{ c: 12 }])
+        computeFingerprintMock.mockResolvedValue('12:99999')
+        getStoredFingerprintMock.mockResolvedValue('11:11111')
 
         process.env.OJS_DRIFT_CHECK_INTERVAL_MS = '0'
         __resetOjsDriftCheckStateForTests()
@@ -131,9 +166,9 @@ describe('Journals listing — OJS drift self-heal', () => {
         expect(res.status).toBe(200)
         await flushAsync()
 
-        // 0 means "disable the self-heal" — no OJS query, no sync, even when
-        // a real drift exists.
-        expect(ojsQueryMock).not.toHaveBeenCalled()
+        // 0 means "disable the self-heal" — no fingerprint read, no sync,
+        // even when a real drift exists.
+        expect(computeFingerprintMock).not.toHaveBeenCalled()
         expect(fetchFromDatabaseMock).not.toHaveBeenCalled()
         expect(syncOjsJournalsMock).not.toHaveBeenCalled()
     })
@@ -149,14 +184,15 @@ describe('Journals listing — OJS drift self-heal', () => {
         expect(res.status).toBe(200)
         await flushAsync()
 
-        expect(ojsQueryMock).not.toHaveBeenCalled()
+        expect(computeFingerprintMock).not.toHaveBeenCalled()
         expect(syncOjsJournalsMock).not.toHaveBeenCalled()
     })
 
     it('respects the throttle window: two requests within TTL trigger only one drift check', async () => {
-        vi.mocked(prisma.journal.findMany).mockResolvedValue([])
+        vi.mocked(prisma.journal.findMany).mockResolvedValue([
+            { id: BigInt(1), title: 'jod', field: 'X', status: 'active', created_at: new Date() } as any,
+        ])
         vi.mocked(prisma.journal.count).mockResolvedValue(11)
-        ojsQueryMock.mockResolvedValue([{ c: 11 }])
 
         // Re-enable throttling for this test only.
         process.env.OJS_DRIFT_CHECK_INTERVAL_MS = '60000'
@@ -169,17 +205,18 @@ describe('Journals listing — OJS drift self-heal', () => {
         await flushAsync()
 
         // Second request is inside the throttle window → drift check skipped.
-        expect(ojsQueryMock).toHaveBeenCalledTimes(1)
+        expect(computeFingerprintMock).toHaveBeenCalledTimes(1)
     })
 
     it('listing response is returned before the background sync resolves', async () => {
         vi.mocked(prisma.journal.findMany).mockResolvedValue([])
         vi.mocked(prisma.journal.count).mockResolvedValue(11)
-        ojsQueryMock.mockResolvedValue([{ c: 12 }])
+        computeFingerprintMock.mockResolvedValue('12:99999')
+        getStoredFingerprintMock.mockResolvedValue('11:11111')
 
         // Make sync hang so we can prove it doesn't gate the response.
-        let resolveSync: (v: { synced: number; errors: number }) => void = () => {}
-        const pendingSync = new Promise<{ synced: number; errors: number }>((resolve) => {
+        let resolveSync: (v: typeof SYNC_RESULT) => void = () => {}
+        const pendingSync = new Promise<typeof SYNC_RESULT>((resolve) => {
             resolveSync = resolve
         })
         syncOjsJournalsMock.mockReturnValue(pendingSync)
@@ -191,7 +228,29 @@ describe('Journals listing — OJS drift self-heal', () => {
         expect(res.status).toBe(200)
 
         // Now let the background sync finish so the test doesn't leak.
-        resolveSync({ synced: 1, errors: 0 })
+        resolveSync({ synced: 1, errors: 0, deactivated: [] })
         await flushAsync()
+    })
+
+    it('legacy flag OJS_DRIFT_FINGERPRINT=0 falls back to the count-only comparison', async () => {
+        vi.mocked(prisma.journal.findMany).mockResolvedValue([
+            { id: BigInt(1), title: 'jod', field: 'X', status: 'active', created_at: new Date() } as any,
+        ])
+        vi.mocked(prisma.journal.count).mockResolvedValue(11)
+        ojsQueryMock.mockResolvedValue([{ c: 12 }])
+
+        process.env.OJS_DRIFT_FINGERPRINT = '0'
+        __resetOjsDriftCheckStateForTests()
+
+        const app = createApp()
+        const res = await app.request('/api/journals')
+
+        expect(res.status).toBe(200)
+        await flushAsync()
+
+        expect(ojsQueryMock).toHaveBeenCalledTimes(1)
+        expect(ojsQueryMock.mock.calls[0][0]).toMatch(/COUNT\(\*\)/i)
+        expect(computeFingerprintMock).not.toHaveBeenCalled()
+        expect(syncOjsJournalsMock).toHaveBeenCalledTimes(1)
     })
 })
