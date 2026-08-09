@@ -34,17 +34,65 @@ describe("labelFor", () => {
 })
 
 describe("enum maps cover the documented OJS 3.x values", () => {
+    // Exact-map assertions: existence checks alone would pass with swapped
+    // or mistranslated labels; toEqual also fails on unexpected extra ids.
     it("stage ids 1-5", () => {
-        for (const id of [1, 2, 3, 4, 5]) expect(STAGE_LABELS[id]).toBeTruthy()
+        expect(STAGE_LABELS).toEqual({
+            1: "Submission",
+            2: "Internal Review",
+            3: "External Review",
+            4: "Copyediting",
+            5: "Production",
+        })
     })
     it("submission statuses 1/3/4/5", () => {
-        for (const id of [1, 3, 4, 5]) expect(SUBMISSION_STATUS_LABELS[id]).toBeTruthy()
+        expect(SUBMISSION_STATUS_LABELS).toEqual({
+            1: "Queued",
+            3: "Published",
+            4: "Declined",
+            5: "Scheduled",
+        })
     })
     it("recommendations 1-6", () => {
-        for (const id of [1, 2, 3, 4, 5, 6]) expect(RECOMMENDATION_LABELS[id]).toBeTruthy()
+        expect(RECOMMENDATION_LABELS).toEqual({
+            1: "Accept",
+            2: "Revisions Required",
+            3: "Resubmit for Review",
+            4: "Resubmit Elsewhere",
+            5: "Decline Submission",
+            6: "See Comments",
+        })
     })
     it("review methods 1-3", () => {
-        for (const id of [1, 2, 3]) expect(REVIEW_METHOD_LABELS[id]).toBeTruthy()
+        expect(REVIEW_METHOD_LABELS).toEqual({
+            1: "Double-Blind",
+            2: "Blind",
+            3: "Open",
+        })
+    })
+    it("editorial decisions 1-4/6-8", () => {
+        expect(DECISION_LABELS).toEqual({
+            1: "Accept",
+            2: "Revisions Requested",
+            3: "Resubmit for Review",
+            4: "Decline",
+            6: "Send to Review",
+            7: "Send to Production",
+            8: "New Review Round",
+        })
+    })
+    it("review round statuses 1-9", () => {
+        expect(REVIEW_ROUND_STATUS_LABELS).toEqual({
+            1: "Pending Reviewers",
+            2: "Pending Reviews",
+            3: "Reviews Ready",
+            4: "Reviews Completed",
+            5: "Reviews Overdue",
+            6: "Revisions Submitted",
+            7: "Resubmit for Review",
+            8: "Resubmitted for Review",
+            9: "Returned to Review",
+        })
     })
 })
 

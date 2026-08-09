@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { STAGE_LABELS, SUBMISSION_STATUS_LABELS } from "../server/ojs-review-constants"
+import { STAGE_LABELS, SUBMISSION_STATUS_LABELS } from "@/src/features/reviews/server/ojs-review-constants"
 
 /**
  * Zod schemas for the arbitration panel DTOs (Stream A).
