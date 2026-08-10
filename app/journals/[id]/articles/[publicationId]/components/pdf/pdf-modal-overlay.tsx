@@ -312,7 +312,13 @@ export function PdfModalOverlay({
                   className={`w-full h-full border-none bg-[#525659] transition-opacity duration-300 ${
                     loaded ? "opacity-100" : "opacity-0"
                   }`}
-                  sandbox="allow-same-origin allow-scripts allow-popups allow-downloads"
+                  // src is a same-origin /api/pdf-proxy URL wrapping an
+                  // externally-sourced (OJS) PDF, so the framed content is
+                  // untrusted. `allow-scripts` + `allow-same-origin` together
+                  // would let the frame strip its own sandbox and reach our
+                  // origin — omit `allow-scripts`; the browser's native PDF
+                  // viewer runs at chrome level and needs no page scripting.
+                  sandbox="allow-same-origin allow-popups allow-downloads"
                   allow="fullscreen"
                   aria-hidden={!loaded}
                   onLoad={onIframeLoad}
