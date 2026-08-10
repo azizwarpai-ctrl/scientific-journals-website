@@ -11,6 +11,19 @@ Documented 2026-08-08 from live-host inspection (see [`discovery-2026-08.md`](./
   managed through hPanel. There is no `.env` in the app root.
 - Builds go through Hostinger's managed pipeline under `public_html/.builds/`
   (source checkout → build → standalone output copied to `nodejs/`).
+- **The builder installs dependencies with yarn 1.22 on Node 20.x** and does
+  not understand `bun.lock`. Without a `yarn.lock` it re-resolves every
+  `package.json` range on each build — which is how deploys silently broke
+  for weeks: `sanitize-html` published 2.17.6 with `engines.node >=22.12`,
+  yarn's strict engine check failed, and every build since died at install
+  while production kept serving the last good (Jun 25) bundle.
+- Therefore the repo commits **both lockfiles**: `bun.lock` (local dev/CI)
+  and `yarn.lock` (Hostinger builder). **When changing dependencies, update
+  both**: `bun install`, then regenerate `yarn.lock` out-of-tree
+  (`COREPACK_ENABLE_STRICT=0 npx yarn@1.22.22 install --ignore-engines
+  --ignore-scripts` against a copy of package.json with the
+  `packageManager` field removed) and copy it back. Keep runtime-critical
+  deps pinned below any `engines.node` gate above 20.x.
 
 ## Pre-deploy checklist
 
