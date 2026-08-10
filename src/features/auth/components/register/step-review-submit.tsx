@@ -1,10 +1,11 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Loader2, ExternalLink } from "lucide-react"
+import { Loader2, ExternalLink, CheckCircle2 } from "lucide-react"
 import { useRegistrationStore } from "@/src/features/auth/stores/registration-store"
 import { COUNTRIES } from "@/src/features/auth/components/register/countries-data"
 import { useOjsRegister, type OjsRegisterResponse } from "@/src/features/auth/api/use-ojs-register"
+import Link from "next/link"
 import { useState } from "react"
 
 const ROLE_LABELS: Record<string, string> = {
@@ -12,6 +13,14 @@ const ROLE_LABELS: Record<string, string> = {
   reviewer: "Reviewer",
   editor: "Editor",
   reader: "Reader",
+}
+
+/** Client-side fallback OJS login URL when the server didn't return one */
+function fallbackOjsLoginUrl(journalPath: string | null): string {
+  const base = (
+    process.env.NEXT_PUBLIC_OJS_BASE_URL || "https://journals.digitopub.com"
+  ).replace(/\/+$/, "")
+  return `${base}/index.php/${journalPath || "index"}/login`
 }
 
 function SummaryRow({
@@ -32,9 +41,6 @@ function SummaryRow({
   )
 }
 
-/** Countdown seconds before auto-redirect */
-const REDIRECT_DELAY_SECONDS = 3
-
 export function StepReviewSubmit() {
   const {
     personalInfo,
@@ -51,8 +57,10 @@ export function StepReviewSubmit() {
     selectedJournalPath,
   } = useRegistrationStore()
 
-  const [redirecting, setRedirecting] = useState(false)
-  const [countdown, setCountdown] = useState(REDIRECT_DELAY_SECONDS)
+  const [successData, setSuccessData] = useState<{
+    email: string
+    ojsLoginUrl: string
+  } | null>(null)
 
   const countryName =
     COUNTRIES.find((c) => c.code === personalInfo.country)?.name ??
@@ -69,25 +77,10 @@ export function StepReviewSubmit() {
     },
     onSuccess: (data: OjsRegisterResponse) => {
       setSubmitting(false)
-
-      if (data.status === "sso_redirect" && data.ssoUrl) {
-        // Show redirect indicator before navigating
-        setRedirecting(true)
-        setCountdown(REDIRECT_DELAY_SECONDS)
-        const url = data.ssoUrl
-
-        let remaining = REDIRECT_DELAY_SECONDS
-        const timer = setInterval(() => {
-          remaining -= 1
-          setCountdown(remaining)
-          if (remaining <= 0) {
-            clearInterval(timer)
-            window.location.href = url
-          }
-        }, 1000)
-      } else {
-        setSubmissionError("Registration succeeded but SSO handover failed. Please contact support.")
-      }
+      setSuccessData({
+        email: data.email || personalInfo.email,
+        ojsLoginUrl: data.ojsLoginUrl || fallbackOjsLoginUrl(selectedJournalPath),
+      })
     },
   })
 
@@ -99,32 +92,47 @@ export function StepReviewSubmit() {
     })
   }
 
-  // ── Redirect state ──
-  if (redirecting) {
+  const emailAlreadyExists = submissionError
+    ?.toLowerCase()
+    .includes("email already exists")
+
+  // ── Success state ──
+  if (successData) {
     return (
       <div className="space-y-6 text-center py-8">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-          <ExternalLink className="h-8 w-8 text-green-600 dark:text-green-400" />
+          <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
         </div>
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-green-700 dark:text-green-400">
-            Account Created Successfully!
+            Account Created Successfully
           </h2>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            You will be redirected to the submission system in{" "}
-            <span className="font-bold text-foreground">{countdown}</span>{" "}
-            {countdown === 1 ? "second" : "seconds"}…
+            Your account{" "}
+            <span className="font-medium text-foreground">
+              {successData.email}
+            </span>{" "}
+            is ready. Sign in on the journal site with the email and password
+            you just chose.
           </p>
         </div>
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Preparing your journal session…</span>
-        </div>
-        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 p-3 max-w-sm mx-auto">
-          <p className="text-xs text-amber-700 dark:text-amber-400">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20 p-3 max-w-sm mx-auto">
+          <p className="text-xs text-blue-700 dark:text-blue-400">
             <ExternalLink className="inline h-3 w-3 mr-1" />
-            You are being redirected to <strong>Submit Manager</strong> (OJS) — our external manuscript submission platform.
+            Sign-in happens on <strong>Submit Manager</strong> (OJS) — our
+            external manuscript submission platform.
           </p>
+        </div>
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <Button asChild>
+            <a href={successData.ojsLoginUrl} target="_self">
+              Sign in on the journal site
+              <ExternalLink className="ml-2 h-4 w-4" />
+            </a>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/journals">Back to journals</Link>
+          </Button>
         </div>
       </div>
     )
@@ -150,7 +158,7 @@ export function StepReviewSubmit() {
             variant="ghost"
             size="sm"
             className="h-7 text-xs"
-            onClick={() => setStep(0)}
+            onClick={() => setStep(1)}
           >
             Edit
           </Button>
@@ -175,7 +183,7 @@ export function StepReviewSubmit() {
             variant="ghost"
             size="sm"
             className="h-7 text-xs"
-            onClick={() => setStep(1)}
+            onClick={() => setStep(2)}
           >
             Edit
           </Button>
@@ -206,7 +214,7 @@ export function StepReviewSubmit() {
             variant="ghost"
             size="sm"
             className="h-7 text-xs"
-            onClick={() => setStep(2)}
+            onClick={() => setStep(3)}
           >
             Edit
           </Button>
@@ -226,7 +234,7 @@ export function StepReviewSubmit() {
             variant="ghost"
             size="sm"
             className="h-7 text-xs"
-            onClick={() => setStep(3)}
+            onClick={() => setStep(4)}
           >
             Edit
           </Button>
@@ -247,20 +255,41 @@ export function StepReviewSubmit() {
         />
       </div>
 
-      {/* Redirect notice */}
+      {/* Post-registration notice */}
       <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20 p-3">
         <p className="text-xs text-blue-700 dark:text-blue-400">
           <ExternalLink className="inline h-3 w-3 mr-1" />
-          After registration, you will be redirected to <strong>Submit Manager</strong> — our manuscript submission platform powered by OJS.
+          After registration, you can sign in on <strong>Submit Manager</strong>{" "}
+          — our manuscript submission platform powered by OJS.
         </p>
       </div>
 
       {/* Error display */}
       {submissionError && (
-        <div className="rounded-lg bg-red-50 p-3 dark:bg-red-900/20">
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {submissionError}
-          </p>
+        <div className="rounded-lg bg-red-50 p-3 dark:bg-red-900/20 space-y-2">
+          {emailAlreadyExists ? (
+            <>
+              <p className="text-sm text-red-600 dark:text-red-400">
+                An account with this email already exists on the journal site.
+              </p>
+              <p className="text-sm text-red-600 dark:text-red-400">
+                Try{" "}
+                <a
+                  href={fallbackOjsLoginUrl(selectedJournalPath)}
+                  className="font-medium underline underline-offset-2"
+                >
+                  signing in on the journal site
+                </a>{" "}
+                or use its password reset if you&apos;ve forgotten your
+                password.
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {submissionError ||
+                "Something went wrong while creating your account. Please try again."}
+            </p>
+          )}
         </div>
       )}
 

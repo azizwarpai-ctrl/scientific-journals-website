@@ -168,6 +168,23 @@ export function getEnv(): UietEnv {
   return cached
 }
 
+/**
+ * Non-throwing availability probe for the ORCID sign-in stack.
+ *
+ * Unlike getOrcidEnv()/getIdentityEnv(), this NEVER throws (even in
+ * production with missing secrets) and is never cached — it is a plain
+ * truthy check on process.env so routes can degrade gracefully instead
+ * of surfacing a 500 to anonymous visitors.
+ */
+export function isOrcidConfigured(): boolean {
+  return Boolean(
+    process.env.ORCID_CLIENT_ID &&
+      process.env.ORCID_CLIENT_SECRET &&
+      process.env.ORCID_STATE_SECRET &&
+      process.env.IDENTITY_COOKIE_SECRET
+  )
+}
+
 /** Derived: the ORCID callback URL, computed from NEXT_PUBLIC_APP_URL when not set explicitly. */
 export function getOrcidRedirectUri(): string {
   const env = getOrcidEnv()

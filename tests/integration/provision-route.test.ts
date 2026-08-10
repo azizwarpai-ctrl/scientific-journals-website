@@ -4,11 +4,6 @@ import { Hono } from 'hono'
 // ════════════════════════════════════════
 // Mock external dependencies BEFORE imports
 // ════════════════════════════════════════
-const TEST_SSO_SECRET = 'test-sso-secret-for-provision'
-
-vi.mock('@/src/features/ojs/server/sso-utils', () => ({
-    getSsoSecret: vi.fn(() => TEST_SSO_SECRET),
-}))
 
 vi.mock('@/src/features/ojs/server/ojs-user-service', () => ({
     provisionOjsUser: vi.fn(),
@@ -60,8 +55,8 @@ describe('Provision Route (POST /ojs/register)', () => {
         originalRateLimitFlag = process.env.TEST_DISABLE_RATE_LIMIT
         // Opt-in to bypass rate limiting for tests
         process.env.TEST_DISABLE_RATE_LIMIT = "true"
-        process.env.SSO_SECRET = TEST_SSO_SECRET
         process.env.OJS_BASE_URL = 'https://submitmanager.com'
+        delete process.env.PUBLIC_OJS_BASE_URL
         app = createApp()
     })
 
@@ -78,7 +73,7 @@ describe('Provision Route (POST /ojs/register)', () => {
     // SUCCESSFUL PROVISIONING
     // ═══════════════════════════════════════
     describe('Successful registration', () => {
-        it('should return 201 with ssoUrl on successful provisioning', async () => {
+        it('should return 201 with status "created" and ojsLoginUrl on successful provisioning', async () => {
             vi.mocked(provisionOjsUser).mockResolvedValue({ success: true })
 
             const res = await app.request('/ojs/register?journalPath=testjournal', {
@@ -90,13 +85,12 @@ describe('Provision Route (POST /ojs/register)', () => {
 
             const body = await res.json()
             expect(body.success).toBe(true)
-            expect(body.status).toBe('sso_redirect')
-            expect(body.ssoUrl).toContain('sso_login.php')
-            expect(body.ssoUrl).toContain('token=')
+            expect(body.status).toBe('created')
+            expect(body.ojsLoginUrl).toBe('https://submitmanager.com/index.php/testjournal/login')
             expect(body.email).toBe('jane.smith@university.edu')
         })
 
-        it('should include explicit redirect to submission when journalPath is provided', async () => {
+        it('should point ojsLoginUrl at the selected journal login page', async () => {
             vi.mocked(provisionOjsUser).mockResolvedValue({ success: true })
 
             const res = await app.request('/ojs/register?journalPath=myjournal', {
@@ -106,25 +100,41 @@ describe('Provision Route (POST /ojs/register)', () => {
             })
             const body = await res.json()
 
-            // Decode the redirect parameter from the ssoUrl
-            const ssoUrl = new URL(body.ssoUrl)
-            const redirect = ssoUrl.searchParams.get('redirect')
-            expect(redirect).toBe('/index.php/myjournal/submission')
+            const loginUrl = new URL(body.ojsLoginUrl)
+            expect(loginUrl.pathname).toBe('/index.php/myjournal/login')
         })
 
-        it('should fall back to /index.php/index/login when journalPath is empty', async () => {
+        it('should pass the journalPath through to provisioning', async () => {
             vi.mocked(provisionOjsUser).mockResolvedValue({ success: true })
 
+            await app.request('/ojs/register?journalPath=myjournal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(validPayload),
+            })
+
+            expect(provisionOjsUser).toHaveBeenCalledWith(
+                expect.objectContaining({ journalPath: 'myjournal' })
+            )
+        })
+    })
+
+    // ═══════════════════════════════════════
+    // MISSING JOURNAL
+    // ═══════════════════════════════════════
+    describe('Missing journalPath', () => {
+        it('should return 400 with a friendly error before provisioning when journalPath is empty', async () => {
             const res = await app.request('/ojs/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(validPayload),
             })
-            const body = await res.json()
+            expect(res.status).toBe(400)
 
-            const ssoUrl = new URL(body.ssoUrl)
-            const redirect = ssoUrl.searchParams.get('redirect')
-            expect(redirect).toBe('/index.php/index/login')
+            const body = await res.json()
+            expect(body.success).toBe(false)
+            expect(body.error).toBe('Please choose a journal before registering.')
+            expect(provisionOjsUser).not.toHaveBeenCalled()
         })
     })
 
@@ -133,7 +143,7 @@ describe('Provision Route (POST /ojs/register)', () => {
     // ═══════════════════════════════════════
     describe('Input validation', () => {
         it('should reject missing required fields', async () => {
-            const res = await app.request('/ojs/register', {
+            const res = await app.request('/ojs/register?journalPath=testjournal', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ firstName: 'Test' }),
@@ -143,7 +153,7 @@ describe('Provision Route (POST /ojs/register)', () => {
         })
 
         it('should reject invalid email format', async () => {
-            const res = await app.request('/ojs/register', {
+            const res = await app.request('/ojs/register?journalPath=testjournal', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...validPayload, email: 'not-an-email' }),
@@ -153,7 +163,7 @@ describe('Provision Route (POST /ojs/register)', () => {
         })
 
         it('should reject password shorter than 6 characters', async () => {
-            const res = await app.request('/ojs/register', {
+            const res = await app.request('/ojs/register?journalPath=testjournal', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...validPayload, password: '12345' }),
@@ -163,7 +173,7 @@ describe('Provision Route (POST /ojs/register)', () => {
         })
 
         it('should reject without terms acceptance', async () => {
-            const res = await app.request('/ojs/register', {
+            const res = await app.request('/ojs/register?journalPath=testjournal', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...validPayload, termsOfService: false }),
@@ -183,7 +193,7 @@ describe('Provision Route (POST /ojs/register)', () => {
                 error: 'Email already exists in OJS',
             })
 
-            const res = await app.request('/ojs/register', {
+            const res = await app.request('/ojs/register?journalPath=testjournal', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(validPayload),
@@ -201,7 +211,7 @@ describe('Provision Route (POST /ojs/register)', () => {
                 error: 'Database connection timeout',
             })
 
-            const res = await app.request('/ojs/register', {
+            const res = await app.request('/ojs/register?journalPath=testjournal', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(validPayload),
@@ -219,7 +229,7 @@ describe('Provision Route (POST /ojs/register)', () => {
                 error: 'Unique constraint violation on email',
             })
 
-            const res = await app.request('/ojs/register', {
+            const res = await app.request('/ojs/register?journalPath=testjournal', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(validPayload),
@@ -228,35 +238,6 @@ describe('Provision Route (POST /ojs/register)', () => {
 
             const body = await res.json()
             expect(body.error).toBe('Email already exists')
-        })
-    })
-
-    // ═══════════════════════════════════════
-    // SSO TOKEN IN RESPONSE
-    // ═══════════════════════════════════════
-    describe('SSO token structure', () => {
-        it('should generate a properly structured HMAC token in the ssoUrl', async () => {
-            vi.mocked(provisionOjsUser).mockResolvedValue({ success: true })
-
-            const res = await app.request('/ojs/register?journalPath=test', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(validPayload),
-            })
-            const body = await res.json()
-
-            const ssoUrl = new URL(body.ssoUrl)
-            const token = ssoUrl.searchParams.get('token')
-            expect(token).toBeTruthy()
-
-            // Token should be base64.hex format
-            const parts = token!.split('.')
-            expect(parts).toHaveLength(2)
-
-            // Payload should decode to JSON with email and timestamp
-            const payload = JSON.parse(Buffer.from(parts[0], 'base64').toString('utf8'))
-            expect(payload.email).toBe('jane.smith@university.edu')
-            expect(payload.timestamp).toBeTypeOf('number')
         })
     })
 })

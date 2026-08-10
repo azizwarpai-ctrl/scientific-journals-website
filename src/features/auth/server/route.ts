@@ -1,13 +1,26 @@
 import { Hono } from "hono"
+import type { Context } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import { z } from "zod"
 import bcrypt from "bcryptjs"
-import { getOtpDeliveryMethod, generateOTPCode } from "@/src/features/auth/utils/auth-utils.server"
+import {
+  resolveOtpDelivery,
+  deliverOtpToConsole,
+  generateOTPCode,
+  OtpDeliveryUnconfiguredError,
+} from "@/src/features/auth/utils/auth-utils.server"
 import { loginSchema } from "../schemas/auth-schema"
 import { verifyPassword, getUserById } from "@/src/lib/db/users"
 import { createSession, getSession, destroySession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
 import { sendOtpEmail } from "./send-otp-email"
+import { checkRateLimit, type RateLimitResult } from "@/src/lib/rate-limiter"
+import {
+  ADMIN_LOGIN_RATE_LIMIT,
+  OTP_RESEND_RATE_LIMIT,
+  OTP_VERIFY_RATE_LIMIT,
+} from "@/src/lib/rate-limiter-configs"
+import { clientIpFromHeaders } from "@/src/lib/ip-hash"
 
 /** Extended type for verification codes that includes custom lockout fields */
 interface VerificationCodeRecord {
@@ -32,9 +45,40 @@ function maskEmail(email: string): string {
 
 const app = new Hono()
 
+/** 429 helper: sets Retry-After and returns the standard error body. */
+function tooManyAttempts(c: Context, rate: RateLimitResult) {
+  c.res.headers.set("Retry-After", String(rate.retryAfter))
+  return c.json({ success: false, error: "Too many attempts. Please try again later." }, 429)
+}
+
+/**
+ * Resolve OTP delivery config, mapping OtpDeliveryUnconfiguredError to a 503
+ * response. Returns either the delivery config or a Response to short-circuit.
+ * MUST be called before generating/persisting any verification code.
+ */
+function resolveOtpDeliveryOr503(c: Context): ReturnType<typeof resolveOtpDelivery> | Response {
+  try {
+    return resolveOtpDelivery()
+  } catch (error) {
+    if (error instanceof OtpDeliveryUnconfiguredError) {
+      console.error(`[OTP] ${error.message}`)
+      return c.json({
+        success: false,
+        error: "OTP delivery is not configured. Contact the site operator.",
+      }, 503)
+    }
+    throw error
+  }
+}
+
 // POST /auth/login
 app.post("/login", zValidator("json", loginSchema), async (c) => {
   try {
+    const rate = checkRateLimit(clientIpFromHeaders(c.req.raw.headers), ADMIN_LOGIN_RATE_LIMIT)
+    if (!rate.allowed) {
+      return tooManyAttempts(c, rate)
+    }
+
     const { email, password } = c.req.valid("json")
     const user = await verifyPassword(email, password)
 
@@ -42,10 +86,12 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
       return c.json({ success: false, error: "Invalid email or password" }, 401)
     }
 
-    // Check delivery method
-    const deliveryMethod = getOtpDeliveryMethod()
+    // Resolve delivery config BEFORE generating/persisting a code —
+    // fails closed (503) in production when delivery is unconfigured.
+    const delivery = resolveOtpDeliveryOr503(c)
+    if (delivery instanceof Response) return delivery
 
-    if (deliveryMethod === 'disabled') {
+    if (delivery.method === 'disabled') {
       return c.json({
         success: false,
         error: "OTP delivery is currently disabled for security. Please contact the administrator."
@@ -75,7 +121,8 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
       },
     })
 
-    if (deliveryMethod === 'console') {
+    if (delivery.method === 'console') {
+      deliverOtpToConsole(user.email, code)
       console.log(`[OTP] Verification generated for ${maskEmail(user.email)}`)
     } else {
       const emailResult = await sendOtpEmail(user.email, code)
@@ -93,7 +140,7 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
       success: true,
       requiresVerification: true,
       email: user.email,
-      message: deliveryMethod === 'console'
+      message: delivery.method === 'console'
         ? "Verification code generated in server console."
         : "Verification code sent to your email.",
     })
@@ -111,6 +158,11 @@ const verifyCodeSchema = z.object({
 
 app.post("/verify-code", zValidator("json", verifyCodeSchema), async (c) => {
   try {
+    const rate = checkRateLimit(clientIpFromHeaders(c.req.raw.headers), OTP_VERIFY_RATE_LIMIT)
+    if (!rate.allowed) {
+      return tooManyAttempts(c, rate)
+    }
+
     const { email, code } = c.req.valid("json")
 
     // Find the latest active verification code
@@ -204,17 +256,26 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
   try {
     const { email } = c.req.valid("json")
 
+    // Rate limit per IP + email
+    const ip = clientIpFromHeaders(c.req.raw.headers)
+    const rate = checkRateLimit(`${ip}:${email.toLowerCase()}`, OTP_RESEND_RATE_LIMIT)
+    if (!rate.allowed) {
+      return tooManyAttempts(c, rate)
+    }
+
+    // Resolve delivery config BEFORE any lookup or code generation —
+    // fails closed (503) in production when delivery is unconfigured.
+    const delivery = resolveOtpDeliveryOr503(c)
+    if (delivery instanceof Response) return delivery
+
+    if (delivery.method === 'disabled') {
+      return c.json({ success: false, error: "OTP delivery is disabled." }, 503)
+    }
+
     // Verify user exists
     const user = await prisma.adminUser.findUnique({ where: { email } })
     if (!user) {
       return c.json({ success: false, error: "User not found" }, 404)
-    }
-
-    // Check delivery method
-    const deliveryMethod = getOtpDeliveryMethod()
-
-    if (deliveryMethod === 'disabled') {
-      return c.json({ success: false, error: "OTP delivery is disabled." }, 503)
     }
 
     // Invalidate existing codes
@@ -238,7 +299,8 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
       },
     })
 
-    if (deliveryMethod === 'console') {
+    if (delivery.method === 'console') {
+      deliverOtpToConsole(user.email, code)
       console.log(`[OTP] Resent verification for ${maskEmail(user.email)}`)
     } else {
       const emailResult = await sendOtpEmail(user.email, code)
@@ -254,7 +316,7 @@ app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {
 
     return c.json({
       success: true,
-      message: deliveryMethod === 'console'
+      message: delivery.method === 'console'
         ? "New verification code generated in server console."
         : "Verification code sent to your email.",
     })

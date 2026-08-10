@@ -10,8 +10,6 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 // Pages that should NOT show the sidebar/header (auth-related pages)
 const AUTH_PAGES = [
   "/admin/login",
-  "/admin/register",
-  "/admin/registration-success",
   "/admin/verify-code",
 ]
 

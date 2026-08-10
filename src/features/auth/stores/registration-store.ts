@@ -214,7 +214,9 @@ export const useRegistrationStore = create<RegistrationStore>()(
         }),
     }),
     {
-      name: "digitopub-registration",
+      // v2: journal-picker step prepended at index 0 — old persisted step
+      // indices/completedSteps are incompatible, so the key is versioned.
+      name: "digitopub-registration-v2",
       storage: createJSONStorage(() => sessionStorage),
       // Exclude sensitive data and transient state from persistence
       partialize: (state) => ({

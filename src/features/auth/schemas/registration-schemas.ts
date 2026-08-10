@@ -1,6 +1,14 @@
 import { z } from "zod"
 
 // ═══════════════════════════════════════════════════════════════
+// Step 0 — Journal Selection
+// ═══════════════════════════════════════════════════════════════
+
+export const journalSelectionSchema = z.object({
+  journalPath: z.string().min(1, "Please select a journal"),
+})
+
+// ═══════════════════════════════════════════════════════════════
 // Step 1 — Personal Information
 // ═══════════════════════════════════════════════════════════════
 
@@ -154,6 +162,7 @@ export const registrationPayloadSchema = z.object({
 // Types
 // ═══════════════════════════════════════════════════════════════
 
+export type JournalSelectionValues = z.infer<typeof journalSelectionSchema>
 export type PersonalInfoValues = z.infer<typeof personalInfoBaseSchema>
 export type AcademicInfoValues = z.infer<typeof academicInfoSchema>
 export type RoleSelectionValues = z.infer<typeof roleSelectionSchema>
@@ -162,6 +171,7 @@ export type RegistrationPayload = z.infer<typeof registrationPayloadSchema>
 
 /** Registration step metadata */
 export const REGISTRATION_STEPS = [
+  { id: "journal", label: "Select Journal", schema: journalSelectionSchema },
   { id: "personal", label: "Personal Information", schema: personalInfoSchema },
   { id: "academic", label: "Academic Information", schema: academicInfoSchema },
   { id: "role", label: "Role Selection", schema: roleSelectionSchema },

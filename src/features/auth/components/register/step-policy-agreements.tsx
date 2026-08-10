@@ -55,7 +55,7 @@ export function StepPolicyAgreements() {
 
   const onSubmit = (values: PolicyAgreementsValues) => {
     setPolicyAgreements(values)
-    markStepCompleted(3)
+    markStepCompleted(4)
     nextStep()
   }
 

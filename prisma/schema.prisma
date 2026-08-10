@@ -252,6 +252,9 @@ model VerificationCode {
   @@map("verification_codes")
 }
 
+/// TODO(stream-b): unused — the legacy sso_login.php handoff was removed
+/// (dead on OJS 3.4+). Repurpose for the OIDC provider's auth codes or drop
+/// via migration when Stream B (unified SSO) lands. No code references this.
 model OjsSsoToken {
   id         String   @id @default(uuid())
   token      String   @unique @db.VarChar(128)

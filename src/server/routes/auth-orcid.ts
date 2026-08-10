@@ -35,12 +35,40 @@ import {
     verifyOrcidToken,
 } from "@/src/lib/orcid-oauth"
 import { enforceOrcidCallbackRateLimit } from "@/src/lib/rate-limiter-configs"
+import { isOrcidConfigured } from "@/src/lib/env"
 import { BlockedAccountError, emailHash, linkOjsUser } from "./auth-orcid-helpers"
 
 const app = new Hono()
 
+/** Redirect target when the ORCID stack is not configured (hotfix A3). */
+const SIGNIN_UNAVAILABLE_LOCATION = "/?signin=unavailable"
+
+/**
+ * Build a 302 redirect to `/?auth_error=<CODE>` for user-facing callback
+ * failures. Browsers land back on the home page where the global
+ * AuthErrorBanner surfaces the message — instead of a raw JSON dead-end.
+ * Extra headers (Set-Cookie state clearing, Retry-After) are preserved.
+ */
+function authErrorRedirect(
+    code: string,
+    extraHeaders: Array<[string, string]> = []
+): Response {
+    return new Response(null, {
+        status: 302,
+        headers: new Headers([
+            ["Location", `/?auth_error=${encodeURIComponent(code)}`],
+            ...extraHeaders,
+        ]),
+    })
+}
+
 /** GET /api/auth/orcid/start — mint state, redirect to ORCID. */
 app.get("/start", async (c) => {
+    // Graceful degradation: without ORCID secrets, minting state would throw
+    // deep in the env loader and surface a raw 500. Bounce home instead.
+    if (!isOrcidConfigured()) {
+        return c.redirect(SIGNIN_UNAVAILABLE_LOCATION, 302)
+    }
     const url = new URL(c.req.url)
     const rawReturn = url.searchParams.get("return_url") || "/"
     // Restrict return_url to same-origin paths to prevent open redirect.
@@ -60,48 +88,42 @@ app.get("/start", async (c) => {
 
 /** GET /api/auth/orcid/callback — exchange code, mint identity, redirect. */
 app.get("/callback", async (c) => {
+    // Graceful degradation mirror of /start — never 500 on missing secrets.
+    if (!isOrcidConfigured()) {
+        return c.redirect(SIGNIN_UNAVAILABLE_LOCATION, 302)
+    }
+
     const rate = enforceOrcidCallbackRateLimit(c.req.raw.headers)
     if (!rate.allowed) {
-        return c.json(
-            { success: false, error: "RATE_LIMITED", message: "Too many attempts." },
-            429,
-            { "Retry-After": String(rate.retryAfter) }
-        )
+        return authErrorRedirect("RATE_LIMITED", [
+            ["Retry-After", String(rate.retryAfter)],
+        ])
     }
 
     const url = new URL(c.req.url)
     const code = url.searchParams.get("code")
     const state = url.searchParams.get("state")
     if (!code || !state) {
-        return c.json(
-            { success: false, error: "INVALID_REQUEST", message: "Missing code or state." },
-            400
-        )
+        return authErrorRedirect("INVALID_REQUEST")
     }
 
     try {
         verifyAndConsumeState(state)
     } catch (err) {
         if (err instanceof StateReusedError) {
-            return c.json(
-                { success: false, error: "STATE_REUSED", message: "Sign-in already completed; please retry." },
-                400,
-                { "Set-Cookie": buildClearStateCookieHeader() }
-            )
+            return authErrorRedirect("STATE_REUSED", [
+                ["Set-Cookie", buildClearStateCookieHeader()],
+            ])
         }
         if (err instanceof StateExpiredError) {
-            return c.json(
-                { success: false, error: "STATE_EXPIRED", message: "Sign-in session expired; please retry." },
-                400,
-                { "Set-Cookie": buildClearStateCookieHeader() }
-            )
+            return authErrorRedirect("STATE_EXPIRED", [
+                ["Set-Cookie", buildClearStateCookieHeader()],
+            ])
         }
         if (err instanceof StateInvalidError) {
-            return c.json(
-                { success: false, error: "INVALID_STATE", message: "Invalid sign-in session." },
-                400,
-                { "Set-Cookie": buildClearStateCookieHeader() }
-            )
+            return authErrorRedirect("INVALID_STATE", [
+                ["Set-Cookie", buildClearStateCookieHeader()],
+            ])
         }
         throw err
     }
@@ -145,11 +167,9 @@ app.get("/callback", async (c) => {
         tokenResponse = await exchangeCode(code)
     } catch (err) {
         console.error("[auth/orcid/callback] exchangeCode failed:", err)
-        return c.json(
-            { success: false, error: "ORCID_API_FAILURE", message: "ORCID is temporarily unavailable." },
-            502,
-            { "Set-Cookie": buildClearStateCookieHeader() }
-        )
+        return authErrorRedirect("ORCID_API_FAILURE", [
+            ["Set-Cookie", buildClearStateCookieHeader()],
+        ])
     }
 
     // Verify ID token signature + iss/aud when ORCID returned one.
@@ -164,11 +184,9 @@ app.get("/callback", async (c) => {
             verifiedEmail = verified.email
         } catch (err) {
             console.error("[auth/orcid/callback] id_token verification failed:", err)
-            return c.json(
-                { success: false, error: "INVALID_TOKEN", message: "ORCID returned an invalid token." },
-                502,
-                { "Set-Cookie": buildClearStateCookieHeader() }
-            )
+            return authErrorRedirect("INVALID_TOKEN", [
+                ["Set-Cookie", buildClearStateCookieHeader()],
+            ])
         }
     }
 
@@ -182,15 +200,9 @@ app.get("/callback", async (c) => {
         })
     } catch (err) {
         if (err instanceof BlockedAccountError) {
-            return c.json(
-                {
-                    success: false,
-                    error: "ACCOUNT_DISABLED",
-                    message: "This account has been disabled. Please contact support.",
-                },
-                403,
-                { "Set-Cookie": buildClearStateCookieHeader() }
-            )
+            return authErrorRedirect("ACCOUNT_DISABLED", [
+                ["Set-Cookie", buildClearStateCookieHeader()],
+            ])
         }
         throw err
     }
@@ -240,9 +252,14 @@ app.post("/logout", async (c) => {
 
 /** GET /api/auth/orcid/whoami — return identity payload or {authenticated: false}. */
 app.get("/whoami", async (c) => {
+    // Without secrets, verifying a stale cookie would throw in production
+    // (getIdentityEnv hard-throws). Report anonymous + unavailable instead.
+    if (!isOrcidConfigured()) {
+        return c.json({ authenticated: false, orcid_available: false })
+    }
     const identity = await getIdentity(c.req.raw.headers)
     if (!identity) {
-        return c.json({ authenticated: false })
+        return c.json({ authenticated: false, orcid_available: isOrcidConfigured() })
     }
     const headers: Record<string, string> = {}
     if (identity.refreshNeeded) {
@@ -267,6 +284,7 @@ app.get("/whoami", async (c) => {
             ojs_user_id: identity.ojs_user_id,
             exp_sliding: identity.exp_sliding,
             exp_absolute: identity.exp_absolute,
+            orcid_available: isOrcidConfigured(),
         },
         200,
         headers
