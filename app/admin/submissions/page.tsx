@@ -1,191 +1,178 @@
-import { redirect } from "next/navigation"
-import { getSession } from "@/src/lib/db/auth"
-import { prisma } from "@/src/lib/db/config"
-import { Prisma } from "@prisma/client"
-import { Card, CardContent } from "@/components/ui/card"
-import { SubmissionsFilter } from "@/components/submissions-filter"
-import { Suspense } from "react"
-import { SubmissionsTable, type SubmissionRow } from "./submissions-table"
+"use client"
 
-async function SubmissionsList({ searchParams }: { searchParams: { status?: string; search?: string } }) {
-  const { status, search } = searchParams
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  useGetOjsSubmissions,
+  ReviewsList,
+  OjsStatusBanner,
+  isOjsUnavailable,
+} from "@/src/features/reviews"
+import { useDebouncedValue } from "@/src/hooks/use-debounced-value"
 
-  const where: Prisma.SubmissionWhereInput = {}
+const STAGE_OPTIONS = [
+  { value: "1", label: "Submission" },
+  { value: "2", label: "Internal Review" },
+  { value: "3", label: "External Review" },
+  { value: "4", label: "Copyediting" },
+  { value: "5", label: "Production" },
+]
 
-  if (status && status !== "all") {
-    where.status = status
+const STATUS_OPTIONS = [
+  { value: "1", label: "Queued" },
+  { value: "3", label: "Published" },
+  { value: "4", label: "Declined" },
+  { value: "5", label: "Scheduled" },
+]
+
+export default function SubmissionsPage() {
+  const [search, setSearch] = useState("")
+  const [stageId, setStageId] = useState<string>("all")
+  const [status, setStatus] = useState<string>("all")
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebouncedValue(search)
+
+  const { data, isLoading, error } = useGetOjsSubmissions({
+    page,
+    search: debouncedSearch || undefined,
+    stageId: stageId === "all" ? undefined : Number(stageId),
+    status: status === "all" ? undefined : Number(status),
+  })
+
+  if (data && data.configured === false) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Submission Management</h1>
+          <p className="text-muted-foreground mt-1">Live submissions from OJS</p>
+        </div>
+        <OjsStatusBanner state="unconfigured" />
+      </div>
+    )
   }
 
-  if (search) {
-    where.OR = [
-      { manuscript_title: { contains: search } },
-      { author_name: { contains: search } },
-      { author_email: { contains: search } }
-    ]
-  }
-
-  type SubmissionWithJournal = Prisma.SubmissionGetPayload<{
-    include: {
-      journal: {
-        select: {
-          title: true,
-          field: true
-        }
-      }
-    }
-  }>
-
-  let submissions: SubmissionWithJournal[] = []
-  let error: Error | null = null
-
-  try {
-    submissions = await prisma.submission.findMany({
-      where,
-      orderBy: { submission_date: "desc" },
-      include: {
-        journal: {
-          select: {
-            title: true,
-            field: true
-          }
-        }
-      }
-    })
-  } catch (e) {
-    error = e as Error
-  }
-
-  // Serialize BigInt-safe plain rows for the client table
-  const rows: SubmissionRow[] = submissions.map((submission: SubmissionWithJournal) => ({
-    id: String(submission.id),
-    title: submission.manuscript_title,
-    journalTitle: submission.journal?.title ?? "",
-    journalField: submission.journal?.field ?? "",
-    author: submission.author_name,
-    authorEmail: submission.author_email,
-    status: submission.status ?? "unknown",
-    date: new Date(submission.submission_date).toISOString(),
-  }))
-
-  return (
-    <Card>
-      <CardContent className="p-4">
-        {error && (
-          <div className="mb-4 rounded-lg bg-destructive/10 border border-destructive/20 p-4">
-            <p className="text-sm text-destructive">Error loading submissions: {error.message}</p>
-          </div>
-        )}
-
-        <SubmissionsTable
-          rows={rows}
-          hasFilters={Boolean(searchParams.status || searchParams.search)}
-        />
-      </CardContent>
-    </Card>
-  )
-}
-
-export default async function SubmissionsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ status?: string; search?: string }>
-}) {
-  const session = await getSession()
-  const params = await searchParams
-
-  if (!session) {
-    redirect("/admin/login")
-  }
-
-  // Build query for stats
-  let allSubmissions: { status: string | null }[] = []
-  try {
-    allSubmissions = await prisma.submission.findMany({
-      select: {
-        status: true
-      }
-    })
-  } catch (error) {
-    console.error("Error fetching submissions stats:", error)
-  }
-
-  const statusCounts = {
-    all: allSubmissions?.length || 0,
-    submitted: allSubmissions?.filter((s) => s.status === "submitted").length || 0,
-    under_review: allSubmissions?.filter((s) => s.status === "under_review").length || 0,
-    revision_required: allSubmissions?.filter((s) => s.status === "revision_required").length || 0,
-    accepted: allSubmissions?.filter((s) => s.status === "accepted").length || 0,
-    rejected: allSubmissions?.filter((s) => s.status === "rejected").length || 0,
+  if (isOjsUnavailable(error)) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Submission Management</h1>
+          <p className="text-muted-foreground mt-1">Live submissions from OJS</p>
+        </div>
+        <OjsStatusBanner state="unavailable" />
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Submission Management</h1>
-        <p className="text-muted-foreground mt-1">Manage all manuscript submissions</p>
+        <p className="text-muted-foreground mt-1">
+          Live submissions from OJS with review progress
+        </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">All Submissions</div>
-            <div className="text-2xl font-bold">{statusCounts.all}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Submitted</div>
-            <div className="text-2xl font-bold text-primary">{statusCounts.submitted}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Under Review</div>
-            <div className="text-2xl font-bold text-secondary dark:text-secondary-foreground">{statusCounts.under_review}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Revision Required</div>
-            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-              {statusCounts.revision_required}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="Search by title..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
+          className="max-w-sm"
+        />
+        <Select
+          value={stageId}
+          onValueChange={(v) => {
+            setStageId(v)
+            setPage(1)
+          }}
+        >
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="All stages" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All stages</SelectItem>
+            {STAGE_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={status}
+          onValueChange={(v) => {
+            setStatus(v)
+            setPage(1)
+          }}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            {STATUS_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {isLoading ? (
+        <div className="py-12 text-center text-muted-foreground animate-pulse">
+          Loading submissions...
+        </div>
+      ) : error ? (
+        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Error loading submissions: {(error as Error).message}
+          </p>
+        </div>
+      ) : (
+        <>
+          <ReviewsList submissions={data?.data || []} />
+          {data?.pagination && data.pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Page {data.pagination.page} of {data.pagination.totalPages} (
+                {data.pagination.total} submissions)
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!data.pagination.hasPrev}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="bg-transparent transition-transform duration-150 ease-out active:scale-[0.97]"
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!data.pagination.hasNext}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="bg-transparent transition-transform duration-150 ease-out active:scale-[0.97]"
+                >
+                  Next
+                </Button>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Accepted</div>
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{statusCounts.accepted}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Rejected</div>
-            <div className="text-2xl font-bold text-destructive">{statusCounts.rejected}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <Suspense fallback={<div className="h-10 bg-muted animate-pulse rounded" />}>
-            <SubmissionsFilter />
-          </Suspense>
-        </CardContent>
-      </Card>
-
-      {/* Submissions List */}
-      <Suspense
-        fallback={
-          <Card>
-            <CardContent className="py-12 text-center">Loading submissions...</CardContent>
-          </Card>
-        }
-      >
-        <SubmissionsList searchParams={params} />
-      </Suspense>
+          )}
+        </>
+      )}
     </div>
   )
 }
