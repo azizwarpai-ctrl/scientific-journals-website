@@ -203,12 +203,7 @@ export async function GET(request: NextRequest) {
       return new NextResponse("Upstream read failed", { status: 502 })
     }
 
-    const buffer = new Uint8Array(bytesRead)
-    let offset = 0
-    for (const chunk of chunks) {
-      buffer.set(chunk, offset)
-      offset += chunk.byteLength
-    }
+    const buffer = Buffer.concat(chunks, bytesRead)
 
     return new NextResponse(buffer, {
       status: 200,

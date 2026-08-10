@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { promises as fs } from "node:fs"
+import { Readable } from "node:stream"
 import path from "node:path"
 
 const AUDIO_CONTENT_TYPES: Record<string, string> = {
@@ -85,7 +86,7 @@ export async function GET(
     const chunkSize = end - start + 1
     const fileHandle = await fs.open(filePath, "r")
     const stream = fileHandle.createReadStream({ start, end, autoClose: true })
-    const webStream = readableNodeToWeb(stream)
+    const webStream = Readable.toWeb(stream) as unknown as ReadableStream<Uint8Array>
 
     return new NextResponse(webStream, {
       status: 206,
@@ -102,7 +103,7 @@ export async function GET(
 
   const fileHandle = await fs.open(filePath, "r")
   const stream = fileHandle.createReadStream({ autoClose: true })
-  const webStream = readableNodeToWeb(stream)
+  const webStream = Readable.toWeb(stream) as unknown as ReadableStream<Uint8Array>
 
   return new NextResponse(webStream, {
     status: 200,
@@ -151,27 +152,6 @@ export async function HEAD(
       "Content-Type": contentType,
       "Content-Length": String(stat.size),
       "Accept-Ranges": "bytes",
-    },
-  })
-}
-
-function readableNodeToWeb(
-  nodeStream: import("node:fs").ReadStream
-): ReadableStream<Uint8Array> {
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      nodeStream.on("data", (chunk: Buffer) => {
-        controller.enqueue(new Uint8Array(chunk))
-      })
-      nodeStream.on("end", () => {
-        controller.close()
-      })
-      nodeStream.on("error", (err) => {
-        controller.error(err)
-      })
-    },
-    cancel() {
-      nodeStream.destroy()
     },
   })
 }

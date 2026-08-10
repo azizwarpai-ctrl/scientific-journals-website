@@ -115,6 +115,7 @@ export function JournalDetailView({
   useEffect(() => {
     if (isLoading || !journal) return
     if (activeTab === "about" && initialAboutSlug) {
+      let resetTimer: ReturnType<typeof setTimeout> | undefined
       const timer = setTimeout(() => {
         const el = document.getElementById(`about-${initialAboutSlug}`)
         if (el) {
@@ -123,12 +124,16 @@ export function JournalDetailView({
           const yOffset = -140
           const y = el.getBoundingClientRect().top + window.scrollY + yOffset
           window.scrollTo({ top: y, behavior: "smooth" })
-          setTimeout(() => {
+          resetTimer = setTimeout(() => {
             isProgrammaticScroll.current = false
           }, 1000)
         }
       }, 100)
-      return () => clearTimeout(timer)
+      // Own both timers — the inner reset timer must be cleared on unmount too.
+      return () => {
+        clearTimeout(timer)
+        if (resetTimer) clearTimeout(resetTimer)
+      }
     }
   }, [activeTab, initialAboutSlug, isLoading, journal])
 

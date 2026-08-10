@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
 import bcrypt from 'bcryptjs'
 
@@ -65,7 +65,7 @@ export async function initializeDatabase() {
       // we execute the missing schema structure explicitly via native Prisma SQL.
 
       try {
-        await prisma.$executeRawUnsafe('ALTER TABLE `journals` ADD COLUMN `ojs_path` VARCHAR(100) NULL;')
+        await prisma.$executeRaw(Prisma.sql`ALTER TABLE \`journals\` ADD COLUMN \`ojs_path\` VARCHAR(100) NULL`)
         console.log('[DB Init] Applied schema patch: Added ojs_path to journals')
       } catch (e) {
         const errorMsg = e instanceof Error ? e.message : String(e)
@@ -75,7 +75,7 @@ export async function initializeDatabase() {
       }
 
       try {
-        await prisma.$executeRawUnsafe(`
+        await prisma.$executeRaw(Prisma.sql`
           CREATE TABLE IF NOT EXISTS \`ojs_sso_tokens\` (
             \`id\` VARCHAR(191) NOT NULL,
             \`token\` VARCHAR(128) NOT NULL,
@@ -96,7 +96,7 @@ export async function initializeDatabase() {
       }
 
       try {
-        await prisma.$executeRawUnsafe(`
+        await prisma.$executeRaw(Prisma.sql`
           CREATE TABLE IF NOT EXISTS \`verification_codes\` (
             \`id\` BIGINT NOT NULL AUTO_INCREMENT,
             \`user_id\` BIGINT NOT NULL,
@@ -120,8 +120,8 @@ export async function initializeDatabase() {
       }
 
       try {
-        await prisma.$executeRawUnsafe(
-          'ALTER TABLE `verification_codes` MODIFY COLUMN `code` VARCHAR(72) NOT NULL;'
+        await prisma.$executeRaw(
+          Prisma.sql`ALTER TABLE \`verification_codes\` MODIFY COLUMN \`code\` VARCHAR(72) NOT NULL`
         )
         console.log('[DB Init] Applied schema patch: Widened verification_codes.code to VARCHAR(72)')
       } catch (e) {
@@ -130,18 +130,21 @@ export async function initializeDatabase() {
       }
 
       // --- Patch: Add OJS extended profile columns to admin_users ---
-      const profileColumns = [
-        { name: 'country', type: 'VARCHAR(90) NULL' },
-        { name: 'phone', type: 'VARCHAR(32) NULL' },
-        { name: 'affiliation', type: 'VARCHAR(255) NULL' },
-        { name: 'department', type: 'VARCHAR(255) NULL' },
-        { name: 'orcid', type: 'VARCHAR(255) NULL' },
-        { name: 'biography', type: 'TEXT NULL' },
+      // DDL identifiers/types can't be driver-bound, so each statement is a
+      // fully static Prisma.sql template (no interpolation) rather than a
+      // string built from a variable — keeps the column name for logging.
+      const profileColumns: Array<{ name: string; sql: Prisma.Sql }> = [
+        { name: 'country', sql: Prisma.sql`ALTER TABLE \`admin_users\` ADD COLUMN \`country\` VARCHAR(90) NULL` },
+        { name: 'phone', sql: Prisma.sql`ALTER TABLE \`admin_users\` ADD COLUMN \`phone\` VARCHAR(32) NULL` },
+        { name: 'affiliation', sql: Prisma.sql`ALTER TABLE \`admin_users\` ADD COLUMN \`affiliation\` VARCHAR(255) NULL` },
+        { name: 'department', sql: Prisma.sql`ALTER TABLE \`admin_users\` ADD COLUMN \`department\` VARCHAR(255) NULL` },
+        { name: 'orcid', sql: Prisma.sql`ALTER TABLE \`admin_users\` ADD COLUMN \`orcid\` VARCHAR(255) NULL` },
+        { name: 'biography', sql: Prisma.sql`ALTER TABLE \`admin_users\` ADD COLUMN \`biography\` TEXT NULL` },
       ]
 
       for (const col of profileColumns) {
         try {
-          await prisma.$executeRawUnsafe(`ALTER TABLE \`admin_users\` ADD COLUMN \`${col.name}\` ${col.type};`)
+          await prisma.$executeRaw(col.sql)
         } catch (e) {
           const errorMsg = e instanceof Error ? e.message : String(e)
           if (!errorMsg.includes('Duplicate column name')) {
@@ -152,7 +155,7 @@ export async function initializeDatabase() {
       console.log('[DB Init] Applied schema patch: Synchronized admin_users profile columns')
       
       try {
-        await prisma.$executeRawUnsafe('ALTER TABLE `about_sections` ADD COLUMN `section_key` VARCHAR(50) NULL UNIQUE;')
+        await prisma.$executeRaw(Prisma.sql`ALTER TABLE \`about_sections\` ADD COLUMN \`section_key\` VARCHAR(50) NULL UNIQUE`)
         console.log('[DB Init] Applied schema patch: Added section_key to about_sections')
       } catch (e) {
         const errorMsg = e instanceof Error ? e.message : String(e)
@@ -162,7 +165,7 @@ export async function initializeDatabase() {
       }
 
       try {
-        await prisma.$executeRawUnsafe(`
+        await prisma.$executeRaw(Prisma.sql`
           CREATE TABLE IF NOT EXISTS \`article_audio\` (
             \`id\` BIGINT NOT NULL AUTO_INCREMENT,
             \`ojs_journal_id\` VARCHAR(50) NOT NULL,
@@ -189,7 +192,7 @@ export async function initializeDatabase() {
       }
 
       try {
-        await prisma.$executeRawUnsafe(`
+        await prisma.$executeRaw(Prisma.sql`
           ALTER TABLE \`article_audio\`
             ADD CONSTRAINT \`article_audio_uploaded_by_fkey\`
             FOREIGN KEY (\`uploaded_by\`) REFERENCES \`admin_users\`(\`id\`)

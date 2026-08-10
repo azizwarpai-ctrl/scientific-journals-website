@@ -213,7 +213,7 @@ export function usePdfModal(pdfUrl: string | null, options: UsePdfModalOptions |
   }, [open, closeModal, retryNonce])
 
   const [isMobile] = useState(() => {
-    if (typeof navigator === "undefined") return false
+    if (typeof navigator === "undefined" || typeof window === "undefined") return false
     const ua =
       navigator.userAgent ||
       navigator.vendor ||

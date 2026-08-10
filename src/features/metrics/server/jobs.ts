@@ -48,8 +48,8 @@ export async function aggregateDailyMetrics(day: string = previousUtcDay()): Pro
 
     // Raw aggregation query. GROUP BY (article_id, journal_id) so the daily
     // row carries both. unique_* counts use DISTINCT dedup_key.
-    const rows = await prisma.$queryRawUnsafe<ArticleAggRow[]>(
-        `SELECT
+    const rows = await prisma.$queryRaw<ArticleAggRow[]>`
+        SELECT
             article_id,
             journal_id,
             SUM(CASE WHEN event_type='view' THEN 1 ELSE 0 END) AS views,
@@ -58,11 +58,8 @@ export async function aggregateDailyMetrics(day: string = previousUtcDay()): Pro
             COUNT(DISTINCT CASE WHEN event_type='download' THEN dedup_key ELSE NULL END) AS unique_downloads,
             SUM(CASE WHEN event_type='citation_export' THEN 1 ELSE 0 END) AS citations
          FROM user_event
-         WHERE created_at >= ? AND created_at < ?
-         GROUP BY article_id, journal_id`,
-        start,
-        end
-    )
+         WHERE created_at >= ${start} AND created_at < ${end}
+         GROUP BY article_id, journal_id`
 
     let upserted = 0
     for (const r of rows) {
@@ -114,8 +111,8 @@ export async function aggregateMonthlyMetrics(
     const mm = String(month).padStart(2, "0")
     const dayPrefix = `${year}-${mm}-`
 
-    const rows = await prisma.$queryRawUnsafe<ArticleAggRow[]>(
-        `SELECT
+    const rows = await prisma.$queryRaw<ArticleAggRow[]>`
+        SELECT
             article_id,
             journal_id,
             SUM(views) AS views,
@@ -124,10 +121,8 @@ export async function aggregateMonthlyMetrics(
             SUM(unique_downloads) AS unique_downloads,
             SUM(citations) AS citations
          FROM metrics_article_daily
-         WHERE day LIKE ? AND source='digitopub'
-         GROUP BY article_id, journal_id`,
-        `${dayPrefix}%`
-    )
+         WHERE day LIKE ${`${dayPrefix}%`} AND source='digitopub'
+         GROUP BY article_id, journal_id`
 
     let upserted = 0
     for (const r of rows) {
@@ -178,8 +173,8 @@ interface UserAggRow {
 
 /** Recomputes lifetime per-ORCID totals into `user_metrics`. */
 export async function updateUserMetrics(): Promise<{ upserted: number }> {
-    const rows = await prisma.$queryRawUnsafe<UserAggRow[]>(
-        `SELECT
+    const rows = await prisma.$queryRaw<UserAggRow[]>`
+        SELECT
             orcid,
             SUM(CASE WHEN event_type='view' THEN 1 ELSE 0 END) AS views,
             SUM(CASE WHEN event_type='download' THEN 1 ELSE 0 END) AS downloads,
@@ -189,7 +184,6 @@ export async function updateUserMetrics(): Promise<{ upserted: number }> {
          FROM user_event
          WHERE orcid IS NOT NULL
          GROUP BY orcid`
-    )
 
     let upserted = 0
     for (const r of rows) {
@@ -232,11 +226,11 @@ export async function retentionCleanup(
     let totalDeleted = 0
     let completed = true
     for (;;) {
-        const result = await prisma.$executeRawUnsafe(
-            "DELETE FROM user_event WHERE created_at < ? ORDER BY id LIMIT ?",
-            cutoff,
-            RETENTION_BATCH
-        )
+        // $executeRaw tagged template binds ${cutoff}/${RETENTION_BATCH} as
+        // driver parameters (not string interpolation) — no raw/unsafe helper.
+        const result = await prisma.$executeRaw`
+            DELETE FROM user_event WHERE created_at < ${cutoff} ORDER BY id LIMIT ${RETENTION_BATCH}
+        `
         const deleted = Number(result)
         totalDeleted += deleted
         if (deleted < RETENTION_BATCH) break

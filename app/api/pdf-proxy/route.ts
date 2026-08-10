@@ -246,12 +246,7 @@ export async function GET(request: Request) {
           }
 
           if (totalBytes > 0) {
-            const buffer = new Uint8Array(totalBytes)
-            let offset = 0
-            for (const chunk of chunks) {
-              buffer.set(chunk, offset)
-              offset += chunk.length
-            }
+            const buffer = Buffer.concat(chunks, totalBytes)
 
             if (startsWithPdfMagic(buffer) && !looksLikeHtml(buffer)) {
               const stream = buildStream(buffer, reader)
@@ -423,12 +418,7 @@ export async function GET(request: Request) {
       return jsonError("INVALID_RESPONSE", "Source returned empty body.", 502, sourceUrl)
     }
 
-    const buffer = new Uint8Array(totalBytes)
-    let offset = 0
-    for (const chunk of chunks) {
-      buffer.set(chunk, offset)
-      offset += chunk.length
-    }
+    const buffer = Buffer.concat(chunks, totalBytes)
 
     if (!startsWithPdfMagic(buffer)) {
       await reader.cancel().catch(() => {})

@@ -20,7 +20,8 @@
     "db:migrate": "mysql -u $DATABASE_USER -p$DATABASE_PASSWORD $DATABASE_NAME < scripts/001_create_tables.sql",
     "db:seed": "mysql -u $DATABASE_USER -p$DATABASE_PASSWORD $DATABASE_NAME < scripts/002_insert_sample_data.sql",
     "ojs:sync": "bun run scripts/ojs-sync-cron.ts",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1066.0",
