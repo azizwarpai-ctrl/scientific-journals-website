@@ -42,7 +42,12 @@ export default function AnalyticsPage() {
 }
 
 function AnalyticsView({ summary }: { summary: AdminAnalyticsSummary }) {
-  const { totals, fieldGroups, last7, health } = summary
+  const { totals, fieldGroups, last7, health, ojsAvailable } = summary
+
+  // OJS-sourced figures render as "—" when OJS is unreachable/unset, so a
+  // real 0 is never confused with "we couldn't read it". Journals and
+  // Published Articles are backed by local data (snapshot) and stay valid.
+  const ojsValue = (n: number): string => (ojsAvailable ? n.toLocaleString() : EMPTY)
 
   const stats = [
     {
@@ -54,14 +59,14 @@ function AnalyticsView({ summary }: { summary: AdminAnalyticsSummary }) {
     },
     {
       title: "Total Submissions",
-      value: totals.submissions.toLocaleString(),
+      value: ojsValue(totals.submissions),
       icon: FileText,
       color: "text-secondary",
       bgColor: "bg-secondary/20",
     },
     {
       title: "Accepted Articles",
-      value: totals.accepted.toLocaleString(),
+      value: ojsValue(totals.accepted),
       icon: CheckCircle,
       color: "text-emerald-600 dark:text-emerald-400",
       bgColor: "bg-emerald-500/20",
@@ -75,14 +80,14 @@ function AnalyticsView({ summary }: { summary: AdminAnalyticsSummary }) {
     },
     {
       title: "Total Reviews",
-      value: totals.reviews.toLocaleString(),
+      value: ojsValue(totals.reviews),
       icon: Eye,
       color: "text-amber-600 dark:text-amber-400",
       bgColor: "bg-amber-500/20",
     },
     {
       title: "Acceptance Rate",
-      value: `${totals.acceptanceRate.toFixed(1)}%`,
+      value: ojsAvailable ? `${totals.acceptanceRate.toFixed(1)}%` : EMPTY,
       icon: TrendingUp,
       color: "text-teal-600 dark:text-teal-400",
       bgColor: "bg-teal-500/20",
@@ -98,6 +103,16 @@ function AnalyticsView({ summary }: { summary: AdminAnalyticsSummary }) {
         <h1 className="text-3xl font-bold">Analytics &amp; Reports</h1>
         <p className="text-muted-foreground mt-1">Overview of platform performance and statistics</p>
       </div>
+
+      {!ojsAvailable && (
+        <Card>
+          <CardContent className="py-3 text-sm text-muted-foreground">
+            Submission, review, and acceptance figures are sourced live from OJS,
+            which is currently unavailable — those values show as {EMPTY}. Journal
+            and published-article counts remain accurate.
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -177,9 +192,9 @@ function AnalyticsView({ summary }: { summary: AdminAnalyticsSummary }) {
           <CardContent>
             <div className="space-y-2 text-sm">
               <p className="text-muted-foreground">Last 7 days:</p>
-              <ActivityRow label="New Submissions" value={last7.newSubmissions} />
-              <ActivityRow label="Completed Reviews" value={last7.completedReviews} />
-              <ActivityRow label="Published Articles" value={last7.publishedArticles} />
+              <ActivityRow label="New Submissions" value={ojsAvailable ? last7.newSubmissions : null} />
+              <ActivityRow label="Completed Reviews" value={ojsAvailable ? last7.completedReviews : null} />
+              <ActivityRow label="Published Articles" value={ojsAvailable ? last7.publishedArticles : null} />
               <ActivityRow label="Article Views" value={last7.views} />
               <ActivityRow label="Article Downloads" value={last7.downloads} />
             </div>

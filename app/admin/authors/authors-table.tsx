@@ -12,6 +12,13 @@ export interface AuthorRow {
   latestSubmission: string
 }
 
+/** Format an ISO date to a stable date string, or "—" when missing/invalid. */
+function formatDate(iso: string): string {
+  if (!iso) return "—"
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US", { timeZone: "UTC" })
+}
+
 const columns: ColumnDef<AuthorRow, unknown>[] = [
   {
     accessorKey: "name",
@@ -37,7 +44,7 @@ const columns: ColumnDef<AuthorRow, unknown>[] = [
   {
     accessorKey: "latestSubmission",
     header: sortableHeader<AuthorRow>("Latest Submission"),
-    cell: ({ row }) => new Date(row.original.latestSubmission).toLocaleDateString(),
+    cell: ({ row }) => formatDate(row.original.latestSubmission),
   },
 ]
 
@@ -47,7 +54,7 @@ const csvColumns: CsvColumn<AuthorRow>[] = [
   { header: "Submissions", accessor: (row) => row.submissions },
   {
     header: "Latest Submission",
-    accessor: (row) => new Date(row.latestSubmission).toLocaleDateString(),
+    accessor: (row) => formatDate(row.latestSubmission),
   },
 ]
 

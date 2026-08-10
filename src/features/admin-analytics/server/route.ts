@@ -3,7 +3,13 @@ import { zValidator } from "@hono/zod-validator"
 import { requireAdmin } from "@/src/lib/auth-middleware"
 import { serializeRecord } from "@/src/lib/serialize"
 import { prisma } from "@/src/lib/db/config"
-import { ojsHealthCheck } from "@/src/features/ojs/server/ojs-client"
+import { ojsHealthCheck, isOjsConfigured } from "@/src/features/ojs/server/ojs-client"
+import {
+  getOjsPlatformStats,
+  getSnapshotAggregates,
+  getOjsSubmissionCountsByJournal,
+  getOjsLast7Stats,
+} from "@/src/features/ojs/server/ojs-stats-service"
 import { getOrSetCache, CACHE_HEADERS } from "@/src/lib/server-cache"
 import { timeseriesQuerySchema } from "@/src/features/admin-analytics/schemas/timeseries-schema"
 import { getTimeseries } from "./timeseries"
@@ -26,16 +32,13 @@ const app = new Hono()
 app.get("/summary", requireAdmin, async (c) => {
   const windowStart = new Date(Date.now() - SEVEN_DAYS_MS)
 
+  // Local reads — always valid. Published Articles + lifetime views/downloads
+  // come from the synced ojs_journal_snapshots aggregates (no OJS round-trip);
+  // 7-day view/download events come from the local user_event stream.
   const [
     journalsCount,
-    submissionsCount,
-    acceptedCount,
-    publishedCount,
-    reviewsCount,
-    journalFields,
-    newSubmissions7d,
-    completedReviews7d,
-    publishedArticles7d,
+    snapshot,
+    journals,
     viewEventsAny,
     views7d,
     downloadEventsAny,
@@ -44,16 +47,8 @@ app.get("/summary", requireAdmin, async (c) => {
     ojs,
   ] = await Promise.all([
     prisma.journal.count(),
-    prisma.submission.count(),
-    prisma.submission.count({ where: { status: "accepted" } }),
-    prisma.publishedArticle.count(),
-    prisma.review.count(),
-    prisma.journal.findMany({
-      select: { field: true, _count: { select: { submissions: true } } },
-    }),
-    prisma.submission.count({ where: { submission_date: { gte: windowStart } } }),
-    prisma.review.count({ where: { review_date: { gte: windowStart } } }),
-    prisma.publishedArticle.count({ where: { publication_date: { gte: windowStart } } }),
+    getSnapshotAggregates(),
+    prisma.journal.findMany({ select: { ojs_id: true, field: true } }),
     prisma.userEvent.count({ where: { event_type: "view" } }),
     prisma.userEvent.count({ where: { event_type: "view", created_at: { gte: windowStart } } }),
     prisma.userEvent.count({ where: { event_type: "download" } }),
@@ -62,10 +57,37 @@ app.get("/summary", requireAdmin, async (c) => {
     ojsHealthCheck(),
   ])
 
+  // Live OJS reads — degrade to an unavailable state instead of fake zeros.
+  let ojsAvailable = false
+  let submissionsCount = 0
+  let acceptedCount = 0
+  let reviewsCount = 0
+  let last7 = { newSubmissions: 0, completedReviews: 0, publishedArticles: 0 }
   const fieldGroups = new Map<string, number>()
-  for (const j of journalFields) {
-    if (!j.field) continue
-    fieldGroups.set(j.field, (fieldGroups.get(j.field) ?? 0) + j._count.submissions)
+
+  if (isOjsConfigured()) {
+    try {
+      const [platform, countsByJournal, windowed] = await Promise.all([
+        getOjsPlatformStats(),
+        getOjsSubmissionCountsByJournal(),
+        getOjsLast7Stats(windowStart),
+      ])
+      ojsAvailable = true
+      submissionsCount = platform.totalSubmissions
+      // "Accepted" = everything past review that wasn't declined
+      // (in production + published).
+      acceptedCount = platform.inProduction + platform.published
+      reviewsCount = platform.totalReviews
+      last7 = windowed
+
+      for (const j of journals) {
+        if (!j.field || !j.ojs_id) continue
+        const count = countsByJournal.get(String(j.ojs_id)) ?? 0
+        fieldGroups.set(j.field, (fieldGroups.get(j.field) ?? 0) + count)
+      }
+    } catch (e) {
+      console.error("[admin-analytics] OJS summary reads failed:", e instanceof Error ? e.message : e)
+    }
   }
 
   const acceptanceRate = submissionsCount > 0 ? (acceptedCount / submissionsCount) * 100 : 0
@@ -75,7 +97,7 @@ app.get("/summary", requireAdmin, async (c) => {
       journals: journalsCount,
       submissions: submissionsCount,
       accepted: acceptedCount,
-      published: publishedCount,
+      published: snapshot.publishedArticles,
       reviews: reviewsCount,
       acceptanceRate,
     },
@@ -83,13 +105,14 @@ app.get("/summary", requireAdmin, async (c) => {
       .map(([field, submissions]) => ({ field, submissions }))
       .sort((a, b) => b.submissions - a.submissions),
     last7: {
-      newSubmissions: newSubmissions7d,
-      completedReviews: completedReviews7d,
-      publishedArticles: publishedArticles7d,
+      newSubmissions: last7.newSubmissions,
+      completedReviews: last7.completedReviews,
+      publishedArticles: last7.publishedArticles,
       views: viewEventsAny === 0 ? null : views7d,
       downloads: downloadEventsAny === 0 ? null : downloads7d,
     },
     health: { database, ojs },
+    ojsAvailable,
     computedAt: new Date().toISOString(),
   }
 

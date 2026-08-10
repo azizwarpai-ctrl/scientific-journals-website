@@ -206,6 +206,75 @@ export async function initializeDatabase() {
         }
       }
 
+      // --- Patch: email_templates + email_logs ---
+      // These models predate the runtime-patch mechanism; prod DBs that were
+      // seeded before the migration existed are missing the tables, so the
+      // Email Templates page 500s (`table email_templates does not exist`).
+      // Create both here (templates first — email_logs has an FK to it),
+      // mirroring model EmailTemplate / EmailLog in schema.prisma. Idempotent.
+      try {
+        await prisma.$executeRaw(Prisma.sql`
+          CREATE TABLE IF NOT EXISTS \`email_templates\` (
+            \`id\` BIGINT NOT NULL AUTO_INCREMENT,
+            \`name\` VARCHAR(100) NOT NULL,
+            \`subject\` VARCHAR(500) NOT NULL,
+            \`html_content\` LONGTEXT NOT NULL,
+            \`text_content\` LONGTEXT NULL,
+            \`variables\` JSON NULL,
+            \`description\` TEXT NULL,
+            \`is_active\` BOOLEAN NOT NULL DEFAULT true,
+            \`created_at\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+            \`updated_at\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+            UNIQUE INDEX \`email_templates_name_key\`(\`name\`),
+            INDEX \`email_templates_is_active_idx\`(\`is_active\`),
+            INDEX \`email_templates_name_idx\`(\`name\`),
+            PRIMARY KEY (\`id\`)
+          ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        `)
+        console.log('[DB Init] Applied schema patch: Synchronized email_templates table')
+      } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e)
+        console.error('[DB Init] Failed to create email_templates table:', errorMsg)
+      }
+
+      try {
+        await prisma.$executeRaw(Prisma.sql`
+          CREATE TABLE IF NOT EXISTS \`email_logs\` (
+            \`id\` BIGINT NOT NULL AUTO_INCREMENT,
+            \`template_id\` BIGINT NULL,
+            \`to_email\` VARCHAR(255) NOT NULL,
+            \`subject\` VARCHAR(500) NOT NULL,
+            \`status\` VARCHAR(50) NOT NULL DEFAULT 'pending',
+            \`error_message\` TEXT NULL,
+            \`sent_at\` DATETIME(3) NULL,
+            \`created_at\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+            INDEX \`email_logs_template_id_idx\`(\`template_id\`),
+            INDEX \`email_logs_status_idx\`(\`status\`),
+            INDEX \`email_logs_to_email_idx\`(\`to_email\`),
+            PRIMARY KEY (\`id\`)
+          ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        `)
+        console.log('[DB Init] Applied schema patch: Synchronized email_logs table')
+      } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e)
+        console.error('[DB Init] Failed to create email_logs table:', errorMsg)
+      }
+
+      try {
+        await prisma.$executeRaw(Prisma.sql`
+          ALTER TABLE \`email_logs\`
+            ADD CONSTRAINT \`email_logs_template_id_fkey\`
+            FOREIGN KEY (\`template_id\`) REFERENCES \`email_templates\`(\`id\`)
+            ON DELETE SET NULL ON UPDATE CASCADE;
+        `)
+        console.log('[DB Init] Applied schema patch: Added email_logs FK to email_templates')
+      } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e)
+        if (!errorMsg.includes('Duplicate') && !errorMsg.includes('already exists')) {
+          console.error('[DB Init] Failed to add email_logs FK:', errorMsg)
+        }
+      }
+
       // --- END MIGRATIONS ---
 
       console.log('[DB Init] Starting runtime database seeding...')
