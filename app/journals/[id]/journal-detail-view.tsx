@@ -52,6 +52,29 @@ import { type JournalDetailTab, journalTabPath } from "@/app/journals/[id]/tab-c
 
 const TAB_TRIGGER_CLASSES = "rounded-none border-b-2 border-transparent px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
 
+function sanitizeContent(html: string | null | undefined): string {
+  if (!html) return ""
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
+    ALLOWED_ATTR: [],
+  })
+}
+
+// Richer sanitizer for OJS-sourced fee content, which may include tables,
+// links and inline formatting. The server already runs a strict sanitize
+// pass — this is defense in depth for the browser-side render.
+function sanitizeRichContent(html: string | null | undefined): string {
+  if (!html) return ""
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'p', 'br', 'strong', 'em', 'b', 'i', 'u', 'ul', 'ol', 'li', 'a',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'blockquote', 'span', 'div',
+      'table', 'tbody', 'tr', 'td', 'th', 'thead', 'hr',
+    ],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+  })
+}
+
 export interface JournalDetailViewProps {
   /** Tab to show on first render. Defaults to "about" on the journal root route. */
   initialTab?: JournalDetailTab
@@ -190,30 +213,6 @@ export function JournalDetailView({
     }
   }
   // ---------------------------------------------
-
-  const sanitizeContent = (html: string | null | undefined): string => {
-    if (!html) return ""
-    return DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
-      ALLOWED_ATTR: [],
-    })
-  }
-
-  // Richer sanitizer for OJS-sourced fee content, which may include tables,
-  // links and inline formatting. The server already runs a strict sanitize
-  // pass — this is defense in depth for the browser-side render.
-  const sanitizeRichContent = (html: string | null | undefined): string => {
-    if (!html) return ""
-    return DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: [
-        'p', 'br', 'strong', 'em', 'b', 'i', 'u', 'ul', 'ol', 'li', 'a',
-        'h1', 'h2', 'h3', 'h4', 'h5', 'blockquote', 'span', 'div',
-        'table', 'tbody', 'tr', 'td', 'th', 'thead', 'hr',
-      ],
-      ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
-    })
-  }
-
 
   if (isLoading) {
     return (
@@ -538,8 +537,8 @@ export function JournalDetailView({
                           distinct headings; fall back to a single combined card otherwise. */}
                       {safeAims && safeScope ? (
                         <div className="grid gap-5 md:grid-cols-2">
-                          <div className="group relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-primary/[0.03] p-6 sm:p-7 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
-                            <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/5 blur-2xl transition-all group-hover:bg-primary/10" />
+                          <div className="group relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-primary/[0.03] p-6 sm:p-7 shadow-sm transition hover:shadow-md hover:border-primary/30">
+                            <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/5 blur-2xl transition-colors group-hover:bg-primary/10" />
                             <div className="relative flex items-center gap-3 mb-5">
                               <div className="p-2.5 rounded-xl bg-primary/10 ring-1 ring-primary/20">
                                 <Target className="h-5 w-5 text-primary" />
@@ -557,8 +556,8 @@ export function JournalDetailView({
                             </CollapsibleContent>
                           </div>
 
-                          <div className="group relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-primary/[0.03] p-6 sm:p-7 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
-                            <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/5 blur-2xl transition-all group-hover:bg-primary/10" />
+                          <div className="group relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-primary/[0.03] p-6 sm:p-7 shadow-sm transition hover:shadow-md hover:border-primary/30">
+                            <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/5 blur-2xl transition-colors group-hover:bg-primary/10" />
                             <div className="relative flex items-center gap-3 mb-5">
                               <div className="p-2.5 rounded-xl bg-primary/10 ring-1 ring-primary/20">
                                 <Telescope className="h-5 w-5 text-primary" />
@@ -621,8 +620,8 @@ export function JournalDetailView({
                             journal.e_issn ? { label: "ISSN (Online)", value: journal.e_issn, icon: Globe } : null,
                             journal.publisher ? { label: "Publisher", value: journal.publisher, icon: Building } : null,
                             journal.frequency ? { label: "Frequency", value: journal.frequency, icon: Calendar } : null,
-                          ] as const).filter((item): item is NonNullable<typeof item> => item !== null).map((item, idx) => (
-                            <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 -mx-3 border border-border/40 hover:border-border/80 transition-colors">
+                          ] as const).filter((item): item is NonNullable<typeof item> => item !== null).map((item) => (
+                            <div key={item.label} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 -mx-3 border border-border/40 hover:border-border/80 transition-colors">
                               <div className="p-2 rounded-md bg-background shadow-xs mt-0.5 border border-border/50">
                                 <item.icon className="h-4 w-4 text-primary" />
                               </div>

@@ -26,7 +26,7 @@ function VerifyCodeContent() {
     // Countdown timer for resend cooldown
     useEffect(() => {
         if (resendCooldown > 0) {
-            const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000)
+            const timer = setTimeout(() => setResendCooldown((prev) => prev - 1), 1000)
             return () => clearTimeout(timer)
         }
     }, [resendCooldown])

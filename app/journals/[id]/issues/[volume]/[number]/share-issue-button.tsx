@@ -27,7 +27,7 @@ export function ShareIssueButton({ issuePath }: ShareIssueButtonProps) {
     <button
       type="button"
       onClick={handleShare}
-      className="flex-shrink-0 p-2.5 rounded-xl border border-border/50 bg-muted/40 hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 text-muted-foreground hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+      className="flex-shrink-0 p-2.5 rounded-xl border border-border/50 bg-muted/40 hover:bg-primary/10 hover:border-primary/40 transition-colors duration-200 text-muted-foreground hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
       aria-label="Copy issue link"
       title="Copy issue link"
     >

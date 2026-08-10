@@ -27,7 +27,7 @@ export function SearchBar({
       type="button"
       id={id}
       onClick={open}
-      className="relative flex w-full items-center gap-2 rounded-full border-2 border-border bg-background px-4 py-3 text-left text-sm text-muted-foreground transition-all hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 active:scale-[0.98]"
+      className="relative flex w-full items-center gap-2 rounded-full border-2 border-border bg-background px-4 py-3 text-left text-sm text-muted-foreground transition hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 active:scale-[0.98]"
     >
       <Search className="h-5 w-5 shrink-0 opacity-50" />
       <span className="flex-1 truncate">{placeholder}</span>

@@ -93,8 +93,8 @@ function PricingCard({
 
       {/* Features List */}
       <ul className="space-y-4 flex-1">
-        {plan.features.map((feature, index) => (
-          <li key={index} className="flex items-center gap-3">
+        {plan.features.map((feature) => (
+          <li key={feature} className="flex items-center gap-3">
             <Check className="w-5 h-5 text-gray-400 flex-shrink-0" />
             <span className="text-gray-300 text-sm">{feature}</span>
           </li>
@@ -124,8 +124,8 @@ function PricingCard({
             }`}
           >
             <ul className="space-y-4 overflow-hidden">
-              {plan.extraFeatures.map((feature, index) => (
-                <li key={index} className="flex items-center gap-3">
+              {plan.extraFeatures.map((feature) => (
+                <li key={feature} className="flex items-center gap-3">
                   <Check className="w-5 h-5 text-blue-500 flex-shrink-0" />
                   <span className="text-gray-300 text-sm">{feature}</span>
                 </li>

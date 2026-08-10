@@ -133,7 +133,7 @@ function AnalyticsView({ summary }: { summary: AdminAnalyticsSummary }) {
                   <div className="flex items-center gap-4">
                     <div className="w-64 bg-muted rounded-full h-2 overflow-hidden">
                       <div
-                        className="h-full bg-primary transition-all"
+                        className="h-full bg-primary transition-[width]"
                         style={{ width: `${((submissions / submissionsForRatio) * 100).toFixed(0)}%` }}
                       />
                     </div>

@@ -29,7 +29,7 @@ export function MemberCard({ member }: MemberCardProps) {
   const hasLinks = orcidUrl || scholarUrl || scopusUrl
 
   return (
-    <article className="group flex h-full flex-row overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+    <article className="group flex h-full flex-row overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
       <div className="w-24 sm:w-1/3 flex-shrink-0">
         <MemberPhoto
           name={member.name}

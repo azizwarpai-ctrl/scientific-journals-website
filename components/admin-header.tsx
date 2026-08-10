@@ -20,6 +20,16 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { AdminBreadcrumbs } from "@/components/admin-breadcrumbs"
 
+function getInitials(name: string | null) {
+  if (!name) return "A"
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2)
+}
+
 export function AdminHeader() {
   const { data: adminUser, isLoading, isError } = useGetAuthMe()
   const alerts = useAdminAlerts()
@@ -28,16 +38,6 @@ export function AdminHeader() {
   // render sends the user to login without rendering a stale header first.
   if (isError) {
     redirect("/admin/login")
-  }
-
-  const getInitials = (name: string | null) => {
-    if (!name) return "A"
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2)
   }
 
   return (

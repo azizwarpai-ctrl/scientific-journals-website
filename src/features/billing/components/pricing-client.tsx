@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import type { PricingPlan } from "@prisma/client"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -43,15 +43,18 @@ export const PricingClient = () => {
     defaultValues: DEFAULT_FORM_VALUES,
   })
 
-  // Handle form reset when dialog closes
-  useEffect(() => {
-    if (!isOpen) {
+  // Reset the form when the dialog closes, driven by the close event itself
+  // rather than by watching `isOpen` from an effect. The rAF defers the reset
+  // until the close animation finishes so fields don't flash empty on the way out.
+  const handleDialogOpenChange = (open: boolean) => {
+    setIsOpen(open)
+    if (!open) {
       requestAnimationFrame(() => {
         setEditingPlan(null)
         form.reset(DEFAULT_FORM_VALUES)
       })
     }
-  }, [isOpen, form])
+  }
 
   const handleOpenDialog = (plan?: Serialized<PricingPlan>) => {
     if (plan) {
@@ -77,18 +80,12 @@ export const PricingClient = () => {
       updatePlan(
         { id: editingPlan.id.toString(), data: values },
         {
-          onSuccess: () => {
-            setIsOpen(false)
-            form.reset(DEFAULT_FORM_VALUES)
-          }
+          onSuccess: () => handleDialogOpenChange(false),
         }
       )
     } else {
       createPlan(values, {
-        onSuccess: () => {
-          setIsOpen(false)
-          form.reset(DEFAULT_FORM_VALUES)
-        }
+        onSuccess: () => handleDialogOpenChange(false),
       })
     }
   }
@@ -100,7 +97,7 @@ export const PricingClient = () => {
           <h1 className="text-3xl font-bold">Pricing Plans</h1>
           <p className="text-muted-foreground mt-1">Manage subscription pricing and features</p>
         </div>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
           <DialogTrigger asChild>
             <Button onClick={() => handleOpenDialog()}>
               <Plus className="mr-2 h-4 w-4" />
@@ -210,7 +207,7 @@ export const PricingClient = () => {
                 </div>
 
                 <div className="pt-4 flex justify-end space-x-2">
-                  <Button variant="outline" type="button" onClick={() => setIsOpen(false)}>
+                  <Button variant="outline" type="button" onClick={() => handleDialogOpenChange(false)}>
                     Cancel
                   </Button>
                   <Button type="submit" disabled={isCreating || isUpdating}>

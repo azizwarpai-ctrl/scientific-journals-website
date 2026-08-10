@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { TemplateDetailsCard } from "@/src/features/email-templates/components/template-details-card"
@@ -49,11 +49,24 @@ export function EditTemplateForm({ template }: Props) {
     return extractAllVariables(currentHtmlContent || "", currentSubject || "", currentTextContent || "")
   }, [currentHtmlContent, currentSubject, currentTextContent])
 
-  // Clear preview when content changes to avoid stale previews
-  useEffect(() => {
+  // Clear any generated preview the moment the edited content diverges from
+  // what was previewed. Adjusted during render with a previous-value guard
+  // (instead of a post-render effect) so there is never an extra frame where
+  // a stale preview is shown against freshly-edited content.
+  const [previewedContent, setPreviewedContent] = useState({
+    html: currentHtmlContent,
+    subject: currentSubject,
+    text: currentTextContent,
+  })
+  if (
+    previewedContent.html !== currentHtmlContent ||
+    previewedContent.subject !== currentSubject ||
+    previewedContent.text !== currentTextContent
+  ) {
+    setPreviewedContent({ html: currentHtmlContent, subject: currentSubject, text: currentTextContent })
     setPreviewHtml(null)
     setPreviewSubject(null)
-  }, [currentHtmlContent, currentSubject, currentTextContent])
+  }
 
 
   const onSubmit = (values: EmailTemplateUpdate) => {

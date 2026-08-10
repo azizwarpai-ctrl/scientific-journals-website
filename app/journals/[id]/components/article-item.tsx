@@ -22,6 +22,14 @@ interface ArticleItemProps {
   article: CurrentIssueArticle
 }
 
+function sanitizeAbstract(html: string | null | undefined): string {
+  if (!html) return ""
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li'],
+    ALLOWED_ATTR: [],
+  })
+}
+
 /**
  * Shared article card component used by both Current Issue and Archive Issue Detail.
  * Displays article cover, title, authors, abstract toggle, and action footer.
@@ -36,18 +44,8 @@ export function ArticleItem({ article }: ArticleItemProps) {
 
   const articleUrl = `/journals/${journalId}/articles/${article.publicationId}`
 
-  const sanitizeAbstract = (html: string | null | undefined): string => {
-    if (!html) return ""
-    return DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li'],
-      ALLOWED_ATTR: [],
-    })
-  }
-
-
-
   return (
-    <div className="group relative flex flex-col sm:flex-row rounded-2xl border border-border/40 bg-card overflow-hidden transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:-translate-y-1">
+    <div className="group relative flex flex-col sm:flex-row rounded-2xl border border-border/40 bg-card overflow-hidden transition duration-300 hover:border-primary/40 hover:shadow-lg hover:-translate-y-1">
       {/* Visual Cover Area */}
       <div className="relative sm:w-56 md:w-64 flex-shrink-0 aspect-[16/9] sm:aspect-auto bg-muted/5 border-b sm:border-b-0 sm:border-r border-border/30 overflow-hidden sm:min-h-[280px]">
         {article.articleCoverUrl && !hasCoverError ? (
@@ -107,9 +105,9 @@ export function ArticleItem({ article }: ArticleItemProps) {
           {/* Keywords */}
           {article.keywords && article.keywords.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
-              {article.keywords.map((kw, i) => (
+              {article.keywords.map((kw) => (
                 <Badge
-                  key={i}
+                  key={kw}
                   variant="default"
                   className="px-2.5 py-0.5 rounded-full text-[12px] font-bold border border-border/40 cursor-default bg-primary/10 text-muted-foreground hover:text-primary-foreground"
                 >
@@ -179,7 +177,7 @@ export function ArticleItem({ article }: ArticleItemProps) {
         <div className="pt-4 mt-auto border-t border-border/40 flex items-center justify-between relative z-20">
           {article.datePublished ? (
             <span className="text-[11px] text-muted-foreground/80 font-bold uppercase tracking-wider">
-              {new Date(article.datePublished).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+              {new Date(article.datePublished).toLocaleDateString("en-US", { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })}
             </span>
           ) : (
             <span />
@@ -223,7 +221,7 @@ function AuthorList({ authors }: AuthorListProps) {
     [authors]
   )
 
-  const useGrid = useMemo(() => named.length >= 3, [named])
+  const useGrid = named.length >= 3
 
   if (named.length === 0) return null
 
@@ -237,9 +235,9 @@ function AuthorList({ authors }: AuthorListProps) {
             : "flex flex-col gap-2 w-full"
         }
       >
-        {named.map((author, idx) => {
+        {named.map((author) => {
           const name = `${author.givenName || ""} ${author.familyName || ""}`.trim()
-          const key = `${author.givenName ?? ""}-${author.familyName ?? ""}-${idx}`
+          const key = `${author.givenName ?? ""}-${author.familyName ?? ""}`
           return (
             <div key={key} className="flex flex-col min-w-0">
               <span className="text-sm font-semibold text-foreground/80 leading-snug truncate">

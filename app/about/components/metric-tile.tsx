@@ -19,7 +19,7 @@ export function MetricTile({
 }) {
   const { value: animated, ref } = useCountUp(value)
   return (
-    <Card className="group relative overflow-hidden border-border/40 bg-background hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+    <Card className="group relative overflow-hidden border-border/40 bg-background hover:shadow-xl hover:-translate-y-1 transition duration-300">
       <div
         className={cn(
           "absolute -right-10 -top-10 h-32 w-32 rounded-full blur-3xl opacity-60 transition-opacity duration-500 group-hover:opacity-90",

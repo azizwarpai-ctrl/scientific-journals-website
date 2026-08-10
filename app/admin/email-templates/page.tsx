@@ -227,7 +227,12 @@ export default function EmailTemplatesPage() {
                             </span>
                           )}
                           <span>
-                            Updated: {new Date(template.updated_at).toLocaleDateString()}
+                            Updated: {new Date(template.updated_at).toLocaleDateString("en-US", {
+                              year: "numeric",
+                              month: "numeric",
+                              day: "numeric",
+                              timeZone: "UTC",
+                            })}
                           </span>
                         </div>
                       </div>

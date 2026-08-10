@@ -196,7 +196,7 @@ function SearchPageContent() {
                             const colorClass = TYPE_COLORS[result.type] || TYPE_COLORS.journal
                             return (
                               <Link key={`${result.type}-${result.id}`} href={result.url}>
-                                <Card className="group cursor-pointer border-border/50 transition-all hover:shadow-md hover:-translate-y-0.5">
+                                <Card className="group cursor-pointer border-border/50 transition hover:shadow-md hover:-translate-y-0.5">
                                   <CardContent className="pt-5 pb-5">
                                     <div className="flex items-start gap-4">
                                       <div

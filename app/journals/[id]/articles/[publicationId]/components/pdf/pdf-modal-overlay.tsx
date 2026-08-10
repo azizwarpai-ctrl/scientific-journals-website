@@ -387,7 +387,7 @@ function ErrorState({ errorCode, inlineUrl, onRetry, onTrack }: ErrorStateProps)
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold text-white/90 bg-white/10 hover:bg-white/15 border border-white/10 hover:border-white/20 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+          className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold text-white/90 bg-white/10 hover:bg-white/15 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
         >
           <RefreshCw className="h-4 w-4" />
           Retry
@@ -397,7 +397,7 @@ function ErrorState({ errorCode, inlineUrl, onRetry, onTrack }: ErrorStateProps)
           target="_blank"
           rel="noopener noreferrer"
           onTrack={onTrack}
-          className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary/80 hover:bg-primary text-white border border-primary/50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary/80 hover:bg-primary text-white border border-primary/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
           <ExternalLink className="h-4 w-4" />
           Open in new tab
@@ -435,7 +435,7 @@ function MobileFallback({
           target="_blank"
           rel="noopener noreferrer"
           onTrack={onTrack}
-          className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold text-white/80 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+          className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold text-white/80 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
         >
           <ExternalLink className="h-4 w-4" />
           Open in Browser
@@ -446,7 +446,7 @@ function MobileFallback({
           target="_blank"
           rel="noopener noreferrer"
           onTrack={onTrack}
-          className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary/80 hover:bg-primary text-white border border-primary/50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary/80 hover:bg-primary text-white border border-primary/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
           <Download className="h-4 w-4" />
           Download PDF

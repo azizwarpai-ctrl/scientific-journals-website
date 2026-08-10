@@ -211,10 +211,10 @@ export default function AboutPage() {
                               : "md:grid-cols-2"
                         )}
                       >
-                        {section.items?.map((item, i) => (
+                        {section.items?.map((item) => (
                           <Card
-                            key={item.id?.toString() || i}
-                            className="group border-border/40 bg-background hover:shadow-xl transition-all duration-300"
+                            key={item.id?.toString() ?? `${item.icon ?? ""}-${item.title ?? ""}`}
+                            className="group border-border/40 bg-background hover:shadow-xl transition-shadow duration-300"
                           >
                             <CardContent className="p-7">
                               <div
@@ -285,7 +285,7 @@ export default function AboutPage() {
                 ].map(({ icon: Icon, title, body }) => (
                   <Card
                     key={title}
-                    className="group border-border/40 bg-background hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
+                    className="group border-border/40 bg-background hover:shadow-lg hover:-translate-y-0.5 transition duration-300"
                   >
                     <CardContent className="p-7">
                       <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">

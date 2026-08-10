@@ -136,7 +136,7 @@ const HighlightCard = memo(function HighlightCard({ data }: { data: HighlightIte
         <Button
           variant="outline"
           size="sm"
-          className="w-full mt-4 justify-between text-[11px] h-9 rounded-lg border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-all group/btn font-bold uppercase tracking-wider flex-shrink-0"
+          className="w-full mt-4 justify-between text-[11px] h-9 rounded-lg border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-colors group/btn font-bold uppercase tracking-wider flex-shrink-0"
           asChild
         >
           <Link
@@ -272,9 +272,10 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
   // every render, which causes useEmblaCarousel's plugin-change effect to fire
   // continuously — triggering reInit, resetting the autoplay timer before it
   // can elapse, and making the carousel appear frozen.
-  const autoplayPlugin = useRef(
-    Autoplay({ delay: AUTOPLAY_DELAY_MS, stopOnInteraction: false })
-  )
+  const autoplayPlugin = useRef<ReturnType<typeof Autoplay> | null>(null)
+  if (!autoplayPlugin.current) {
+    autoplayPlugin.current = Autoplay({ delay: AUTOPLAY_DELAY_MS, stopOnInteraction: false })
+  }
   const [emblaRef, emblaApi] = useEmblaCarousel(
     { loop: true, align: "start" },
     [autoplayPlugin.current]
@@ -450,7 +451,7 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
                 <div className="flex h-full">
                   {items.map((item: HighlightItem, index: number) => (
                       <div
-                        key={index}
+                        key={item.title}
                         role="group"
                         aria-roledescription="slide"
                         aria-label={`${index + 1} of ${items.length}`}
@@ -466,9 +467,9 @@ export function JournalInfoCarousel({ journalId, debug = false }: JournalInfoCar
 
               {/* ── Dot indicators ── */}
               <div className="flex justify-center items-center gap-1.5 px-5 py-3 bg-muted/10 border-t border-border/20 flex-shrink-0">
-                {items.map((_: HighlightItem, index: number) => (
+                {items.map((item: HighlightItem, index: number) => (
                   <button
-                    key={index}
+                    key={item.title}
                     type="button"
                     onClick={() => scrollTo(index)}
                     aria-label={`Go to slide ${index + 1}`}

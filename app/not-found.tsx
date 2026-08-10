@@ -27,7 +27,7 @@ export default function GlobalNotFound() {
           {journalId && (
             <Link 
               href={`/journals/${journalId}`}
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-transform"
             >
               <ArrowLeft className="h-5 w-5" />
               Back to Journal
@@ -35,7 +35,7 @@ export default function GlobalNotFound() {
           )}
           <Link 
             href="/"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-secondary text-secondary-foreground font-bold hover:bg-secondary/80 transition-all border border-border/40"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-secondary text-secondary-foreground font-bold hover:bg-secondary/80 transition-colors border border-border/40"
           >
             <Home className="h-5 w-5" />
             Home

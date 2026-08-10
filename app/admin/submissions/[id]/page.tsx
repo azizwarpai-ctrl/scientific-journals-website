@@ -14,28 +14,28 @@ import {
   isOjsUnavailable,
 } from "@/src/features/reviews"
 
+const header = (
+  <div className="flex items-center gap-4">
+    <Button
+      asChild
+      variant="outline"
+      size="icon"
+      className="transition-transform duration-150 ease-out active:scale-[0.97]"
+    >
+      <Link href="/admin/submissions">
+        <ArrowLeft className="h-4 w-4" />
+      </Link>
+    </Button>
+    <h1 className="text-3xl font-bold">Submission Review</h1>
+  </div>
+)
+
 export default function SubmissionDetailPage() {
   const params = useParams<{ id: string }>()
   const submissionId = Number(params?.id)
   const validId = Number.isInteger(submissionId) && submissionId > 0
 
   const { data, isLoading, error } = useGetOjsSubmission(validId ? submissionId : 0)
-
-  const header = (
-    <div className="flex items-center gap-4">
-      <Button
-        asChild
-        variant="outline"
-        size="icon"
-        className="transition-transform duration-150 ease-out active:scale-[0.97]"
-      >
-        <Link href="/admin/submissions">
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-      </Button>
-      <h1 className="text-3xl font-bold">Submission Review</h1>
-    </div>
-  )
 
   if (!validId) {
     return <div className="space-y-6">{header}<p className="text-muted-foreground">Invalid submission id.</p></div>
@@ -137,7 +137,12 @@ export default function SubmissionDetailPage() {
                 <span className="text-muted-foreground">Submitted</span>
                 <span>
                   {detail.dateSubmitted
-                    ? new Date(detail.dateSubmitted).toLocaleDateString()
+                    ? new Date(detail.dateSubmitted).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "numeric",
+                        day: "numeric",
+                        timeZone: "UTC",
+                      })
                     : "—"}
                 </span>
               </div>
@@ -145,7 +150,12 @@ export default function SubmissionDetailPage() {
                 <span className="text-muted-foreground">Last activity</span>
                 <span>
                   {detail.dateLastActivity
-                    ? new Date(detail.dateLastActivity).toLocaleDateString()
+                    ? new Date(detail.dateLastActivity).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "numeric",
+                        day: "numeric",
+                        timeZone: "UTC",
+                      })
                     : "—"}
                 </span>
               </div>
@@ -177,7 +187,12 @@ export default function SubmissionDetailPage() {
                       {editor.roleId === 16 ? "Journal Manager" : editor.roleId === 17 ? "Section Editor" : `Role ${editor.roleId}`}
                       {editor.recommendOnly ? " • recommend only" : ""}
                       {editor.dateAssigned
-                        ? ` • since ${new Date(editor.dateAssigned).toLocaleDateString()}`
+                        ? ` • since ${new Date(editor.dateAssigned).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "numeric",
+                            day: "numeric",
+                            timeZone: "UTC",
+                          })}`
                         : ""}
                     </p>
                   </div>

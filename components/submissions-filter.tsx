@@ -12,8 +12,8 @@ import { useState } from "react"
 export function SubmissionsFilter() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [search, setSearch] = useState(searchParams.get("search") || "")
-  const [status, setStatus] = useState(searchParams.get("status") || "all")
+  const [search, setSearch] = useState(() => searchParams.get("search") || "")
+  const [status, setStatus] = useState(() => searchParams.get("status") || "all")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

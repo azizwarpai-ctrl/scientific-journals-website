@@ -83,7 +83,7 @@ export function HelpConfigForm({ initialData }: { initialData: HelpContent }) {
             <div className="text-center text-sm text-muted-foreground py-4">No quick links configured.</div>
           )}
           {formData.quickLinks.map((link, idx) => (
-            <div key={link.id || idx} className="flex gap-4 items-start border p-4 rounded-md bg-muted/20">
+            <div key={link.id ?? link.href} className="flex gap-4 items-start border p-4 rounded-md bg-muted/20">
               <div className="grid flex-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Title</Label>

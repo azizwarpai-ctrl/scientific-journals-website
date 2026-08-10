@@ -144,7 +144,7 @@ function ArchiveIssueCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
         {/* Hover CTA */}
-        <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+        <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition duration-300">
           <div className="flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-full py-2.5 px-5 text-sm font-semibold shadow-lg">
             View Issue
             <ArrowRight className="h-4 w-4" />
@@ -169,9 +169,10 @@ function ArchiveIssueCard({
             {issue.datePublished && (
               <span className="flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5" />
-                {new Date(issue.datePublished).toLocaleDateString(undefined, {
+                {new Date(issue.datePublished).toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "short",
+                  timeZone: "UTC",
                 })}
               </span>
             )}
@@ -203,7 +204,7 @@ function ArchiveIssueCard({
       <Link
         href={issueHref}
         id={`archive-issue-${issue.issueId}`}
-        className="group relative flex flex-col rounded-2xl border border-border/50 bg-card overflow-hidden shadow-sm transition-all duration-300 hover:border-primary/40 hover:shadow-xl hover:-translate-y-1.5 text-left focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-2"
+        className="group relative flex flex-col rounded-2xl border border-border/50 bg-card overflow-hidden shadow-sm transition duration-300 hover:border-primary/40 hover:shadow-xl hover:-translate-y-1.5 text-left focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-2"
       >
         {cardContent}
       </Link>

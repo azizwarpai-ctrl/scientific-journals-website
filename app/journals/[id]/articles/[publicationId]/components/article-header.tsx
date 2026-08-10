@@ -140,7 +140,7 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
             {article.authors.length === 1 ? "Author" : "Authors"}
           </h2>
           <ul className="grid gap-x-10 gap-y-5 sm:grid-cols-2">
-            {article.authors.map((author, index) => {
+            {article.authors.map((author) => {
               const fullName = `${author.givenName || ""} ${author.familyName || ""}`.trim() || "Unknown Author"
               const initials = `${(author.givenName || "?").charAt(0)}${(author.familyName || "").charAt(0)}`.toUpperCase()
               const orcidId =
@@ -148,7 +148,7 @@ export function ArticleHeader({ article }: ArticleHeaderProps) {
               const hasValidOrcid = /^(\d{4}-){3}\d{3}[\dX]$/.test(orcidId)
 
               return (
-                <li key={index} className="flex gap-3 group">
+                <li key={author.orcid ?? fullName} className="flex gap-3 group">
                   <div className="mt-0.5 h-10 w-10 shrink-0 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
                     {initials || "?"}
                   </div>

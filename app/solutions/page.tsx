@@ -35,6 +35,8 @@ function getIcon(iconName: string | null) {
   return ICON_MAP[iconName]
 }
 
+const COLORS = ["primary", "secondary"]
+
 export default function SolutionsPage() {
   const { data: solutions = [], isLoading, error } = useQuery<SolutionItem[]>({
     queryKey: ["solutions", "public"],
@@ -49,8 +51,6 @@ export default function SolutionsPage() {
     staleTime: 5 * 60 * 1000,
     retry: 2,
   })
-
-  const colors = ["primary", "secondary"]
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -112,11 +112,11 @@ export default function SolutionsPage() {
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {solutions.map((solution, idx) => {
                   const Icon = getIcon(solution.icon)
-                  const colorClass = colors[idx % colors.length]
+                  const colorClass = COLORS[idx % COLORS.length]
 
                   return (
                     <GSAPWrapper key={solution.id} animation="slideUp" delay={0.1 + idx * 0.1}>
-                      <Card className="h-full transition-all hover:shadow-xl hover:-translate-y-1 border-border/50">
+                      <Card className="h-full transition hover:shadow-xl hover:-translate-y-1 border-border/50">
                         <CardContent className="pt-6">
                           <div
                             className={`mb-4 flex h-12 w-12 items-center justify-center rounded-lg ${

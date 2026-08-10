@@ -148,10 +148,11 @@ export function ArchiveIssueDetail({
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-primary/70" />
                       <span>
-                        {new Date(issue.datePublished).toLocaleDateString(undefined, {
+                        {new Date(issue.datePublished).toLocaleDateString("en-US", {
                           month: "long",
                           day: "numeric",
                           year: "numeric",
+                          timeZone: "UTC",
                         })}
                       </span>
                     </div>

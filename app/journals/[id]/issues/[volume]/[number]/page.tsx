@@ -26,6 +26,16 @@ interface PageProps {
 // component don't make duplicate DB/OJS lookups.
 const cachedResolveJournalOjsId = cache((id: string) => resolveJournalOjsId(id))
 
+function isValidCoverUrl(urlStr: string | null | undefined): boolean {
+  if (!urlStr) return false
+  try {
+    const url = new URL(urlStr)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id, volume, number } = await params
   const resolved = await cachedResolveJournalOjsId(id)
@@ -66,16 +76,6 @@ export default async function IssueDetailPage({ params }: PageProps) {
     allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4'],
     allowedAttributes: {},
   }) : ""
-
-  const isValidCoverUrl = (urlStr: string | null | undefined): boolean => {
-    if (!urlStr) return false
-    try {
-      const url = new URL(urlStr)
-      return url.protocol === 'http:' || url.protocol === 'https:'
-    } catch {
-      return false
-    }
-  }
 
   const issueDate = issue.datePublished ? new Date(issue.datePublished) : null
   const isValidDate = issueDate && !isNaN(issueDate.getTime())

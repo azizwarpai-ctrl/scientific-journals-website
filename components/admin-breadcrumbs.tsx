@@ -55,7 +55,7 @@ export function AdminBreadcrumbs() {
           </>
         )}
         {trailing.map((segment, i) => (
-          <BreadcrumbItem key={`${segment}-${i}`}>
+          <BreadcrumbItem key={segment}>
             <BreadcrumbSeparator />
             {i === trailing.length - 1 ? (
               <BreadcrumbPage>{humanize(segment)}</BreadcrumbPage>

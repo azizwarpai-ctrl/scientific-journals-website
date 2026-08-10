@@ -6,6 +6,17 @@ interface CollapsibleContentProps {
   className?: string;
 }
 
+const gradientStyle: React.CSSProperties = {
+  content: "''",
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  height: '3rem',
+  background: 'linear-gradient(to bottom, transparent, var(--background))',
+  pointerEvents: 'none',
+};
+
 export default function CollapsibleContent({ maxHeight = 300, children, className }: CollapsibleContentProps) {
   const [expanded, setExpanded] = useState(false);
   const [needsCollapse, setNeedsCollapse] = useState(false);
@@ -24,17 +35,6 @@ export default function CollapsibleContent({ maxHeight = 300, children, classNam
     overflow: 'hidden',
     position: 'relative',
     transition: 'max-height 0.3s ease',
-  };
-
-  const gradientStyle: React.CSSProperties = {
-    content: "''",
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '3rem',
-    background: 'linear-gradient(to bottom, transparent, var(--background))',
-    pointerEvents: 'none',
   };
 
   return (

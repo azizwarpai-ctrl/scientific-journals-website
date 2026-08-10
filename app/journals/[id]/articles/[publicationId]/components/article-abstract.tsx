@@ -40,12 +40,12 @@ export function ArticleAbstract({ abstract, keywords, audioUrl, audioDurationSec
         <div className="pt-4 border-t border-border/40 space-y-3">
           <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Keywords</h3>
           <div className="flex flex-wrap gap-2.5">
-            {keywords.map((kw, i) => (
+            {keywords.map((kw) => (
               <Badge
-                key={i}
+                key={kw}
                 variant="secondary"
                 data-slot="badge"
-                className="px-3.5 py-1.5 rounded-lg bg-muted/30 text-muted-foreground text-[11px] font-bold border border-border/40 hover:bg-primary/5 hover:text-primary hover:border-primary/20 transition-all cursor-default shadow-sm"
+                className="px-3.5 py-1.5 rounded-lg bg-muted/30 text-muted-foreground text-[11px] font-bold border border-border/40 hover:bg-primary/5 hover:text-primary hover:border-primary/20 transition-colors cursor-default shadow-sm"
               >
                 {kw}
               </Badge>

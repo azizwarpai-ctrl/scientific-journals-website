@@ -16,7 +16,7 @@ export default function JournalRegistrationPage() {
         </div>
 
         {/* Advisory Warning */}
-        <div className="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900/50 dark:bg-yellow-900/20 shadow-sm transition-all duration-300">
+        <div className="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900/50 dark:bg-yellow-900/20 shadow-sm transition-colors duration-300">
           <ShieldAlert className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
           <div className="text-sm text-yellow-800 dark:text-yellow-200/90">
             <span className="font-semibold block mb-1">Administrative Action</span>

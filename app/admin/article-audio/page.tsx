@@ -71,6 +71,7 @@ function formatDate(iso: string): string {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   })
 }
 
@@ -749,6 +750,9 @@ function ManualEntryFallback() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!articleSelected || !file) return
+    // Reentry guard: the submit button is disabled while pending, but a fast
+    // double-submit (double Enter) can fire before that state flushes.
+    if (upload.isPending) return
 
     try {
       const saved = await upload.mutateAsync({

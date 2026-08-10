@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useEffectEvent } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { Command } from "cmdk"
 import { Search, BookOpen, Zap, HelpCircle, Loader2, X, ArrowUpRight, FileText, User, Tag, ScrollText } from "lucide-react"
@@ -93,23 +93,26 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   // ── Global keyboard shortcut: Ctrl+K / Cmd+K and Escape ──────────────────
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === "k") {
-        e.preventDefault()
-        if (isOpen) {
-          close()
-        } else {
-          open()
-        }
-      }
-      if (e.key === "Escape" && isOpen) {
+  // The handler reads the latest isOpen/open/close via an Effect Event so the
+  // listener subscribes exactly once instead of re-subscribing on every change.
+  const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
+    if (e.ctrlKey && e.key === "k") {
+      e.preventDefault()
+      if (isOpen) {
         close()
+      } else {
+        open()
       }
     }
+    if (e.key === "Escape" && isOpen) {
+      close()
+    }
+  })
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => onKeyDown(e)
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [isOpen, open, close])
+  }, [])
 
   // ── Debounce input → query (300 ms) ──────────────────────────────────────
   useEffect(() => {

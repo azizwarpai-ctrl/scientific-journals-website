@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useCallback, useContext, useRef } from "react"
+import { createContext, useCallback, useContext, useMemo, useRef } from "react"
 
 type StopFn = () => void
 
@@ -29,8 +29,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     activeRef.current = stop
   }, [])
 
+  const value = useMemo(() => ({ register, notifyPlay }), [register, notifyPlay])
+
   return (
-    <AudioPlayerContext.Provider value={{ register, notifyPlay }}>
+    <AudioPlayerContext.Provider value={value}>
       {children}
     </AudioPlayerContext.Provider>
   )

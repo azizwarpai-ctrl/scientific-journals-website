@@ -118,7 +118,7 @@ export function JournalRegistrationWizard() {
           </div>
           <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
             <div 
-              className="bg-primary h-full transition-all duration-300 ease-in-out"
+              className="bg-primary h-full transition-[width] duration-300 ease-in-out"
               style={{ width: `${((currentStep + 1) / JOURNAL_REGISTRATION_STEPS.length) * 100}%` }}
             />
           </div>

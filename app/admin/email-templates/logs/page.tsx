@@ -14,6 +14,18 @@ import type { EmailLog } from "@/src/features/email-templates/types/email-templa
 
 type PopulatedEmailLog = EmailLog & { template?: { name: string } }
 
+function getStatusBadge(status: string) {
+  switch (status) {
+    case "sent":
+      return <Badge className={statusBadgeClass("sent")}><CheckCircle2 className="w-3 h-3 mr-1"/> Sent</Badge>
+    case "failed":
+      return <Badge className={statusBadgeClass("failed")}><XCircle className="w-3 h-3 mr-1"/> Failed</Badge>
+    case "pending":
+    default:
+      return <Badge className={statusBadgeClass("pending")}><Clock className="w-3 h-3 mr-1"/> Pending</Badge>
+  }
+}
+
 export default function EmailLogsPage() {
   const limit = 20
   const [page, setPage] = useState(1)
@@ -22,18 +34,6 @@ export default function EmailLogsPage() {
   const { data: logsData, isLoading: loading, isError, error } = useGetEmailLogs(page, limit, activeTab)
   const logs = logsData?.data || []
   const pagination = logsData?.pagination || null
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "sent":
-        return <Badge className={statusBadgeClass("sent")}><CheckCircle2 className="w-3 h-3 mr-1"/> Sent</Badge>
-      case "failed":
-        return <Badge className={statusBadgeClass("failed")}><XCircle className="w-3 h-3 mr-1"/> Failed</Badge>
-      case "pending":
-      default:
-        return <Badge className={statusBadgeClass("pending")}><Clock className="w-3 h-3 mr-1"/> Pending</Badge>
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -97,7 +97,15 @@ export default function EmailLogsPage() {
                             </span>
                           )}
                           <span>
-                            {new Date(log.created_at).toLocaleString()}
+                            {new Date(log.created_at).toLocaleString("en-US", {
+                              year: "numeric",
+                              month: "numeric",
+                              day: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                              second: "2-digit",
+                              timeZone: "UTC",
+                            })}
                           </span>
                         </div>
                         {log.error_message && (

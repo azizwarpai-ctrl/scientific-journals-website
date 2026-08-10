@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Languages, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -51,7 +51,9 @@ function setLanguage(lang: LangCode) {
 
 export function LanguageSwitcher() {
     const [currentLang, setCurrentLang] = useState<LangCode>("en")
-    const [isTranslatorAvailable, setTranslatorAvailable] = useState(true)
+    // Only ever read inside the select handler, never rendered — a ref avoids
+    // a needless re-render when the translate script fails to load.
+    const translatorAvailableRef = useRef(true)
 
     useEffect(() => {
         requestAnimationFrame(() => {
@@ -90,7 +92,7 @@ export function LanguageSwitcher() {
         script.async = true
         script.onerror = () => {
             console.error("Google Translate script failed to load")
-            setTranslatorAvailable(false)
+            translatorAvailableRef.current = false
         }
         document.body.appendChild(script)
     }, [])
@@ -98,13 +100,13 @@ export function LanguageSwitcher() {
     const handleSelect = useCallback((code: LangCode) => {
         if (code === currentLang) return
         
-        if (!isTranslatorAvailable && code !== "en") {
+        if (!translatorAvailableRef.current && code !== "en") {
             console.warn("Translation service is unavailable")
             return
         }
-        
+
         setLanguage(code)
-    }, [currentLang, isTranslatorAvailable])
+    }, [currentLang])
 
     const currentLanguage = LANGUAGES.find((l) => l.code === currentLang) || LANGUAGES[0]
 
