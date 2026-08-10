@@ -8,7 +8,7 @@ import { QueryProvider } from "@/components/query-provider"
 import { GlobalToaster } from "@/components/global-toaster"
 import { CommandPalette } from "@/components/command-palette"
 import { ConsentBannerHost } from "@/components/consent-banner-host"
-import { LoginModal } from "@/components/auth/login-modal"
+import { AuthErrorBanner } from "@/components/auth/auth-error-banner"
 import { OrganizationJsonLd } from "@/components/seo/organization-jsonld"
 import "./globals.css"
 
@@ -98,8 +98,8 @@ export default function RootLayout({
             {children}
             {/* UIET-P1: global consent banner; renders null when flag is off */}
             <ConsentBannerHost />
-            {/* UIET-P1: imperative login modal; lazily mounted on first open */}
-            <LoginModal />
+            {/* Hotfix A3: surfaces ?auth_error= / ?signin=unavailable as toasts */}
+            <AuthErrorBanner />
           </QueryProvider>
           <Analytics />
           <GlobalToaster />

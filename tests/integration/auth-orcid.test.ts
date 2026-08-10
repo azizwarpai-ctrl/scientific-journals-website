@@ -100,16 +100,19 @@ describe("/api/auth/orcid", () => {
     describe("GET /callback", () => {
         const validReturn = "/journals/1/articles/100"
 
-        it("rejects when state is missing", async () => {
+        it("redirects home with auth_error when state is missing", async () => {
             const res = await fetchApp("/callback?code=abc")
-            expect(res.status).toBe(400)
+            expect(res.status).toBe(302)
+            expect(res.headers.get("Location")).toBe("/?auth_error=INVALID_REQUEST")
         })
 
-        it("rejects when state is invalid", async () => {
+        it("redirects home with auth_error when state is invalid", async () => {
             const res = await fetchApp("/callback?code=abc&state=garbage")
-            expect(res.status).toBe(400)
-            const body = await res.json()
-            expect(body.error).toBe("INVALID_STATE")
+            expect(res.status).toBe(302)
+            expect(res.headers.get("Location")).toBe("/?auth_error=INVALID_STATE")
+            // State-clearing cookie must survive the redirect conversion.
+            const setCookie = res.headers.get("Set-Cookie") || ""
+            expect(setCookie).toContain(`${STATE_COOKIE_NAME}=;`)
         })
 
         it("happy path: exchanges code, mints identity cookie, redirects to return_url", async () => {
@@ -132,7 +135,7 @@ describe("/api/auth/orcid", () => {
             expect(idCookie).toContain("Secure")
         })
 
-        it("treats a reused state as 400 STATE_REUSED", async () => {
+        it("treats a reused state as redirect with STATE_REUSED", async () => {
             const { token } = mintState({ return_url: validReturn })
             hoisted.exchangeCode.mockResolvedValue({
                 access_token: "a",
@@ -142,21 +145,21 @@ describe("/api/auth/orcid", () => {
             })
             await fetchApp(`/callback?code=abc&state=${encodeURIComponent(token)}`)
             const res2 = await fetchApp(`/callback?code=abc&state=${encodeURIComponent(token)}`)
-            expect(res2.status).toBe(400)
-            const body = await res2.json()
-            expect(body.error).toBe("STATE_REUSED")
+            expect(res2.status).toBe(302)
+            expect(res2.headers.get("Location")).toBe("/?auth_error=STATE_REUSED")
+            expect(res2.headers.get("Set-Cookie") || "").toContain(`${STATE_COOKIE_NAME}=;`)
         })
 
-        it("returns 502 when exchangeCode throws", async () => {
+        it("redirects with ORCID_API_FAILURE when exchangeCode throws", async () => {
             const { token } = mintState({ return_url: validReturn })
             hoisted.exchangeCode.mockRejectedValueOnce(new Error("ORCID down"))
             const res = await fetchApp(`/callback?code=abc&state=${encodeURIComponent(token)}`)
-            expect(res.status).toBe(502)
-            const body = await res.json()
-            expect(body.error).toBe("ORCID_API_FAILURE")
+            expect(res.status).toBe(302)
+            expect(res.headers.get("Location")).toBe("/?auth_error=ORCID_API_FAILURE")
+            expect(res.headers.get("Set-Cookie") || "").toContain(`${STATE_COOKIE_NAME}=;`)
         })
 
-        it("returns 403 when linkOjsUser raises BlockedAccountError", async () => {
+        it("redirects with ACCOUNT_DISABLED when linkOjsUser raises BlockedAccountError", async () => {
             const { token } = mintState({ return_url: validReturn })
             hoisted.exchangeCode.mockResolvedValueOnce({
                 access_token: "a",
@@ -166,9 +169,9 @@ describe("/api/auth/orcid", () => {
             })
             hoisted.linkOjsUser.mockRejectedValueOnce(new BlockedAccountError())
             const res = await fetchApp(`/callback?code=abc&state=${encodeURIComponent(token)}`)
-            expect(res.status).toBe(403)
-            const body = await res.json()
-            expect(body.error).toBe("ACCOUNT_DISABLED")
+            expect(res.status).toBe(302)
+            expect(res.headers.get("Location")).toBe("/?auth_error=ACCOUNT_DISABLED")
+            expect(res.headers.get("Set-Cookie") || "").toContain(`${STATE_COOKIE_NAME}=;`)
         })
     })
 
@@ -178,6 +181,7 @@ describe("/api/auth/orcid", () => {
             expect(res.status).toBe(200)
             const body = await res.json()
             expect(body.authenticated).toBe(false)
+            expect(body.orcid_available).toBe(true)
         })
     })
 

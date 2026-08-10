@@ -4,8 +4,9 @@ import type { RegistrationPayload } from "@/src/features/auth/schemas/registrati
 
 export interface OjsRegisterResponse {
   success: boolean;
-  status: "sso_redirect" | "success";
-  ssoUrl?: string;
+  status: "created";
+  /** Login page of the journal the account was created for */
+  ojsLoginUrl: string;
   email: string;
   message: string;
 }
@@ -18,24 +19,24 @@ interface UseOjsRegisterProps {
 
 export const useOjsRegister = (props?: UseOjsRegisterProps) => {
   return useMutation({
-    mutationFn: async ({ 
-      payload, 
-      journalPath 
-    }: { 
-      payload: RegistrationPayload; 
-      journalPath?: string 
+    mutationFn: async ({
+      payload,
+      journalPath
+    }: {
+      payload: RegistrationPayload;
+      journalPath?: string
     }): Promise<OjsRegisterResponse> => {
       const response = await client.ojs.register.$post({
         json: payload,
         query: { journalPath: journalPath || "" },
       })
-      
+
       const data = await response.json()
-      
+
       if (!response.ok) {
         throw new Error((data as any).error || "Registration failed")
       }
-      
+
       return data as OjsRegisterResponse
     },
     onMutate: props?.onMutate,

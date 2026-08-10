@@ -17,6 +17,34 @@ export const ORCID_CALLBACK_PER_MIN = {
   keyPrefix: "orcid:cb:1m",
 }
 
+// ─── Admin auth / OTP hygiene (hotfix A4) ────────────────────────────
+/** Admin login: 10 attempts per IP per 15 minutes */
+export const ADMIN_LOGIN_RATE_LIMIT = {
+  maxRequests: 10,
+  windowMs: 15 * 60 * 1000,
+  keyPrefix: "admlogin",
+} as const
+/** OTP resend: 3 per IP+email per 10 minutes (key = `${ip}:${email}`) */
+export const OTP_RESEND_RATE_LIMIT = {
+  maxRequests: 3,
+  windowMs: 10 * 60 * 1000,
+  keyPrefix: "otpresend",
+} as const
+/** OTP verification: 15 attempts per IP per 15 minutes */
+export const OTP_VERIFY_RATE_LIMIT = {
+  maxRequests: 15,
+  windowMs: 15 * 60 * 1000,
+  keyPrefix: "otpverify",
+} as const
+
+// ─── Journal hosting request (hotfix A5) ─────────────────────────────
+/** Journal hosting request form: 3 per IP per 15 minutes */
+export const JOURNAL_HOSTING_RATE_LIMIT = {
+  maxRequests: 3,
+  windowMs: 15 * 60 * 1000,
+  keyPrefix: "jhost",
+} as const
+
 export interface MultiLimitResult extends RateLimitResult {
   /** Which window tripped first; null when allowed. */
   triggered: string | null

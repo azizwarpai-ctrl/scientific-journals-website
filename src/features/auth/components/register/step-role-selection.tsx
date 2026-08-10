@@ -63,7 +63,7 @@ export function StepRoleSelection() {
 
   const onSubmit = (values: RoleSelectionValues) => {
     setRoleSelection(values)
-    markStepCompleted(2)
+    markStepCompleted(3)
     nextStep()
   }
 

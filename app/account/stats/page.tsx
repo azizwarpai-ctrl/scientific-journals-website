@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect } from "react"
 import { BarChart3, Download, Eye, Quote } from "lucide-react"
+import { OrcidSignInCard } from "@/components/auth/orcid-sign-in-card"
 import { useAccountStats } from "@/src/features/account/api/use-account"
 import {
     Bar,
@@ -22,24 +22,25 @@ const MONTHS = [
 export default function AccountStatsPage() {
     const query = useAccountStats()
 
-    // Redirect anonymous users to sign in.
-    useEffect(() => {
-        if (
-            query.data &&
-            !("data" in query.data) &&
-            query.data.success === false &&
-            query.data.error === "UNAUTHENTICATED"
-        ) {
-            window.location.assign(
-                `/api/auth/orcid/start?return_url=${encodeURIComponent("/account/stats")}`
-            )
-        }
-    }, [query.data])
-
     if (query.isLoading) {
         return (
             <div className="container max-w-[1100px] py-10 lg:py-16 mx-auto px-4 sm:px-6">
                 <p className="text-sm text-muted-foreground">Loading your engagement…</p>
+            </div>
+        )
+    }
+    // Anonymous visitors get an explicit sign-in card instead of the old
+    // auto-redirect to /api/auth/orcid/start (a dead-end when ORCID is
+    // unconfigured in production).
+    const isUnauthenticated =
+        query.data &&
+        !("data" in query.data) &&
+        query.data.success === false &&
+        query.data.error === "UNAUTHENTICATED"
+    if (isUnauthenticated) {
+        return (
+            <div className="container max-w-[760px] py-10 lg:py-16 mx-auto px-4 sm:px-6">
+                <OrcidSignInCard returnUrl="/account/stats" />
             </div>
         )
     }

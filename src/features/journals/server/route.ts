@@ -7,8 +7,12 @@ import { serializeRecord, serializeMany } from "@/src/lib/serialize"
 import { prisma } from "@/src/lib/db/config"
 import { normalizeOjsAssetUrl } from "@/src/features/ojs/utils/ojs-config"
 import { journalCreateSchema, journalUpdateSchema, journalIdParamSchema, journalSlugParamSchema } from "@/src/features/journals/schemas/journal-schema"
+import { hostingRequestRouter } from "./hosting-request-route"
 
 const app = new Hono()
+
+// ─── POST /journals/register — Public journal-hosting request (hotfix A5) ──
+app.route("/", hostingRequestRouter)
 
 let runningFullSyncPromise: Promise<void> | null = null;
 

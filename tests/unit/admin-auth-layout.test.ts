@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest"
 import { isPublicRoute, isAdminRoute, PUBLIC_ROUTES, ADMIN_ROUTES } from "@/config/routes"
 
+// /admin/register and /admin/registration-success were removed (no admin
+// self-registration exists; the orphaned pages/routes were deleted in the
+// registration hotfix). Only these two auth pages remain.
 const AUTH_PAGES = [
     "/admin/login",
-    "/admin/register",
-    "/admin/registration-success",
     "/admin/verify-code",
 ]
 

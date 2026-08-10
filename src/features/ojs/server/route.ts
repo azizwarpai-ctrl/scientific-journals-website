@@ -3,7 +3,6 @@ import { ojsJournalsResponseSchema } from "../schemas/ojs-schema"
 import { isOjsConfigured, ojsHealthCheck } from "./ojs-client"
 import { syncOjsJournals } from "./sync-ojs-journals"
 import { fetchFromDatabase } from "./ojs-service"
-import { ssoRouter } from "./sso-route"
 import { ojsCache, isFresh, isServableStale, isErrorCached, setCacheEntry, markCacheError } from "./ojs-cache"
 import { provisionRouter } from "./provision-route"
 import { prisma } from "@/src/lib/db/config"
@@ -169,9 +168,6 @@ app.get("/health", async (c) => {
         diagnostic.ok ? 200 : 503
     )
 })
-
-// Mount SSO router
-app.route("/sso", ssoRouter)
 
 // Mount Provisioning router
 app.route("/register", provisionRouter)
