@@ -23,8 +23,10 @@ export function GSAPWrapper({
 
   useEffect(() => {
     const loadGSAP = async () => {
-      const { gsap } = await import("gsap")
-      const { ScrollTrigger } = await import("gsap/ScrollTrigger")
+      const [{ gsap }, { ScrollTrigger }] = await Promise.all([
+        import("gsap"),
+        import("gsap/ScrollTrigger"),
+      ])
 
       gsap.registerPlugin(ScrollTrigger)
 

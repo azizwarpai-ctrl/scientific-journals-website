@@ -164,12 +164,13 @@ export async function provisionUser(payload: OjsUserProvisionData): Promise<{ su
             clearTimeout(timeoutId);
 
             if (!response.ok) {
-                const errText = await response.text();
-                // 409 Conflict means the user already exists, which is a success for idempotency
+                // 409 Conflict means the user already exists, which is a success for idempotency.
+                // Check before reading the body so the skip path doesn't wait on it.
                 if (response.status === 409) {
                     return { success: true };
                 }
-                
+
+                const errText = await response.text();
                 // Log full details for server diagnostics
                 console.error(`[OJS Bridge] HTTP ${response.status} failure:`, errText);
                 

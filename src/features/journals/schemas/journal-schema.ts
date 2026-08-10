@@ -12,8 +12,8 @@ export const journalCreateSchema = z.object({
   frequency: z.string().max(50).optional().nullable(),
   submission_fee: z.coerce.number().nonnegative().optional().default(0),
   publication_fee: z.coerce.number().nonnegative().optional().default(0),
-  cover_image_url: z.string().url().optional().nullable(),
-  website_url: z.string().url().optional().nullable(),
+  cover_image_url: z.url().optional().nullable(),
+  website_url: z.url().optional().nullable(),
   status: z.enum(["active", "inactive", "suspended"]).optional().default("active"),
 })
 

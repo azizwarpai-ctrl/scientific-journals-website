@@ -22,7 +22,7 @@ export const personalInfoSchema = z
       .string()
       .min(1, "Last name is required")
       .max(100, "Last name must be 100 characters or fewer"),
-    email: z.string().email("Please enter a valid email address"),
+    email: z.email("Please enter a valid email address"),
     password: z
       .string()
       .min(6, "Password must be at least 6 characters")
@@ -50,7 +50,7 @@ export const personalInfoBaseSchema = z.object({
     .string()
     .min(1, "Last name is required")
     .max(100, "Last name must be 100 characters or fewer"),
-  email: z.string().email("Please enter a valid email address"),
+  email: z.email("Please enter a valid email address"),
   password: z
     .string()
     .min(6, "Password must be at least 6 characters")
@@ -139,7 +139,7 @@ export const registrationPayloadSchema = z.object({
   // Personal
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(6).max(128),
   country: z.string().regex(/^[A-Z]{2}$/).toUpperCase(),
   phone: z.string().max(32).optional().or(z.literal("")),

@@ -94,9 +94,11 @@ export function AdvisoryBoardSection({ journalId }: AdvisoryBoardSectionProps) {
 
     // 2. Second pass: Fill remaining slots with additional members in priority order
     if (currentDisplayCount < INITIAL_VISIBLE_COUNT) {
+      // Index roles by label once so the fill loop does O(1) lookups.
+      const entryByRole = new Map(roleEntries.map(e => [e.label, e]))
       for (const section of sectionsToDisplay) {
         if (currentDisplayCount >= INITIAL_VISIBLE_COUNT) break
-        const entry = roleEntries.find(e => e.label === section.role)!
+        const entry = entryByRole.get(section.role)!
         const available = entry.members.slice(1)
         const space = INITIAL_VISIBLE_COUNT - currentDisplayCount
         const toAdd = available.slice(0, space)

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
@@ -34,7 +35,7 @@ export default function AboutError({
               Try again
             </Button>
             <Button variant="outline" size="lg" asChild>
-              <a href="/">Return to Home</a>
+              <Link href="/">Return to Home</Link>
             </Button>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useRef, Suspense } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams, redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -31,12 +31,11 @@ function VerifyCodeContent() {
         }
     }, [resendCooldown])
 
-    // If no email param, redirect back to login
-    useEffect(() => {
-        if (!email) {
-            router.push("/admin/login")
-        }
-    }, [email, router])
+    // If no email param, redirect back to login. redirect() during render
+    // avoids the wrong-page flash of an effect-based router.push.
+    if (!email) {
+        redirect("/admin/login")
+    }
 
     const handleChange = (index: number, value: string) => {
         if (value.length > 1) {

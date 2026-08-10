@@ -405,13 +405,22 @@ function BrowseTab() {
                     <div className="space-y-3">
                       <Label>{audioForArticle ? "Replace audio" : "Upload audio"}</Label>
                       <div
-                        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                        role="button"
+                        tabIndex={0}
+                        aria-label={audioForArticle ? "Replace audio file" : "Upload audio file"}
+                        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           dragActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
                         }`}
                         onDragOver={(e) => { e.preventDefault(); setDragActive(true) }}
                         onDragLeave={() => setDragActive(false)}
                         onDrop={handleDrop}
                         onClick={() => fileInputRef.current?.click()}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault()
+                            fileInputRef.current?.click()
+                          }
+                        }}
                       >
                         <Upload className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
                         {file ? (

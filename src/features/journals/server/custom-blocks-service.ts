@@ -146,11 +146,16 @@ export async function fetchCustomBlocks(
 
   // Function to extract clean block names based on OJS requirements
   const extractCleanBlocks = (arr: string[]): string[] => {
-    const raw = arr
-      .filter((n): n is string => typeof n === "string")
-      .map(n => n.trim())
-      .filter(n => n.length > 0 && /^[a-zA-Z0-9_-]+$/.test(n));
-    return Array.from(new Set(raw));
+    // Single pass: trim, validate, and dedup in one go.
+    const clean = new Set<string>();
+    for (const n of arr) {
+      if (typeof n !== "string") continue;
+      const trimmed = n.trim();
+      if (trimmed.length > 0 && /^[a-zA-Z0-9_-]+$/.test(trimmed)) {
+        clean.add(trimmed);
+      }
+    }
+    return Array.from(clean);
   }
 
   try {

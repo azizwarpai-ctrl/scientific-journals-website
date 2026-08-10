@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
@@ -8,7 +9,7 @@ import Link from "next/link"
 import { RegistrationWizard } from "@/src/features/auth/components/register/registration-wizard"
 import { GSAPWrapper } from "@/components/gsap-wrapper"
 
-export default function RegisterPage() {
+function RegisterPageContent() {
   const searchParams = useSearchParams()
 
   // Deep links like /register?journalPath=xyz pre-select the journal and
@@ -58,5 +59,13 @@ export default function RegisterPage() {
 
       <Footer />
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterPageContent />
+    </Suspense>
   )
 }

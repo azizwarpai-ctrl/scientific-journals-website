@@ -1,8 +1,7 @@
 "use client"
 
-import { useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { redirect } from "next/navigation"
 import { Bell, RefreshCw, Mail } from "lucide-react"
 import { useGetAuthMe } from "@/src/features/auth"
 import { useAdminAlerts } from "@/src/features/admin-analytics/api/use-admin-alerts"
@@ -22,17 +21,14 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { AdminBreadcrumbs } from "@/components/admin-breadcrumbs"
 
 export function AdminHeader() {
-  const router = useRouter()
   const { data: adminUser, isLoading, isError } = useGetAuthMe()
   const alerts = useAdminAlerts()
 
-  useEffect(() => {
-    if (isError) {
-      router.push("/admin/login")
-    }
-  }, [isError, router])
-
-  if (isError) return null
+  // Auth-query failure means the admin session is gone. redirect() during
+  // render sends the user to login without rendering a stale header first.
+  if (isError) {
+    redirect("/admin/login")
+  }
 
   const getInitials = (name: string | null) => {
     if (!name) return "A"

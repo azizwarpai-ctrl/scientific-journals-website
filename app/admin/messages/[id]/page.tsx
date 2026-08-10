@@ -11,8 +11,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 
 export default async function MessageDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const session = await getSession()
+  const [{ id }, session] = await Promise.all([params, getSession()])
 
   if (!session) {
     redirect("/admin/login")

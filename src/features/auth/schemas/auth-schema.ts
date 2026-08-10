@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 export const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
 })
 
@@ -9,7 +9,7 @@ export const registerSchema = z.object({
   // Personal info (Step 1)
   firstName: z.string().min(1, "First name is required").max(100),
   lastName: z.string().min(1, "Last name is required").max(100),
-  email: z.string().email("Invalid email address"),
+  email: z.email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters").max(128),
   country: z.string().min(1, "Country is required").max(90),
   phone: z.string().max(32).optional().or(z.literal("")),
@@ -30,7 +30,7 @@ export const registerSchema = z.object({
 const registerFormBaseSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email("Invalid email address"),
+  email: z.email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string().min(6, "Confirm password is required"),
   role: z.string().min(1, "Role is required"),
@@ -49,12 +49,12 @@ export type RegisterInput = z.infer<typeof registerSchema>
 export type RegisterFormValues = z.infer<typeof registerFormBaseSchema>
 
 export const verifyCodeSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.email("Invalid email address"),
   code: z.string().length(6, "Verification code must be exactly 6 digits").regex(/^\d+$/, "Verification code must contain only numbers"),
 })
 
 export const resendCodeSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.email("Invalid email address"),
 })
 
 export type VerifyCodeInput = z.infer<typeof verifyCodeSchema>

@@ -83,10 +83,15 @@ export function ArticleJsonLd({ article }: { article: ArticleDetail }) {
     },
   }
 
+  // HTML-escape `<` so a `</script>` or `<` inside any string field (title,
+  // abstract, author names, etc.) cannot break out of the <script> element.
+  // < is valid inside a JSON string literal and renders identically.
+  const safeJson = JSON.stringify(jsonLd).replace(/</g, "\\u003c")
+
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: safeJson }}
     />
   )
 }

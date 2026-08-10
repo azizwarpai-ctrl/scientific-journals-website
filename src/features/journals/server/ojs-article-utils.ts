@@ -231,13 +231,25 @@ export async function fetchArticlesWithAuthors(
     if (audioRows.length > 0) {
       const { getStorage } = await import("@/src/lib/storage")
       const storage = getStorage()
+      // Dedup to the first (newest, per orderBy) row per submission, then sign
+      // all URLs in parallel — the signing calls are independent of each other.
       const seen = new Set<number>()
+      const uniqueRows: Array<{ sid: number; storageKey: string; duration: number | null }> = []
       for (const row of audioRows) {
         const sid = Number(row.submission_id)
         if (seen.has(sid)) continue
         seen.add(sid)
-        const url = await storage.signedReadUrl(row.storage_key, 3600)
-        audioBySubmission.set(sid, { url, duration: row.duration_seconds })
+        uniqueRows.push({ sid, storageKey: row.storage_key, duration: row.duration_seconds })
+      }
+      const signed = await Promise.all(
+        uniqueRows.map(async ({ sid, storageKey, duration }) => ({
+          sid,
+          url: await storage.signedReadUrl(storageKey, 3600),
+          duration,
+        }))
+      )
+      for (const { sid, url, duration } of signed) {
+        audioBySubmission.set(sid, { url, duration })
       }
     }
   } catch (audioError) {

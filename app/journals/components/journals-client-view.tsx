@@ -53,7 +53,7 @@ export function JournalsClientView({ journals }: JournalsClientViewProps) {
       })
   }, [searchQuery, selectedField, sortBy, journals])
 
-  const fields = ["all", ...Array.from(new Set(journals.map((j) => j.field).filter(Boolean))) as string[]]
+  const fields = ["all", ...Array.from(new Set(journals.flatMap((j) => (j.field ? [j.field] : [])))) as string[]]
 
   return (
     <>

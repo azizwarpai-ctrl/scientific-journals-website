@@ -184,27 +184,29 @@ export async function getTimeseries(query: TimeseriesQuery): Promise<TimeseriesR
         ? await loadMetricsBuckets(query, from, to)
         : { buckets: new Map<string, BucketTotals>(), anyRows: false }
 
-    const series: TimeseriesSeries[] = []
-    for (const metric of query.metrics) {
-        if (isMetricsTableMetric(metric)) {
-            const hasData = metricsData.anyRows
-            series.push({
-                metric,
-                hasData,
-                points: spine.map((date) => ({
-                    date,
-                    value: hasData ? metricsData.buckets.get(date)?.[metric] ?? 0 : null,
-                })),
-            })
-        } else {
+    // Promise.all preserves order, so the resulting `series` keeps the same
+    // ordering as query.metrics while the independent count queries run together.
+    const series: TimeseriesSeries[] = await Promise.all(
+        query.metrics.map(async (metric): Promise<TimeseriesSeries> => {
+            if (isMetricsTableMetric(metric)) {
+                const hasData = metricsData.anyRows
+                return {
+                    metric,
+                    hasData,
+                    points: spine.map((date) => ({
+                        date,
+                        value: hasData ? metricsData.buckets.get(date)?.[metric] ?? 0 : null,
+                    })),
+                }
+            }
             const buckets = await loadCountBuckets(metric, query, from, to)
-            series.push({
+            return {
                 metric,
                 hasData: true,
                 points: spine.map((date) => ({ date, value: buckets.get(date) ?? 0 })),
-            })
-        }
-    }
+            }
+        })
+    )
 
     return {
         interval: query.interval,

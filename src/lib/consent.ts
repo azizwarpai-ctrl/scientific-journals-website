@@ -18,12 +18,10 @@ export const FORCE_CHOICE_DISMISS_THRESHOLD = 31
 const ChoiceEnum = z.enum(["all", "essential_only", "customize"])
 export type ConsentChoice = z.infer<typeof ChoiceEnum>
 
-const granularSchema = z
-  .object({
-    analytics: z.boolean(),
-    personalization: z.boolean(),
-  })
-  .strict()
+const granularSchema = z.strictObject({
+  analytics: z.boolean(),
+  personalization: z.boolean(),
+})
 export type ConsentGranular = z.infer<typeof granularSchema>
 
 const payloadSchema = z.object({

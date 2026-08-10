@@ -8,8 +8,8 @@ export const publisherInfoSchema = z.object({
   institution: z.string().min(1, "Institution name is required").max(255),
   country: z.string().min(1, "Country is required").max(90),
   publisherAddress: z.string().min(10, "Please provide a complete address").max(500),
-  contactEmail: z.string().email("Please enter a valid email address"),
-  website: z.string().url("Please enter a valid URL including https://").optional().or(z.literal("")),
+  contactEmail: z.email("Please enter a valid email address"),
+  website: z.url("Please enter a valid URL including https://").optional().or(z.literal("")),
 })
 
 // ═══════════════════════════════════════════════════════════════
@@ -46,8 +46,8 @@ export const journalInfoSchema = journalInfoBaseSchema.refine(
 // ═══════════════════════════════════════════════════════════════
 export const editorialInfoSchema = z.object({
   editorInChief: z.string().min(1, "Editor-in-Chief name is required").max(255),
-  editorEmail: z.string().email("Please enter a valid email address"),
-  editorialBoardContact: z.string().email("Please enter a generic board email (e.g., editorial_board@journal.com)"),
+  editorEmail: z.email("Please enter a valid email address"),
+  editorialBoardContact: z.email("Please enter a generic board email (e.g., editorial_board@journal.com)"),
   editorialAddress: z.string().min(10, "Please provide the complete editorial address").max(500),
 })
 
@@ -79,7 +79,7 @@ export const technicalConfigSchema = z.object({
     .min(2, "Path must be at least 2 characters")
     .max(50)
     .regex(/^[a-z0-9-]+$/, "Path can only contain lowercase letters, numbers, and hyphens (e.g. 'jme' or 'ij-med')"),
-  customDomain: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  customDomain: z.url("Must be a valid URL").optional().or(z.literal("")),
 })
 
 // ═══════════════════════════════════════════════════════════════

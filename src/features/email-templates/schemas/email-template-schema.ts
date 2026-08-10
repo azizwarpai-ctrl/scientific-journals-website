@@ -38,7 +38,7 @@ export const emailTemplatePreviewSchema = z.object({
 })
 
 export const emailTemplateSendTestSchema = z.object({
-  to: z.string().email("Invalid email address"),
+  to: z.email("Invalid email address"),
   variables: z.record(z.string(), z.string()).optional().default({}),
 })
 

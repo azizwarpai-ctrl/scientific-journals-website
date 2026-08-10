@@ -47,8 +47,10 @@ export async function generateMetadata({
   // late once the shell has flushed (status stays 200).
   if (!resolved) notFound()
 
-  const journalTitle = await getJournalTitle(id)
-  const ojsResolved = await cachedResolveJournalOjsId(id)
+  const [journalTitle, ojsResolved] = await Promise.all([
+    getJournalTitle(id),
+    cachedResolveJournalOjsId(id),
+  ])
   const canonicalId =
     ojsResolved.found && ojsResolved.ojsPath ? ojsResolved.ojsPath : id
 

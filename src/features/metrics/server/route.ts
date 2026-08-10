@@ -216,9 +216,11 @@ app.get("/", async (c) => {
         }
 
         // Fallback to internal Prisma DB
-        const totalJournals = await prisma.journal.count({ where: { status: "active" } })
-        const totalArticles = await prisma.submission.count({ where: { status: "published" } })
-        const totalResearchers = await prisma.adminUser.count({ where: { role: { in: ["author", "reviewer", "editor"] } } })
+        const [totalJournals, totalArticles, totalResearchers] = await Promise.all([
+            prisma.journal.count({ where: { status: "active" } }),
+            prisma.submission.count({ where: { status: "published" } }),
+            prisma.adminUser.count({ where: { role: { in: ["author", "reviewer", "editor"] } } }),
+        ])
 
         return c.json({
             success: true,

@@ -259,17 +259,15 @@ export default function HelpPage() {
   const filteredCategories = useMemo<Category[]>(() => {
     if (!searchTerm.trim()) return activeCategories
     const query = searchTerm.toLowerCase()
-    return activeCategories
-      .map((cat) => ({
-        ...cat,
-        topics: (cat.topics || []).filter(
-          (t) =>
-            t.is_active !== false &&
-            (t.title.toLowerCase().includes(query) ||
-              t.content.toLowerCase().includes(query))
-        ),
-      }))
-      .filter((cat) => (cat.topics || []).length > 0)
+    return activeCategories.flatMap((cat) => {
+      const topics = (cat.topics || []).filter(
+        (t) =>
+          t.is_active !== false &&
+          (t.title.toLowerCase().includes(query) ||
+            t.content.toLowerCase().includes(query))
+      )
+      return topics.length > 0 ? [{ ...cat, topics }] : []
+    })
   }, [activeCategories, searchTerm])
 
   const displayCategories: Category[] = searchTerm.trim() ? filteredCategories : activeCategories

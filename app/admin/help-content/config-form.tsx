@@ -105,6 +105,7 @@ export function HelpConfigForm({ initialData }: { initialData: HelpContent }) {
                   <div className="space-y-2">
                     <Label>Color Style</Label>
                     <select
+                      aria-label="Color style"
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
                       value={link.color}
                       onChange={(e) => updateQuickLink(idx, { color: e.target.value as "primary" | "secondary" })}

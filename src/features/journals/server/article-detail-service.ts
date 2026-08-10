@@ -200,7 +200,7 @@ export async function fetchArticleDetail(
 
         // Clean and split keywords in case they are comma separated in a single string (as discovered by user)
         const processKeywords = (kws: string[]) => {
-          return kws.flatMap(k => k.split(',')).map(k => k.trim()).filter(Boolean)
+          return kws.flatMap(k => k.split(',').map(s => s.trim()).filter(Boolean))
         }
 
         const uniqueKws = Array.from(new Set(processKeywords(filteredRows.map(r => r.keyword))))

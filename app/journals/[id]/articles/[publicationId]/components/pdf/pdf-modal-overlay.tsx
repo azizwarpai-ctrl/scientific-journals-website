@@ -312,6 +312,7 @@ export function PdfModalOverlay({
                   className={`w-full h-full border-none bg-[#525659] transition-opacity duration-300 ${
                     loaded ? "opacity-100" : "opacity-0"
                   }`}
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-downloads"
                   allow="fullscreen"
                   aria-hidden={!loaded}
                   onLoad={onIframeLoad}

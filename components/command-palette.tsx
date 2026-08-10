@@ -246,12 +246,14 @@ export function CommandPalette() {
               </button>
             )}
 
-            <kbd
+            <button
+              type="button"
               onClick={close}
+              aria-label="Close search"
               className="hidden cursor-pointer select-none items-center rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground hover:bg-muted/80 sm:inline-flex"
             >
               ESC
-            </kbd>
+            </button>
           </div>
 
           {/* ── Results list ──────────────────────────────────────────────── */}

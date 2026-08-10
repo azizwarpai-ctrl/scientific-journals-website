@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { BarChart3, Download, Eye, Quote } from "lucide-react"
 import { OrcidSignInCard } from "@/components/auth/orcid-sign-in-card"
 import { useAccountStats } from "@/src/features/account/api/use-account"
@@ -103,12 +104,12 @@ export default function AccountStatsPage() {
 
             <p className="text-xs text-muted-foreground">
                 Want to remove this history?{" "}
-                <a
+                <Link
                     href="/account/data"
                     className="font-semibold text-primary hover:underline"
                 >
                     Delete my engagement data
-                </a>
+                </Link>
                 .
             </p>
         </div>

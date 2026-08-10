@@ -152,7 +152,7 @@ app.post("/login", zValidator("json", loginSchema), async (c) => {
 
 // POST /auth/verify-code
 const verifyCodeSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   code: z.string().length(6),
 })
 
@@ -249,7 +249,7 @@ app.post("/verify-code", zValidator("json", verifyCodeSchema), async (c) => {
 
 // POST /auth/resend-code
 const resendCodeSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
 })
 
 app.post("/resend-code", zValidator("json", resendCodeSchema), async (c) => {

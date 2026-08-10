@@ -13,6 +13,7 @@ const hoisted = vi.hoisted(() => {
 
     const prismaInstance = {
         $executeRawUnsafe: executeRaw,
+        $executeRaw: executeRaw,
         $disconnect: disconnect,
         adminUser: { upsert: upsertAdmin },
         systemSetting: { upsert: upsertSetting },
@@ -27,12 +28,18 @@ const hoisted = vi.hoisted(() => {
 vi.mock("@prisma/client", () => ({
     PrismaClient: class FakePrismaClient {
         $executeRawUnsafe = hoisted.prismaInstance.$executeRawUnsafe
+        $executeRaw = hoisted.prismaInstance.$executeRaw
         $disconnect = hoisted.prismaInstance.$disconnect
         adminUser = hoisted.prismaInstance.adminUser
         systemSetting = hoisted.prismaInstance.systemSetting
         aboutSection = hoisted.prismaInstance.aboutSection
         helpCategory = hoisted.prismaInstance.helpCategory
         helpTopic = hoisted.prismaInstance.helpTopic
+    },
+    // init.ts builds static DDL with Prisma.sql tagged templates; the fake
+    // $executeRaw ignores the payload, so a passthrough stub suffices.
+    Prisma: {
+        sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
     },
 }))
 

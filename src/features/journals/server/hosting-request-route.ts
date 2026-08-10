@@ -23,7 +23,7 @@ import { clientIpFromHeaders } from "@/src/lib/ip-hash"
 // wizard sends is carried through into the persisted request body.
 export const journalHostingRequestSchema = z.looseObject({
   publisherName: z.string().min(1, "Publisher name is required").max(255),
-  contactEmail: z.string().email("A valid contact email is required"),
+  contactEmail: z.email("A valid contact email is required"),
   title: z.string().min(1, "Journal title is required").max(255),
 })
 
