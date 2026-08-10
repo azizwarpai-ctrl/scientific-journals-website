@@ -30,6 +30,7 @@ test.describe("admin dashboard", () => {
         }
         await page.getByRole("link", { name: "Journals" }).first().click()
         await page.waitForURL(/\/admin\/journals/)
-        await expect(page.getByRole("heading", { name: /journals/i }).first()).toBeVisible()
+        // h1 is "Journal Management" — match the singular stem, not /journals/.
+        await expect(page.getByRole("heading", { name: /journal/i }).first()).toBeVisible()
     })
 })
