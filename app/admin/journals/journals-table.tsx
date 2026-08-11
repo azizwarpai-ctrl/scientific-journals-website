@@ -10,6 +10,17 @@ import { DataTable, sortableHeader } from "@/components/data-table/data-table"
 import type { CsvColumn } from "@/components/data-table/csv-export"
 import { cn, statusBadgeClass } from "@/src/lib/utils"
 
+/**
+ * Stable date string (pinned en-US + UTC). This client component is
+ * server-rendered with the same row props, so an unpinned locale/timezone
+ * would differ between SSR and hydration → React #418.
+ */
+function formatDate(iso: string): string {
+  if (!iso) return "—"
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US", { timeZone: "UTC" })
+}
+
 export interface JournalRow {
   id: string
   title: string
@@ -76,7 +87,7 @@ const columns: ColumnDef<JournalRow, unknown>[] = [
   {
     accessorKey: "createdAt",
     header: sortableHeader<JournalRow>("Created"),
-    cell: ({ row }) => new Date(row.original.createdAt).toLocaleDateString(),
+    cell: ({ row }) => formatDate(row.original.createdAt),
   },
   {
     id: "actions",
@@ -112,7 +123,7 @@ const csvColumns: CsvColumn<JournalRow>[] = [
   { header: "ISSN", accessor: (row) => row.issn ?? "" },
   { header: "Field", accessor: (row) => row.field },
   { header: "Status", accessor: (row) => row.status },
-  { header: "Created", accessor: (row) => new Date(row.createdAt).toLocaleDateString() },
+  { header: "Created", accessor: (row) => formatDate(row.createdAt) },
 ]
 
 export function JournalsTable({ rows }: { rows: JournalRow[] }) {
