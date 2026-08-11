@@ -54,6 +54,14 @@ export interface AdminAnalyticsSummary {
   fieldGroups: AdminAnalyticsFieldGroup[]
   last7: AdminAnalyticsLast7Days
   health: AdminAnalyticsHealth
+  /**
+   * False when the OJS-sourced figures (submissions/accepted/reviews/field
+   * groups + last7 editorial counts) could not be read — OJS unconfigured or
+   * unreachable. The UI shows those as an unavailable state, not as zeros.
+   * Journal count + snapshot-backed totals (published/views/downloads) stay
+   * valid regardless.
+   */
+  ojsAvailable: boolean
   /** ISO timestamp of when the response was computed (server clock). */
   computedAt: string
 }

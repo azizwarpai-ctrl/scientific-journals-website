@@ -25,6 +25,10 @@ function getPool(): Pool {
             database: process.env.OJS_DATABASE_NAME,
             user: process.env.OJS_DATABASE_USER,
             password: process.env.OJS_DATABASE_PASSWORD?.trim() || "",
+            // OJS stores DATETIMEs in UTC; tell mysql2 to interpret returned
+            // DATETIME values as UTC so `.toISOString()` on them doesn't drift
+            // by the app server's local offset.
+            timezone: "Z",
             connectionLimit: 3,
             connectTimeout: 10000,
             waitForConnections: true,

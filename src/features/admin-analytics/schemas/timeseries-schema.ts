@@ -56,6 +56,19 @@ export const timeseriesQuerySchema = z
 
 export type TimeseriesQuery = z.infer<typeof timeseriesQuerySchema>
 
+/**
+ * Query for GET /admin-analytics/sync-health.
+ *
+ * `limit` valid range is 1..50. `.catch(10).default(10)` preserves the prior
+ * handler behavior: missing, invalid, or out-of-range values return 10 rather
+ * than producing a 400.
+ */
+export const syncHealthQuerySchema = z.object({
+    limit: z.coerce.number().int().min(1).max(50).catch(10).default(10),
+})
+
+export type SyncHealthQuery = z.infer<typeof syncHealthQuerySchema>
+
 /** Normalizes a bound to the interval's canonical form; null when invalid. */
 export function normalizeBound(bound: string, interval: "day" | "month"): string | null {
     if (interval === "month") {
