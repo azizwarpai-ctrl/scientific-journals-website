@@ -141,9 +141,10 @@ app.get("/charts", requireAdmin, zValidator("query", chartsQuerySchema), async (
       select: { ojs_id: true, title: true },
       orderBy: { title: "asc" },
     })
-    const journals = journalRows
-      .filter((j) => j.ojs_id)
-      .map((j) => ({ ojsId: j.ojs_id as string, title: j.title ?? (j.ojs_id as string) }))
+    const journals = journalRows.reduce<{ ojsId: string; title: string }[]>((acc, j) => {
+      if (j.ojs_id) acc.push({ ojsId: j.ojs_id, title: j.title ?? j.ojs_id })
+      return acc
+    }, [])
 
     let ojsAvailable = false
     let monthly: AnalyticsCharts["monthly"] = []

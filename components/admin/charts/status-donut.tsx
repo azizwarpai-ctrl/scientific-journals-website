@@ -11,27 +11,39 @@ const config: ChartConfig = {
   declined: { label: "Declined", color: "var(--chart-4)" },
 }
 
+const STATUS_KEYS = ["inReview", "inProduction", "published", "declined"] as const
+
 export function StatusDonut({ data }: { data: StatusDistribution }) {
-  const rows = [
-    { key: "inReview", value: data.inReview },
-    { key: "inProduction", value: data.inProduction },
-    { key: "published", value: data.published },
-    { key: "declined", value: data.declined },
-  ].filter((r) => r.value > 0)
+  const allRows = STATUS_KEYS.map((key) => ({ key, value: data[key] }))
+  const rows = allRows.filter((r) => r.value > 0)
   const total = rows.reduce((s, r) => s + r.value, 0)
   if (total === 0) {
     return <p className="py-10 text-center text-sm text-muted-foreground">No submissions yet</p>
   }
   return (
-    <ChartContainer config={config} className="mx-auto aspect-square h-56" aria-label={`Submission status distribution, ${total} total`}>
-      <PieChart>
-        <ChartTooltip content={<ChartTooltipContent nameKey="key" />} />
-        <Pie data={rows} dataKey="value" nameKey="key" innerRadius={54} strokeWidth={2} isAnimationActive={false}>
-          {rows.map((r) => (
-            <Cell key={r.key} fill={`var(--color-${r.key})`} />
-          ))}
-        </Pie>
-      </PieChart>
-    </ChartContainer>
+    <div>
+      <ChartContainer config={config} className="mx-auto aspect-square h-56" aria-label={`Submission status distribution, ${total} total`}>
+        <PieChart>
+          <ChartTooltip content={<ChartTooltipContent nameKey="key" />} />
+          <Pie data={rows} dataKey="value" nameKey="key" innerRadius={54} strokeWidth={2} isAnimationActive={false}>
+            {rows.map((r) => (
+              <Cell key={r.key} fill={`var(--color-${r.key})`} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ChartContainer>
+      {/* Persistent text legend: every status + count, readable without color. */}
+      <ul className="mt-3 space-y-1 text-xs">
+        {allRows.map((r) => (
+          <li key={r.key} className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: config[r.key].color }} aria-hidden />
+              {config[r.key].label}
+            </span>
+            <span className="tabular-nums text-muted-foreground">{r.value.toLocaleString("en-US")}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }

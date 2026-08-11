@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select,
@@ -66,6 +67,10 @@ export default function AnalyticsPage() {
       journalId={journalId}
       onJournalChange={setJournalId}
       charts={charts.data}
+      chartsError={charts.isError}
+      onRetryCharts={() => {
+        void charts.refetch()
+      }}
     />
   )
 }
@@ -75,11 +80,15 @@ function AnalyticsView({
   journalId,
   onJournalChange,
   charts,
+  chartsError,
+  onRetryCharts,
 }: {
   summary: AdminAnalyticsSummary
   journalId: string | undefined
   onJournalChange: (journalId: string | undefined) => void
   charts: AnalyticsCharts | undefined
+  chartsError: boolean
+  onRetryCharts: () => void
 }) {
   const { totals, fieldGroups, last7, health, ojsAvailable } = summary
 
@@ -204,7 +213,24 @@ function AnalyticsView({
       </Card>
 
       {/* Deep-dive charts */}
-      {charts && (
+      {chartsError ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
+            <span>Couldn&apos;t load the chart data.</span>
+            <Button variant="outline" size="sm" onClick={onRetryCharts}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      ) : charts && !charts.ojsAvailable ? (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            The trend, status, and funnel charts are sourced live from OJS, which
+            is currently unavailable. They will populate once the connection is
+            restored.
+          </CardContent>
+        </Card>
+      ) : charts ? (
         <>
           <Card>
             <CardHeader>
@@ -268,7 +294,7 @@ function AnalyticsView({
             </div>
           )}
         </>
-      )}
+      ) : null}
 
       {/* System Health + Recent Activity */}
       <div className="grid gap-6 md:grid-cols-2">

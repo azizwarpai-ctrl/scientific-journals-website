@@ -12,7 +12,11 @@ import type {
 /** Synced OJS journal ids (positive ints); empty when none synced. */
 async function syncedIds(): Promise<number[]> {
   const journals = await prisma.journal.findMany({ where: { ojs_id: { not: null } }, select: { ojs_id: true } })
-  return journals.map((j) => Number(j.ojs_id)).filter((n) => Number.isInteger(n) && n > 0)
+  return journals.reduce<number[]>((ids, j) => {
+    const n = Number(j.ojs_id)
+    if (Number.isInteger(n) && n > 0) ids.push(n)
+    return ids
+  }, [])
 }
 
 /** `context_id` predicate: one journal when scoped, else the whole synced set. */
@@ -124,17 +128,17 @@ export async function getByJournalBreakdown(): Promise<JournalBreakdownRow[]> {
     }),
     getOjsSubmissionCountsByJournal(),
   ])
-  return snapshots
-    .filter((s) => s.journal?.ojs_id)
-    .map((s) => {
-      const ojsId = s.journal!.ojs_id as string
-      return {
-        ojsId,
-        title: s.journal!.title ?? ojsId,
-        submissions: counts.get(ojsId) ?? 0,
-        articles: s.article_count ?? 0,
-        views: Number(s.views_total ?? 0),
-        downloads: Number(s.downloads_total ?? 0),
-      }
+  return snapshots.reduce<JournalBreakdownRow[]>((rows, s) => {
+    const ojsId = s.journal?.ojs_id
+    if (!ojsId) return rows
+    rows.push({
+      ojsId,
+      title: s.journal?.title ?? ojsId,
+      submissions: counts.get(ojsId) ?? 0,
+      articles: s.article_count ?? 0,
+      views: Number(s.views_total ?? 0),
+      downloads: Number(s.downloads_total ?? 0),
     })
+    return rows
+  }, [])
 }

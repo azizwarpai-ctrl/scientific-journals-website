@@ -14,6 +14,14 @@ vi.mock("@/src/lib/db/config", () => ({ prisma: prismaMock }))
 const isOjsConfiguredMock = vi.fn()
 vi.mock("@/src/features/ojs/server/ojs-client", () => ({ isOjsConfigured: isOjsConfiguredMock }))
 
+// Bypass the process-local response cache so each request runs its callback
+// fresh — otherwise entries could leak across tests/files and return stale
+// payloads keyed by (journalId, months).
+vi.mock("@/src/lib/server-cache", () => ({
+  getOrSetCache: (_key: string, _ttlMs: number, fn: () => unknown) => fn(),
+  CACHE_HEADERS: { "Cache-Control": "no-store" },
+}))
+
 const getMonthlySeriesMock = vi.fn()
 const getStatusDistributionMock = vi.fn()
 const getByJournalBreakdownMock = vi.fn()
