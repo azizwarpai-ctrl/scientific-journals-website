@@ -31,6 +31,8 @@ test.describe("admin dashboard", () => {
         await page.getByRole("link", { name: "Journals" }).first().click()
         await page.waitForURL(/\/admin\/journals/)
         // h1 is "Journal Management" — match the singular stem, not /journals/.
-        await expect(page.getByRole("heading", { name: /journal/i }).first()).toBeVisible()
+        // Client-side nav + server data fetch can exceed the default 5s under
+        // CI load; use the same 10s budget as the direct-load journals spec.
+        await expect(page.getByRole("heading", { name: /journal/i }).first()).toBeVisible({ timeout: 10_000 })
     })
 })

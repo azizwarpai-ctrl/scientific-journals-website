@@ -160,7 +160,6 @@ export default async function AdminDashboardPage() {
       <DashboardWidgets
         views={stats ? stats.viewsTotal : null}
         downloads={stats ? stats.downloadsTotal : null}
-        submissions={stats ? stats.totalSubmissions : null}
       />
 
       {/* Recent Submissions */}

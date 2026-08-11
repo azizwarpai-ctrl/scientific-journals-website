@@ -1,6 +1,6 @@
 "use client"
 
-import { Eye, Download, FileText } from "lucide-react"
+import { Eye, Download } from "lucide-react"
 import { KpiCard } from "@/components/admin/kpi-card"
 import { SyncHealthWidget } from "@/components/admin/sync-health-widget"
 
@@ -14,8 +14,6 @@ interface DashboardWidgetsProps {
     views: number | null
     /** Lifetime galley downloads from OJS; null when OJS unavailable. */
     downloads: number | null
-    /** Total submissions from OJS; null when OJS unavailable. */
-    submissions: number | null
 }
 
 /**
@@ -26,13 +24,12 @@ interface DashboardWidgetsProps {
  * cards — the 14-day trend series would need the metrics cron + reader
  * traffic, which is documented as an ops dependency.
  */
-export function DashboardWidgets({ views, downloads, submissions }: DashboardWidgetsProps) {
+export function DashboardWidgets({ views, downloads }: DashboardWidgetsProps) {
     return (
         <div className="grid gap-4 lg:grid-cols-2">
-            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                 <KpiCard title="Total Views" value={formatCount(views)} icon={Eye} />
                 <KpiCard title="Total Downloads" value={formatCount(downloads)} icon={Download} />
-                <KpiCard title="Total Submissions" value={formatCount(submissions)} icon={FileText} />
             </div>
             <SyncHealthWidget />
         </div>

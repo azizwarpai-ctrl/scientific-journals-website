@@ -16,8 +16,8 @@ test.describe("admin journals table", () => {
                 await sortButton.click()
                 await expect(table).toBeVisible()
             }
-            // CSV export button present.
-            await expect(page.getByRole("button", { name: /export table as csv/i })).toBeVisible()
+            // Export menu trigger present (CSV/JSON/Excel dropdown).
+            await expect(page.getByRole("button", { name: /export table/i })).toBeVisible()
         }
     })
 
