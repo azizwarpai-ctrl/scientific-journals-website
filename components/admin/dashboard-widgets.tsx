@@ -2,6 +2,11 @@ import { Eye, Download, FileText } from "lucide-react"
 import { KpiCard } from "@/components/admin/kpi-card"
 import { SyncHealthWidget } from "@/components/admin/sync-health-widget"
 
+/** Localized count, or null passthrough for the "—" empty state. */
+function formatCount(n: number | null): number | string | null {
+    return n === null ? null : n.toLocaleString("en-US")
+}
+
 interface DashboardWidgetsProps {
     /** Lifetime abstract/landing views from OJS; null when OJS unavailable. */
     views: number | null
@@ -20,9 +25,6 @@ interface DashboardWidgetsProps {
  * traffic, which is documented as an ops dependency.
  */
 export function DashboardWidgets({ views, downloads, submissions }: DashboardWidgetsProps) {
-    const formatCount = (n: number | null): number | string | null =>
-        n === null ? null : n.toLocaleString("en-US")
-
     return (
         <div className="grid gap-4 lg:grid-cols-2">
             <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
