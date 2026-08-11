@@ -82,7 +82,16 @@ export interface OjsPlatformStats {
     totalReviews: number
     /** Distinct author emails across the surfaced journals. */
     totalAuthors: number
+    /** Lifetime abstract/landing views (OJS metrics_submission). */
+    viewsTotal: number
+    /** Lifetime galley downloads (OJS metrics_submission). */
+    downloadsTotal: number
 }
+
+// OJS metrics_submission assoc_type constants (same values as
+// ojs-journal-snapshots.ts): abstract/landing views and galley downloads.
+const ASSOC_TYPE_SUBMISSION = 1048585
+const ASSOC_TYPE_SUBMISSION_FILE = 515
 
 interface PlatformStatsRow extends RowDataPacket {
     totalSubmissions: number
@@ -92,6 +101,8 @@ interface PlatformStatsRow extends RowDataPacket {
     declined: number
     totalReviews: number
     totalAuthors: number
+    viewsTotal: number
+    downloadsTotal: number
 }
 
 const EMPTY_STATS: OjsPlatformStats = {
@@ -102,6 +113,8 @@ const EMPTY_STATS: OjsPlatformStats = {
     declined: 0,
     totalReviews: 0,
     totalAuthors: 0,
+    viewsTotal: 0,
+    downloadsTotal: 0,
 }
 
 /**
@@ -130,7 +143,11 @@ export async function getOjsPlatformStats(): Promise<OjsPlatformStats> {
             (SELECT COUNT(DISTINCT a.email) FROM authors a
                 JOIN publications p ON p.publication_id = a.publication_id
                 JOIN submissions s ON s.submission_id = p.submission_id
-                WHERE s.context_id IN (${inClause}) AND a.email IS NOT NULL AND a.email != '') AS totalAuthors`
+                WHERE s.context_id IN (${inClause}) AND a.email IS NOT NULL AND a.email != '') AS totalAuthors,
+            (SELECT COALESCE(SUM(CASE WHEN ms.assoc_type = ${ASSOC_TYPE_SUBMISSION} THEN ms.metric ELSE 0 END), 0)
+                FROM metrics_submission ms WHERE ms.context_id IN (${inClause})) AS viewsTotal,
+            (SELECT COALESCE(SUM(CASE WHEN ms.assoc_type = ${ASSOC_TYPE_SUBMISSION_FILE} THEN ms.metric ELSE 0 END), 0)
+                FROM metrics_submission ms WHERE ms.context_id IN (${inClause})) AS downloadsTotal`
     )
 
     const r = rows[0]
@@ -142,6 +159,8 @@ export async function getOjsPlatformStats(): Promise<OjsPlatformStats> {
         declined: Number(r?.declined ?? 0),
         totalReviews: Number(r?.totalReviews ?? 0),
         totalAuthors: Number(r?.totalAuthors ?? 0),
+        viewsTotal: Number(r?.viewsTotal ?? 0),
+        downloadsTotal: Number(r?.downloadsTotal ?? 0),
     }
 }
 

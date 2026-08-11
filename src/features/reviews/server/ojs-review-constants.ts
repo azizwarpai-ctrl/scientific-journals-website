@@ -12,6 +12,13 @@
 
 import { DEFAULT_OJS_LANDING_BASE_URL, getPublicOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 
+/**
+ * OJS Reviewer role id (PKP\security\Role::ROLE_ID_REVIEWER). Documented at
+ * editorial-board-service.ts and used to build the reviewer roster from
+ * user_groups membership (independent of whether they have assignments yet).
+ */
+export const REVIEWER_ROLE_ID = 4096
+
 /** Workflow stage ids (submissions.stage_id, review_rounds.stage_id). */
 export const STAGE_LABELS: Readonly<Record<number, string>> = {
     1: "Submission",

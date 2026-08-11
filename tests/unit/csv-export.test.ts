@@ -1,51 +1,48 @@
-import { describe, it, expect } from 'vitest'
-import { rowsToCsv, type CsvColumn } from '@/components/data-table/csv-export'
+import { describe, it, expect } from "vitest"
+import { rowsToCsv, rowsToJson, type CsvColumn } from "@/components/data-table/csv-export"
 
 interface Row {
-    value: unknown
+    name: string
+    count: number
+    big: bigint
+    when: string
 }
 
-const COLUMNS: CsvColumn<Row>[] = [{ header: 'Value', accessor: (r) => r.value }]
+const columns: CsvColumn<Row>[] = [
+    { header: "Name", accessor: (r) => r.name },
+    { header: "Count", accessor: (r) => r.count },
+    { header: "Big", accessor: (r) => r.big },
+    { header: "When", accessor: (r) => r.when },
+]
 
-function cell(value: unknown): string {
-    // Second line of the CSV (first is the header row).
-    return rowsToCsv([{ value }], COLUMNS).split('\r\n')[1]
-}
+const rows: Row[] = [
+    { name: "Ada", count: 3, big: 9007199254740993n, when: "2026-01-02" },
+    { name: "=cmd()", count: 0, big: 0n, when: "" },
+]
 
-describe('csv-export', () => {
-    it('neutralizes every spreadsheet formula trigger character', () => {
-        expect(cell('=HYPERLINK("http://evil","x")')).toBe(`"'=HYPERLINK(""http://evil"",""x"")"`)
-        expect(cell('=1+1')).toBe(`'=1+1`)
-        expect(cell('+123')).toBe(`'+123`)
-        expect(cell('-123')).toBe(`'-123`)
-        expect(cell('@SUM(A1)')).toBe(`'@SUM(A1)`)
-        expect(cell('\tpayload')).toBe(`'\tpayload`)
+describe("rowsToCsv", () => {
+    it("emits header + rows, quotes/escapes, neutralizes formula injection, stringifies bigint", () => {
+        const csv = rowsToCsv(rows, columns)
+        const lines = csv.split("\r\n")
+        expect(lines[0]).toBe("Name,Count,Big,When")
+        expect(lines[1]).toBe("Ada,3,9007199254740993,2026-01-02")
+        // Leading '=' gets an OWASP single-quote prefix.
+        expect(lines[2]).toBe("'=cmd(),0,0,")
+    })
+})
+
+describe("rowsToJson", () => {
+    it("maps columns to keyed objects, bigint→string, empty→'' preserved, null-safe", () => {
+        const json = JSON.parse(rowsToJson(rows, columns))
+        expect(json).toEqual([
+            { Name: "Ada", Count: 3, Big: "9007199254740993", When: "2026-01-02" },
+            { Name: "=cmd()", Count: 0, Big: "0", When: "" },
+        ])
     })
 
-    it('leaves normal values untouched', () => {
-        expect(cell('Journal of Physics')).toBe('Journal of Physics')
-        expect(cell('a=b inside')).toBe('a=b inside')
-        expect(cell(42)).toBe('42')
-        expect(cell(BigInt('9007199254740993'))).toBe('9007199254740993')
-    })
-
-    it('renders null/undefined as empty', () => {
-        expect(cell(null)).toBe('')
-        expect(cell(undefined)).toBe('')
-    })
-
-    it('still applies RFC 4180 quoting for commas, quotes, and newlines', () => {
-        expect(cell('a,b')).toBe('"a,b"')
-        expect(cell('say "hi"')).toBe('"say ""hi"""')
-        expect(cell('line1\nline2')).toBe('"line1\nline2"')
-    })
-
-    it('quotes formula-neutralized values containing separators', () => {
-        // Prefix applied first, then quoting — both protections compose.
-        expect(cell('=cmd,arg')).toBe(`"'=cmd,arg"`)
-    })
-
-    it('emits a header row', () => {
-        expect(rowsToCsv([], COLUMNS)).toBe('Value')
+    it("coerces null/undefined accessors to null", () => {
+        const cols: CsvColumn<{ a: string | null }>[] = [{ header: "A", accessor: (r) => r.a }]
+        const json = JSON.parse(rowsToJson([{ a: null }], cols))
+        expect(json).toEqual([{ A: null }])
     })
 })

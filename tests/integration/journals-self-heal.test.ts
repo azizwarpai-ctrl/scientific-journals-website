@@ -52,6 +52,13 @@ vi.mock('@/src/features/ojs/server/sync-runs', () => ({
         return outcome.result
     }),
 }))
+// The drift self-heal also refreshes snapshots (best-effort); stub it so these
+// tests stay scoped to fingerprint/drift + journal sync and don't inflate the
+// ojsQuery call count with the snapshot aggregate queries.
+const refreshOjsJournalSnapshotsMock = vi.fn().mockResolvedValue({ refreshed: 0, skipped: true, watermark: null })
+vi.mock('@/src/features/ojs/server/ojs-journal-snapshots', () => ({
+    refreshOjsJournalSnapshots: refreshOjsJournalSnapshotsMock,
+}))
 
 // Import after mocks are wired.
 import { journalRouter, __resetOjsDriftCheckStateForTests, __waitForOjsDriftCheckForTests } from '@/src/features/journals/server/route'

@@ -11,7 +11,7 @@ import {
     getSortedRowModel,
     useReactTable,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ArrowUp, ArrowDown, Download, ChevronLeft, ChevronRight } from "lucide-react"
+import { ArrowUpDown, ArrowUp, ArrowDown, Download, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import {
     Table,
     TableBody,
@@ -20,9 +20,16 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { downloadCsv, type CsvColumn } from "./csv-export"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { downloadCsv, downloadJson, downloadXlsx, type CsvColumn } from "./csv-export"
 
 interface DataTableProps<TData> {
     columns: ColumnDef<TData, unknown>[]
@@ -104,22 +111,58 @@ export function DataTable<TData>({
                         <div />
                     )}
                     {csv && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                                downloadCsv(
-                                    table.getFilteredRowModel().rows.map((r) => r.original),
-                                    csv.columns,
-                                    csv.filename
-                                )
-                            }
-                            disabled={table.getFilteredRowModel().rows.length === 0}
-                            aria-label="Export table as CSV"
-                        >
-                            <Download className="mr-2 h-4 w-4" />
-                            Export CSV
-                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={table.getFilteredRowModel().rows.length === 0}
+                                    aria-label="Export table"
+                                >
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Export
+                                    <ChevronDown className="ml-2 h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                    onClick={() =>
+                                        downloadCsv(
+                                            table.getFilteredRowModel().rows.map((r) => r.original),
+                                            csv.columns,
+                                            csv.filename
+                                        )
+                                    }
+                                >
+                                    CSV
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() =>
+                                        downloadJson(
+                                            table.getFilteredRowModel().rows.map((r) => r.original),
+                                            csv.columns,
+                                            csv.filename
+                                        )
+                                    }
+                                >
+                                    JSON
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => {
+                                        // XLSX export dynamically imports SheetJS + writes a
+                                        // workbook — both can reject; surface a toast instead
+                                        // of an unhandled rejection.
+                                        downloadXlsx(
+                                            table.getFilteredRowModel().rows.map((r) => r.original),
+                                            csv.columns,
+                                            csv.filename
+                                        ).catch(() => toast.error("Failed to export to Excel"))
+                                    }}
+                                >
+                                    Excel (.xlsx)
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     )}
                 </div>
             )}

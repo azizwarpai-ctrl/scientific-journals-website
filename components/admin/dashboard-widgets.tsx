@@ -1,57 +1,35 @@
 "use client"
 
-import { Eye, Download, FileText } from "lucide-react"
+import { Eye, Download } from "lucide-react"
 import { KpiCard } from "@/components/admin/kpi-card"
 import { SyncHealthWidget } from "@/components/admin/sync-health-widget"
-import { useAdminSparklines } from "@/src/features/admin-analytics/api/use-admin-timeseries"
-import type { TimeseriesSeries } from "@/src/features/admin-analytics/types/admin-analytics-types"
 
-function windowTotal(series: TimeseriesSeries | undefined): number | null {
-    if (!series || !series.hasData) return null
-    return series.points.reduce((sum, p) => sum + (p.value ?? 0), 0)
+/** Localized count, or null passthrough for the "—" empty state. */
+function formatCount(n: number | null): number | string | null {
+    return n === null ? null : n.toLocaleString("en-US")
+}
+
+interface DashboardWidgetsProps {
+    /** Lifetime abstract/landing views from OJS; null when OJS unavailable. */
+    views: number | null
+    /** Lifetime galley downloads from OJS; null when OJS unavailable. */
+    downloads: number | null
 }
 
 /**
- * Client-side dashboard widgets: 14-day engagement sparklines (from the
- * timeseries endpoint) and the recurring-job health feed. Metrics with no
- * recorded events render "—" / "No data yet" per the fabrication-guard
- * contract.
+ * Dashboard engagement totals (lifetime, sourced live from OJS
+ * metrics_submission + submission count) plus the recurring-job health feed.
+ * Values are real numbers; `null` (OJS unavailable) renders "—" per the
+ * KpiCard contract. No sparkline series is passed, so these are value-only
+ * cards — the 14-day trend series would need the metrics cron + reader
+ * traffic, which is documented as an ops dependency.
  */
-export function DashboardWidgets() {
-    const { data, isLoading } = useAdminSparklines()
-    const byMetric = new Map(data?.series.map((s) => [s.metric, s]) ?? [])
-
-    const views = byMetric.get("views")
-    const downloads = byMetric.get("downloads")
-    const submissions = byMetric.get("submissions")
-
+export function DashboardWidgets({ views, downloads }: DashboardWidgetsProps) {
     return (
         <div className="grid gap-4 lg:grid-cols-2">
-            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-                <KpiCard
-                    title="Views (14d)"
-                    value={windowTotal(views)}
-                    icon={Eye}
-                    chartSlot={1}
-                    series={views}
-                    isLoading={isLoading}
-                />
-                <KpiCard
-                    title="Downloads (14d)"
-                    value={windowTotal(downloads)}
-                    icon={Download}
-                    chartSlot={2}
-                    series={downloads}
-                    isLoading={isLoading}
-                />
-                <KpiCard
-                    title="Submissions (14d)"
-                    value={windowTotal(submissions)}
-                    icon={FileText}
-                    chartSlot={3}
-                    series={submissions}
-                    isLoading={isLoading}
-                />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                <KpiCard title="Total Views" value={formatCount(views)} icon={Eye} />
+                <KpiCard title="Total Downloads" value={formatCount(downloads)} icon={Download} />
             </div>
             <SyncHealthWidget />
         </div>

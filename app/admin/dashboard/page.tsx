@@ -105,7 +105,9 @@ export default async function AdminDashboardPage() {
     },
     {
       title: "Published Articles",
-      value: snapshot.publishedArticles,
+      // Live OJS count (matches Analytics); snapshot aggregate is the
+      // OJS-unavailable fallback.
+      value: stats ? stats.published : snapshot.publishedArticles,
       icon: TrendingUp,
       color: "text-primary",
       bgColor: "bg-primary/20",
@@ -154,8 +156,11 @@ export default async function AdminDashboardPage() {
         })}
       </div>
 
-      {/* Engagement sparklines + sync-run health (client, live data) */}
-      <DashboardWidgets />
+      {/* Lifetime OJS engagement totals + sync-run health */}
+      <DashboardWidgets
+        views={stats ? stats.viewsTotal : null}
+        downloads={stats ? stats.downloadsTotal : null}
+      />
 
       {/* Recent Submissions */}
       <Card>
