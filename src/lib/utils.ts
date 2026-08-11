@@ -5,6 +5,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Stable date string pinned to en-US + UTC. Admin tables are client components
+ * server-rendered with the same row props, so an unpinned locale/timezone would
+ * differ between SSR and hydration → React #418. Falls back to "—" for empty or
+ * invalid input.
+ */
+export function formatDate(iso: string): string {
+  if (!iso) return "—"
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US", { timeZone: "UTC" })
+}
+
 export const STATUS_STYLES: Record<string, string> = {
   // Submission lifecycle
   submitted: "bg-primary/10 text-primary",

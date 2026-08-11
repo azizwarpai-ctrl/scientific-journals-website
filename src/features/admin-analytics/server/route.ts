@@ -12,9 +12,16 @@ import {
 } from "@/src/features/ojs/server/ojs-stats-service"
 import { getOrSetCache, CACHE_HEADERS } from "@/src/lib/server-cache"
 import { timeseriesQuerySchema, syncHealthQuerySchema } from "@/src/features/admin-analytics/schemas/timeseries-schema"
+import { chartsQuerySchema } from "@/src/features/admin-analytics/schemas/charts-schema"
 import { getTimeseries } from "./timeseries"
 import { getSyncHealth } from "./sync-health"
+import {
+  getMonthlySeries,
+  getStatusDistribution,
+  getByJournalBreakdown,
+} from "./analytics-charts"
 import type { AdminAnalyticsSummary } from "@/src/features/admin-analytics/types/admin-analytics-types"
+import type { AnalyticsCharts } from "@/src/features/admin-analytics/types/charts-types"
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -122,6 +129,50 @@ app.get("/summary", requireAdmin, async (c) => {
   }
 
   return c.json({ success: true, data: serializeRecord(summary) })
+})
+
+app.get("/charts", requireAdmin, zValidator("query", chartsQuerySchema), async (c) => {
+  const { journalId, months } = c.req.valid("query")
+  const cacheKey = `admin-analytics:charts:${journalId ?? "all"}:${months}`
+  const data = await getOrSetCache(cacheKey, 60_000, async (): Promise<AnalyticsCharts> => {
+    // Journal picker options — synced journals only (local read, always available).
+    const journalRows = await prisma.journal.findMany({
+      where: { ojs_id: { not: null } },
+      select: { ojs_id: true, title: true },
+      orderBy: { title: "asc" },
+    })
+    const journals = journalRows.reduce<{ ojsId: string; title: string }[]>((acc, j) => {
+      if (j.ojs_id) acc.push({ ojsId: j.ojs_id, title: j.title ?? j.ojs_id })
+      return acc
+    }, [])
+
+    let ojsAvailable = false
+    let monthly: AnalyticsCharts["monthly"] = []
+    let statusDistribution: AnalyticsCharts["statusDistribution"] = {
+      inReview: 0, inProduction: 0, published: 0, declined: 0,
+    }
+    let byJournal: AnalyticsCharts["byJournal"] = []
+
+    if (isOjsConfigured()) {
+      try {
+        const [m, s, b] = await Promise.all([
+          getMonthlySeries({ journalId, months }),
+          getStatusDistribution({ journalId }),
+          // by-journal breakdown is only meaningful across all journals
+          journalId ? Promise.resolve([]) : getByJournalBreakdown(),
+        ])
+        ojsAvailable = true
+        monthly = m
+        statusDistribution = s
+        byJournal = b
+      } catch (e) {
+        console.error("[admin-analytics] charts reads failed:", e instanceof Error ? e.message : e)
+      }
+    }
+
+    return { journals, monthly, statusDistribution, byJournal, ojsAvailable, computedAt: new Date().toISOString() }
+  })
+  return c.json({ success: true, data: serializeRecord(data) }, 200, CACHE_HEADERS)
 })
 
 // GET /admin-analytics/timeseries?metrics=views,downloads&interval=day&from=…&to=…

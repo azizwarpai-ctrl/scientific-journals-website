@@ -1,9 +1,30 @@
 "use client"
 
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { TrendingUp, BookOpen, FileText, Eye, CheckCircle, Loader2 } from "lucide-react"
 import { useAdminAnalyticsSummary } from "@/src/features/admin-analytics/api/use-admin-analytics-summary"
+import { useAdminCharts } from "@/src/features/admin-analytics/api/use-admin-charts"
+import { TrendAreaChart } from "@/components/admin/charts/trend-area-chart"
+import { StatusDonut } from "@/components/admin/charts/status-donut"
+import { FunnelBars } from "@/components/admin/charts/funnel-bars"
+import { CategoryBarChart } from "@/components/admin/charts/category-bar-chart"
 import type { AdminAnalyticsSummary } from "@/src/features/admin-analytics/types/admin-analytics-types"
+import type { AnalyticsCharts } from "@/src/features/admin-analytics/types/charts-types"
+
+/** Mirrors the server-side funnel derivation (types match `StatusDistribution`). */
+function funnelFrom(s: { inReview: number; inProduction: number; published: number; declined: number }) {
+  const submitted = s.inReview + s.inProduction + s.published + s.declined
+  return { submitted, accepted: s.inProduction + s.published, published: s.published }
+}
 
 const EMPTY = "—"
 
@@ -13,6 +34,8 @@ function formatCount(value: number | null): string {
 
 export default function AnalyticsPage() {
   const { data, isLoading, isError, error } = useAdminAnalyticsSummary()
+  const [journalId, setJournalId] = useState<string | undefined>(undefined)
+  const charts = useAdminCharts(journalId)
 
   if (isLoading) {
     return (
@@ -38,10 +61,35 @@ export default function AnalyticsPage() {
     )
   }
 
-  return <AnalyticsView summary={data} />
+  return (
+    <AnalyticsView
+      summary={data}
+      journalId={journalId}
+      onJournalChange={setJournalId}
+      charts={charts.data}
+      chartsError={charts.isError}
+      onRetryCharts={() => {
+        void charts.refetch()
+      }}
+    />
+  )
 }
 
-function AnalyticsView({ summary }: { summary: AdminAnalyticsSummary }) {
+function AnalyticsView({
+  summary,
+  journalId,
+  onJournalChange,
+  charts,
+  chartsError,
+  onRetryCharts,
+}: {
+  summary: AdminAnalyticsSummary
+  journalId: string | undefined
+  onJournalChange: (journalId: string | undefined) => void
+  charts: AnalyticsCharts | undefined
+  chartsError: boolean
+  onRetryCharts: () => void
+}) {
   const { totals, fieldGroups, last7, health, ojsAvailable } = summary
 
   // OJS-sourced figures render as "—" when OJS is unreachable/unset, so a
@@ -95,13 +143,30 @@ function AnalyticsView({ summary }: { summary: AdminAnalyticsSummary }) {
   ]
 
   const topFields = fieldGroups.slice(0, 5)
-  const submissionsForRatio = totals.submissions || 1
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Analytics &amp; Reports</h1>
-        <p className="text-muted-foreground mt-1">Overview of platform performance and statistics</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Analytics &amp; Reports</h1>
+          <p className="text-muted-foreground mt-1">Overview of platform performance and statistics</p>
+        </div>
+        <Select
+          value={journalId ?? "all"}
+          onValueChange={(value) => onJournalChange(value === "all" ? undefined : value)}
+        >
+          <SelectTrigger className="w-[220px]" aria-label="Filter by journal">
+            <SelectValue placeholder="All journals" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All journals</SelectItem>
+            {charts?.journals.map((journal) => (
+              <SelectItem key={journal.ojsId} value={journal.ojsId}>
+                {journal.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {!ojsAvailable && (
@@ -140,30 +205,96 @@ function AnalyticsView({ summary }: { summary: AdminAnalyticsSummary }) {
           <CardTitle>Submissions by Field</CardTitle>
         </CardHeader>
         <CardContent>
-          {topFields.length > 0 ? (
-            <div className="space-y-4">
-              {topFields.map(({ field, submissions }) => (
-                <div key={field} className="flex items-center justify-between">
-                  <span className="font-medium">{field}</span>
-                  <div className="flex items-center gap-4">
-                    <div className="w-64 bg-muted rounded-full h-2 overflow-hidden">
-                      <div
-                        className="h-full bg-primary transition-[width]"
-                        style={{ width: `${((submissions / submissionsForRatio) * 100).toFixed(0)}%` }}
-                      />
-                    </div>
-                    <span className="text-sm text-muted-foreground w-12 text-right">
-                      {submissions.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground py-8">No submission data available</p>
-          )}
+          <CategoryBarChart
+            label="Submissions"
+            data={topFields.map(({ field, submissions }) => ({ label: field, value: submissions }))}
+          />
         </CardContent>
       </Card>
+
+      {/* Deep-dive charts */}
+      {chartsError ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
+            <span>Couldn&apos;t load the chart data.</span>
+            <Button variant="outline" size="sm" onClick={onRetryCharts}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      ) : charts && !charts.ojsAvailable ? (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            The trend, status, and funnel charts are sourced live from OJS, which
+            is currently unavailable. They will populate once the connection is
+            restored.
+          </CardContent>
+        </Card>
+      ) : charts ? (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Submissions &amp; Publications (12 mo)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TrendAreaChart data={charts.monthly} />
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Status distribution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <StatusDonut data={charts.statusDistribution} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Acceptance funnel</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FunnelBars {...funnelFrom(charts.statusDistribution)} />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* All-journals only: cross-journal breakdowns */}
+          {!journalId && charts.byJournal.length > 0 && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Submissions by journal</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CategoryBarChart
+                    label="Submissions"
+                    data={[...charts.byJournal]
+                      .sort((a, b) => b.submissions - a.submissions)
+                      .slice(0, 10)
+                      .map((r) => ({ label: r.title, value: r.submissions }))}
+                  />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Views by journal</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CategoryBarChart
+                    label="Views"
+                    data={[...charts.byJournal]
+                      .sort((a, b) => b.views - a.views)
+                      .slice(0, 10)
+                      .map((r) => ({ label: r.title, value: r.views }))}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </>
+      ) : null}
 
       {/* System Health + Recent Activity */}
       <div className="grid gap-6 md:grid-cols-2">
