@@ -92,12 +92,15 @@ describe("GET /admin-analytics/summary", () => {
       { ojs_id: "2", field: "Medicine" },
       { ojs_id: null, field: "Ignored" },
     ])
-    // UserEvent.count: views any, views 7d, downloads any, downloads 7d.
-    prismaMock.userEvent.count
-      .mockResolvedValueOnce(50) // viewEventsAny
-      .mockResolvedValueOnce(7) // views 7d
-      .mockResolvedValueOnce(0) // downloadEventsAny → null empty state
-      .mockResolvedValueOnce(0) // downloads 7d
+    // UserEvent.count is called four times; key on the `where` (event type +
+    // whether it is windowed) so the assertions survive Promise.all reordering.
+    prismaMock.userEvent.count.mockImplementation((args?: { where?: { event_type?: string; created_at?: unknown } }) => {
+      const where = args?.where ?? {}
+      const windowed = where.created_at !== undefined
+      if (where.event_type === "view") return Promise.resolve(windowed ? 7 : 50) // views 7d / all-time
+      if (where.event_type === "download") return Promise.resolve(0) // no downloads ever → null empty state
+      return Promise.resolve(0)
+    })
     prismaMock.$queryRaw.mockResolvedValue([{ "1": 1 }])
 
     isOjsConfiguredMock.mockReturnValue(true)
@@ -139,7 +142,7 @@ describe("GET /admin-analytics/summary", () => {
       journals: 3,
       submissions: 10,
       accepted: 4, // inProduction(0) + published(4)
-      published: 7, // from snapshot
+      published: 4, // live platform.published when OJS is up (snapshot is the fallback)
       reviews: 12,
     })
     expect(json.data.totals.acceptanceRate).toBeCloseTo(40, 5)
@@ -162,6 +165,13 @@ describe("GET /admin-analytics/summary", () => {
     mockSession = { id: 1n, email: "admin@example.com", role: "admin" }
     prismaMock.journal.count.mockResolvedValue(3)
     prismaMock.journal.findMany.mockResolvedValue([{ ojs_id: "10", field: "Dentistry" }])
+    // Snapshot aggregates are a local read and survive an OJS outage.
+    getSnapshotAggregatesMock.mockResolvedValue({
+      publishedArticles: 9,
+      viewsTotal: 100,
+      downloadsTotal: 20,
+      journalsWithSnapshots: 3,
+    })
     isOjsConfiguredMock.mockReturnValue(true)
     getOjsPlatformStatsMock.mockRejectedValue(new Error("OJS unreachable"))
     getOjsSubmissionCountsByJournalMock.mockRejectedValue(new Error("OJS unreachable"))
@@ -171,11 +181,13 @@ describe("GET /admin-analytics/summary", () => {
     const app = buildApp()
     const res = await app.request("/admin-analytics/summary")
     expect(res.status).toBe(200)
-    const json = (await res.json()) as { data: { ojsAvailable: boolean; totals: { submissions: number; reviews: number; acceptanceRate: number }; fieldGroups: unknown[]; totals2?: unknown } }
+    const json = (await res.json()) as { data: { ojsAvailable: boolean; totals: { submissions: number; reviews: number; published: number; acceptanceRate: number }; fieldGroups: unknown[] } }
     expect(json.data.ojsAvailable).toBe(false)
     expect(json.data.totals.submissions).toBe(0)
     expect(json.data.totals.reviews).toBe(0)
     expect(json.data.totals.acceptanceRate).toBe(0)
+    // Snapshot-backed published count is preserved even though OJS failed.
+    expect(json.data.totals.published).toBe(9)
     expect(json.data.fieldGroups).toEqual([])
   })
 

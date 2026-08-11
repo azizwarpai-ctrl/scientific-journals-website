@@ -40,7 +40,7 @@ export default async function AuthorsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Author Management</h1>
-        <p className="text-muted-foreground mt-1">View and manage authors who have published to the platform</p>
+        <p className="text-muted-foreground mt-1">View and manage authors with submissions on the platform</p>
       </div>
 
       {!ojsConfigured ? (

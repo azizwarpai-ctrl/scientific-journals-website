@@ -11,7 +11,7 @@ import {
   getOjsLast7Stats,
 } from "@/src/features/ojs/server/ojs-stats-service"
 import { getOrSetCache, CACHE_HEADERS } from "@/src/lib/server-cache"
-import { timeseriesQuerySchema } from "@/src/features/admin-analytics/schemas/timeseries-schema"
+import { timeseriesQuerySchema, syncHealthQuerySchema } from "@/src/features/admin-analytics/schemas/timeseries-schema"
 import { getTimeseries } from "./timeseries"
 import { getSyncHealth } from "./sync-health"
 import type { AdminAnalyticsSummary } from "@/src/features/admin-analytics/types/admin-analytics-types"
@@ -62,6 +62,10 @@ app.get("/summary", requireAdmin, async (c) => {
   let submissionsCount = 0
   let acceptedCount = 0
   let reviewsCount = 0
+  // Published defaults to the snapshot aggregate; when OJS is up we use the
+  // live count so it stays consistent with `accepted` (which uses the live
+  // published figure).
+  let publishedCount = snapshot.publishedArticles
   let last7 = { newSubmissions: 0, completedReviews: 0, publishedArticles: 0 }
   const fieldGroups = new Map<string, number>()
 
@@ -77,6 +81,7 @@ app.get("/summary", requireAdmin, async (c) => {
       // "Accepted" = everything past review that wasn't declined
       // (in production + published).
       acceptedCount = platform.inProduction + platform.published
+      publishedCount = platform.published
       reviewsCount = platform.totalReviews
       last7 = windowed
 
@@ -97,7 +102,7 @@ app.get("/summary", requireAdmin, async (c) => {
       journals: journalsCount,
       submissions: submissionsCount,
       accepted: acceptedCount,
-      published: snapshot.publishedArticles,
+      published: publishedCount,
       reviews: reviewsCount,
       acceptanceRate,
     },
@@ -133,10 +138,9 @@ app.get("/timeseries", requireAdmin, zValidator("query", timeseriesQuerySchema),
 })
 
 // GET /admin-analytics/sync-health?limit=10 — recurring-job ledger feed
-app.get("/sync-health", requireAdmin, async (c) => {
+app.get("/sync-health", requireAdmin, zValidator("query", syncHealthQuerySchema), async (c) => {
   try {
-    const limitRaw = Number(c.req.query("limit") ?? 10)
-    const limit = Number.isInteger(limitRaw) && limitRaw >= 1 && limitRaw <= 50 ? limitRaw : 10
+    const { limit } = c.req.valid("query")
     const data = await getOrSetCache(`admin-analytics:sync-health:${limit}`, 30_000, () =>
       getSyncHealth(limit)
     )

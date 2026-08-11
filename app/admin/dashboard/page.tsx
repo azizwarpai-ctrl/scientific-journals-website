@@ -23,33 +23,37 @@ export default async function AdminDashboardPage() {
     redirect("/admin/login")
   }
 
-  // Local reads — always available regardless of OJS connectivity.
-  // Published Articles / lifetime Views+Downloads come from the already-synced
-  // ojs_journal_snapshots aggregates (no OJS round-trip on the request path).
-  const [journalsCount, snapshot] = await Promise.all([
-    prisma.journal.count(),
-    getSnapshotAggregates(),
-  ])
-
-  // Live OJS reads — degrade to an explicit "unavailable" state (never fake 0s).
   const ojsConfigured = isOjsConfigured()
+
+  // Start the local and OJS read groups concurrently, then await both.
+  // Local reads (journal count + snapshot aggregates) are always available;
+  // the OJS group is settled to a tagged result so a failure degrades to an
+  // explicit "unavailable" state rather than throwing (never fake 0s).
+  const localPromise = Promise.all([prisma.journal.count(), getSnapshotAggregates()])
+  const ojsPromise = ojsConfigured
+    ? Promise.all([getOjsPlatformStats(), getOjsReviewOverview(), getOjsRecentSubmissions(5)])
+        .then((r) => ({ ok: true as const, value: r }))
+        .catch((e) => ({ ok: false as const, error: e as unknown }))
+    : Promise.resolve(null)
+
+  const [[journalsCount, snapshot], ojsResult] = await Promise.all([localPromise, ojsPromise])
+
   let stats: OjsPlatformStats | null = null
   let pendingReviews: number | null = null
   let recentSubmissions: OjsRecentSubmission[] = []
   let ojsError = false
 
-  if (ojsConfigured) {
-    try {
-      const [platform, overview, recent] = await Promise.all([
-        getOjsPlatformStats(),
-        getOjsReviewOverview(),
-        getOjsRecentSubmissions(5),
-      ])
+  if (ojsResult) {
+    if (ojsResult.ok) {
+      const [platform, overview, recent] = ojsResult.value
       stats = platform
       pendingReviews = overview.activeAssignments
       recentSubmissions = recent
-    } catch (e) {
-      console.error("[dashboard] OJS stats failed:", e instanceof Error ? e.message : e)
+    } else {
+      console.error(
+        "[dashboard] OJS stats failed:",
+        ojsResult.error instanceof Error ? ojsResult.error.message : ojsResult.error
+      )
       ojsError = true
     }
   }
@@ -85,7 +89,9 @@ export default async function AdminDashboardPage() {
     },
     {
       title: "Accepted",
-      value: stats ? stats.inProduction : null,
+      // Same definition as the analytics route: everything past review that
+      // wasn't declined — in production plus published.
+      value: stats ? stats.inProduction + stats.published : null,
       icon: CheckCircle2,
       color: "text-secondary",
       bgColor: "bg-secondary/20",

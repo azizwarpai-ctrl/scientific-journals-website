@@ -192,9 +192,21 @@ function AnalyticsView({ summary }: { summary: AdminAnalyticsSummary }) {
           <CardContent>
             <div className="space-y-2 text-sm">
               <p className="text-muted-foreground">Last 7 days:</p>
-              <ActivityRow label="New Submissions" value={ojsAvailable ? last7.newSubmissions : null} />
-              <ActivityRow label="Completed Reviews" value={ojsAvailable ? last7.completedReviews : null} />
-              <ActivityRow label="Published Articles" value={ojsAvailable ? last7.publishedArticles : null} />
+              <ActivityRow
+                label="New Submissions"
+                value={ojsAvailable ? last7.newSubmissions : null}
+                emptyReason={ojsAvailable ? undefined : "OJS unavailable"}
+              />
+              <ActivityRow
+                label="Completed Reviews"
+                value={ojsAvailable ? last7.completedReviews : null}
+                emptyReason={ojsAvailable ? undefined : "OJS unavailable"}
+              />
+              <ActivityRow
+                label="Published Articles"
+                value={ojsAvailable ? last7.publishedArticles : null}
+                emptyReason={ojsAvailable ? undefined : "OJS unavailable"}
+              />
               <ActivityRow label="Article Views" value={last7.views} />
               <ActivityRow label="Article Downloads" value={last7.downloads} />
             </div>
@@ -205,7 +217,16 @@ function AnalyticsView({ summary }: { summary: AdminAnalyticsSummary }) {
   )
 }
 
-function ActivityRow({ label, value }: { label: string; value: number | null }) {
+function ActivityRow({
+  label,
+  value,
+  emptyReason = "No events recorded yet",
+}: {
+  label: string
+  value: number | null
+  /** Tooltip when value is null — distinguishes "no events" from "OJS unavailable". */
+  emptyReason?: string
+}) {
   return (
     <div className="flex items-center justify-between">
       <span>{label}</span>
@@ -215,7 +236,7 @@ function ActivityRow({ label, value }: { label: string; value: number | null }) 
             ? "font-medium text-muted-foreground"
             : "font-medium tabular-nums"
         }
-        title={value === null ? "No events recorded yet" : undefined}
+        title={value === null ? emptyReason : undefined}
       >
         {formatCount(value)}
       </span>

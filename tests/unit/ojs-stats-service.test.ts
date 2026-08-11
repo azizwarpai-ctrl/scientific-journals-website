@@ -31,6 +31,7 @@ import {
     getOjsAuthorSummary,
     getOjsRecentSubmissions,
     getOjsSubmissionCountsByJournal,
+    getOjsLast7Stats,
 } from "@/src/features/ojs/server/ojs-stats-service"
 
 const SYNCED = [{ ojs_id: "10" }, { ojs_id: "2" }, { ojs_id: null }]
@@ -117,7 +118,8 @@ describe("getOjsAuthorSummary", () => {
             { email: "b@x.org", givenName: null, familyName: null, submissions: 1, latestSubmission: null },
         ])
         const rows = await getOjsAuthorSummary()
-        expect(rows[0]).toEqual({ name: "Ada Lovelace", email: "a@x.org", submissions: 3, latestSubmission: new Date("2026-01-02 10:00:00").toISOString() })
+        // Naive DATETIME string is parsed as UTC → deterministic literal ISO.
+        expect(rows[0]).toEqual({ name: "Ada Lovelace", email: "a@x.org", submissions: 3, latestSubmission: "2026-01-02T10:00:00.000Z" })
         expect(rows[1].name).toBe("b@x.org")
         expect(rows[1].latestSubmission).toBeNull()
     })
@@ -154,5 +156,26 @@ describe("getOjsSubmissionCountsByJournal", () => {
         const map = await getOjsSubmissionCountsByJournal()
         expect(map.get("10")).toBe(20)
         expect(map.get("2")).toBe(5)
+    })
+})
+
+describe("getOjsLast7Stats", () => {
+    it("binds the UTC window boundary as YYYY-MM-DD HH:MM:SS (×3) and maps counts", async () => {
+        hoisted.ojsQuery.mockResolvedValue([
+            { newSubmissions: "2", completedReviews: 5, publishedArticles: "1" },
+        ])
+        const windowStart = new Date("2026-08-01T00:00:00.000Z")
+        const stats = await getOjsLast7Stats(windowStart)
+
+        expect(stats).toEqual({ newSubmissions: 2, completedReviews: 5, publishedArticles: 1 })
+        const params = hoisted.ojsQuery.mock.calls[0][1] as string[]
+        expect(params).toEqual(["2026-08-01 00:00:00", "2026-08-01 00:00:00", "2026-08-01 00:00:00"])
+    })
+
+    it("short-circuits to zeros without querying when nothing is synced", async () => {
+        hoisted.journalFindMany.mockResolvedValue([])
+        const stats = await getOjsLast7Stats(new Date("2026-08-01T00:00:00.000Z"))
+        expect(stats).toEqual({ newSubmissions: 0, completedReviews: 0, publishedArticles: 0 })
+        expect(hoisted.ojsQuery).not.toHaveBeenCalled()
     })
 })

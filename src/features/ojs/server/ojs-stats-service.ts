@@ -186,7 +186,9 @@ interface Last7Row extends RowDataPacket {
 export async function getOjsLast7Stats(windowStart: Date): Promise<OjsLast7Stats> {
     const inClause = await syncedJournalIdClause()
     if (!inClause) return { newSubmissions: 0, completedReviews: 0, publishedArticles: 0 }
-    // MySQL DATETIME comparison; pass a 'YYYY-MM-DD HH:MM:SS' string.
+    // MySQL DATETIME comparison. `toISOString()` is UTC, so slicing gives a UTC
+    // wall-time 'YYYY-MM-DD HH:MM:SS' — the same basis as the UTC-stored OJS
+    // DATETIMEs (pool `timezone: "Z"`), so the window boundary is consistent.
     const ws = windowStart.toISOString().slice(0, 19).replace("T", " ")
     const rows = await ojsQuery<Last7Row>(
         `SELECT
@@ -267,6 +269,17 @@ interface RecentSubmissionRow extends RowDataPacket {
 
 function toIso(value: Date | string | null): string | null {
     if (value === null) return null
+    // A naive 'YYYY-MM-DD HH:MM:SS' string from MySQL carries no zone and is
+    // UTC — parse it explicitly as UTC so the result doesn't drift by the
+    // runner's local offset. (Date values from mysql2 are already correct given
+    // the pool's `timezone: "Z"` setting.)
+    if (typeof value === "string") {
+        const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/.exec(value)
+        if (m) {
+            const d = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`)
+            return Number.isNaN(d.getTime()) ? null : d.toISOString()
+        }
+    }
     const d = value instanceof Date ? value : new Date(value)
     return Number.isNaN(d.getTime()) ? null : d.toISOString()
 }

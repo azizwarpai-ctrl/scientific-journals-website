@@ -64,8 +64,11 @@ Remote-MySQL whitelist dropped the app's outbound IP (see discovery doc, risk #1
 
 ## Admin dashboard data sources (what needs cron vs. what is live)
 
-The admin Dashboard / Analytics / Authors pages read from OJS, not from local
-mirror tables. Sourcing, so an empty figure is not mistaken for a bug:
+The admin Dashboard / Analytics / Authors figures come from three different
+sources — the local `journals` table (OJS journal sync), the synced
+`ojs_journal_snapshots` aggregates, and live OJS queries — so an empty value is
+not mistaken for a bug. The table below states each metric's source and when it
+populates:
 
 | Surface | Source | Populated when |
 |---|---|---|
