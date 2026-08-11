@@ -54,6 +54,8 @@ describe("getOjsPlatformStats", () => {
                 declined: "4",
                 totalReviews: "12",
                 totalAuthors: 42,
+                viewsTotal: "1234",
+                downloadsTotal: 567,
             },
         ])
 
@@ -66,6 +68,8 @@ describe("getOjsPlatformStats", () => {
             declined: 4,
             totalReviews: 12,
             totalAuthors: 42,
+            viewsTotal: 1234,
+            downloadsTotal: 567,
         })
         // Only valid positive integer ids reach the IN() clause.
         const sql = hoisted.ojsQuery.mock.calls[0][0] as string

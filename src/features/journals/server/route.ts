@@ -107,6 +107,19 @@ function scheduleOjsDriftCheck(prismaTotal: number): void {
             };
           });
           console.log(`[journals/self-heal] Background sync complete: synced=${result.synced}, errors=${result.errors}, deactivated=${result.deactivated.length}`);
+
+          // Also refresh the per-journal aggregate snapshots (article/issue
+          // counts, lifetime views/downloads). Best-effort and watermark-gated:
+          // a failure here must never fail the journal sync. Without this, the
+          // drift path — the only sync that runs on this host — leaves
+          // ojs_journal_snapshots stale at zero.
+          try {
+            const { refreshOjsJournalSnapshots } = await import("@/src/features/ojs/server/ojs-journal-snapshots");
+            const snap = await refreshOjsJournalSnapshots();
+            console.log(`[journals/self-heal] Snapshot refresh: refreshed=${snap.refreshed}, skipped=${snap.skipped}`);
+          } catch (snapErr) {
+            console.error("[journals/self-heal] Snapshot refresh failed (non-fatal):", snapErr);
+          }
         } catch (syncError) {
           console.error("[journals/self-heal] Background sync failed:", syncError);
         } finally {

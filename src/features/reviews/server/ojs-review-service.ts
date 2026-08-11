@@ -15,6 +15,7 @@ import {
     RECOMMENDATION_LABELS,
     REVIEW_METHOD_LABELS,
     REVIEW_ROUND_STATUS_LABELS,
+    REVIEWER_ROLE_ID,
     STAGE_LABELS,
     SUBMISSION_STATUS_LABELS,
     buildOjsWorkflowUrl,
@@ -523,14 +524,23 @@ export async function getOjsSubmissionDetail(submissionId: number): Promise<Subm
 export async function listOjsReviewers(
     options: ListOjsReviewersOptions
 ): Promise<PaginatedResult<ReviewerWorkload>> {
-    const conditions: string[] = ["1 = 1"]
+    // Roster is every OJS user holding the Reviewer role (role_id 4096), not
+    // only those with assignments — assignment stats are LEFT-joined and read
+    // 0 when a reviewer has no assignments yet. `EXISTS` on the role membership
+    // avoids row multiplication when a user is a reviewer in several journals.
+    const roleExists = `EXISTS (
+        SELECT 1 FROM user_user_groups uug
+        JOIN user_groups ug ON ug.user_group_id = uug.user_group_id
+        WHERE uug.user_id = u.user_id AND ug.role_id = ${REVIEWER_ROLE_ID})`
+
+    const conditions: string[] = [roleExists]
     const params: unknown[] = []
 
     if (options.search && options.search.trim().length > 0) {
         const like = `%${options.search.trim()}%`
         conditions.push(`(u.email LIKE ? OR u.username LIKE ? OR EXISTS (
             SELECT 1 FROM user_settings us
-            WHERE us.user_id = ra.reviewer_id
+            WHERE us.user_id = u.user_id
               AND us.setting_name IN ('givenName', 'familyName')
               AND us.setting_value LIKE ?))`)
         params.push(like, like, like)
@@ -539,34 +549,32 @@ export async function listOjsReviewers(
     const offset = (options.page - 1) * options.limit
 
     const countRows = await ojsQuery<CountRow>(
-        `SELECT COUNT(DISTINCT ra.reviewer_id) AS total
-         FROM review_assignments ra JOIN users u ON u.user_id = ra.reviewer_id
-         WHERE ${where}`,
+        `SELECT COUNT(*) AS total FROM users u WHERE ${where}`,
         params
     )
     const total = Number(countRows[0]?.total ?? 0)
 
     const rows = await ojsQuery<ReviewerRow>(
         `SELECT
-            ra.reviewer_id AS reviewerId,
+            u.user_id AS reviewerId,
             u.email,
             u.username,
-            ${userSettingSubselect("ra.reviewer_id", "givenName")} AS givenName,
-            ${userSettingSubselect("ra.reviewer_id", "familyName")} AS familyName,
-            ${userSettingSubselect("ra.reviewer_id", "affiliation")} AS affiliation,
-            ${userSettingSubselect("ra.reviewer_id", "orcid")} AS orcid,
-            COUNT(*) AS total,
-            SUM(ra.date_completed IS NULL AND ra.declined = 0 AND ra.cancelled = 0) AS active,
+            ${userSettingSubselect("u.user_id", "givenName")} AS givenName,
+            ${userSettingSubselect("u.user_id", "familyName")} AS familyName,
+            ${userSettingSubselect("u.user_id", "affiliation")} AS affiliation,
+            ${userSettingSubselect("u.user_id", "orcid")} AS orcid,
+            COUNT(ra.review_id) AS total,
+            SUM(ra.review_id IS NOT NULL AND ra.date_completed IS NULL AND ra.declined = 0 AND ra.cancelled = 0) AS active,
             SUM(ra.date_completed IS NOT NULL) AS completed,
             SUM(ra.declined = 1) AS declined,
-            SUM(ra.date_completed IS NULL AND ra.declined = 0 AND ra.cancelled = 0
+            SUM(ra.review_id IS NOT NULL AND ra.date_completed IS NULL AND ra.declined = 0 AND ra.cancelled = 0
                 AND ra.date_due IS NOT NULL AND ra.date_due < NOW()) AS overdue,
             AVG(CASE WHEN ra.date_completed IS NOT NULL
                 THEN DATEDIFF(ra.date_completed, ra.date_assigned) END) AS avgDaysToComplete
-         FROM review_assignments ra
-         JOIN users u ON u.user_id = ra.reviewer_id
+         FROM users u
+         LEFT JOIN review_assignments ra ON ra.reviewer_id = u.user_id
          WHERE ${where}
-         GROUP BY ra.reviewer_id, u.email, u.username
+         GROUP BY u.user_id, u.email, u.username
          ORDER BY active DESC, total DESC
          LIMIT ? OFFSET ?`,
         [...params, options.limit, offset]
