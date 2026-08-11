@@ -115,7 +115,11 @@ function scheduleOjsDriftCheck(prismaTotal: number): void {
           // ojs_journal_snapshots stale at zero.
           try {
             const { refreshOjsJournalSnapshots } = await import("@/src/features/ojs/server/ojs-journal-snapshots");
-            const snap = await refreshOjsJournalSnapshots();
+            // force:true — the submissions/publications/issues watermark is
+            // independent of the journal fingerprint that triggered this drift
+            // sync, so without force a journal-only change would skip the
+            // snapshot refresh and leave article/view/download counts stale.
+            const snap = await refreshOjsJournalSnapshots({ force: true });
             console.log(`[journals/self-heal] Snapshot refresh: refreshed=${snap.refreshed}, skipped=${snap.skipped}`);
           } catch (snapErr) {
             console.error("[journals/self-heal] Snapshot refresh failed (non-fatal):", snapErr);

@@ -20,6 +20,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -147,13 +148,16 @@ export function DataTable<TData>({
                                     JSON
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                    onClick={() =>
-                                        void downloadXlsx(
+                                    onClick={() => {
+                                        // XLSX export dynamically imports SheetJS + writes a
+                                        // workbook — both can reject; surface a toast instead
+                                        // of an unhandled rejection.
+                                        downloadXlsx(
                                             table.getFilteredRowModel().rows.map((r) => r.original),
                                             csv.columns,
                                             csv.filename
-                                        )
-                                    }
+                                        ).catch(() => toast.error("Failed to export to Excel"))
+                                    }}
                                 >
                                     Excel (.xlsx)
                                 </DropdownMenuItem>
