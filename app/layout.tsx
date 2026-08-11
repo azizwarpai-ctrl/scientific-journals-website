@@ -72,7 +72,10 @@ export const metadata: Metadata = {
     ],
   },
   twitter: {
-    card: "summary_large_image",
+    // Square logo (512×512) — use the "summary" card, which shows a small
+    // square thumbnail, rather than "summary_large_image", which expects a
+    // ~1200×630 wide card and would letterbox/crop the square asset.
+    card: "summary",
     images: ["/android-chrome-512x512.png"],
   },
 }

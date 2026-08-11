@@ -8,18 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DataTable, sortableHeader } from "@/components/data-table/data-table"
 import type { CsvColumn } from "@/components/data-table/csv-export"
-import { cn, statusBadgeClass } from "@/src/lib/utils"
-
-/**
- * Stable date string (pinned en-US + UTC). This client component is
- * server-rendered with the same row props, so an unpinned locale/timezone
- * would differ between SSR and hydration → React #418.
- */
-function formatDate(iso: string): string {
-  if (!iso) return "—"
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US", { timeZone: "UTC" })
-}
+import { cn, formatDate, statusBadgeClass } from "@/src/lib/utils"
 
 export interface JournalRow {
   id: string
