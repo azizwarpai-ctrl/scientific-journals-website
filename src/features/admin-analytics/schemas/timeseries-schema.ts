@@ -59,9 +59,9 @@ export type TimeseriesQuery = z.infer<typeof timeseriesQuerySchema>
 /**
  * Query for GET /admin-analytics/sync-health.
  *
- * `limit` defaults to 10 and is clamped to 1..50. `.catch(10)` preserves the
- * prior handler behavior: any invalid/out-of-range value falls back to 10
- * rather than producing a 400.
+ * `limit` valid range is 1..50. `.catch(10).default(10)` preserves the prior
+ * handler behavior: missing, invalid, or out-of-range values return 10 rather
+ * than producing a 400.
  */
 export const syncHealthQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(50).catch(10).default(10),
