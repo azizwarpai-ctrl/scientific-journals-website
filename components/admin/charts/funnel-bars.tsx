@@ -12,7 +12,7 @@ export function FunnelBars({ submitted, accepted, published }: { submitted: numb
     return <p className="py-10 text-center text-sm text-muted-foreground">No submissions yet</p>
   }
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" aria-label="Submission funnel: submitted, accepted, published">
       {stages.map((s) => {
         const pct = Math.round((s.value / max) * 100)
         return (
