@@ -9,11 +9,10 @@ import type {
   JournalBreakdownRow,
 } from "@/src/features/admin-analytics/types/charts-types"
 
-/** Synced OJS journal ids as a validated IN() clause; null when none synced. */
-async function syncedIdClause(): Promise<string | null> {
+/** Synced OJS journal ids (positive ints); empty when none synced. */
+async function syncedIds(): Promise<number[]> {
   const journals = await prisma.journal.findMany({ where: { ojs_id: { not: null } }, select: { ojs_id: true } })
-  const ids = journals.map((j) => Number(j.ojs_id)).filter((n) => Number.isInteger(n) && n > 0)
-  return ids.length ? ids.join(",") : null
+  return journals.map((j) => Number(j.ojs_id)).filter((n) => Number.isInteger(n) && n > 0)
 }
 
 /** `context_id` predicate: one journal when scoped, else the whole synced set. */
@@ -47,11 +46,14 @@ export async function getMonthlySeries(
 ): Promise<MonthlyPoint[]> {
   const months = opts.months && opts.months > 0 && opts.months <= 24 ? opts.months : 12
   const spine = monthSpine(opts.now ?? new Date(), months)
-  const inClause = await syncedIdClause()
+  const ids = await syncedIds()
   const base: MonthlyPoint[] = spine.map((month) => ({ month, submissions: 0, publications: 0 }))
-  if (!inClause) return base
+  if (!ids.length) return base
+  // A scoped journalId must be a member of the synced set, else the query
+  // would leak counts for a journal DigitoPub does not surface.
+  if (opts.journalId && !ids.includes(opts.journalId)) return base
 
-  const ctx = contextPredicate(inClause, opts.journalId)
+  const ctx = contextPredicate(ids.join(","), opts.journalId)
   // Lower bound = first day of the oldest spine month (UTC), 'YYYY-MM-01 00:00:00'.
   const since = `${spine[0]}-01 00:00:00`
 
@@ -87,9 +89,11 @@ export async function getStatusDistribution(
   opts: { journalId?: number } = {}
 ): Promise<StatusDistribution> {
   const empty = { inReview: 0, inProduction: 0, published: 0, declined: 0 }
-  const inClause = await syncedIdClause()
-  if (!inClause) return empty
-  const ctx = contextPredicate(inClause, opts.journalId)
+  const ids = await syncedIds()
+  if (!ids.length) return empty
+  // A scoped journalId must be a member of the synced set (see getMonthlySeries).
+  if (opts.journalId && !ids.includes(opts.journalId)) return empty
+  const ctx = contextPredicate(ids.join(","), opts.journalId)
   const rows = await ojsQuery<StatusRow>(
     `SELECT
        (SELECT COUNT(*) FROM submissions s WHERE s.context_id ${ctx}

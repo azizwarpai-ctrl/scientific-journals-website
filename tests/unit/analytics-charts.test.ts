@@ -76,6 +76,15 @@ describe("getMonthlySeries", () => {
     ])
     expect(hoisted.ojsQuery).not.toHaveBeenCalled()
   })
+  it("returns a zeroed spine (no query) when journalId is not a synced journal", async () => {
+    // SYNCED = ids 10, 2 — 999 is not a member.
+    const out = await getMonthlySeries({ journalId: 999, months: 2, now: new Date("2026-03-15T00:00:00Z") })
+    expect(out).toEqual([
+      { month: "2026-02", submissions: 0, publications: 0 },
+      { month: "2026-03", submissions: 0, publications: 0 },
+    ])
+    expect(hoisted.ojsQuery).not.toHaveBeenCalled()
+  })
 })
 
 describe("getStatusDistribution", () => {
