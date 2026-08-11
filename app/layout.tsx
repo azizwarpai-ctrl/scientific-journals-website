@@ -2,7 +2,6 @@ import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 
-import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
 import { QueryProvider } from "@/components/query-provider"
 import { GlobalToaster } from "@/components/global-toaster"
@@ -53,9 +52,11 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
-      { url: "/icon.png", type: "image/png" },
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/icon.svg", type: "image/svg+xml" },
     ],
     shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
     type: "website",
@@ -63,16 +64,16 @@ export const metadata: Metadata = {
     url: "/",
     images: [
       {
-        url: "/icon.png",
-        width: 1200,
-        height: 630,
+        url: "/android-chrome-512x512.png",
+        width: 512,
+        height: 512,
         alt: "DigitoPub Logo",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    images: ["/icon.png"],
+    images: ["/android-chrome-512x512.png"],
   },
 }
 
@@ -101,7 +102,6 @@ export default function RootLayout({
             {/* Hotfix A3: surfaces ?auth_error= / ?signin=unavailable as toasts */}
             <AuthErrorBanner />
           </QueryProvider>
-          <Analytics />
           <GlobalToaster />
         </ThemeProvider>
       </body>

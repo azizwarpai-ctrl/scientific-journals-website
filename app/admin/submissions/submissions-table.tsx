@@ -8,6 +8,17 @@ import { DataTable, sortableHeader } from "@/components/data-table/data-table"
 import type { CsvColumn } from "@/components/data-table/csv-export"
 import { cn, statusBadgeClass } from "@/src/lib/utils"
 
+/**
+ * Stable date string (pinned en-US + UTC). This renders inside a client
+ * component that is server-rendered with the same row props, so an unpinned
+ * locale/timezone would differ between SSR and hydration → React #418.
+ */
+function formatDate(iso: string): string {
+  if (!iso) return "—"
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US", { timeZone: "UTC" })
+}
+
 export interface SubmissionRow {
   id: string
   title: string
@@ -65,7 +76,7 @@ const columns: ColumnDef<SubmissionRow, unknown>[] = [
   {
     accessorKey: "date",
     header: sortableHeader<SubmissionRow>("Date"),
-    cell: ({ row }) => new Date(row.original.date).toLocaleDateString(),
+    cell: ({ row }) => formatDate(row.original.date),
   },
 ]
 
@@ -74,7 +85,7 @@ const csvColumns: CsvColumn<SubmissionRow>[] = [
   { header: "Journal", accessor: (row) => row.journalTitle },
   { header: "Author", accessor: (row) => row.author },
   { header: "Status", accessor: (row) => row.status },
-  { header: "Date", accessor: (row) => new Date(row.date).toLocaleDateString() },
+  { header: "Date", accessor: (row) => formatDate(row.date) },
 ]
 
 export function SubmissionsTable({
