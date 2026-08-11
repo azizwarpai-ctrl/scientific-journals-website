@@ -22,6 +22,7 @@ import {
   monthSpine,
   deriveFunnel,
   getMonthlySeries,
+  getStatusDistribution,
   getByJournalBreakdown,
 } from "@/src/features/admin-analytics/server/analytics-charts"
 
@@ -73,6 +74,22 @@ describe("getMonthlySeries", () => {
       { month: "2026-02", submissions: 0, publications: 0 },
       { month: "2026-03", submissions: 0, publications: 0 },
     ])
+    expect(hoisted.ojsQuery).not.toHaveBeenCalled()
+  })
+})
+
+describe("getStatusDistribution", () => {
+  it("coerces string counts from the OJS row", async () => {
+    hoisted.ojsQuery.mockResolvedValueOnce([
+      { inReview: 5, inProduction: "3", published: 90, declined: 2 },
+    ])
+    const out = await getStatusDistribution()
+    expect(out).toEqual({ inReview: 5, inProduction: 3, published: 90, declined: 2 })
+  })
+  it("short-circuits to zeros when nothing is synced", async () => {
+    hoisted.journalFindMany.mockResolvedValue([])
+    const out = await getStatusDistribution()
+    expect(out).toEqual({ inReview: 0, inProduction: 0, published: 0, declined: 0 })
     expect(hoisted.ojsQuery).not.toHaveBeenCalled()
   })
 })
