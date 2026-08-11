@@ -1,3 +1,5 @@
+"use client"
+
 import { Eye, Download, FileText } from "lucide-react"
 import { KpiCard } from "@/components/admin/kpi-card"
 import { SyncHealthWidget } from "@/components/admin/sync-health-widget"
