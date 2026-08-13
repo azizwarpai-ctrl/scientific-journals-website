@@ -103,30 +103,32 @@ export async function refreshOjsJournalSnapshots(
 
     let refreshed = 0
     const capturedAt = new Date()
-    for (const journal of journals) {
-        const agg = byJid.get(journal.ojs_id as string) ?? {}
-        await prisma.ojsJournalSnapshot.upsert({
-            where: { journal_id: journal.id },
-            create: {
-                journal_id: journal.id,
-                article_count: agg.articles ?? 0,
-                issue_count: agg.issues ?? 0,
-                latest_publication_at: agg.latest ?? null,
-                views_total: agg.views ?? BigInt(0),
-                downloads_total: agg.downloads ?? BigInt(0),
-                captured_at: capturedAt,
-            },
-            update: {
-                article_count: agg.articles ?? 0,
-                issue_count: agg.issues ?? 0,
-                latest_publication_at: agg.latest ?? null,
-                views_total: agg.views ?? BigInt(0),
-                downloads_total: agg.downloads ?? BigInt(0),
-                captured_at: capturedAt,
-            },
-        })
-        refreshed++
-    }
+    await prisma.$transaction(async (tx) => {
+        for (const journal of journals) {
+            const agg = byJid.get(journal.ojs_id as string) ?? {}
+            await tx.ojsJournalSnapshot.upsert({
+                where: { journal_id: journal.id },
+                create: {
+                    journal_id: journal.id,
+                    article_count: agg.articles ?? 0,
+                    issue_count: agg.issues ?? 0,
+                    latest_publication_at: agg.latest ?? null,
+                    views_total: agg.views ?? BigInt(0),
+                    downloads_total: agg.downloads ?? BigInt(0),
+                    captured_at: capturedAt,
+                },
+                update: {
+                    article_count: agg.articles ?? 0,
+                    issue_count: agg.issues ?? 0,
+                    latest_publication_at: agg.latest ?? null,
+                    views_total: agg.views ?? BigInt(0),
+                    downloads_total: agg.downloads ?? BigInt(0),
+                    captured_at: capturedAt,
+                },
+            })
+            refreshed++
+        }
+    })
 
     if (watermark) {
         await prisma.systemSetting.upsert({

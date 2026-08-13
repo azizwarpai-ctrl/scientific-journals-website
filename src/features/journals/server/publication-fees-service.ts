@@ -17,7 +17,16 @@
  */
 
 import sanitizeHtml from "sanitize-html"
-import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { getJournalPrimaryLocale, ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import {
+  groupByItemId,
+  groupStaticPages,
+  normalizeKey,
+  pickBestLocale,
+  type NavRow,
+  type SettingRow,
+  type StaticPageRow,
+} from "@/src/features/journals/server/ojs-content-utils"
 
 export interface PublicationFees {
   /** Rich HTML content (sanitized) sourced from a custom OJS page, when present. */
@@ -47,16 +56,6 @@ const FEE_PAGE_ALIASES = new Set<string>([
   "publication charges",
   "publication charge",
 ])
-
-function normalizeKey(value: string | null | undefined): string {
-  if (!value) return ""
-  return value
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-}
 
 function isFeeAlias(value: string | null | undefined): boolean {
   const norm = normalizeKey(value)
@@ -88,23 +87,6 @@ function sanitize(raw: string | null | undefined): string {
   return sanitizeHtml(raw, SANITIZE_OPTIONS).trim()
 }
 
-// ── Locale helper ──────────────────────────────────────────────────────────
-
-function pickBestLocale(
-  rows: { setting_name: string; setting_value: string | null; locale: string }[],
-  settingName: string,
-  primaryLocale: string,
-): string | null {
-  const matching = rows.filter((r) => r.setting_name === settingName)
-  if (matching.length === 0) return null
-  return (
-    matching.find((r) => r.locale === primaryLocale)?.setting_value ??
-    matching.find((r) => r.locale === "")?.setting_value ??
-    matching[0]?.setting_value ??
-    null
-  )
-}
-
 function parseFeeAmount(value: string | null | undefined): number | null {
   if (value == null) return null
   let normalized = String(value).replace(/[^0-9.,\-]/g, "").trim()
@@ -134,28 +116,6 @@ function parseFeeAmount(value: string | null | undefined): number | null {
 
 // ── Row types ──────────────────────────────────────────────────────────────
 
-interface NavRow {
-  navigation_menu_item_id: number
-  path: string | null
-  setting_name: string | null
-  setting_value: string | null
-  locale: string
-}
-
-interface StaticPageRow {
-  static_page_id: number
-  path: string | null
-  setting_name: string | null
-  setting_value: string | null
-  locale: string
-}
-
-interface SettingRow {
-  setting_name: string
-  setting_value: string | null
-  locale: string
-}
-
 // ── Main entry point ───────────────────────────────────────────────────────
 
 export async function fetchJournalPublicationFees(ojsJournalId: string): Promise<PublicationFees> {
@@ -171,19 +131,7 @@ export async function fetchJournalPublicationFees(ojsJournalId: string): Promise
   if (!/^\d+$/.test(ojsJournalId)) return empty
   const journalId = parseInt(ojsJournalId, 10)
 
-  // Resolve primary locale (falls back to 'en' if the lookup fails).
-  let primaryLocale = "en"
-  try {
-    const localeRows = await ojsQuery<{ primary_locale: string }>(
-      "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
-      [journalId],
-    )
-    if (localeRows.length > 0 && localeRows[0].primary_locale) {
-      primaryLocale = localeRows[0].primary_locale
-    }
-  } catch {
-    // Keep default.
-  }
+  const primaryLocale = await getJournalPrimaryLocale(ojsJournalId)
 
   const [navRows, staticRows, settingRows] = await Promise.all([
     // Custom navigation-menu pages on this journal (context_id = journal_id)
@@ -295,49 +243,4 @@ export async function fetchJournalPublicationFees(ojsJournalId: string): Promise
     currencyCode,
     source,
   }
-}
-
-// ── Grouping helpers ───────────────────────────────────────────────────────
-
-interface GroupedItem {
-  path: string | null
-  settings: SettingRow[]
-}
-
-function groupByItemId(rows: NavRow[]): Map<number, GroupedItem> {
-  const map = new Map<number, GroupedItem>()
-  for (const row of rows) {
-    let entry = map.get(row.navigation_menu_item_id)
-    if (!entry) {
-      entry = { path: row.path ?? null, settings: [] }
-      map.set(row.navigation_menu_item_id, entry)
-    }
-    if (row.setting_name) {
-      entry.settings.push({
-        setting_name: row.setting_name,
-        setting_value: row.setting_value,
-        locale: row.locale,
-      })
-    }
-  }
-  return map
-}
-
-function groupStaticPages(rows: StaticPageRow[]): Map<number, GroupedItem> {
-  const map = new Map<number, GroupedItem>()
-  for (const row of rows) {
-    let entry = map.get(row.static_page_id)
-    if (!entry) {
-      entry = { path: row.path ?? null, settings: [] }
-      map.set(row.static_page_id, entry)
-    }
-    if (row.setting_name) {
-      entry.settings.push({
-        setting_name: row.setting_name,
-        setting_value: row.setting_value,
-        locale: row.locale,
-      })
-    }
-  }
-  return map
 }

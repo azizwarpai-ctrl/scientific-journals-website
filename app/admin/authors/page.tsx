@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/src/lib/db/auth"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users } from "lucide-react"
+import { PageHeader } from "@/components/ui/page-header"
 import { AuthorsTable, type AuthorRow } from "./authors-table"
 import { isOjsConfigured } from "@/src/features/ojs/server/ojs-client"
 import { getOjsAuthorSummary } from "@/src/features/ojs/server/ojs-stats-service"
@@ -38,10 +39,7 @@ export default async function AuthorsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Author Management</h1>
-        <p className="text-muted-foreground mt-1">View and manage authors with submissions on the platform</p>
-      </div>
+      <PageHeader title="Author Management" subtitle="View and manage authors with submissions on the platform" />
 
       {!ojsConfigured ? (
         <OjsStatusBanner state="unconfigured" />

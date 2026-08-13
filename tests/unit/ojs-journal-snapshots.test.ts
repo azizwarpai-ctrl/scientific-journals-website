@@ -10,6 +10,12 @@ const systemSettingUpsert = vi.fn()
 const journalFindMany = vi.fn()
 const snapshotUpsert = vi.fn()
 
+const txClient = {
+    ojsJournalSnapshot: {
+        upsert: (...args: unknown[]) => snapshotUpsert(...args),
+    },
+}
+
 vi.mock('@/src/lib/db/config', () => ({
     prisma: {
         systemSetting: {
@@ -22,6 +28,7 @@ vi.mock('@/src/lib/db/config', () => ({
         ojsJournalSnapshot: {
             upsert: (...args: unknown[]) => snapshotUpsert(...args),
         },
+        $transaction: (fn: (tx: typeof txClient) => Promise<unknown>) => fn(txClient),
     },
 }))
 

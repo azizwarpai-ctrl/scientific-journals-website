@@ -2,6 +2,8 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { StatCard } from "@/components/ui/stat-card"
+import { PageHeader } from "@/components/ui/page-header"
 import { BookOpen, FileText, Eye, TrendingUp, Users, CheckCircle2, Clock, XCircle } from "lucide-react"
 import { DashboardWidgets } from "@/components/admin/dashboard-widgets"
 import { isOjsConfigured } from "@/src/features/ojs/server/ojs-client"
@@ -123,10 +125,7 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Welcome back, {user.full_name || user.email}</p>
-      </div>
+      <PageHeader title="Dashboard" subtitle={`Welcome back, ${user.full_name || user.email}`} />
 
       {/* OJS-derived cards degrade to a banner when OJS is down/unset; the
           local cards (journals, published, engagement widgets) still render. */}
@@ -138,22 +137,16 @@ export default async function AdminDashboardPage() {
 
       {/* Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statsCards.map((stat) => {
-          const Icon = stat.icon
-          return (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <div className={`rounded-full p-2 ${stat.bgColor}`}>
-                  <Icon className={`h-4 w-4 ${stat.color}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value === null ? "—" : stat.value}</div>
-              </CardContent>
-            </Card>
-          )
-        })}
+        {statsCards.map((stat) => (
+          <StatCard
+            key={stat.title}
+            title={stat.title}
+            value={stat.value === null ? "—" : stat.value}
+            icon={stat.icon}
+            iconClassName={stat.color}
+            chipClassName={stat.bgColor}
+          />
+        ))}
       </div>
 
       {/* Lifetime OJS engagement totals + sync-run health */}

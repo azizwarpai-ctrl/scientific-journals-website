@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { StatCard } from "@/components/ui/stat-card"
+import { PageHeader } from "@/components/ui/page-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   AlertDialog,
@@ -78,11 +80,7 @@ export default function EmailTemplatesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Email Templates</h1>
-          <p className="text-muted-foreground">Manage reusable email templates for the platform</p>
-        </div>
+      <PageHeader title="Email Templates" subtitle="Manage reusable email templates for the platform">
         <div className="flex gap-2">
           <Button variant="outline" asChild>
             <Link href="/admin/email-templates/logs">
@@ -96,39 +94,23 @@ export default function EmailTemplatesPage() {
             </Link>
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
       {/* Status & Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Templates</CardTitle>
-            <Mail className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{pagination?.totalItems || templates.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This page &mdash; Active</CardTitle>
-            <MailCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeCount}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This page &mdash; Inactive</CardTitle>
-            <MailX className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{inactiveCount}</div>
-          </CardContent>
-        </Card>
+        <StatCard title="Total Templates" value={pagination?.totalItems || templates.length} icon={Mail} />
+        <StatCard
+          title="This page &mdash; Active"
+          value={activeCount}
+          icon={MailCheck}
+          iconClassName="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+        />
+        <StatCard
+          title="This page &mdash; Inactive"
+          value={inactiveCount}
+          icon={MailX}
+          iconClassName="h-4 w-4 text-amber-600 dark:text-amber-400"
+        />
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

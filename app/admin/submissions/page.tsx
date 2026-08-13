@@ -17,6 +17,7 @@ import {
   isOjsUnavailable,
 } from "@/src/features/reviews"
 import { useDebouncedValue } from "@/src/hooks/use-debounced-value"
+import { PageHeader } from "@/components/ui/page-header"
 
 const STAGE_OPTIONS = [
   { value: "1", label: "Submission" },
@@ -50,10 +51,7 @@ export default function SubmissionsPage() {
   if (data && data.configured === false) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Submission Management</h1>
-          <p className="text-muted-foreground mt-1">Live submissions from OJS</p>
-        </div>
+        <PageHeader title="Submission Management" subtitle="Live submissions from OJS" />
         <OjsStatusBanner state="unconfigured" />
       </div>
     )
@@ -62,10 +60,7 @@ export default function SubmissionsPage() {
   if (isOjsUnavailable(error)) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Submission Management</h1>
-          <p className="text-muted-foreground mt-1">Live submissions from OJS</p>
-        </div>
+        <PageHeader title="Submission Management" subtitle="Live submissions from OJS" />
         <OjsStatusBanner state="unavailable" />
       </div>
     )

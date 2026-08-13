@@ -2,13 +2,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { ReviewAssignment, SubmissionReviewDetail } from "../types"
+import { formatDate } from "@/src/lib/utils"
 
 interface SubmissionReviewDetailProps {
     detail: SubmissionReviewDetail
-}
-
-function formatDate(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleDateString() : "—"
 }
 
 const STATE_BADGES = {

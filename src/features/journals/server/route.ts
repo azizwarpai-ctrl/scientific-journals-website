@@ -8,6 +8,7 @@ import { prisma } from "@/src/lib/db/config"
 import { normalizeOjsAssetUrl } from "@/src/features/ojs/utils/ojs-config"
 import { journalCreateSchema, journalUpdateSchema, journalIdParamSchema, journalSlugParamSchema } from "@/src/features/journals/schemas/journal-schema"
 import { hostingRequestRouter } from "./hosting-request-route"
+import { resolveJournalRecord } from "./resolve-journal"
 
 const app = new Hono()
 
@@ -242,27 +243,8 @@ app.get("/:id", zValidator("param", journalSlugParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
 
-    // 1. Try lookup by ojs_path (slug-based URL — primary)
-    let journal = await prisma.journal.findUnique({
-      where: { ojs_path: id },
-      select: DETAIL_JOURNAL_SELECT,
-    })
-
-    // 2. Fallback to ojs_id (for legacy OJS-sourced navigation)
-    if (!journal) {
-      journal = await prisma.journal.findUnique({
-        where: { ojs_id: id },
-        select: DETAIL_JOURNAL_SELECT,
-      })
-    }
-
-    // 3. Fallback to internal BigInt id (for admin-created journals)
-    if (!journal && /^\d+$/.test(id)) {
-      journal = await prisma.journal.findUnique({
-        where: { id: BigInt(id) },
-        select: DETAIL_JOURNAL_SELECT,
-      })
-    }
+    // Resolve via ojs_path (slug), ojs_id, or numeric Prisma id
+    let journal = await resolveJournalRecord(id)
 
     // 4. Safe OJS Fallback: Generate a complete mock journal and trigger background sync.
     if (!journal) {
@@ -371,9 +353,7 @@ app.get("/:id/stats", zValidator("param", journalSlugParamSchema), async (c) => 
   try {
     const { id } = c.req.valid("param")
 
-    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
-    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
-    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+    let journal = await resolveJournalRecord(id)
 
     if (!journal) {
       return c.json({ success: false, error: "Journal not found" }, 404)
@@ -416,9 +396,7 @@ app.get("/:id/current-issue", zValidator("param", journalSlugParamSchema), async
   try {
     const { id } = c.req.valid("param")
 
-    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
-    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
-    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+    let journal = await resolveJournalRecord(id)
 
     if (!journal) {
       return c.json({ success: false, error: "Journal not found" }, 404)
@@ -460,9 +438,7 @@ app.get("/:id/archive", zValidator("param", journalSlugParamSchema), async (c) =
   try {
     const { id } = c.req.valid("param")
 
-    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
-    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
-    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+    let journal = await resolveJournalRecord(id)
 
     if (!journal) {
       return c.json({ success: false, error: "Journal not found" }, 404)
@@ -504,9 +480,7 @@ app.get("/:id/editorial-board", zValidator("param", journalSlugParamSchema), asy
   try {
     const { id } = c.req.valid("param")
 
-    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
-    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
-    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+    let journal = await resolveJournalRecord(id)
 
     if (!journal) {
       return c.json({ success: false, error: "Journal not found" }, 404)
@@ -542,9 +516,7 @@ app.get("/:id/advisory-board", zValidator("param", journalSlugParamSchema), asyn
   try {
     const { id } = c.req.valid("param")
 
-    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
-    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
-    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+    let journal = await resolveJournalRecord(id)
 
     if (!journal) {
       return c.json({ success: false, error: "Journal not found" }, 404)
@@ -580,9 +552,7 @@ app.get("/:id/custom-blocks", zValidator("param", journalSlugParamSchema), async
   try {
     const { id } = c.req.valid("param")
 
-    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
-    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
-    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+    let journal = await resolveJournalRecord(id)
 
     if (!journal) {
       return c.json({ success: false, error: "Journal not found" }, 404)
@@ -600,12 +570,8 @@ app.get("/:id/custom-blocks", zValidator("param", journalSlugParamSchema), async
 
     try {
       // Resolve primary locale for block content localisation
-      const { ojsQuery } = await import("@/src/features/ojs/server/ojs-client")
-      const localeRows = await ojsQuery<{ primary_locale: string }>(
-        "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
-        [journal.ojs_id]
-      )
-      const primaryLocale = localeRows[0]?.primary_locale ?? "en_US"
+      const { getJournalPrimaryLocale } = await import("@/src/features/ojs/server/ojs-client")
+      const primaryLocale = await getJournalPrimaryLocale(journal.ojs_id, "en_US")
 
       const { fetchCustomBlocks } = await import("@/src/features/journals/server/custom-blocks-service")
       const blocks = await fetchCustomBlocks(journal.ojs_id, primaryLocale)
@@ -626,9 +592,7 @@ app.get("/:id/policies", zValidator("param", journalSlugParamSchema), async (c) 
   try {
     const { id } = c.req.valid("param")
 
-    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
-    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
-    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+    let journal = await resolveJournalRecord(id)
 
     if (!journal) {
       return c.json({ success: false, error: "Journal not found" }, 404)
@@ -664,9 +628,7 @@ app.get("/:id/about-content", zValidator("param", journalSlugParamSchema), async
   try {
     const { id } = c.req.valid("param")
 
-    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
-    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
-    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+    let journal = await resolveJournalRecord(id)
 
     if (!journal) {
       return c.json({ success: false, error: "Journal not found" }, 404)
@@ -701,9 +663,7 @@ app.get("/:id/fees", zValidator("param", journalSlugParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
 
-    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
-    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
-    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+    let journal = await resolveJournalRecord(id)
 
     if (!journal) {
       return c.json({ success: false, error: "Journal not found" }, 404)
@@ -742,9 +702,7 @@ app.get("/:id/issues/:issueId", zValidator("param", journalIssueParamSchema), as
     const { id, issueId: rawIssueId } = c.req.valid("param")
     const issueId = parseInt(rawIssueId, 10)
 
-    let journal = await prisma.journal.findUnique({ where: { ojs_path: id }, select: { ojs_id: true, id: true } })
-    if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id }, select: { ojs_id: true, id: true } })
-    if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) }, select: { ojs_id: true, id: true } })
+    let journal = await resolveJournalRecord(id)
 
     if (!journal) {
       return c.json({ success: false, error: "Journal not found" }, 404)

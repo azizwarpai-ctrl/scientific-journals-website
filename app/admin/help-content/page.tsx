@@ -21,6 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { PageHeader } from "@/components/ui/page-header"
 
 
 export default function HelpContentPage() {
@@ -127,16 +128,12 @@ export default function HelpContentPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Help Content</h1>
-          <p className="text-muted-foreground">Manage help categories and topics displayed on the public Help page</p>
-        </div>
+      <PageHeader title="Help Content" subtitle="Manage help categories and topics displayed on the public Help page">
         <Button onClick={() => handleOpenCatForm()}>
           <Plus className="mr-2 h-4 w-4" />
           Add Category
         </Button>
-      </div>
+      </PageHeader>
 
       <Tabs defaultValue="knowledge_base" className="w-full">
         <TabsList>

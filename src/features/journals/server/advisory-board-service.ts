@@ -1,4 +1,4 @@
-import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { getJournalPrimaryLocale } from "@/src/features/ojs/server/ojs-client"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 import { fetchBoardFromNavPage } from "./board-nav-service"
 
@@ -10,17 +10,7 @@ import { fetchBoardFromNavPage } from "./board-nav-service"
 export async function fetchAdvisoryBoard(
   ojsJournalId: string
 ): Promise<EditorialBoardMember[]> {
-  let primaryLocale = "en"
-  
-  if (/^\d+$/.test(ojsJournalId)) {
-    try {
-      const rows = await ojsQuery<{ primary_locale: string }>(
-        "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
-        [parseInt(ojsJournalId, 10)]
-      )
-      if (rows[0]?.primary_locale) primaryLocale = rows[0].primary_locale
-    } catch { /* non-fatal */ }
-  }
+  const primaryLocale = await getJournalPrimaryLocale(ojsJournalId)
 
   const members = await fetchBoardFromNavPage(ojsJournalId, "advisory-board", primaryLocale)
   

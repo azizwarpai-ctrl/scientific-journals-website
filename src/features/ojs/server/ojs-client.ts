@@ -102,6 +102,27 @@ export async function ojsQuery<T = RowDataPacket>(sql: string, params?: unknown[
 }
 
 /**
+ * Resolves a journal's primary_locale from the OJS journals table.
+ * Non-numeric ids and query failures fall back to `fallback` ("en") so
+ * callers never hard-fail on locale lookup. Shared by all content services.
+ */
+export async function getJournalPrimaryLocale(
+    ojsJournalId: string,
+    fallback = "en"
+): Promise<string> {
+    if (!/^\d+$/.test(ojsJournalId)) return fallback
+    try {
+        const rows = await ojsQuery<{ primary_locale: string }>(
+            "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
+            [parseInt(ojsJournalId, 10)]
+        )
+        return rows[0]?.primary_locale || fallback
+    } catch {
+        return fallback
+    }
+}
+
+/**
  * Gracefully close the OJS connection pool.
  */
 export async function closeOjsPool(): Promise<void> {
