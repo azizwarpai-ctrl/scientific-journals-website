@@ -9,9 +9,11 @@ export async function getSyncedJournalIds(): Promise<number[]> {
         where: { ojs_id: { not: null } },
         select: { ojs_id: true },
     })
-    return journals
-        .map((j) => Number(j.ojs_id))
-        .filter((n) => Number.isInteger(n) && n > 0)
+    return journals.reduce<number[]>((acc, j) => {
+        const n = Number(j.ojs_id)
+        if (Number.isInteger(n) && n > 0) acc.push(n)
+        return acc
+    }, [])
 }
 
 /** Localized publication title with locale fallback chain. */
