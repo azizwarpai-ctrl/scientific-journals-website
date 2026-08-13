@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { StatCard } from "@/components/ui/stat-card"
+import { PageHeader } from "@/components/ui/page-header"
 import {
   Select,
   SelectContent,
@@ -19,18 +21,11 @@ import { FunnelBars } from "@/components/admin/charts/funnel-bars"
 import { CategoryBarChart } from "@/components/admin/charts/category-bar-chart"
 import type { AdminAnalyticsSummary } from "@/src/features/admin-analytics/types/admin-analytics-types"
 import type { AnalyticsCharts } from "@/src/features/admin-analytics/types/charts-types"
-
-/** Mirrors the server-side funnel derivation (types match `StatusDistribution`). */
-function funnelFrom(s: { inReview: number; inProduction: number; published: number; declined: number }) {
-  const submitted = s.inReview + s.inProduction + s.published + s.declined
-  return { submitted, accepted: s.inProduction + s.published, published: s.published }
-}
+import { deriveFunnel } from "@/src/features/admin-analytics/utils/funnel"
+import { formatCount } from "@/src/lib/utils"
 
 const EMPTY = "—"
 
-function formatCount(value: number | null): string {
-  return value === null ? EMPTY : value.toLocaleString()
-}
 
 export default function AnalyticsPage() {
   const { data, isLoading, isError, error } = useAdminAnalyticsSummary()
@@ -48,10 +43,7 @@ export default function AnalyticsPage() {
   if (isError || !data) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Analytics &amp; Reports</h1>
-          <p className="text-muted-foreground mt-1">Overview of platform performance and statistics</p>
-        </div>
+        <PageHeader title="Analytics &amp; Reports" subtitle="Overview of platform performance and statistics" />
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             Failed to load analytics{error instanceof Error ? `: ${error.message}` : ""}.
@@ -92,50 +84,51 @@ function AnalyticsView({
 }) {
   const { totals, fieldGroups, last7, health, ojsAvailable } = summary
 
-  // OJS-sourced figures render as "—" when OJS is unreachable/unset, so a
-  // real 0 is never confused with "we couldn't read it". Journals and
-  // Published Articles are backed by local data (snapshot) and stay valid.
-  const ojsValue = (n: number): string => (ojsAvailable ? n.toLocaleString() : EMPTY)
+  // OJS-sourced figures pass null when OJS is unreachable/unset, so
+  // formatCount renders "—" and a real 0 is never confused with "we couldn't
+  // read it". Journals and Published Articles are backed by local data
+  // (snapshot) and stay valid.
+  const ojsNum = (n: number): number | null => (ojsAvailable ? n : null)
 
   const stats = [
     {
       title: "Total Journals",
-      value: totals.journals.toLocaleString(),
+      value: formatCount(totals.journals),
       icon: BookOpen,
       color: "text-primary",
       bgColor: "bg-primary/20",
     },
     {
       title: "Total Submissions",
-      value: ojsValue(totals.submissions),
+      value: formatCount(ojsNum(totals.submissions)),
       icon: FileText,
       color: "text-secondary",
       bgColor: "bg-secondary/20",
     },
     {
       title: "Accepted Articles",
-      value: ojsValue(totals.accepted),
+      value: formatCount(ojsNum(totals.accepted)),
       icon: CheckCircle,
       color: "text-emerald-600 dark:text-emerald-400",
       bgColor: "bg-emerald-500/20",
     },
     {
       title: "Published Articles",
-      value: totals.published.toLocaleString(),
+      value: formatCount(totals.published),
       icon: TrendingUp,
       color: "text-sky-600 dark:text-sky-400",
       bgColor: "bg-sky-500/20",
     },
     {
       title: "Total Reviews",
-      value: ojsValue(totals.reviews),
+      value: formatCount(ojsNum(totals.reviews)),
       icon: Eye,
       color: "text-amber-600 dark:text-amber-400",
       bgColor: "bg-amber-500/20",
     },
     {
       title: "Acceptance Rate",
-      value: ojsAvailable ? `${totals.acceptanceRate.toFixed(1)}%` : EMPTY,
+      value: ojsAvailable ? `${totals.acceptanceRate.toFixed(1)}%` : "—",
       icon: TrendingUp,
       color: "text-teal-600 dark:text-teal-400",
       bgColor: "bg-teal-500/20",
@@ -181,22 +174,16 @@ function AnalyticsView({
 
       {/* Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {stats.map((stat) => {
-          const Icon = stat.icon
-          return (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <div className={`rounded-full p-2 ${stat.bgColor}`}>
-                  <Icon className={`h-4 w-4 ${stat.color}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-              </CardContent>
-            </Card>
-          )
-        })}
+        {stats.map((stat) => (
+          <StatCard
+            key={stat.title}
+            title={stat.title}
+            value={stat.value}
+            icon={stat.icon}
+            iconClassName={stat.color}
+            chipClassName={stat.bgColor}
+          />
+        ))}
       </div>
 
       {/* Top Fields by Submissions */}
@@ -255,7 +242,7 @@ function AnalyticsView({
                 <CardTitle>Acceptance funnel</CardTitle>
               </CardHeader>
               <CardContent>
-                <FunnelBars {...funnelFrom(charts.statusDistribution)} />
+                <FunnelBars {...deriveFunnel(charts.statusDistribution)} />
               </CardContent>
             </Card>
           </div>

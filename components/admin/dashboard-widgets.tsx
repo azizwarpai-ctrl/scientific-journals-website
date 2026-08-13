@@ -3,11 +3,7 @@
 import { Eye, Download } from "lucide-react"
 import { KpiCard } from "@/components/admin/kpi-card"
 import { SyncHealthWidget } from "@/components/admin/sync-health-widget"
-
-/** Localized count, or null passthrough for the "—" empty state. */
-function formatCount(n: number | null): number | string | null {
-    return n === null ? null : n.toLocaleString("en-US")
-}
+import { formatCount } from "@/src/lib/utils"
 
 interface DashboardWidgetsProps {
     /** Lifetime abstract/landing views from OJS; null when OJS unavailable. */

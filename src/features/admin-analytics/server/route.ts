@@ -34,6 +34,14 @@ async function probeDatabase(): Promise<{ ok: boolean; error: string | null }> {
   }
 }
 
+const validationHook = (result: { success: boolean; error?: unknown }, c: any) => {
+  if (!result.success) {
+    const err = result.error as { flatten?: () => unknown }
+    console.error(`[admin-analytics] Query validation failed for ${c.req.path}:`, err?.flatten?.() ?? err)
+    return c.json({ success: false, error: "Invalid query parameters" }, 400)
+  }
+}
+
 const app = new Hono()
 
 app.get("/summary", requireAdmin, async (c) => {
@@ -131,7 +139,7 @@ app.get("/summary", requireAdmin, async (c) => {
   return c.json({ success: true, data: serializeRecord(summary) })
 })
 
-app.get("/charts", requireAdmin, zValidator("query", chartsQuerySchema), async (c) => {
+app.get("/charts", requireAdmin, zValidator("query", chartsQuerySchema, validationHook), async (c) => {
   const { journalId, months } = c.req.valid("query")
   const cacheKey = `admin-analytics:charts:${journalId ?? "all"}:${months}`
   const data = await getOrSetCache(cacheKey, 60_000, async (): Promise<AnalyticsCharts> => {
@@ -176,7 +184,7 @@ app.get("/charts", requireAdmin, zValidator("query", chartsQuerySchema), async (
 })
 
 // GET /admin-analytics/timeseries?metrics=views,downloads&interval=day&from=…&to=…
-app.get("/timeseries", requireAdmin, zValidator("query", timeseriesQuerySchema), async (c) => {
+app.get("/timeseries", requireAdmin, zValidator("query", timeseriesQuerySchema, validationHook), async (c) => {
   try {
     const query = c.req.valid("query")
     const cacheKey = `admin-analytics:timeseries:${JSON.stringify({ ...query, journalId: query.journalId?.toString() })}`
@@ -189,7 +197,7 @@ app.get("/timeseries", requireAdmin, zValidator("query", timeseriesQuerySchema),
 })
 
 // GET /admin-analytics/sync-health?limit=10 — recurring-job ledger feed
-app.get("/sync-health", requireAdmin, zValidator("query", syncHealthQuerySchema), async (c) => {
+app.get("/sync-health", requireAdmin, zValidator("query", syncHealthQuerySchema, validationHook), async (c) => {
   try {
     const { limit } = c.req.valid("query")
     const data = await getOrSetCache(`admin-analytics:sync-health:${limit}`, 30_000, () =>

@@ -15,32 +15,12 @@ import type { RowDataPacket } from "mysql2/promise"
 import { prisma } from "@/src/lib/db/config"
 import { ojsQuery } from "./ojs-client"
 import { completeSubmissionPredicate } from "@/src/features/reviews/server/ojs-review-constants"
-
-// ---------------------------------------------------------------------------
-// Shared SQL fragments (kept in sync with ojs-review-service.ts by convention;
-// they reference the `s`/`j` aliases used in the queries below).
-// ---------------------------------------------------------------------------
-
-/** Localized publication title with locale fallback chain. */
-const TITLE_SUBSELECT = `COALESCE(
-    (SELECT ps.setting_value FROM publication_settings ps
-        WHERE ps.publication_id = s.current_publication_id AND ps.setting_name = 'title' AND ps.locale = s.locale LIMIT 1),
-    (SELECT ps.setting_value FROM publication_settings ps
-        WHERE ps.publication_id = s.current_publication_id AND ps.setting_name = 'title' AND ps.locale = j.primary_locale LIMIT 1),
-    (SELECT ps.setting_value FROM publication_settings ps
-        WHERE ps.publication_id = s.current_publication_id AND ps.setting_name = 'title' LIMIT 1)
-)`
-
-const JOURNAL_TITLE_SUBSELECT = `(SELECT js.setting_value FROM journal_settings js
-    WHERE js.journal_id = j.journal_id AND js.setting_name = 'name' AND js.locale = j.primary_locale LIMIT 1)`
-
-/** Primary-author name fragment (given/family) for the current publication. */
-function authorNameSubselect(setting: "givenName" | "familyName"): string {
-    return `(SELECT aus.setting_value FROM authors au
-        JOIN author_settings aus ON aus.author_id = au.author_id AND aus.setting_name = '${setting}'
-        WHERE au.publication_id = s.current_publication_id
-        ORDER BY au.seq ASC LIMIT 1)`
-}
+import {
+    getSyncedJournalIds,
+    TITLE_SUBSELECT,
+    JOURNAL_TITLE_SUBSELECT,
+    authorNameSubselect,
+} from "./ojs-shared"
 
 // ---------------------------------------------------------------------------
 // Journal-id scoping
@@ -52,13 +32,7 @@ function authorNameSubselect(setting: "givenName" | "familyName"): string {
  * synced yet (callers short-circuit to zero rather than emit `IN ()`).
  */
 async function syncedJournalIdClause(): Promise<string | null> {
-    const journals = await prisma.journal.findMany({
-        where: { ojs_id: { not: null } },
-        select: { ojs_id: true },
-    })
-    const ids = journals
-        .map((j) => Number(j.ojs_id))
-        .filter((n) => Number.isInteger(n) && n > 0)
+    const ids = await getSyncedJournalIds()
     if (ids.length === 0) return null
     return ids.join(",")
 }
