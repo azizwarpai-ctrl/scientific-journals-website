@@ -16,7 +16,7 @@ export function formatDate(iso: string | null | undefined, options?: Intl.DateTi
   const d = new Date(iso)
   return Number.isNaN(d.getTime())
     ? "—"
-    : d.toLocaleDateString("en-US", { timeZone: "UTC", ...options })
+    : d.toLocaleDateString("en-US", { ...options, timeZone: "UTC" })
 }
 
 export const STATUS_STYLES: Record<string, string> = {

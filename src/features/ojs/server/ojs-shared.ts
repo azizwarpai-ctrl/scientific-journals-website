@@ -6,7 +6,7 @@ import { prisma } from "@/src/lib/db/config"
  */
 export async function getSyncedJournalIds(): Promise<number[]> {
     const journals = await prisma.journal.findMany({
-        where: { ojs_id: { not: null } },
+        where: { ojs_id: { not: null }, status: "active" },
         select: { ojs_id: true },
     })
     return journals.reduce<number[]>((acc, j) => {
