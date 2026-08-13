@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AlertBanner } from "@/components/ui/alert-banner"
+import { PageHeader } from "@/components/ui/page-header"
 import { Switch } from "@/components/ui/switch"
 
 import { 
@@ -142,18 +143,12 @@ export default function AdminAboutPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">About Page Content</h1>
-          <p className="text-muted-foreground">
-            Manage dynamic sections displayed on the public About page.
-          </p>
-        </div>
+      <PageHeader title="About Page Content" subtitle="Manage dynamic sections displayed on the public About page.">
         <Button onClick={handleOpenNew}>
           <Plus className="mr-2 h-4 w-4" />
           Add Section
         </Button>
-      </div>
+      </PageHeader>
 
       {loadError && (
         <AlertBanner variant="error" message="Failed to load about page content." />

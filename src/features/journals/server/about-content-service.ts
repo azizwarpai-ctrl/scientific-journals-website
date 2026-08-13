@@ -23,7 +23,16 @@
  */
 
 import sanitizeHtml from "sanitize-html"
-import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { getJournalPrimaryLocale, ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import {
+  groupByItemId,
+  groupStaticPages,
+  normalizeKey,
+  pickBestLocale,
+  type NavRow,
+  type SettingRow,
+  type StaticPageRow,
+} from "@/src/features/journals/server/ojs-content-utils"
 import { parseAimsAndScope, type AimsScopeParts } from "@/src/features/journals/utils/aims-scope-parser"
 
 export interface JournalAboutContent extends AimsScopeParts {
@@ -68,16 +77,6 @@ const AIMS_SCOPE_TITLE_ALIASES = new Set<string>([
   "scope and aims",
   "scope aims",
 ])
-
-function normalizeKey(value: string | null | undefined): string {
-  if (!value) return ""
-  return value
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-}
 
 function normalizePath(value: string | null | undefined): string {
   if (!value) return ""
@@ -127,86 +126,6 @@ function sanitize(raw: string | null | undefined): string {
   return sanitizeHtml(raw, SANITIZE_OPTIONS).trim()
 }
 
-function pickBestLocale(
-  rows: { setting_name: string; setting_value: string | null; locale: string }[],
-  settingName: string,
-  primaryLocale: string,
-): string | null {
-  const matching = rows.filter((r) => r.setting_name === settingName)
-  if (matching.length === 0) return null
-  return (
-    matching.find((r) => r.locale === primaryLocale)?.setting_value ??
-    matching.find((r) => r.locale === "")?.setting_value ??
-    matching[0]?.setting_value ??
-    null
-  )
-}
-
-interface NavRow {
-  navigation_menu_item_id: number
-  path: string | null
-  setting_name: string | null
-  setting_value: string | null
-  locale: string
-}
-
-interface StaticPageRow {
-  static_page_id: number
-  path: string | null
-  setting_name: string | null
-  setting_value: string | null
-  locale: string
-}
-
-interface SettingRow {
-  setting_name: string
-  setting_value: string | null
-  locale: string
-}
-
-interface GroupedItem {
-  path: string | null
-  settings: SettingRow[]
-}
-
-function groupByItemId(rows: NavRow[]): Map<number, GroupedItem> {
-  const map = new Map<number, GroupedItem>()
-  for (const row of rows) {
-    let entry = map.get(row.navigation_menu_item_id)
-    if (!entry) {
-      entry = { path: row.path ?? null, settings: [] }
-      map.set(row.navigation_menu_item_id, entry)
-    }
-    if (row.setting_name) {
-      entry.settings.push({
-        setting_name: row.setting_name,
-        setting_value: row.setting_value,
-        locale: row.locale,
-      })
-    }
-  }
-  return map
-}
-
-function groupStaticPages(rows: StaticPageRow[]): Map<number, GroupedItem> {
-  const map = new Map<number, GroupedItem>()
-  for (const row of rows) {
-    let entry = map.get(row.static_page_id)
-    if (!entry) {
-      entry = { path: row.path ?? null, settings: [] }
-      map.set(row.static_page_id, entry)
-    }
-    if (row.setting_name) {
-      entry.settings.push({
-        setting_name: row.setting_name,
-        setting_value: row.setting_value,
-        locale: row.locale,
-      })
-    }
-  }
-  return map
-}
-
 /**
  * Decide whether an HTML block is rich enough to use.
  * An empty string, whitespace, or a block that sanitizes down to nothing
@@ -237,18 +156,7 @@ export async function fetchJournalAboutContent(ojsJournalId: string): Promise<Jo
   if (!/^\d+$/.test(ojsJournalId)) return empty
   const journalId = parseInt(ojsJournalId, 10)
 
-  let primaryLocale = "en"
-  try {
-    const localeRows = await ojsQuery<{ primary_locale: string }>(
-      "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
-      [journalId],
-    )
-    if (localeRows.length > 0 && localeRows[0].primary_locale) {
-      primaryLocale = localeRows[0].primary_locale
-    }
-  } catch {
-    // Keep default.
-  }
+  const primaryLocale = await getJournalPrimaryLocale(ojsJournalId)
 
   const [aimsRows, navRows, staticRows] = await Promise.all([
     ojsQuery<SettingRow>(

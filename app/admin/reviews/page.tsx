@@ -12,6 +12,7 @@ import {
   isOjsUnavailable,
 } from "@/src/features/reviews"
 import { useDebouncedValue } from "@/src/hooks/use-debounced-value"
+import { PageHeader } from "@/components/ui/page-header"
 
 export default function ReviewsPage() {
   const overview = useGetReviewOverview()
@@ -27,12 +28,7 @@ export default function ReviewsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Arbitration Panel</h1>
-        <p className="text-muted-foreground mt-1">
-          Live peer-review pipeline from OJS — monitor progress and reviewer workload
-        </p>
-      </div>
+      <PageHeader title="Arbitration Panel" subtitle="Live peer-review pipeline from OJS — monitor progress and reviewer workload" />
 
       {unconfigured ? (
         <OjsStatusBanner state="unconfigured" />

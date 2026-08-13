@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import Link from "next/link"
 import { JournalsTable, type JournalRow } from "./journals-table"
+import { PageHeader } from "@/components/ui/page-header"
 
 export default async function JournalsPage() {
   const session = await getSession()
@@ -51,18 +52,14 @@ export default async function JournalsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Journal Management</h1>
-          <p className="text-muted-foreground mt-1">Manage all scientific journals in the system</p>
-        </div>
+      <PageHeader title="Journal Management" subtitle="Manage all scientific journals in the system">
         <Button asChild>
           <Link href="/admin/journals/new">
             <Plus className="mr-2 h-4 w-4" />
             Add New Journal
           </Link>
         </Button>
-      </div>
+      </PageHeader>
 
       {error && (
         <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-4">

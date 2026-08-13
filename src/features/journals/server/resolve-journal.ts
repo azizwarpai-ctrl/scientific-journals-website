@@ -1,4 +1,17 @@
 import { prisma } from "@/src/lib/db/config"
+import type { Journal } from "@prisma/client"
+
+/**
+ * Resolves a journal record by trying, in order: ojs_path (slug), ojs_id,
+ * then numeric Prisma id. Shared by every journal route that accepts any of
+ * the three id forms, so lookup semantics stay identical across endpoints.
+ */
+export async function resolveJournalRecord(id: string): Promise<Journal | null> {
+  let journal = await prisma.journal.findUnique({ where: { ojs_path: id } })
+  if (!journal) journal = await prisma.journal.findUnique({ where: { ojs_id: id } })
+  if (!journal && /^\d+$/.test(id)) journal = await prisma.journal.findUnique({ where: { id: BigInt(id) } })
+  return journal
+}
 
 /**
  * Attempts to resolve an OJS journal ID dynamically from either Prisma OR OJS natively.

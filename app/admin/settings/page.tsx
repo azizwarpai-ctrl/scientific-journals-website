@@ -3,6 +3,7 @@ import { getSession } from "@/src/lib/db/auth"
 import { prisma } from "@/src/lib/db/config"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Settings } from "lucide-react"
+import { PageHeader } from "@/components/ui/page-header"
 
 export const dynamic = "force-dynamic"
 
@@ -26,10 +27,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage system settings and configurations</p>
-      </div>
+      <PageHeader title="Settings" subtitle="Manage system settings and configurations" />
 
       {loadFailed && (
         <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-lg p-4">

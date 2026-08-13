@@ -23,7 +23,7 @@
  */
 
 import sanitizeHtml from "sanitize-html"
-import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { getJournalPrimaryLocale, ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { rewriteOjsInlineImages } from "@/src/features/ojs/utils/rewrite-inline-images"
 import { POLICY_METADATA } from "@/src/features/journals/policy-slugs"
 
@@ -355,19 +355,7 @@ export async function fetchJournalPolicies(ojsJournalId: string): Promise<Journa
 
   const journalId = parseInt(ojsJournalId, 10)
 
-  // ── Resolve primary locale ──────────────────────────────────────────────
-  let primaryLocale = "en"
-  try {
-    const localeRows = await ojsQuery<{ primary_locale: string }>(
-      "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
-      [journalId],
-    )
-    if (localeRows.length > 0 && localeRows[0].primary_locale) {
-      primaryLocale = localeRows[0].primary_locale
-    }
-  } catch {
-    // Proceed with default
-  }
+  const primaryLocale = await getJournalPrimaryLocale(ojsJournalId)
 
   // ── Parallel data fetches from all OJS sources ──────────────────────────
 

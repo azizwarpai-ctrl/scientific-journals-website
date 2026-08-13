@@ -14,7 +14,7 @@
  * The public export `fetchEditorialBoard` transparently orchestrates both sources.
  */
 
-import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
+import { getJournalPrimaryLocale, ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsFilename, buildOjsAssetUrl } from "@/src/features/ojs/utils/ojs-asset-url"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 import { fetchBoardFromNavPage } from "./board-nav-service"
@@ -309,16 +309,7 @@ export async function fetchEditorialBoard(
   ojsJournalId: string
 ): Promise<EditorialBoardMember[]> {
   // ── Step 0: Resolve primary locale (shared between both sources) ──
-  let primaryLocale = "en"
-  if (/^\d+$/.test(ojsJournalId)) {
-    try {
-      const rows = await ojsQuery<{ primary_locale: string }>(
-        "SELECT primary_locale FROM journals WHERE journal_id = ? LIMIT 1",
-        [parseInt(ojsJournalId, 10)]
-      )
-      if (rows[0]?.primary_locale) primaryLocale = rows[0].primary_locale
-    } catch { /* non-fatal */ }
-  }
+  const primaryLocale = await getJournalPrimaryLocale(ojsJournalId)
 
   // ── Step 1: Nav page (primary source) ──
   const navMembers = await fetchBoardFromNavPage(ojsJournalId, "editorial-board", primaryLocale)

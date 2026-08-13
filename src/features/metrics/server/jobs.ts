@@ -61,40 +61,38 @@ export async function aggregateDailyMetrics(day: string = previousUtcDay()): Pro
          WHERE created_at >= ${start} AND created_at < ${end}
          GROUP BY article_id, journal_id`
 
-    let upserted = 0
-    for (const r of rows) {
-        await prisma.metricsArticleDaily.upsert({
+    const mapped = rows.map((r) => ({
+        article_id: r.article_id,
+        journal_id: r.journal_id,
+        day,
+        views: Number(r.views ?? 0),
+        unique_views: Number(r.unique_views ?? 0),
+        downloads: Number(r.downloads ?? 0),
+        unique_downloads: Number(r.unique_downloads ?? 0),
+        citations: Number(r.citations ?? 0),
+        source: "digitopub" as const,
+    }))
+    await prisma.metricsArticleDaily.createMany({ data: mapped, skipDuplicates: true })
+    const updates = mapped.map((r) =>
+        prisma.metricsArticleDaily.updateMany({
             where: {
-                article_id_day_source: {
-                    article_id: r.article_id,
-                    day,
-                    source: "digitopub",
-                },
-            },
-            create: {
                 article_id: r.article_id,
-                journal_id: r.journal_id,
                 day,
-                views: Number(r.views ?? 0),
-                unique_views: Number(r.unique_views ?? 0),
-                downloads: Number(r.downloads ?? 0),
-                unique_downloads: Number(r.unique_downloads ?? 0),
-                citations: Number(r.citations ?? 0),
-                source: "digitopub",
+                source: "digitopub" as const,
             },
-            update: {
+            data: {
                 journal_id: r.journal_id,
-                views: Number(r.views ?? 0),
-                unique_views: Number(r.unique_views ?? 0),
-                downloads: Number(r.downloads ?? 0),
-                unique_downloads: Number(r.unique_downloads ?? 0),
-                citations: Number(r.citations ?? 0),
+                views: r.views,
+                unique_views: r.unique_views,
+                downloads: r.downloads,
+                unique_downloads: r.unique_downloads,
+                citations: r.citations,
                 computed_at: new Date(),
             },
         })
-        upserted++
-    }
-    return { day, upserted }
+    )
+    if (updates.length > 0) await prisma.$transaction(updates)
+    return { day, upserted: mapped.length }
 }
 
 /**
@@ -124,42 +122,40 @@ export async function aggregateMonthlyMetrics(
          WHERE day LIKE ${`${dayPrefix}%`} AND source='digitopub'
          GROUP BY article_id, journal_id`
 
-    let upserted = 0
-    for (const r of rows) {
-        await prisma.metricsArticleMonthly.upsert({
+    const mapped = rows.map((r) => ({
+        article_id: r.article_id,
+        journal_id: r.journal_id,
+        year,
+        month,
+        views: Number(r.views ?? 0),
+        unique_views: Number(r.unique_views ?? 0),
+        downloads: Number(r.downloads ?? 0),
+        unique_downloads: Number(r.unique_downloads ?? 0),
+        citations: Number(r.citations ?? 0),
+        source: "digitopub" as const,
+    }))
+    await prisma.metricsArticleMonthly.createMany({ data: mapped, skipDuplicates: true })
+    const updates = mapped.map((r) =>
+        prisma.metricsArticleMonthly.updateMany({
             where: {
-                article_id_year_month_source: {
-                    article_id: r.article_id,
-                    year,
-                    month,
-                    source: "digitopub",
-                },
-            },
-            create: {
                 article_id: r.article_id,
-                journal_id: r.journal_id,
                 year,
                 month,
-                views: Number(r.views ?? 0),
-                unique_views: Number(r.unique_views ?? 0),
-                downloads: Number(r.downloads ?? 0),
-                unique_downloads: Number(r.unique_downloads ?? 0),
-                citations: Number(r.citations ?? 0),
-                source: "digitopub",
+                source: "digitopub" as const,
             },
-            update: {
+            data: {
                 journal_id: r.journal_id,
-                views: Number(r.views ?? 0),
-                unique_views: Number(r.unique_views ?? 0),
-                downloads: Number(r.downloads ?? 0),
-                unique_downloads: Number(r.unique_downloads ?? 0),
-                citations: Number(r.citations ?? 0),
+                views: r.views,
+                unique_views: r.unique_views,
+                downloads: r.downloads,
+                unique_downloads: r.unique_downloads,
+                citations: r.citations,
                 computed_at: new Date(),
             },
         })
-        upserted++
-    }
-    return { year, month, upserted }
+    )
+    if (updates.length > 0) await prisma.$transaction(updates)
+    return { year, month, upserted: mapped.length }
 }
 
 interface UserAggRow {
@@ -185,28 +181,28 @@ export async function updateUserMetrics(): Promise<{ upserted: number }> {
          WHERE orcid IS NOT NULL
          GROUP BY orcid`
 
-    let upserted = 0
-    for (const r of rows) {
-        await prisma.userMetrics.upsert({
+    const mapped = rows.map((r) => ({
+        orcid: r.orcid,
+        views: Number(r.views ?? 0),
+        downloads: Number(r.downloads ?? 0),
+        citations: Number(r.citations ?? 0),
+        first_seen_at: r.first_seen_at,
+        last_event_at: r.last_event_at,
+    }))
+    await prisma.userMetrics.createMany({ data: mapped, skipDuplicates: true })
+    const updates = mapped.map((r) =>
+        prisma.userMetrics.updateMany({
             where: { orcid: r.orcid },
-            create: {
-                orcid: r.orcid,
-                views: Number(r.views ?? 0),
-                downloads: Number(r.downloads ?? 0),
-                citations: Number(r.citations ?? 0),
-                first_seen_at: r.first_seen_at,
-                last_event_at: r.last_event_at,
-            },
-            update: {
-                views: Number(r.views ?? 0),
-                downloads: Number(r.downloads ?? 0),
-                citations: Number(r.citations ?? 0),
+            data: {
+                views: r.views,
+                downloads: r.downloads,
+                citations: r.citations,
                 last_event_at: r.last_event_at,
             },
         })
-        upserted++
-    }
-    return { upserted }
+    )
+    if (updates.length > 0) await prisma.$transaction(updates)
+    return { upserted: mapped.length }
 }
 
 const RETENTION_BATCH = 50_000

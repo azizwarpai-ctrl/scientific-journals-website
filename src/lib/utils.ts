@@ -11,10 +11,12 @@ export function cn(...inputs: ClassValue[]) {
  * differ between SSR and hydration → React #418. Falls back to "—" for empty or
  * invalid input.
  */
-export function formatDate(iso: string): string {
+export function formatDate(iso: string | null | undefined, options?: Intl.DateTimeFormatOptions): string {
   if (!iso) return "—"
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US", { timeZone: "UTC" })
+  return Number.isNaN(d.getTime())
+    ? "—"
+    : d.toLocaleDateString("en-US", { ...options, timeZone: "UTC" })
 }
 
 export const STATUS_STYLES: Record<string, string> = {
@@ -56,3 +58,11 @@ export function statusBadgeClass(status: string | null | undefined): string {
   if (!status) return "bg-muted text-muted-foreground"
   return STATUS_STYLES[status.toLowerCase().replace(/[\s-]+/g, "_")] ?? "bg-muted text-muted-foreground"
 }
+
+/**
+ * Localized count formatting pinned to en-US. Returns "—" when null or undefined.
+ */
+export function formatCount(value: number | null | undefined): string {
+  return value === null || value === undefined ? "—" : value.toLocaleString("en-US")
+}
+

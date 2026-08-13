@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { StatCard } from "@/components/ui/stat-card"
+import { PageHeader } from "@/components/ui/page-header"
 import { Mail, Clock, CheckCircle2, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
@@ -34,10 +36,7 @@ export default async function MessagesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Messages & Support</h1>
-        <p className="text-muted-foreground">Manage submission help and technical support requests</p>
-      </div>
+      <PageHeader title="Messages & Support" subtitle="Manage submission help and technical support requests" />
 
       {loadFailed && (
         <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-lg p-4">
@@ -52,45 +51,10 @@ export default async function MessagesPage() {
       <>
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Messages</CardTitle>
-            <Mail className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{messages?.length || 0}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unread</CardTitle>
-            <AlertCircle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{unreadCount}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Replied</CardTitle>
-            <Clock className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{repliedCount}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Resolved</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{resolvedCount}</div>
-          </CardContent>
-        </Card>
+        <StatCard title="Total Messages" value={messages?.length || 0} icon={Mail} />
+        <StatCard title="Unread" value={unreadCount} icon={AlertCircle} iconClassName="h-4 w-4 text-destructive" />
+        <StatCard title="Replied" value={repliedCount} icon={Clock} iconClassName="h-4 w-4 text-blue-500" />
+        <StatCard title="Resolved" value={resolvedCount} icon={CheckCircle2} iconClassName="h-4 w-4 text-green-500" />
       </div>
 
       {/* Messages List */}

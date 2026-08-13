@@ -14,6 +14,8 @@ import {
   FolderOpen,
   Pause,
 } from "lucide-react"
+import { formatDate } from "@/src/lib/utils"
+import { PageHeader } from "@/components/ui/page-header"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -66,13 +68,11 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  })
+const AUDIO_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
 }
 
 function formatIssueLabel(issue: ArchiveIssue | CurrentIssue): string {
@@ -569,7 +569,7 @@ function AudioLibraryTab() {
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground text-xs tabular-nums">
-                      {formatDate(row.created_at)}
+                      {formatDate(row.created_at, AUDIO_DATE_OPTIONS)}
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center justify-end gap-1">
@@ -686,7 +686,7 @@ function ExistingAudioPanel({
         <p className="text-sm font-medium truncate">{audio.original_filename}</p>
         <p className="text-xs text-muted-foreground">
           {formatBytes(Number(audio.size_bytes))} · {audio.locale || "Default"} · Uploaded{" "}
-          {formatDate(audio.created_at)}
+          {formatDate(audio.created_at, AUDIO_DATE_OPTIONS)}
         </p>
       </div>
       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={onDelete} aria-label="Delete audio">
@@ -861,12 +861,7 @@ function ManualEntryFallback() {
 export default function ArticleAudioPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Article Audio</h1>
-        <p className="text-muted-foreground mt-1">
-          Browse articles by journal and issue, attach audio, or manage existing uploads.
-        </p>
-      </div>
+      <PageHeader title="Article Audio" subtitle="Browse articles by journal and issue, attach audio, or manage existing uploads." />
 
       <Tabs defaultValue="browse">
         <TabsList>

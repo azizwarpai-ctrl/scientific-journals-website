@@ -4,19 +4,13 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { Users } from "lucide-react"
 import { DataTable, sortableHeader } from "@/components/data-table/data-table"
 import type { CsvColumn } from "@/components/data-table/csv-export"
+import { formatDate } from "@/src/lib/utils"
 
 export interface AuthorRow {
   name: string
   email: string
   submissions: number
   latestSubmission: string
-}
-
-/** Format an ISO date to a stable date string, or "—" when missing/invalid. */
-function formatDate(iso: string): string {
-  if (!iso) return "—"
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US", { timeZone: "UTC" })
 }
 
 const columns: ColumnDef<AuthorRow, unknown>[] = [
