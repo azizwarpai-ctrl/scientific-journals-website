@@ -3,6 +3,7 @@ import sanitizeHtml from "sanitize-html"
 import { ojsJournalSchema } from "../schemas/ojs-schema"
 import type { OjsJournal } from "../schemas/ojs-schema"
 import { parseOjsFilename, buildOjsPublicUrl } from "@/src/features/ojs/utils/ojs-asset-url"
+import { getOjsPublicAssetsBaseUrl, normalizeOjsAssetUrl } from "@/src/features/ojs/utils/ojs-config"
 
 /** Raw row shape from the OJS MySQL database */
 export const ojsJournalRowSchema = z.object({
@@ -36,6 +37,11 @@ export function mapOjsJournalRow(row: OjsJournalRow, baseUrl: string): OjsJourna
         : null;
 
     const imageFilename = parseOjsFilename(row.thumbnail)
+    const effectiveBaseUrl = (baseUrl ? baseUrl.replace(/\/ojs$/i, "") : "") || getOjsPublicAssetsBaseUrl()
+    const rawThumbnailUrl = imageFilename
+        ? buildOjsPublicUrl(effectiveBaseUrl, `public/journals/${row.journal_id}`, imageFilename)
+        : null
+    const thumbnailUrl = normalizeOjsAssetUrl(rawThumbnailUrl)
 
     return ojsJournalSchema.parse({
         journal_id: row.journal_id,
@@ -44,9 +50,7 @@ export function mapOjsJournalRow(row: OjsJournalRow, baseUrl: string): OjsJourna
         enabled: row.enabled === 1,   // int → boolean
         name: row.name,
         description: cleanDescription || null,
-        thumbnail_url: imageFilename
-            ? buildOjsPublicUrl(baseUrl, `public/journals/${row.journal_id}`, imageFilename)
-            : null,
+        thumbnail_url: thumbnailUrl,
         issn: row.issn || null,
         e_issn: row.e_issn || null,
         publisher: row.publisher || null,

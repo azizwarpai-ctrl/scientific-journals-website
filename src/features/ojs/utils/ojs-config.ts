@@ -12,7 +12,9 @@
  * baseline entry for the image-proxy / <OjsImage> allowlist so cutover-window
  * URLs continue to render while the apex env is still pre-flip.
  */
-export const DEFAULT_OJS_LANDING_BASE_URL = "https://journals.digitopub.com"
+import { DEFAULT_OJS_LANDING_BASE_URL, getAllOjsHostnames } from "./ojs-hosts"
+
+export { DEFAULT_OJS_LANDING_BASE_URL }
 
 export function getOjsBaseUrl(): string {
   const baseUrl = process.env.OJS_BASE_URL || process.env.NEXT_PUBLIC_OJS_BASE_URL
@@ -121,18 +123,5 @@ export function buildOjsArticleDownloadUrl(
  * brick the proxy.
  */
 export function getOjsHostnames(): Set<string> {
-  const hosts = new Set<string>()
-  const tryAdd = (url: string | null | undefined) => {
-    if (!url) return
-    try {
-      hosts.add(new URL(url).hostname)
-    } catch {
-      // ignore malformed env values
-    }
-  }
-  tryAdd(process.env.OJS_BASE_URL)
-  tryAdd(process.env.PUBLIC_OJS_BASE_URL)
-  tryAdd(process.env.NEXT_PUBLIC_OJS_BASE_URL)
-  tryAdd(DEFAULT_OJS_LANDING_BASE_URL)
-  return hosts
+  return getAllOjsHostnames()
 }

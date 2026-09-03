@@ -16,6 +16,8 @@
 
 import { getJournalPrimaryLocale, ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsFilename, buildOjsAssetUrl } from "@/src/features/ojs/utils/ojs-asset-url"
+import { normalizeOjsImageSrc } from "@/src/features/ojs/utils/rewrite-inline-images"
+import { isOjsHost } from "@/src/features/ojs/utils/ojs-hosts"
 import type { EditorialBoardMember } from "@/src/features/journals/types/editorial-board-types"
 import { fetchBoardFromNavPage } from "./board-nav-service"
 import { decodeHtmlEntities } from "@/src/lib/html-utils"
@@ -176,17 +178,28 @@ function buildEditorialBoardQuery(whereClause: string) {
  * OJS stores profile images in two formats:
  *   - JSON: {"dateUploaded":"...","uploadName":"filename.jpg"}
  *   - Plain string: "filename.jpg"
+ *   - Full URL: "https://..."
  *
  * The image is served at: {OJS_BASE_URL}/public/site/profileImages/{filename}
  */
-function resolveProfileImageUrl(rawValue: string | null): string | null {
+export function resolveProfileImageUrl(rawValue: string | null): string | null {
   if (!rawValue) return null
   const trimmed = rawValue.trim()
   if (!trimmed) return null
 
-  // Already a full URL — return as-is
+  // Already a full URL — run through shared normalization (rewrites alias hosts & strips /ojs/public/)
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-    return trimmed
+    const normalized = normalizeOjsImageSrc(trimmed)
+    if (!normalized) return null
+    try {
+      const { hostname } = new URL(normalized)
+      if (!isOjsHost(hostname)) {
+        console.warn(`[EditorialBoard] Unknown host in profileImage URL: ${hostname}`)
+      }
+    } catch {
+      // ignore URL parse failure
+    }
+    return normalized
   }
 
   // Delegate to shared resolver: handles JSON, PHP-serialized, and plain string
