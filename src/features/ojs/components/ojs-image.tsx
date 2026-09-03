@@ -18,27 +18,8 @@
 
 import { type CSSProperties, type ReactNode, useState } from "react"
 
-import { DEFAULT_OJS_LANDING_BASE_URL } from "@/src/features/ojs/utils/ojs-config"
+import { isOjsHost } from "@/src/features/ojs/utils/ojs-hosts"
 import { normalizeOjsImageSrc } from "@/src/features/ojs/utils/rewrite-inline-images"
-
-// ─── Internal constants ───────────────────────────────────────────────────────
-
-// Client-safe allowlist — only canonical + env hosts needed because
-// normalizeOjsImageSrc rewrites alias hosts to canonical before lookup.
-const OJS_HOSTS = ((): Set<string> => {
-  const hosts = new Set<string>()
-  const tryAdd = (raw: string | undefined) => {
-    if (!raw) return
-    try {
-      hosts.add(new URL(raw).hostname)
-    } catch {
-      // ignore malformed env values
-    }
-  }
-  tryAdd(process.env.NEXT_PUBLIC_OJS_BASE_URL)
-  tryAdd(DEFAULT_OJS_LANDING_BASE_URL)
-  return hosts
-})()
 
 export function toProxyUrl(src: string): string | null {
   const normalized = normalizeOjsImageSrc(src)
@@ -46,7 +27,7 @@ export function toProxyUrl(src: string): string | null {
 
   try {
     const { hostname, pathname } = new URL(normalized)
-    if (OJS_HOSTS.has(hostname) && !pathname.startsWith("/api/image-proxy")) {
+    if (isOjsHost(hostname) && !pathname.startsWith("/api/image-proxy")) {
       return `/api/image-proxy?url=${encodeURIComponent(normalized)}`
     }
   } catch {

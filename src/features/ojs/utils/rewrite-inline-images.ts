@@ -17,28 +17,14 @@
  *     canonical, unknown host). Log unknown external hosts once per process.
  */
 
+import { normalizeOjsAssetUrl } from "@/src/features/ojs/utils/ojs-config"
 import {
-  DEFAULT_OJS_LANDING_BASE_URL,
-  normalizeOjsAssetUrl,
-} from "@/src/features/ojs/utils/ojs-config"
+  CANONICAL_OJS_HOST,
+  OJS_ALIAS_HOSTS,
+  DEAD_EXTERNAL_HOSTS,
+} from "./ojs-hosts"
 
-// ── Host classifications ─────────────────────────────────────────────────────
-
-export const CANONICAL_OJS_HOST = new URL(DEFAULT_OJS_LANDING_BASE_URL).hostname
-
-export const OJS_ALIAS_HOSTS = new Set([
-  "submitmanager.com",
-  "www.submitmanager.com",
-  "ij-mp.com",
-  "www.ij-mp.com",
-  "digitodontics.com",
-  "www.digitodontics.com",
-])
-
-export const DEAD_EXTERNAL_HOSTS = new Set([
-  "journals.zu.edu.ly",
-  "jtr.cit.edu.ly",
-])
+export { CANONICAL_OJS_HOST, OJS_ALIAS_HOSTS, DEAD_EXTERNAL_HOSTS }
 
 const warnedHosts = new Set<string>()
 

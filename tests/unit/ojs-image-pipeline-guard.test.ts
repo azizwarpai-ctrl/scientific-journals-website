@@ -53,7 +53,7 @@ const HAND_BUILT_OJS_URL =
 function walkSourceFiles(dir: string): string[] {
   const out: string[] = []
   for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry)
+    const full = join(dir, entry).replace(/\\/g, "/")
     const stat = statSync(full)
     if (stat.isDirectory()) {
       out.push(...walkSourceFiles(full))
