@@ -5,7 +5,7 @@ import { toast } from "sonner"
 export const useCreatePortal = () => {
   return useMutation({
     mutationFn: async () => {
-      const response = await client.api.billing.portal.$post()
+      const response = await client.billing.portal.$post()
 
       if (!response.ok) {
         throw new Error("Failed to create portal session")
@@ -17,8 +17,8 @@ export const useCreatePortal = () => {
       toast.error("Failed to open billing portal")
     },
     onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url
+      if (data.data?.url) {
+        window.location.href = data.data.url
       }
     },
   })

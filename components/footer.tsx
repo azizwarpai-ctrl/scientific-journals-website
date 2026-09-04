@@ -28,6 +28,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/packages" className="text-muted-foreground hover:text-primary">
+                  Packages
+                </Link>
+              </li>
+              <li>
                 <Link href="/about" className="text-muted-foreground hover:text-primary">
                   About
                 </Link>

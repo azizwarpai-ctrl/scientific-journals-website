@@ -5,7 +5,7 @@ import { toast } from "sonner"
 export const useCreateCheckout = () => {
   const mutation = useMutation({
     mutationFn: async ({ pricingPlanId }: { pricingPlanId: number }) => {
-      const response = await client.api.billing.checkout.$post({
+      const response = await client.billing.checkout.$post({
         json: { pricingPlanId },
       })
 
@@ -19,8 +19,8 @@ export const useCreateCheckout = () => {
       toast.error("Failed to start checkout process")
     },
     onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url
+      if (data.data?.url) {
+        window.location.href = data.data.url
       }
     },
   })
