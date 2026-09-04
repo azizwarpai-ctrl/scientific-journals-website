@@ -102,6 +102,12 @@ describe("parseOjsFilename", () => {
     expect(parseOjsFilename(raw)).toBe("cover_issue_1_en_US.png")
   })
 
+  it("prefers uploadName over name in PHP-serialized values", () => {
+    // Same precedence as the JSON branch: uploadName is the on-disk file.
+    const raw = 'a:2:{s:10:"uploadName";s:20:"homepageImage_en.png";s:4:"name";s:23:"Journal Cover Image.png";}'
+    expect(parseOjsFilename(raw)).toBe("homepageImage_en.png")
+  })
+
   // Plain string — OJS prefix patterns
   it("returns plain string with cover_issue_ prefix", () => {
     expect(parseOjsFilename("cover_issue_1_en_US.png")).toBe("cover_issue_1_en_US.png")
