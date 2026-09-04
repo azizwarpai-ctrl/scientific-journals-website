@@ -29,6 +29,13 @@ Three exported functions:
   3. Plain string: `cover_issue_1_en_US.png` or any string ending in an image
      extension.
 
+  **Field semantics (verified against production `journal_settings`,
+  2026-09):** `uploadName` is the actual file on disk (e.g.
+  `homepageImage_en.png`); `name` is the original human filename (e.g.
+  `Journal Cover Image.png`) and does **not** exist on disk. The parser
+  therefore prefers `uploadName` and only falls back to `name`. Getting this
+  backwards was the root cause of the recurring cover-image 404s.
+
 - **`buildOjsPublicUrl(baseUrl, subpath, filename)`** — low-level builder for
   callers that already hold an explicit base URL (e.g. `ojs-mappers.ts`).
   Always `path.basename` + `encodeURIComponent` on the filename to prevent path
@@ -61,7 +68,7 @@ that rewrites any persisted `…/ojs/public/…` → `…/public/…`.
 - Fetches with a browser User-Agent; no `Referer` header.
 - Validates response `Content-Type` is `image/*`.
 - Returns with `Cache-Control: public, max-age=86400`.
-- Hard limit: 1 MB response body.
+- Hard limit: 15 MB response body (override via `IMAGE_PROXY_MAX_BYTES`).
 
 ## Adding a new OJS image surface
 
