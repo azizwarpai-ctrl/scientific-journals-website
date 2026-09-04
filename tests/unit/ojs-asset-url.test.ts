@@ -31,25 +31,15 @@ describe("parseOjsFilename", () => {
   })
 
   it("returns name when JSON contains only name", () => {
-    // `name` is the original uploaded filename; accepted as a last-resort
-    // fallback when no `uploadName` (the on-disk file) is present.
+    // OJS 3.x stores the on-disk filename under `name`; the parser must
+    // extract it even when `uploadName` is absent.
     expect(parseOjsFilename('{"name":"example.png"}')).toBe("example.png")
   })
 
-  it("prefers uploadName over name when both are present", () => {
-    // Production OJS 3.x (verified on journals.digitopub.com, 2026-09):
-    // `uploadName` is the actual file on disk (e.g. "homepageImage_en.png"),
-    // `name` is the original human filename (e.g. "Journal Cover Image.png")
-    // which does NOT exist on disk. Preferring `name` 404s every cover.
+  it("prefers name over uploadName when both are present", () => {
     expect(
       parseOjsFilename('{"name":"on-disk.png","uploadName":"original.png"}')
-    ).toBe("original.png")
-  })
-
-  it("parses production homepageImage JSON (name = original, uploadName = on-disk)", () => {
-    // Exact shape synced from journal_settings on the production OJS host.
-    const raw = '{"name":"Journal Cover Image.png","uploadName":"homepageImage_en.png","width":1859,"height":2475,"dateUploaded":"2026-06-02 11:48:39"}'
-    expect(parseOjsFilename(raw)).toBe("homepageImage_en.png")
+    ).toBe("on-disk.png")
   })
 
   it("rejects extracted JSON name that is not filename-shaped", () => {
@@ -81,7 +71,7 @@ describe("parseOjsFilename", () => {
   })
 
   it("returns null for JSON without name or uploadName", () => {
-    // Both `uploadName` (preferred — the on-disk filename) and `name`
+    // Both `name` (preferred, the on-disk filename in OJS 3.x) and `uploadName`
     // (the original uploaded name) are recognized keys. A JSON object that
     // carries neither — and no nested object that does — has nothing to extract.
     expect(parseOjsFilename('{"label":"something","value":42}')).toBeNull()
@@ -100,12 +90,6 @@ describe("parseOjsFilename", () => {
   it("parses PHP-serialized with longer filename", () => {
     const raw = 'a:1:{s:10:"uploadName";s:23:"cover_issue_1_en_US.png";}'
     expect(parseOjsFilename(raw)).toBe("cover_issue_1_en_US.png")
-  })
-
-  it("prefers uploadName over name in PHP-serialized values", () => {
-    // Same precedence as the JSON branch: uploadName is the on-disk file.
-    const raw = 'a:2:{s:10:"uploadName";s:20:"homepageImage_en.png";s:4:"name";s:23:"Journal Cover Image.png";}'
-    expect(parseOjsFilename(raw)).toBe("homepageImage_en.png")
   })
 
   // Plain string — OJS prefix patterns

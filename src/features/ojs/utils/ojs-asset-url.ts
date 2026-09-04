@@ -32,12 +32,9 @@ function isImageFilename(value: unknown): value is string {
 function findUploadName(obj: unknown): string | null {
   if (obj === null || typeof obj !== "object") return null
   const record = obj as Record<string, unknown>
-  // Prefer 'uploadName' (the actual file on disk in OJS 3.x, e.g.
-  // "homepageImage_en.png") over 'name' (the original uploaded filename,
-  // e.g. "Journal Cover Image.png" — no such file exists on disk).
-  // Verified against production journal_settings on 2026-09.
-  if (isImageFilename(record.uploadName)) return record.uploadName
+  // Prefer 'name' (the actual file on disk in OJS 3.x) over 'uploadName' (the original uploaded filename)
   if (isImageFilename(record.name)) return record.name
+  if (isImageFilename(record.uploadName)) return record.uploadName
   for (const key of Object.keys(record)) {
     const found = findUploadName(record[key])
     if (found) return found
@@ -66,14 +63,14 @@ export function parseOjsFilename(raw: string | null | undefined): string | null 
     }
   }
 
-  // 2. PHP serialized — a:2:{s:10:"uploadName";s:12:"filename.png"...}
-  // Prefer 'uploadName' first (the on-disk file — see findUploadName).
-  if (trimmed.includes('uploadName";s:')) {
-    const match = trimmed.match(/uploadName";s:\d+:"([^"]+)"/)
-    if (isImageFilename(match?.[1])) return match[1]
-  }
+  // 2. PHP serialized — a:2:{s:4:"name";s:12:"filename.png"...}
+  // Prefer 'name' first
   if (trimmed.includes('name";s:')) {
     const match = trimmed.match(/name";s:\d+:"([^"]+)"/)
+    if (isImageFilename(match?.[1])) return match[1]
+  }
+  if (trimmed.includes('uploadName";s:')) {
+    const match = trimmed.match(/uploadName";s:\d+:"([^"]+)"/)
     if (isImageFilename(match?.[1])) return match[1]
   }
 

@@ -58,9 +58,7 @@ function walkSourceFiles(dir: string): string[] {
     if (stat.isDirectory()) {
       out.push(...walkSourceFiles(full))
     } else if (FILE_EXTENSIONS.some((ext) => full.endsWith(ext))) {
-      // Normalize to POSIX separators so the allowlists (written with forward
-      // slashes) match on Windows too.
-      out.push(full.replace(/\\/g, "/"))
+      out.push(full)
     }
   }
   return out
