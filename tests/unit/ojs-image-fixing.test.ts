@@ -32,9 +32,12 @@ describe("Host Classification Module", () => {
 
   it("includes env overrides in getAllOjsHostnames", () => {
     vi.stubEnv("OJS_BASE_URL", "https://custom-ojs.example.org")
-    const hosts = getAllOjsHostnames()
-    expect(hosts.has("custom-ojs.example.org")).toBe(true)
-    vi.unstubAllEnvs()
+    try {
+      const hosts = getAllOjsHostnames()
+      expect(hosts.has("custom-ojs.example.org")).toBe(true)
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 })
 

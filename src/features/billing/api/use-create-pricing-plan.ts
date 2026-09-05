@@ -11,7 +11,7 @@ export const useCreatePricingPlan = () => {
 
   return useMutation({
     mutationFn: async (json: CreatePricingPlanPayload) => {
-      const response = await client.api.billing["pricing-plans"].$post({ json })
+      const response = await client.billing.plans.$post({ json })
 
       if (!response.ok) {
         throw new Error("Failed to create pricing plan")

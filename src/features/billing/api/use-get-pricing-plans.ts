@@ -7,7 +7,7 @@ export const useGetPricingPlans = () => {
   return useQuery({
     queryKey: ["pricing-plans"],
     queryFn: async () => {
-      const response = await client.api.billing["pricing-plans"].$get()
+      const response = await client.billing.plans.$get()
       if (!response.ok) {
         throw new Error("Failed to fetch pricing plans")
       }

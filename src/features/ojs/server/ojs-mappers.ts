@@ -37,7 +37,8 @@ export function mapOjsJournalRow(row: OjsJournalRow, baseUrl: string): OjsJourna
         : null;
 
     const imageFilename = parseOjsFilename(row.thumbnail)
-    const effectiveBaseUrl = (baseUrl ? baseUrl.replace(/\/ojs$/i, "") : "") || getOjsPublicAssetsBaseUrl()
+    const rawBase = (baseUrl || getOjsPublicAssetsBaseUrl()).replace(/\/+$/, "")
+    const effectiveBaseUrl = rawBase.replace(/\/ojs$/i, "").replace(/\/+$/, "")
     const rawThumbnailUrl = imageFilename
         ? buildOjsPublicUrl(effectiveBaseUrl, `public/journals/${row.journal_id}`, imageFilename)
         : null

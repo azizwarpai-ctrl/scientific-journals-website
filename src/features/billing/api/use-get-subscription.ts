@@ -5,7 +5,7 @@ export const useGetSubscription = () => {
   return useQuery({
     queryKey: ["subscription"],
     queryFn: async () => {
-      const response = await client.api.billing.subscription.$get()
+      const response = await client.billing.subscription.$get()
 
       if (!response.ok) {
         throw new Error("Failed to fetch subscription")
