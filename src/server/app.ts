@@ -13,7 +13,6 @@ import { aboutRouter } from "@/src/features/about/server"
 import { statisticsRouter } from "@/src/features/statistics/server"
 import { emailTemplateRouter } from "@/src/features/email-templates/server"
 import { billingRouter } from "@/src/features/billing/server"
-import { offersRouter } from "@/src/features/offers/server"
 import { searchRouter } from "@/src/features/search/server"
 import { authOrcidRouter } from "@/src/server/routes/auth-orcid"
 import { accountRouter } from "@/src/server/routes/account"
@@ -39,7 +38,6 @@ const apiApp = new Hono()
     .route("/statistics", statisticsRouter)
     .route("/email-templates", emailTemplateRouter)
     .route("/billing", billingRouter)
-    .route("/offers", offersRouter)
     .route("/search", searchRouter)
     .route("/admin-analytics", adminAnalyticsRouter)
     .route("/article-audio", articleAudioRouter)

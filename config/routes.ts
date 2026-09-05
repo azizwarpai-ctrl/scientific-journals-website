@@ -8,7 +8,6 @@ export const PUBLIC_ROUTES = [
   "/journals",
   "/journals/[id]",
   "/solutions",
-  "/packages",
   "/search",
   "/submit-manager",
   "/register",
@@ -33,7 +32,6 @@ export const ADMIN_ROUTES = [
   "/admin/settings",
   "/admin/email-templates",
   "/admin/pricing",
-  "/admin/offers",
   "/admin/article-audio",
 ]
 
