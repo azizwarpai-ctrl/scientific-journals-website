@@ -124,13 +124,19 @@ export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMemb
     if (s.startsWith("https://") || s.startsWith("http://")) {
       return normalizeOjsImageSrc(s)
     }
-    if (
-      s.startsWith("data:image/") &&
-      s.length <= MAX_DATA_URI_BYTES &&
-      DATA_IMAGE_URI_RE.test(s)
-    ) {
+    if (s.startsWith("data:image/")) {
+      if (s.length > MAX_DATA_URI_BYTES) {
+        console.warn(`[NavPage] Dropping oversized data URI (${s.length} bytes, max ${MAX_DATA_URI_BYTES}): ${s.substring(0, 60)}...`)
+        return null
+      }
+      if (!DATA_IMAGE_URI_RE.test(s)) {
+        console.warn(`[NavPage] Dropping malformed data URI: ${s.substring(0, 100)}...`)
+        return null
+      }
       return s
     }
+    // Relative or unsupported scheme
+    console.warn(`[NavPage] Dropping photo src with relative/unsupported scheme: ${s.substring(0, 100)}`)
     return null
   }
 
@@ -186,6 +192,9 @@ export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMemb
       })
 
       if (imgSrc) {
+        // Same rule as the image-only <p> branch: a complete pending member
+        // means this image belongs to the NEXT member, not the current one.
+        if (pending?.name && pending?.image) flush()
         if (!pending) pending = { role: currentRole }
         if (!pending.image) pending.image = imgSrc
       }
@@ -224,6 +233,10 @@ export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMemb
     })
 
     if (imgSrc && !strongText) {
+      // Image-only paragraph. If the pending member is already complete
+      // (name + image), this image starts the NEXT member — otherwise it is
+      // silently dropped and the next member renders without a photo.
+      if (pending?.name && pending?.image) flush()
       if (!pending) pending = { role: currentRole }
       if (!pending.image) pending.image = imgSrc
       return

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { parseBoardHtml } from "@/src/features/journals/server/board-nav-service"
 import { CANONICAL_OJS_HOST } from "@/src/features/ojs/utils/rewrite-inline-images"
 
@@ -85,5 +85,182 @@ describe("parseBoardHtml — image URL normalization", () => {
     const member = members.find((m) => m.name === "Dr. Frank Wu")
     expect(member).toBeDefined()
     expect(member!.image).toBe(`https://${CANONICAL_OJS_HOST}/public/journals/1/badge.png`)
+  })
+})
+
+describe("parseBoardHtml — image attachment across members", () => {
+  const imgA = `https://${CANONICAL_OJS_HOST}/public/site/images/submit_admin/photo-a.png`
+  const imgB = `https://${CANONICAL_OJS_HOST}/public/site/images/submit_admin/photo-b.png`
+
+  it("attaches an image-only paragraph to the NEXT member when the pending member is complete", () => {
+    // Production shape (journal 'jaid', verified 2026-09-05): a member block
+    // that already has name + image, followed by an image-only <p>, then the
+    // next member's name. Previously the second image was silently dropped
+    // and "Dr. Member B" rendered with no photo.
+    const html = `
+      <p><strong>Dr. Member A</strong></p>
+      <p><img src="${imgA}"></p>
+      <p>University of A</p>
+      <p><a href="https://orcid.org/0000-0001-2345-6789">ORCID</a></p>
+      <p>&nbsp;</p>
+      <p><img src="${imgB}"></p>
+      <p><strong>Dr. Member B</strong></p>
+      <p>University of B</p>
+    `
+    const members = parseBoardHtml(html)
+    const a = members.find((m) => m.name === "Dr. Member A")
+    const b = members.find((m) => m.name === "Dr. Member B")
+    expect(a?.image).toBe(imgA)
+    expect(b?.image).toBe(imgB)
+  })
+
+  it("applies the same rule to images wrapped in non-<p> containers", () => {
+    const html = `
+      <p><strong>Dr. Member A</strong></p>
+      <p><img src="${imgA}"></p>
+      <div><img src="${imgB}"></div>
+      <p><strong>Dr. Member B</strong></p>
+    `
+    const members = parseBoardHtml(html)
+    const a = members.find((m) => m.name === "Dr. Member A")
+    const b = members.find((m) => m.name === "Dr. Member B")
+    expect(a?.image).toBe(imgA)
+    expect(b?.image).toBe(imgB)
+  })
+
+  it("still attaches a photo that follows the member's name to that same member", () => {
+    // Guard against over-eager flushing: name-then-photo order (the common
+    // layout) must keep the photo on the SAME member.
+    const html = `
+      <p><strong>Dr. Member A</strong></p>
+      <p><img src="${imgA}"></p>
+    `
+    const members = parseBoardHtml(html)
+    const a = members.find((m) => m.name === "Dr. Member A")
+    expect(a?.image).toBe(imgA)
+    expect(members.length).toBe(1)
+  })
+})
+
+describe("parseBoardHtml — dropped photo src logging", () => {
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    consoleWarnSpy.mockRestore()
+  })
+
+  it("logs a warning when a relative URL is dropped", () => {
+    const html = `
+      <p><strong>Dr. Jane Smith</strong></p>
+      <p><img src="/public/site/images/foo.jpg"></p>
+      <p>University of Example</p>
+    `
+    const members = parseBoardHtml(html)
+    const member = members.find((m) => m.name === "Dr. Jane Smith")
+    expect(member).toBeDefined()
+    expect(member!.image).toBeNull()
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[NavPage] Dropping photo src with relative/unsupported scheme")
+    )
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/public/site/images/foo.jpg")
+    )
+  })
+
+  it("logs a warning when an oversized data URI is dropped", () => {
+    // Create a data URI that exceeds MAX_DATA_URI_BYTES (400,000 bytes)
+    const largeBase64 = "A".repeat(400_001)
+    const oversizedDataUri = `data:image/png;base64,${largeBase64}`
+    const html = `
+      <p><strong>Dr. Bob Jones</strong></p>
+      <p><img src="${oversizedDataUri}"></p>
+    `
+    const members = parseBoardHtml(html)
+    const member = members.find((m) => m.name === "Dr. Bob Jones")
+    expect(member).toBeDefined()
+    expect(member!.image).toBeNull()
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[NavPage] Dropping oversized data URI")
+    )
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("400000")
+    )
+  })
+
+  it("logs a warning when a malformed data URI is dropped", () => {
+    const malformedDataUri = "data:image/png;base64,NOT_VALID_BASE64!@#$"
+    const html = `
+      <p><strong>Dr. Carol Lee</strong></p>
+      <p><img src="${malformedDataUri}"></p>
+    `
+    const members = parseBoardHtml(html)
+    const member = members.find((m) => m.name === "Dr. Carol Lee")
+    expect(member).toBeDefined()
+    expect(member!.image).toBeNull()
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[NavPage] Dropping malformed data URI")
+    )
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining(malformedDataUri)
+    )
+  })
+
+  it("logs a warning when a file:// scheme is dropped", () => {
+    const html = `
+      <p><strong>Dr. Dave Kim</strong></p>
+      <p><img src="file:///etc/passwd"></p>
+    `
+    const members = parseBoardHtml(html)
+    const member = members.find((m) => m.name === "Dr. Dave Kim")
+    expect(member).toBeDefined()
+    expect(member!.image).toBeNull()
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[NavPage] Dropping photo src with relative/unsupported scheme")
+    )
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("file:///etc/passwd")
+    )
+  })
+
+  it("does not log a warning for valid absolute URLs", () => {
+    const url = `https://${CANONICAL_OJS_HOST}/public/journals/5/avatar.png`
+    const html = `
+      <p><strong>Dr. Eve Park</strong></p>
+      <p><img src="${url}"></p>
+    `
+    const members = parseBoardHtml(html)
+    const member = members.find((m) => m.name === "Dr. Eve Park")
+    expect(member).toBeDefined()
+    expect(member!.image).toBe(url)
+    expect(consoleWarnSpy).not.toHaveBeenCalled()
+  })
+
+  it("does not log a warning for valid data URIs", () => {
+    const validDataUri = "data:image/png;base64,iVBORw0KGgo="
+    const html = `
+      <p><strong>Dr. Frank Wu</strong></p>
+      <p><img src="${validDataUri}"></p>
+    `
+    const members = parseBoardHtml(html)
+    const member = members.find((m) => m.name === "Dr. Frank Wu")
+    expect(member).toBeDefined()
+    expect(member!.image).toBe(validDataUri)
+    expect(consoleWarnSpy).not.toHaveBeenCalled()
+  })
+
+  it("does not log a warning for empty src attributes", () => {
+    const html = `
+      <p><strong>Dr. Grace Chen</strong></p>
+      <p><img src=""></p>
+    `
+    const members = parseBoardHtml(html)
+    const member = members.find((m) => m.name === "Dr. Grace Chen")
+    expect(member).toBeDefined()
+    expect(member!.image).toBeNull()
+    expect(consoleWarnSpy).not.toHaveBeenCalled()
   })
 })
