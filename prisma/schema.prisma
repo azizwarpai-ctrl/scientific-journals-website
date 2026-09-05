@@ -29,6 +29,7 @@ model AdminUser {
   subscription         Subscription?
   updated_settings     SystemSetting[]    @relation("UpdatedBy")
   uploaded_audios      ArticleAudio[]     @relation("UploadedBy")
+  created_offers       Offer[]            @relation("OfferCreatedBy")
 
   @@index([email])
   @@map("admin_users")
@@ -62,6 +63,7 @@ model Journal {
   published_articles PublishedArticle[]
   submissions        Submission[]
   ojs_snapshot       OjsJournalSnapshot?
+  offers             Offer[]
 
   @@index([field])
   @@index([status])
@@ -316,8 +318,45 @@ model PricingPlan {
   updated_at        DateTime          @default(now()) @updatedAt
   checkout_sessions CheckoutSession[]
   subscriptions     Subscription[]
+  offers            Offer[]
 
   @@map("pricing_plans")
+}
+
+model Offer {
+  id               BigInt       @id @default(autoincrement())
+  name             String       @db.VarChar(255)
+  slug             String       @unique @db.VarChar(255)
+  description      String?      @db.Text
+  price_cents      Int          @default(0)
+  currency         String       @default("USD") @db.VarChar(3)
+  billing_interval String       @default("month") @db.VarChar(20)
+  features         Json
+  icon_key         String?      @db.VarChar(100)
+  image_url        String?      @db.VarChar(500)
+  cta_text         String       @default("Get Started") @db.VarChar(100)
+  cta_url          String?      @db.VarChar(500)
+  is_active        Boolean      @default(true)
+  is_featured      Boolean      @default(false)
+  sort_order       Int          @default(0)
+  available_from   DateTime?
+  available_until  DateTime?
+  pricing_plan_id  BigInt?
+  journal_id       BigInt?
+  created_by       BigInt?
+  created_at       DateTime     @default(now())
+  updated_at       DateTime     @default(now()) @updatedAt
+
+  pricing_plan     PricingPlan? @relation(fields: [pricing_plan_id], references: [id], onDelete: SetNull)
+  journal          Journal?     @relation(fields: [journal_id], references: [id], onDelete: SetNull)
+  creator          AdminUser?   @relation("OfferCreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
+
+  @@index([is_active, sort_order])
+  @@index([slug])
+  @@index([journal_id])
+  @@index([pricing_plan_id])
+  @@index([created_by])
+  @@map("offers")
 }
 
 model CheckoutSession {
