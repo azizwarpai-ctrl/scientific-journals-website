@@ -48,11 +48,14 @@ describe("rewriteOjsInlineImages", () => {
     expect(result).toContain("<p>End</p>")
   })
 
-  it("removes <img> for journals.zu.edu.ly (dead host)", () => {
-    const html = `<img src="https://journals.zu.edu.ly/public/site/images/admin/orcid.png">`
+  it("passes through journals.zu.edu.ly (revived host, no longer dead-listed)", () => {
+    // The host returned to service (verified 200 image/png on 2026-09-05);
+    // dead-listing it was silently discarding real editorial board photos.
+    const url = "https://journals.zu.edu.ly/public/site/images/azaet/blobid7.png"
+    const html = `<img src="${url}">`
     const result = rewriteOjsInlineImages(html)
 
-    expect(result).toBe("")
+    expect(result).toContain(url)
   })
 
   it("leaves data: URIs untouched", () => {

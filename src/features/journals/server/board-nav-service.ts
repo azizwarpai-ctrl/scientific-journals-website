@@ -140,6 +140,31 @@ export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMemb
     return null
   }
 
+  /**
+   * Finds the first usable portrait photo in a block. Skips link icons
+   * (ORCID / Scholar / Scopus glyphs): images with explicit width+height
+   * ≤ 32px, and images wrapped in a profile-link anchor. Without this guard
+   * a member with no real photo gets the ORCID "iD" icon as their portrait
+   * (seen in production on ojbr, 2026-09-05).
+   */
+  const findPhotoSrc = ($el: ReturnType<typeof $>): string | null => {
+    let found: string | null = null
+    $el.find("img").each((_, img) => {
+      const $img = $(img)
+      const w = parseInt($img.attr("width") ?? "", 10)
+      const h = parseInt($img.attr("height") ?? "", 10)
+      if (Number.isFinite(w) && Number.isFinite(h) && w <= 32 && h <= 32) return
+      const linkHref = $img.closest("a").attr("href") ?? ""
+      if (/orcid\.org|scholar\.google\.|scopus\.com/i.test(linkHref)) return
+      const src = safeUrl($img.attr("src") ?? "")
+      if (src) {
+        found = src
+        return false
+      }
+    })
+    return found
+  }
+
   const extractProfileFromHref = (href: string, p: Partial<RawMember>) => {
     try {
       const url = new URL(href)
@@ -182,14 +207,7 @@ export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMemb
       const $el = $(el)
       if ($el.find("p").length > 0) return
 
-      let imgSrc: string | null = null
-      $el.find("img").each((_, img) => {
-        const src = safeUrl($(img).attr("src") ?? "")
-        if (src) {
-          imgSrc = src
-          return false
-        }
-      })
+      const imgSrc = findPhotoSrc($el)
 
       if (imgSrc) {
         // Same rule as the image-only <p> branch: a complete pending member
@@ -216,14 +234,7 @@ export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMemb
     strongText = strongText.replace(/\s+/g, " ").trim()
     const plainText = $el.text().replace(/\s+/g, " ").trim()
 
-    let imgSrc: string | null = null
-    $el.find("img").each((_, img) => {
-      const src = safeUrl($(img).attr("src") ?? "")
-      if (src) {
-        imgSrc = src
-        return false
-      }
-    })
+    const imgSrc = findPhotoSrc($el)
 
     $el.find("a[href]").each((_, a) => {
       const href = ($(a).attr("href") ?? "").trim()
