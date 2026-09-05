@@ -186,6 +186,9 @@ export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMemb
       })
 
       if (imgSrc) {
+        // Same rule as the image-only <p> branch: a complete pending member
+        // means this image belongs to the NEXT member, not the current one.
+        if (pending?.name && pending?.image) flush()
         if (!pending) pending = { role: currentRole }
         if (!pending.image) pending.image = imgSrc
       }
@@ -224,6 +227,10 @@ export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMemb
     })
 
     if (imgSrc && !strongText) {
+      // Image-only paragraph. If the pending member is already complete
+      // (name + image), this image starts the NEXT member — otherwise it is
+      // silently dropped and the next member renders without a photo.
+      if (pending?.name && pending?.image) flush()
       if (!pending) pending = { role: currentRole }
       if (!pending.image) pending.image = imgSrc
       return
