@@ -129,8 +129,7 @@ describe("toProxyUrl — alias host normalization + proxying", () => {
     expect(result).toBe(`/api/image-proxy?url=${encodeURIComponent(src)}`)
   })
 
-  it("returns null for dead hosts (zu.edu.ly, cit.edu.ly)", () => {
-    expect(toProxyUrl("https://journals.zu.edu.ly/public/site/images/admin/orcid.png")).toBeNull()
+  it("returns null for dead hosts (cit.edu.ly)", () => {
     expect(toProxyUrl("https://jtr.cit.edu.ly/public/site/images/admin/crossref.png")).toBeNull()
   })
 })

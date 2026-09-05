@@ -21,8 +21,9 @@ describe("Host Classification Module", () => {
     expect(isOjsHost("submitmanager.com")).toBe(true)
     expect(isOjsHost("www.ij-mp.com")).toBe(true)
 
-    // Dead hosts
-    expect(DEAD_EXTERNAL_HOSTS.has("journals.zu.edu.ly")).toBe(true)
+    // Dead hosts (journals.zu.edu.ly was revived — verified serving 200s on
+    // 2026-09-05 — so it must NOT be dead-listed; it is still not an OJS host)
+    expect(DEAD_EXTERNAL_HOSTS.has("journals.zu.edu.ly")).toBe(false)
     expect(DEAD_EXTERNAL_HOSTS.has("jtr.cit.edu.ly")).toBe(true)
     expect(isOjsHost("journals.zu.edu.ly")).toBe(false)
 
@@ -56,7 +57,7 @@ describe("resolveProfileImageUrl", () => {
   })
 
   it("returns null for dead external host URLs", () => {
-    const deadUrl = "https://journals.zu.edu.ly/public/site/profileImages/photo.jpg"
+    const deadUrl = "https://jtr.cit.edu.ly/public/site/profileImages/photo.jpg"
     const result = resolveProfileImageUrl(deadUrl)
 
     expect(result).toBeNull()

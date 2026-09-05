@@ -142,6 +142,56 @@ describe("parseBoardHtml — image attachment across members", () => {
   })
 })
 
+describe("parseBoardHtml — link icons are never portraits", () => {
+  const ORCID_ICON =
+    "https://demo.openjournaltheme.com/public/site/images/demo_ojs_red_modern/id.png"
+
+  it("skips ORCID icons wrapped in profile-link anchors (ojbr production shape)", () => {
+    // Production shape (journal 'ojbr', 2026-09-05): members with no real
+    // photo had the ORCID "iD" glyph attached as their portrait.
+    const html = `
+      <div class="col-md-2"><img src="https://journals.zu.edu.ly/public/site/images/azaet/blobid7.png" alt=""></div>
+      <div class="profile_info">
+      <p><strong>Dr. Icon Member</strong></p>
+      <p>Some University</p>
+      <div class="orcid_logo"><a href="https://orcid.org/0000-0002-1649-8574"><img src="${ORCID_ICON}" alt="" width="16" height="16"> ORCID</a></div>
+      </div>
+    `
+    const members = parseBoardHtml(html)
+    const m = members.find((x) => x.name === "Dr. Icon Member")
+    expect(m).toBeDefined()
+    // The real photo (revived zu.edu.ly host) wins; the ORCID glyph is ignored.
+    expect(m!.image).toBe(
+      "https://journals.zu.edu.ly/public/site/images/azaet/blobid7.png"
+    )
+    expect(m!.orcid).toBe("0000-0002-1649-8574")
+  })
+
+  it("leaves the member photoless when the only image is an ORCID icon", () => {
+    const html = `
+      <p><strong>Dr. No Photo</strong></p>
+      <p>Some University</p>
+      <p><a href="https://orcid.org/0000-0002-1649-8574"><img src="${ORCID_ICON}" width="16" height="16"> ORCID</a></p>
+    `
+    const members = parseBoardHtml(html)
+    const m = members.find((x) => x.name === "Dr. No Photo")
+    expect(m).toBeDefined()
+    expect(m!.image).toBeNull()
+    expect(m!.orcid).toBe("0000-0002-1649-8574")
+  })
+
+  it("skips icon-sized images (width and height ≤ 32px) even outside anchors", () => {
+    const html = `
+      <p><strong>Dr. Tiny Icon</strong></p>
+      <p><img src="https://example.com/icon.png" width="16" height="16"></p>
+    `
+    const members = parseBoardHtml(html)
+    const m = members.find((x) => x.name === "Dr. Tiny Icon")
+    expect(m).toBeDefined()
+    expect(m!.image).toBeNull()
+  })
+})
+
 describe("parseBoardHtml — dropped photo src logging", () => {
   let consoleWarnSpy: ReturnType<typeof vi.spyOn>
 

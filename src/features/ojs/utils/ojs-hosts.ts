@@ -23,7 +23,8 @@ export const OJS_ALIAS_HOSTS = new Set<string>([
 ])
 
 export const DEAD_EXTERNAL_HOSTS = new Set<string>([
-  "journals.zu.edu.ly",
+  // journals.zu.edu.ly was removed 2026-09-05: the host is back up and serves
+  // 200 image/png — dead-listing it was silently discarding real board photos.
   "jtr.cit.edu.ly",
 ])
 
