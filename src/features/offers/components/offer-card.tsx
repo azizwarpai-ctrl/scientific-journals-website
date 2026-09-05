@@ -15,6 +15,21 @@ interface OfferCardProps {
   isCompact?: boolean
 }
 
+function FeatureList({ features }: { features: string[] }) {
+  return (
+    <ul className="space-y-2.5 text-sm">
+      {features.map((feature) => (
+        <li key={feature} className="flex items-start gap-2.5 text-foreground/90">
+          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+            <Check className="h-3 w-3 stroke-[3]" />
+          </span>
+          <span className="leading-snug text-sm">{feature}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function OfferCard({ offer, className, isCompact = false }: OfferCardProps) {
   const priceDollars = (offer.price_cents / 100).toLocaleString(undefined, {
     minimumFractionDigits: offer.price_cents % 100 === 0 ? 0 : 2,
@@ -88,16 +103,7 @@ export function OfferCard({ offer, className, isCompact = false }: OfferCardProp
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
           What&apos;s included:
         </p>
-        <ul className="space-y-2.5 text-sm">
-          {features.map((feature, idx) => (
-            <li key={idx} className="flex items-start gap-2.5 text-foreground/90">
-              <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                <Check className="h-3 w-3 stroke-[3]" />
-              </span>
-              <span className="leading-snug text-sm">{feature}</span>
-            </li>
-          ))}
-        </ul>
+        <FeatureList features={features} />
       </CardContent>
 
       <CardFooter className="px-6 pt-4 pb-6">

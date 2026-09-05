@@ -31,6 +31,55 @@ interface OfferFormProps {
   title?: string
 }
 
+// ── FeatureListEditor ─────────────────────────────────────────────────────────
+interface FeatureListEditorProps {
+  features: string[]
+  onChange: (index: number, value: string) => void
+  onAdd: () => void
+  onRemove: (index: number) => void
+  error?: string
+}
+
+function FeatureListEditor({ features, onChange, onAdd, onRemove, error }: FeatureListEditorProps) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between border-b pb-2">
+        <h3 className="text-lg font-semibold">Included Features</h3>
+        <Button type="button" variant="outline" size="sm" onClick={onAdd} className="gap-1.5">
+          <Plus className="w-4 h-4" />
+          Add Feature
+        </Button>
+      </div>
+
+      <div className="space-y-2.5">
+        {features.map((feature, idx) => (
+          <div key={`${feature}-${idx}`} className="flex items-center gap-2">
+            <Input
+              value={feature}
+              placeholder={`Feature ${idx + 1}`}
+              onChange={(e) => onChange(idx, e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => onRemove(idx)}
+              disabled={features.length <= 1}
+              className="text-muted-foreground hover:text-destructive"
+              aria-label={`Remove feature ${idx + 1}`}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        ))}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </div>
+    </div>
+  )
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function OfferForm({
   initialData,
   onSubmit,
@@ -110,7 +159,10 @@ export function OfferForm({
 
   const handleSubmit = async (values: OfferCreateInput) => {
     // Ensure features are passed
-    const cleanFeatures = featureInputs.map((f) => f.trim()).filter(Boolean)
+    const cleanFeatures = featureInputs.flatMap((f) => {
+      const t = f.trim()
+      return t ? [t] : []
+    })
     if (cleanFeatures.length === 0) {
       form.setError("features", { message: "Please specify at least one feature" })
       return
@@ -281,50 +333,13 @@ export function OfferForm({
                 </div>
               </div>
 
-              {/* Included Features */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <h3 className="text-lg font-semibold">Included Features</h3>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddFeature}
-                    className="gap-1.5"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Feature
-                  </Button>
-                </div>
-
-                <div className="space-y-2.5">
-                  {featureInputs.map((feature, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <Input
-                        value={feature}
-                        placeholder={`Feature ${idx + 1}`}
-                        onChange={(e) => handleFeatureChange(idx, e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveFeature(idx)}
-                        disabled={featureInputs.length <= 1}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  {form.formState.errors.features && (
-                    <p className="text-sm text-destructive">
-                      {form.formState.errors.features.message}
-                    </p>
-                  )}
-                </div>
-              </div>
+              <FeatureListEditor
+                features={featureInputs}
+                onChange={handleFeatureChange}
+                onAdd={handleAddFeature}
+                onRemove={handleRemoveFeature}
+                error={form.formState.errors.features?.message}
+              />
 
               {/* Call to Action & Links */}
               <div className="space-y-4">

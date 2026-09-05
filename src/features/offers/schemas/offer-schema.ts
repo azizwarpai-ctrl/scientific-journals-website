@@ -32,8 +32,8 @@ export const offerCreateSchema = z.object({
   is_active: z.boolean().default(true),
   is_featured: z.boolean().default(false),
   sort_order: z.coerce.number().int().default(0),
-  available_from: z.string().datetime().nullable().optional(),
-  available_until: z.string().datetime().nullable().optional(),
+  available_from: z.iso.datetime().nullable().optional(),
+  available_until: z.iso.datetime().nullable().optional(),
   pricing_plan_id: z.union([z.string(), z.number()]).nullable().optional(),
   journal_id: z.union([z.string(), z.number()]).nullable().optional(),
 })

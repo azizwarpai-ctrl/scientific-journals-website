@@ -102,6 +102,7 @@ export function OffersTable({ offers, isLoading = false }: OffersTableProps) {
                 <TableCell>
                   <input
                     type="number"
+                    aria-label={`Sort order for ${offer.name}`}
                     defaultValue={offer.sort_order}
                     onBlur={(e) => {
                       const val = parseInt(e.target.value, 10)
@@ -173,6 +174,7 @@ export function OffersTable({ offers, isLoading = false }: OffersTableProps) {
                       onClick={() => handleDelete(offer.id, offer.name)}
                       disabled={isDeleting && deletingId === offer.id}
                       className="text-muted-foreground hover:text-destructive"
+                      aria-label={`Delete ${offer.name}`}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>

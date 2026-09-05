@@ -101,8 +101,8 @@ export function SubmitManagerOffers() {
                   <div className="border-t border-border/60 my-4" />
 
                   <ul className="space-y-2 text-xs text-muted-foreground">
-                    {(offer.features || []).slice(0, 3).map((f, i) => (
-                      <li key={i} className="flex items-start gap-2 text-foreground/90">
+                    {(offer.features || []).slice(0, 3).map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-foreground/90">
                         <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
                         <span className="line-clamp-1">{f}</span>
                       </li>
