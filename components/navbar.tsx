@@ -34,6 +34,9 @@ export function Navbar() {
           <Link href="/solutions" className="text-sm font-medium transition-colors hover:text-primary">
             Solutions
           </Link>
+          <Link href="/packages" className="text-sm font-medium transition-colors hover:text-primary">
+            Packages
+          </Link>
           <Link href="/submit-manager" className="text-sm font-medium transition-colors hover:text-primary">
             Submit Manager
           </Link>
@@ -117,6 +120,9 @@ export function Navbar() {
             </Link>
             <Link href="/solutions" className="text-sm font-medium transition-colors hover:text-primary" onClick={() => setIsMenuOpen(false)}>
               Solutions
+            </Link>
+            <Link href="/packages" className="text-sm font-medium transition-colors hover:text-primary" onClick={() => setIsMenuOpen(false)}>
+              Packages
             </Link>
             <Link href="/submit-manager" className="text-sm font-medium transition-colors hover:text-primary" onClick={() => setIsMenuOpen(false)}>
               Submit Manager
