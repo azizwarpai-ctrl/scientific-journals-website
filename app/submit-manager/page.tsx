@@ -4,6 +4,7 @@ import { SubmitManagerHero } from "@/components/submit-manager/hero-section"
 import { SubmitManagerSocialProof } from "@/components/submit-manager/social-proof"
 import { SubmitManagerHowItWorks } from "@/components/submit-manager/how-it-works"
 import { SubmitManagerFeatures } from "@/components/submit-manager/feature-showcase"
+import { SubmitManagerOffers } from "@/components/submit-manager/offers-strip"
 import { SubmitManagerPricing } from "@/components/submit-manager/pricing-table"
 import { SubmitManagerFaq } from "@/components/submit-manager/faq-section"
 
@@ -17,6 +18,7 @@ export default function SubmitManagerPage() {
         <SubmitManagerSocialProof />
         <SubmitManagerHowItWorks />
         <SubmitManagerFeatures />
+        <SubmitManagerOffers />
         <SubmitManagerPricing />
         <SubmitManagerFaq />
       </main>
