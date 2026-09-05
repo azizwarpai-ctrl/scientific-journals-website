@@ -1,0 +1,28 @@
+# Understand-Anything ignore rules for this project
+node_modules/
+.next/
+coverage/
+out/
+dist/
+*.lock
+bun.lock
+# binary / media assets
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.ico
+*.svg
+*.woff
+*.woff2
+*.ttf
+*.eot
+*.mp4
+*.pdf
+*.zip
+*.tar
+*.gz
+# UA internals
+.ua/
+.understand-anything/

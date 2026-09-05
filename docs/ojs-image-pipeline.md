@@ -24,8 +24,11 @@ Three exported functions:
 
 - **`parseOjsFilename(raw)`** — extracts the bare filename from whatever OJS
   stored. Handles three OJS storage formats:
-  1. JSON: `{"en_US":{"uploadName":"cover.png"}}` or `{"uploadName":"photo.jpg"}`
-  2. PHP-serialized: `a:2:{s:10:"uploadName";s:9:"photo.jpg";…}`
+  1. JSON: `{"en_US":{"name":"cover.png","uploadName":"homepageImage_en.png"}}`
+     or `{"uploadName":"photo.jpg"}` — both `name` and `uploadName` keys are
+     recognized (see field semantics below).
+  2. PHP-serialized: `a:2:{s:10:"uploadName";s:9:"photo.jpg";…}` — likewise may
+     carry both `uploadName`;s:… and `name`;s:… keys.
   3. Plain string: `cover_issue_1_en_US.png` or any string ending in an image
      extension.
 
