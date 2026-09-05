@@ -124,13 +124,19 @@ export function parseBoardHtml(rawHtml: string, defaultRole = "Member"): RawMemb
     if (s.startsWith("https://") || s.startsWith("http://")) {
       return normalizeOjsImageSrc(s)
     }
-    if (
-      s.startsWith("data:image/") &&
-      s.length <= MAX_DATA_URI_BYTES &&
-      DATA_IMAGE_URI_RE.test(s)
-    ) {
+    if (s.startsWith("data:image/")) {
+      if (s.length > MAX_DATA_URI_BYTES) {
+        console.warn(`[NavPage] Dropping oversized data URI (${s.length} bytes, max ${MAX_DATA_URI_BYTES}): ${s.substring(0, 60)}...`)
+        return null
+      }
+      if (!DATA_IMAGE_URI_RE.test(s)) {
+        console.warn(`[NavPage] Dropping malformed data URI: ${s.substring(0, 100)}...`)
+        return null
+      }
       return s
     }
+    // Relative or unsupported scheme
+    console.warn(`[NavPage] Dropping photo src with relative/unsupported scheme: ${s.substring(0, 100)}`)
     return null
   }
 

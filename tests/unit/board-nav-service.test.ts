@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { parseBoardHtml } from "@/src/features/journals/server/board-nav-service"
 import { CANONICAL_OJS_HOST } from "@/src/features/ojs/utils/rewrite-inline-images"
 
@@ -139,5 +139,128 @@ describe("parseBoardHtml — image attachment across members", () => {
     const a = members.find((m) => m.name === "Dr. Member A")
     expect(a?.image).toBe(imgA)
     expect(members.length).toBe(1)
+  })
+})
+
+describe("parseBoardHtml — dropped photo src logging", () => {
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    consoleWarnSpy.mockRestore()
+  })
+
+  it("logs a warning when a relative URL is dropped", () => {
+    const html = `
+      <p><strong>Dr. Jane Smith</strong></p>
+      <p><img src="/public/site/images/foo.jpg"></p>
+      <p>University of Example</p>
+    `
+    const members = parseBoardHtml(html)
+    const member = members.find((m) => m.name === "Dr. Jane Smith")
+    expect(member).toBeDefined()
+    expect(member!.image).toBeNull()
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[NavPage] Dropping photo src with relative/unsupported scheme")
+    )
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/public/site/images/foo.jpg")
+    )
+  })
+
+  it("logs a warning when an oversized data URI is dropped", () => {
+    // Create a data URI that exceeds MAX_DATA_URI_BYTES (400,000 bytes)
+    const largeBase64 = "A".repeat(400_001)
+    const oversizedDataUri = `data:image/png;base64,${largeBase64}`
+    const html = `
+      <p><strong>Dr. Bob Jones</strong></p>
+      <p><img src="${oversizedDataUri}"></p>
+    `
+    const members = parseBoardHtml(html)
+    const member = members.find((m) => m.name === "Dr. Bob Jones")
+    expect(member).toBeDefined()
+    expect(member!.image).toBeNull()
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[NavPage] Dropping oversized data URI")
+    )
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("400000")
+    )
+  })
+
+  it("logs a warning when a malformed data URI is dropped", () => {
+    const malformedDataUri = "data:image/png;base64,NOT_VALID_BASE64!@#$"
+    const html = `
+      <p><strong>Dr. Carol Lee</strong></p>
+      <p><img src="${malformedDataUri}"></p>
+    `
+    const members = parseBoardHtml(html)
+    const member = members.find((m) => m.name === "Dr. Carol Lee")
+    expect(member).toBeDefined()
+    expect(member!.image).toBeNull()
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[NavPage] Dropping malformed data URI")
+    )
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining(malformedDataUri)
+    )
+  })
+
+  it("logs a warning when a file:// scheme is dropped", () => {
+    const html = `
+      <p><strong>Dr. Dave Kim</strong></p>
+      <p><img src="file:///etc/passwd"></p>
+    `
+    const members = parseBoardHtml(html)
+    const member = members.find((m) => m.name === "Dr. Dave Kim")
+    expect(member).toBeDefined()
+    expect(member!.image).toBeNull()
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[NavPage] Dropping photo src with relative/unsupported scheme")
+    )
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("file:///etc/passwd")
+    )
+  })
+
+  it("does not log a warning for valid absolute URLs", () => {
+    const url = `https://${CANONICAL_OJS_HOST}/public/journals/5/avatar.png`
+    const html = `
+      <p><strong>Dr. Eve Park</strong></p>
+      <p><img src="${url}"></p>
+    `
+    const members = parseBoardHtml(html)
+    const member = members.find((m) => m.name === "Dr. Eve Park")
+    expect(member).toBeDefined()
+    expect(member!.image).toBe(url)
+    expect(consoleWarnSpy).not.toHaveBeenCalled()
+  })
+
+  it("does not log a warning for valid data URIs", () => {
+    const validDataUri = "data:image/png;base64,iVBORw0KGgo="
+    const html = `
+      <p><strong>Dr. Frank Wu</strong></p>
+      <p><img src="${validDataUri}"></p>
+    `
+    const members = parseBoardHtml(html)
+    const member = members.find((m) => m.name === "Dr. Frank Wu")
+    expect(member).toBeDefined()
+    expect(member!.image).toBe(validDataUri)
+    expect(consoleWarnSpy).not.toHaveBeenCalled()
+  })
+
+  it("does not log a warning for empty src attributes", () => {
+    const html = `
+      <p><strong>Dr. Grace Chen</strong></p>
+      <p><img src=""></p>
+    `
+    const members = parseBoardHtml(html)
+    const member = members.find((m) => m.name === "Dr. Grace Chen")
+    expect(member).toBeDefined()
+    expect(member!.image).toBeNull()
+    expect(consoleWarnSpy).not.toHaveBeenCalled()
   })
 })
