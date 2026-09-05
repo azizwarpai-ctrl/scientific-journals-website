@@ -31,10 +31,12 @@ function FeatureList({ features }: { features: string[] }) {
 }
 
 export function OfferCard({ offer, className, isCompact = false }: OfferCardProps) {
-  const priceDollars = (offer.price_cents / 100).toLocaleString(undefined, {
+  const formattedPrice = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: offer.currency || "USD",
     minimumFractionDigits: offer.price_cents % 100 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
-  })
+  }).format(offer.price_cents / 100)
 
   const isFree = offer.price_cents === 0
 
@@ -88,9 +90,8 @@ export function OfferCard({ offer, className, isCompact = false }: OfferCardProp
             <span className="text-4xl font-extrabold tracking-tight text-foreground">Free</span>
           ) : (
             <>
-              <span className="text-2xl font-bold text-muted-foreground">$</span>
               <span className="text-4xl font-extrabold tracking-tight text-foreground">
-                {priceDollars}
+                {formattedPrice}
               </span>
               <span className="text-sm font-medium text-muted-foreground">{intervalLabel}</span>
             </>

@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card"
 
 export function OffersAdminClient() {
   const [filterActive, setFilterActive] = useState<string>("all")
-  const { data, isLoading } = useAdminOffers()
+  const { data, isLoading, isError, error, refetch } = useAdminOffers()
 
   const offers = data?.data || []
 
@@ -130,7 +130,23 @@ export function OffersAdminClient() {
           </button>
         </div>
 
-        <OffersTable offers={filteredOffers} isLoading={isLoading} />
+        {isError ? (
+          <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-8 text-center space-y-3">
+            <p className="text-sm font-medium text-destructive">
+              {error instanceof Error ? error.message : "Failed to load packages and offers"}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              className="cursor-pointer"
+            >
+              Retry
+            </Button>
+          </div>
+        ) : (
+          <OffersTable offers={filteredOffers} isLoading={isLoading} />
+        )}
       </div>
     </div>
   )

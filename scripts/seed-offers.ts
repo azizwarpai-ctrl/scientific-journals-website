@@ -73,7 +73,7 @@ async function main() {
   for (const offer of sampleOffers) {
     await prisma.offer.upsert({
       where: { slug: offer.slug },
-      update: offer,
+      update: {},
       create: offer,
     })
     console.log(`✓ Seeded offer: ${offer.name} (${offer.slug})`)

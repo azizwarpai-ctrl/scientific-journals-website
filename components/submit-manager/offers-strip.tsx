@@ -44,10 +44,12 @@ export function SubmitManagerOffers() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {displayOffers.map((offer) => {
-            const priceFormatted = (offer.price_cents / 100).toLocaleString(undefined, {
+            const priceFormatted = new Intl.NumberFormat(undefined, {
+              style: "currency",
+              currency: offer.currency || "USD",
               minimumFractionDigits: offer.price_cents % 100 === 0 ? 0 : 2,
               maximumFractionDigits: 2,
-            })
+            }).format(offer.price_cents / 100)
             const isFree = offer.price_cents === 0
             const interval =
               offer.billing_interval === "year"
@@ -89,7 +91,6 @@ export function SubmitManagerOffers() {
                       <span className="text-2xl font-extrabold text-foreground">Free</span>
                     ) : (
                       <>
-                        <span className="text-lg font-bold text-muted-foreground">$</span>
                         <span className="text-2xl font-extrabold text-foreground">
                           {priceFormatted}
                         </span>

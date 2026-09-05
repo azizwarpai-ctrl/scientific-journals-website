@@ -10,6 +10,7 @@ import {
   offerCreateSchema,
   offerUpdateSchema,
   offerIdParamSchema,
+  offerLookupParamSchema,
   offerToggleSchema,
   offerReorderSchema,
   offerQuerySchema,
@@ -146,9 +147,9 @@ app.get("/", zValidator("query", offerQuerySchema), async (c) => {
 })
 
 // GET /offers/:id - Public single offer by ID or slug
-app.get("/:id", async (c) => {
+app.get("/:id", zValidator("param", offerLookupParamSchema), async (c) => {
   try {
-    const idOrSlug = c.req.param("id")
+    const { id: idOrSlug } = c.req.valid("param")
     const session = await getSession()
     const isAdmin = session?.role === "admin" || session?.role === "superadmin"
     const now = new Date()
@@ -235,7 +236,13 @@ app.post("/", requireAdmin, zValidator("json", offerCreateSchema), async (c) => 
       { success: true, data: serializeRecord(offer), message: "Offer created successfully" },
       201
     )
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === "P2002") {
+      const target = String(error?.meta?.target || "")
+      if (target.includes("slug") || target.includes("offers_slug_key")) {
+        return c.json({ success: false, error: "An offer with this slug already exists" }, 409)
+      }
+    }
     console.error("[Offers API] Error creating offer:", error)
     return c.json({ success: false, error: "Failed to create offer" }, 500)
   }
@@ -311,7 +318,13 @@ app.patch("/:id", requireAdmin, zValidator("param", offerIdParamSchema), zValida
       { success: true, data: serializeRecord(updated), message: "Offer updated successfully" },
       200
     )
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === "P2002") {
+      const target = String(error?.meta?.target || "")
+      if (target.includes("slug") || target.includes("offers_slug_key")) {
+        return c.json({ success: false, error: "An offer with this slug already exists" }, 409)
+      }
+    }
     console.error("[Offers API] Error updating offer:", error)
     return c.json({ success: false, error: "Failed to update offer" }, 500)
   }

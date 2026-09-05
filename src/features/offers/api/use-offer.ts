@@ -1,11 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
+import { client } from "@/src/lib/rpc"
 import type { Offer } from "../types/offer"
 
 export const useOffer = (idOrSlug: string) => {
   return useQuery({
     queryKey: ["offer", idOrSlug],
     queryFn: async (): Promise<Offer> => {
-      const response = await fetch(`/api/offers/${encodeURIComponent(idOrSlug)}`)
+      const response = await client.offers[":id"].$get({
+        param: { id: idOrSlug },
+      })
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -15,7 +18,7 @@ export const useOffer = (idOrSlug: string) => {
       }
 
       const json = await response.json()
-      return json.data as Offer
+      return json.data
     },
     enabled: Boolean(idOrSlug),
     staleTime: 60 * 1000,

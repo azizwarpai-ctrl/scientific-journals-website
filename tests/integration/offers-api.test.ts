@@ -156,6 +156,14 @@ describe("Offers API Integration Tests", () => {
       expect(res.status).toBe(404)
     })
 
+    it("should return 400 for out-of-range numeric ID and NOT invoke Prisma", async () => {
+      vi.mocked(prisma.offer.findFirst).mockClear()
+
+      const res = await buildApp().request("/offers/99999999999999999999999999999999")
+      expect(res.status).toBe(400)
+      expect(prisma.offer.findFirst).not.toHaveBeenCalled()
+    })
+
     it("should return 200 for inactive offer if admin", async () => {
       mockSession = adminSession
       vi.mocked(prisma.offer.findFirst).mockResolvedValue({
@@ -261,6 +269,37 @@ describe("Offers API Integration Tests", () => {
       })
       expect(res.status).toBe(400)
     })
+
+    it("should return 409 when Prisma throws P2002 unique constraint error on slug during create", async () => {
+      mockSession = adminSession
+      vi.mocked(prisma.offer.findUnique).mockResolvedValue(null)
+      const p2002Error: any = new Error("Unique constraint failed")
+      p2002Error.code = "P2002"
+      p2002Error.meta = { target: ["offers_slug_key"] }
+      vi.mocked(prisma.offer.create).mockRejectedValue(p2002Error)
+
+      const res = await buildApp().request("/offers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newOfferPayload),
+      })
+      expect(res.status).toBe(409)
+      const json = await res.json()
+      expect(json.error).toBe("An offer with this slug already exists")
+    })
+
+    it("should return 500 when unexpected error occurs during create", async () => {
+      mockSession = adminSession
+      vi.mocked(prisma.offer.findUnique).mockResolvedValue(null)
+      vi.mocked(prisma.offer.create).mockRejectedValue(new Error("Database connection error"))
+
+      const res = await buildApp().request("/offers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newOfferPayload),
+      })
+      expect(res.status).toBe(500)
+    })
   })
 
   describe("PATCH /offers/:id", () => {
@@ -303,6 +342,37 @@ describe("Offers API Integration Tests", () => {
       const json = await res.json()
       expect(json.success).toBe(true)
       expect(json.data.name).toBe("Updated Name")
+    })
+
+    it("should return 409 when Prisma throws P2002 unique constraint error on update", async () => {
+      mockSession = adminSession
+      vi.mocked(prisma.offer.findUnique).mockResolvedValue(mockOffer as any)
+      const p2002Error: any = new Error("Unique constraint failed")
+      p2002Error.code = "P2002"
+      p2002Error.meta = { target: ["offers_slug_key"] }
+      vi.mocked(prisma.offer.update).mockRejectedValue(p2002Error)
+
+      const res = await buildApp().request("/offers/1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: "conflict-slug" }),
+      })
+      expect(res.status).toBe(409)
+      const json = await res.json()
+      expect(json.error).toBe("An offer with this slug already exists")
+    })
+
+    it("should return 500 when unexpected error occurs during update", async () => {
+      mockSession = adminSession
+      vi.mocked(prisma.offer.findUnique).mockResolvedValue(mockOffer as any)
+      vi.mocked(prisma.offer.update).mockRejectedValue(new Error("Database connection error"))
+
+      const res = await buildApp().request("/offers/1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Updated Name" }),
+      })
+      expect(res.status).toBe(500)
     })
   })
 

@@ -25,7 +25,6 @@ CREATE TABLE `offers` (
 
     UNIQUE INDEX `offers_slug_key`(`slug`),
     INDEX `offers_is_active_sort_order_idx`(`is_active`, `sort_order`),
-    INDEX `offers_slug_idx`(`slug`),
     INDEX `offers_journal_id_idx`(`journal_id`),
     INDEX `offers_pricing_plan_id_idx`(`pricing_plan_id`),
     INDEX `offers_created_by_idx`(`created_by`),

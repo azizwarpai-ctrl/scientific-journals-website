@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { client } from "@/src/lib/rpc"
 import type { Offer, OfferCreateInput, OfferUpdateInput } from "../types/offer"
 
 interface AdminOffersQueryParams {
@@ -24,15 +25,14 @@ export const useAdminOffers = (params?: AdminOffersQueryParams) => {
   return useQuery({
     queryKey: ["admin-offers", params],
     queryFn: async (): Promise<AdminOffersResponse> => {
-      const searchParams = new URLSearchParams()
-      if (params?.page) searchParams.set("page", String(params.page))
-      if (params?.limit) searchParams.set("limit", String(params.limit))
-      if (params?.journal_id) searchParams.set("journal_id", params.journal_id)
-      if (params?.is_active !== undefined) searchParams.set("is_active", String(params.is_active))
-      if (params?.is_featured !== undefined) searchParams.set("is_featured", String(params.is_featured))
+      const query: Record<string, string> = {}
+      if (params?.page) query.page = String(params.page)
+      if (params?.limit) query.limit = String(params.limit)
+      if (params?.journal_id) query.journal_id = params.journal_id
+      if (params?.is_active !== undefined) query.is_active = String(params.is_active)
+      if (params?.is_featured !== undefined) query.is_featured = String(params.is_featured)
 
-      const url = `/api/offers/admin/all${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
-      const response = await fetch(url)
+      const response = await client.offers.admin.all.$get({ query })
 
       if (!response.ok) {
         throw new Error("Failed to fetch admin offers")
@@ -48,10 +48,8 @@ export const useCreateOffer = () => {
 
   return useMutation({
     mutationFn: async (data: OfferCreateInput) => {
-      const response = await fetch("/api/offers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+      const response = await client.offers.$post({
+        json: data,
       })
 
       const json = await response.json()
@@ -77,10 +75,9 @@ export const useUpdateOffer = (id: string) => {
 
   return useMutation({
     mutationFn: async (data: OfferUpdateInput) => {
-      const response = await fetch(`/api/offers/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+      const response = await client.offers[":id"].$patch({
+        param: { id },
+        json: data,
       })
 
       const json = await response.json()
@@ -107,10 +104,9 @@ export const useToggleOffer = () => {
 
   return useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active?: boolean }) => {
-      const response = await fetch(`/api/offers/${id}/toggle`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(is_active !== undefined ? { is_active } : {}),
+      const response = await client.offers[":id"].toggle.$patch({
+        param: { id },
+        json: is_active !== undefined ? { is_active } : {},
       })
 
       const json = await response.json()
@@ -120,7 +116,7 @@ export const useToggleOffer = () => {
 
       return json.data as Offer
     },
-    onSuccess: (data) => {
+    onSuccess: (data: { is_active: boolean }) => {
       toast.success(`Offer ${data.is_active ? "activated" : "deactivated"} successfully`)
       queryClient.invalidateQueries({ queryKey: ["admin-offers"] })
       queryClient.invalidateQueries({ queryKey: ["offers"] })
@@ -136,10 +132,9 @@ export const useReorderOffer = () => {
 
   return useMutation({
     mutationFn: async ({ id, sort_order }: { id: string; sort_order: number }) => {
-      const response = await fetch(`/api/offers/${id}/reorder`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sort_order }),
+      const response = await client.offers[":id"].reorder.$patch({
+        param: { id },
+        json: { sort_order },
       })
 
       const json = await response.json()
@@ -165,8 +160,8 @@ export const useDeleteOffer = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/offers/${id}`, {
-        method: "DELETE",
+      const response = await client.offers[":id"].$delete({
+        param: { id },
       })
 
       const json = await response.json()

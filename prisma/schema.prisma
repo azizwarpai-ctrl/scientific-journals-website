@@ -352,7 +352,6 @@ model Offer {
   creator          AdminUser?   @relation("OfferCreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
 
   @@index([is_active, sort_order])
-  @@index([slug])
   @@index([journal_id])
   @@index([pricing_plan_id])
   @@index([created_by])

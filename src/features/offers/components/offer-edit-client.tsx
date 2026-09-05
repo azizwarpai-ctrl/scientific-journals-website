@@ -3,6 +3,7 @@
 import React from "react"
 import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
+import { client } from "@/src/lib/rpc"
 import { OfferForm } from "./offer-form"
 import { useUpdateOffer } from "../api/use-admin-offers"
 import type { OfferCreateInput } from "../schemas/offer-schema"
@@ -20,7 +21,9 @@ export function OfferEditClient({ id }: OfferEditClientProps) {
   const { data: offer, isLoading, error } = useQuery<Offer>({
     queryKey: ["admin-offer-detail", id],
     queryFn: async () => {
-      const res = await fetch(`/api/offers/admin/${id}`)
+      const res = await client.offers.admin[":id"].$get({
+        param: { id },
+      })
       if (!res.ok) {
         throw new Error("Failed to load offer details")
       }

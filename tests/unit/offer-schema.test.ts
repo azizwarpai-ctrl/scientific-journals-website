@@ -3,8 +3,11 @@ import {
   offerCreateSchema,
   offerUpdateSchema,
   offerIdParamSchema,
+  offerLookupParamSchema,
   offerToggleSchema,
   offerReorderSchema,
+  offerQuerySchema,
+  relationIdSchema,
 } from "@/src/features/offers/schemas/offer-schema"
 
 describe("Offer Schemas", () => {
@@ -165,6 +168,78 @@ describe("Offer Schemas", () => {
         slug: "Invalid Slug!",
       })
       expect(result.success).toBe(false)
+    })
+
+    it("should parse { name: 'Updated' } and return ONLY name without applying create-time defaults", () => {
+      const result = offerUpdateSchema.safeParse({ name: "Updated" })
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data).toEqual({ name: "Updated" })
+        expect(result.data.price_cents).toBeUndefined()
+        expect(result.data.currency).toBeUndefined()
+        expect(result.data.billing_interval).toBeUndefined()
+        expect(result.data.is_active).toBeUndefined()
+        expect(result.data.is_featured).toBeUndefined()
+        expect(result.data.sort_order).toBeUndefined()
+        expect(result.data.cta_text).toBeUndefined()
+      }
+    })
+  })
+
+  describe("relationIdSchema", () => {
+    it("should accept safe non-negative integers and unsigned decimal strings", () => {
+      expect(relationIdSchema.safeParse(123).success).toBe(true)
+      expect(relationIdSchema.safeParse("123").success).toBe(true)
+      expect(relationIdSchema.safeParse(0).success).toBe(true)
+      expect(relationIdSchema.safeParse("0").success).toBe(true)
+      expect(relationIdSchema.safeParse(null).success).toBe(true)
+      expect(relationIdSchema.safeParse(undefined).success).toBe(true)
+    })
+
+    it("should reject non-numeric strings and fractional numbers", () => {
+      expect(relationIdSchema.safeParse("abc").success).toBe(false)
+      expect(relationIdSchema.safeParse(3.14).success).toBe(false)
+      expect(relationIdSchema.safeParse(-5).success).toBe(false)
+      expect(relationIdSchema.safeParse("-5").success).toBe(false)
+    })
+  })
+
+  describe("offerLookupParamSchema", () => {
+    it("should accept valid numeric IDs and slugs", () => {
+      expect(offerLookupParamSchema.safeParse({ id: "1" }).success).toBe(true)
+      expect(offerLookupParamSchema.safeParse({ id: "basic-plan" }).success).toBe(true)
+    })
+
+    it("should reject out-of-range numeric IDs", () => {
+      expect(offerLookupParamSchema.safeParse({ id: "9999999999999999999999999999" }).success).toBe(false)
+    })
+
+    it("should reject invalid slug characters", () => {
+      expect(offerLookupParamSchema.safeParse({ id: "Invalid Slug!" }).success).toBe(false)
+      expect(offerLookupParamSchema.safeParse({ id: "slug_with_underscore" }).success).toBe(false)
+    })
+  })
+
+  describe("offerQuerySchema", () => {
+    it("should preserve empty string and null as undefined for journal_id", () => {
+      const res = offerQuerySchema.safeParse({ journal_id: "" })
+      expect(res.success).toBe(true)
+      if (res.success) {
+        expect(res.data.journal_id).toBeUndefined()
+      }
+    })
+
+    it("should accept valid numeric journal_id string", () => {
+      const res = offerQuerySchema.safeParse({ journal_id: "42" })
+      expect(res.success).toBe(true)
+      if (res.success) {
+        expect(res.data.journal_id).toBe("42")
+      }
+    })
+
+    it("should reject non-numeric journal_id string", () => {
+      const res = offerQuerySchema.safeParse({ journal_id: "invalid-id" })
+      expect(res.success).toBe(false)
     })
   })
 

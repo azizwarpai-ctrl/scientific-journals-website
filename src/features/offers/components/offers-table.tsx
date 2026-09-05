@@ -34,6 +34,7 @@ export function OffersTable({ offers, isLoading = false }: OffersTableProps) {
   const { mutate: reorderOffer } = useReorderOffer()
 
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [pendingReorders, setPendingReorders] = useState<Set<string>>(new Set())
 
   const handleToggle = (id: string, current: boolean) => {
     toggleOffer({ id, is_active: !current })
@@ -49,7 +50,20 @@ export function OffersTable({ offers, isLoading = false }: OffersTableProps) {
   }
 
   const handleOrderChange = (id: string, newOrder: number) => {
-    reorderOffer({ id, sort_order: newOrder })
+    if (pendingReorders.has(id)) return
+    setPendingReorders((prev) => new Set(prev).add(id))
+    reorderOffer(
+      { id, sort_order: newOrder },
+      {
+        onSettled: () => {
+          setPendingReorders((prev) => {
+            const next = new Set(prev)
+            next.delete(id)
+            return next
+          })
+        },
+      }
+    )
   }
 
   if (isLoading) {
@@ -104,6 +118,7 @@ export function OffersTable({ offers, isLoading = false }: OffersTableProps) {
                     type="number"
                     aria-label={`Sort order for ${offer.name}`}
                     defaultValue={offer.sort_order}
+                    disabled={pendingReorders.has(offer.id)}
                     onBlur={(e) => {
                       const val = parseInt(e.target.value, 10)
                       if (!isNaN(val) && val !== offer.sort_order) {

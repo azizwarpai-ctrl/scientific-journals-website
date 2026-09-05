@@ -80,6 +80,19 @@ function FeatureListEditor({ features, onChange, onAdd, onRemove, error }: Featu
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+function toLocalDatetimeString(dateInput?: string | Date | null): string | undefined {
+  if (!dateInput) return undefined
+  const d = new Date(dateInput)
+  if (isNaN(d.getTime())) return undefined
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const Y = d.getFullYear()
+  const M = pad(d.getMonth() + 1)
+  const D = pad(d.getDate())
+  const H = pad(d.getHours())
+  const m = pad(d.getMinutes())
+  return `${Y}-${M}-${D}T${H}:${m}`
+}
+
 export function OfferForm({
   initialData,
   onSubmit,
@@ -112,8 +125,8 @@ export function OfferForm({
     is_active: initialData?.is_active ?? true,
     is_featured: initialData?.is_featured ?? false,
     sort_order: initialData?.sort_order ?? 0,
-    available_from: initialData?.available_from ? new Date(initialData.available_from).toISOString().slice(0, 16) : undefined,
-    available_until: initialData?.available_until ? new Date(initialData.available_until).toISOString().slice(0, 16) : undefined,
+    available_from: toLocalDatetimeString(initialData?.available_from),
+    available_until: toLocalDatetimeString(initialData?.available_until),
     pricing_plan_id: initialData?.pricing_plan_id ? String(initialData.pricing_plan_id) : undefined,
     journal_id: initialData?.journal_id ? String(initialData.journal_id) : undefined,
   }
@@ -503,6 +516,51 @@ export function OfferForm({
                         </FormControl>
                         <FormDescription className="text-xs">
                           Ascending order (0 first)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Availability Window */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <FormField
+                    control={form.control}
+                    name="available_from"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Available From (Optional)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="datetime-local"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Date and time when package becomes visible
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="available_until"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Available Until (Optional)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="datetime-local"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Date and time when package expires
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
