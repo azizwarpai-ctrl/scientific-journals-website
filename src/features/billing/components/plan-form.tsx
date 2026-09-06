@@ -56,6 +56,19 @@ function parseInitialFeatureStrings(features: unknown): string[] {
   return [""]
 }
 
+function formatToLocalDateTimeString(dateVal?: unknown): string {
+  if (!dateVal) return ""
+  const d = new Date(String(dateVal))
+  if (Number.isNaN(d.getTime())) return ""
+  const pad = (n: number) => n.toString().padStart(2, "0")
+  const year = d.getFullYear()
+  const month = pad(d.getMonth() + 1)
+  const day = pad(d.getDate())
+  const hours = pad(d.getHours())
+  const minutes = pad(d.getMinutes())
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
 // ── FeatureListEditor ─────────────────────────────────────────────────────────
 interface FeatureListEditorProps {
   features: FeatureItem[]
@@ -632,12 +645,8 @@ export function PlanForm({
       is_active: initialData?.is_active ?? true,
       is_featured: initialData?.is_featured ?? false,
       sort_order: initialData?.sort_order ?? 0,
-      available_from: initialData?.available_from
-        ? new Date(String(initialData.available_from)).toISOString().slice(0, 16)
-        : "",
-      available_until: initialData?.available_until
-        ? new Date(String(initialData.available_until)).toISOString().slice(0, 16)
-        : "",
+      available_from: formatToLocalDateTimeString(initialData?.available_from),
+      available_until: formatToLocalDateTimeString(initialData?.available_until),
       journal_id: initialData?.journal_id ? String(initialData.journal_id) : undefined,
     },
   })

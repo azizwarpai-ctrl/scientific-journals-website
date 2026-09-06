@@ -35,6 +35,8 @@ CREATE INDEX `pricing_plans_is_active_sort_order_idx` ON `pricing_plans` (`is_ac
 CREATE INDEX `pricing_plans_journal_id_idx` ON `pricing_plans` (`journal_id`);
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 4. Drop the offers table
+-- 4. Defer drop of offers table
 -- ─────────────────────────────────────────────────────────────────────────────
-DROP TABLE IF EXISTS `offers`;
+-- Note: Destructive DROP TABLE `offers` is deferred to ensure data is preserved
+-- and safely migrated via `scripts/migrate-offers-to-pricing-plans.ts`.
+

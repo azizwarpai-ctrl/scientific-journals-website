@@ -13,10 +13,25 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
       const session = event.data.object as Stripe.Checkout.Session
       if (session.mode !== "subscription" || !session.subscription || !session.customer) break
 
-      const adminUserId = session.metadata?.adminUserId
-      const pricingPlanId = session.metadata?.pricingPlanId
+      let adminUserId = session.metadata?.adminUserId
+      let pricingPlanId = session.metadata?.pricingPlanId
+
       if (!adminUserId || !pricingPlanId) {
-        console.warn("[billing] checkout.session.completed missing metadata", { adminUserId, pricingPlanId })
+        const localSession = await prisma.checkoutSession.findFirst({
+          where: { stripe_checkout_id: session.id },
+        })
+        if (localSession) {
+          adminUserId = localSession.admin_user_id.toString()
+          pricingPlanId = localSession.pricing_plan_id.toString()
+        }
+      }
+
+      if (!adminUserId || !pricingPlanId) {
+        console.warn("[billing] checkout.session.completed missing metadata and checkoutSession record", {
+          sessionId: session.id,
+          adminUserId,
+          pricingPlanId,
+        })
         break
       }
 

@@ -73,6 +73,10 @@ const checkoutHandler = async (c: any) => {
         stripeCustomerId: existingSub?.stripe_customer_id ?? undefined,
         successUrl: `${appUrl}/admin/dashboard?checkout=success`,
         cancelUrl: `${appUrl}/submit-manager#pricing`,
+        metadata: {
+          adminUserId: String(session.id),
+          pricingPlanId: String(pricingPlanId),
+        },
       })
 
       // Upsert local DB checkout session
@@ -269,10 +273,16 @@ plansRouter.get("/slug/:slug", zValidator("param", pricingPlanSlugParamSchema), 
 plansRouter.get("/:id", zValidator("param", pricingPlanIdParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
+    const now = new Date()
     const plan = await prisma.pricingPlan.findUnique({
       where: { id: BigInt(id) },
     })
-    if (!plan || !plan.is_active) {
+    if (
+      !plan ||
+      !plan.is_active ||
+      (plan.available_from && plan.available_from > now) ||
+      (plan.available_until && plan.available_until < now)
+    ) {
       return c.json({ success: false, error: "Pricing plan not found" }, 404)
     }
     return c.json({ success: true, data: serializeRecord(plan) })
@@ -446,8 +456,21 @@ plansRouter.patch(
 plansRouter.delete("/:id", requireAdmin, zValidator("param", pricingPlanIdParamSchema), async (c) => {
   try {
     const { id } = c.req.valid("param")
+    const planId = BigInt(id)
+
+    // Check if references exist in subscriptions
+    const subCount = await prisma.subscription.count({
+      where: { pricing_plan_id: planId },
+    })
+    if (subCount > 0) {
+      return c.json(
+        { success: false, error: "Cannot delete pricing plan with existing subscriptions. Deactivate it instead." },
+        409
+      )
+    }
+
     await prisma.pricingPlan.delete({
-      where: { id: BigInt(id) },
+      where: { id: planId },
     })
     return c.json({ success: true, data: { id } })
   } catch (error: unknown) {
@@ -455,6 +478,9 @@ plansRouter.delete("/:id", requireAdmin, zValidator("param", pricingPlanIdParamS
     console.error("[billing] plan delete error:", error)
     if (err.code === "P2025") {
       return c.json({ success: false, error: "Pricing plan not found" }, 404)
+    }
+    if (err.code === "P2003") {
+      return c.json({ success: false, error: "Cannot delete pricing plan with existing billing references" }, 409)
     }
     return c.json({ success: false, error: "Failed to delete pricing plan" }, 500)
   }

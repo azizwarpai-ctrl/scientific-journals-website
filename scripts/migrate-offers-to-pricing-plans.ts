@@ -95,9 +95,6 @@ async function main() {
   if (shouldDropOffers) {
     console.log("Dropping offers table as requested with --drop-offers...")
     try {
-      await prisma.$executeRawUnsafe("ALTER TABLE offers DROP FOREIGN KEY IF EXISTS offers_pricing_plan_id_fkey")
-      await prisma.$executeRawUnsafe("ALTER TABLE offers DROP FOREIGN KEY IF EXISTS offers_journal_id_fkey")
-      await prisma.$executeRawUnsafe("ALTER TABLE offers DROP FOREIGN KEY IF EXISTS offers_created_by_fkey")
       await prisma.$executeRawUnsafe("DROP TABLE IF EXISTS offers")
       console.log("✓ offers table successfully dropped.")
     } catch (dropErr: any) {

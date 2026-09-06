@@ -27,6 +27,7 @@ export async function createCheckoutSession(opts: {
   stripeCustomerId?: string
   successUrl: string
   cancelUrl: string
+  metadata?: Record<string, string>
 }): Promise<Stripe.Checkout.Session> {
   const stripe = getStripe()
   if (!stripe) throw new Error("Stripe is not configured")
@@ -38,6 +39,8 @@ export async function createCheckoutSession(opts: {
     customer_email: opts.stripeCustomerId ? undefined : opts.customerEmail,
     success_url: opts.successUrl,
     cancel_url: opts.cancelUrl,
+    metadata: opts.metadata,
+    subscription_data: opts.metadata ? { metadata: opts.metadata } : undefined,
   })
 }
 

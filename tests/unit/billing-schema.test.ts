@@ -123,6 +123,22 @@ describe('Billing Schemas', () => {
       const result = pricingPlanUpdateSchema.safeParse({})
       expect(result.success).toBe(true)
     })
+
+    it('does not inject create defaults into omitted fields on partial update', () => {
+      const result = pricingPlanUpdateSchema.safeParse({
+        name: 'Updated Name Only',
+      })
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.currency).toBeUndefined()
+        expect(result.data.features).toBeUndefined()
+        expect(result.data.isActive).toBeUndefined()
+        expect(result.data.is_active).toBeUndefined()
+        expect(result.data.sort_order).toBeUndefined()
+        expect(result.data.cta_label).toBeUndefined()
+        expect(result.data.billing_interval).toBeUndefined()
+      }
+    })
   })
 
   describe('pricingPlanIdParamSchema', () => {
@@ -141,6 +157,12 @@ describe('Billing Schemas', () => {
         expect(result.data.id).toBe('456')
       }
     })
+
+    it('rejects non-numeric id', () => {
+      expect(pricingPlanIdParamSchema.safeParse({ id: 'abc' }).success).toBe(false)
+      expect(pricingPlanIdParamSchema.safeParse({ id: '-5' }).success).toBe(false)
+      expect(checkoutSchema.safeParse({ pricingPlanId: 'abc' }).success).toBe(false)
+    })
   })
 
   describe('pricingPlanSlugParamSchema', () => {
@@ -152,6 +174,11 @@ describe('Billing Schemas', () => {
     it('rejects empty slug', () => {
       const result = pricingPlanSlugParamSchema.safeParse({ slug: '' })
       expect(result.success).toBe(false)
+    })
+
+    it('rejects invalid kebab-case slug', () => {
+      expect(pricingPlanSlugParamSchema.safeParse({ slug: 'Invalid Slug!' }).success).toBe(false)
+      expect(pricingPlanSlugParamSchema.safeParse({ slug: 'invalid_slug' }).success).toBe(false)
     })
   })
 
