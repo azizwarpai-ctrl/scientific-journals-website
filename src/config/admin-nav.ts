@@ -11,6 +11,7 @@ import {
     Mail,
     MailPlus,
     Settings,
+    CreditCard,
     type LucideIcon,
 } from "lucide-react"
 
@@ -65,7 +66,10 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     },
     {
         label: "System",
-        items: [{ title: "Settings", href: "/admin/settings", icon: Settings }],
+        items: [
+            { title: "Pricing", href: "/admin/pricing", icon: CreditCard },
+            { title: "Settings", href: "/admin/settings", icon: Settings },
+        ],
     },
 ]
 

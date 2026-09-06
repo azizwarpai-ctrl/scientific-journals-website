@@ -5,7 +5,7 @@ import { toast } from "sonner"
 export const useCreateCheckout = () => {
   const mutation = useMutation({
     mutationFn: async ({ pricingPlanId }: { pricingPlanId: number }) => {
-      const response = await client.api.billing.checkout.$post({
+      const response = await client.billing.checkout.$post({
         json: { pricingPlanId },
       })
 

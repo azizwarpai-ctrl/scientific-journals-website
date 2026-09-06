@@ -1,17 +1,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { client } from "@/src/lib/rpc"
 import { toast } from "sonner"
-import type { z } from "zod"
-import { pricingPlanCreateSchema } from "@/src/features/billing/schemas/billing-schema"
-
-type CreatePricingPlanPayload = z.infer<typeof pricingPlanCreateSchema>
+import type { PricingPlanCreateInput } from "@/src/features/billing/schemas/billing-schema"
 
 export const useCreatePricingPlan = () => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (json: CreatePricingPlanPayload) => {
-      const response = await client.api.billing["pricing-plans"].$post({ json })
+    mutationFn: async (json: PricingPlanCreateInput) => {
+      const response = await client.billing.plans.$post({ json })
 
       if (!response.ok) {
         throw new Error("Failed to create pricing plan")

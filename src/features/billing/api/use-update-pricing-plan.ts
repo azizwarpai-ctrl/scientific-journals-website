@@ -11,7 +11,7 @@ export const useUpdatePricingPlan = () => {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UpdatePricingPlanPayload }) => {
-      const response = await client.api.billing["pricing-plans"][":id"].$patch({
+      const response = await client.billing["pricing-plans"][":id"].$patch({
         param: { id },
         json: data,
       })

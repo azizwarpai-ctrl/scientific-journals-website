@@ -139,7 +139,7 @@ function PricingCard({
 }
 
 export function SubmitManagerPricing() {
-  const { data: remotePlans, isLoading, isError, error } = useGetPricingPlans();
+  const { data: remotePlans, isLoading, isError, error, refetch } = useGetPricingPlans();
   const { mutate: createCheckout } = useCreateCheckout();
   const [subscribingPlanId, setSubscribingPlanId] = useState<string | null>(null);
   
@@ -158,7 +158,11 @@ export function SubmitManagerPricing() {
     const features: string[] = [];
     const extraFeatures: string[] = [];
     
-    if (plan.features && typeof plan.features === 'object') {
+    if (Array.isArray(plan.features)) {
+      // features stored as string[] — all go to primary features list
+      features.push(...(plan.features as string[]));
+    } else if (plan.features && typeof plan.features === 'object') {
+      // features stored as Record<string, boolean> where true = extra/advanced
       Object.entries(plan.features as Record<string, boolean>).forEach(([feature, isExtra]) => {
         if (isExtra) extraFeatures.push(feature);
         else features.push(feature);
@@ -207,7 +211,7 @@ export function SubmitManagerPricing() {
             <p className="text-gray-400 max-w-sm mb-6">
               There was an error fetching the subscription plans. Please try refreshing the page.
             </p>
-            <Button variant="outline" onClick={() => window.location.reload()}>
+            <Button variant="outline" onClick={() => refetch()}>
               Retry
             </Button>
           </div>
