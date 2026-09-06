@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/src/lib/db/auth"
-import { PricingClient } from "@/src/features/billing/components/pricing-client"
+import { PricingAdminClient } from "@/src/features/billing/components/pricing-admin-client"
+
+export const metadata = {
+  title: "Pricing & Packages | Admin Dashboard",
+  description: "Manage publication packages, tiers, pricing, and features.",
+}
 
 export default async function PricingPage() {
   const session = await getSession()
@@ -14,5 +19,5 @@ export default async function PricingPage() {
     redirect("/admin/dashboard")
   }
 
-  return <PricingClient />
+  return <PricingAdminClient />
 }

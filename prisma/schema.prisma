@@ -62,6 +62,7 @@ model Journal {
   published_articles PublishedArticle[]
   submissions        Submission[]
   ojs_snapshot       OjsJournalSnapshot?
+  pricing_plans      PricingPlan[]
 
   @@index([field])
   @@index([status])
@@ -304,19 +305,35 @@ model EmailLog {
 }
 
 model PricingPlan {
-  id                BigInt            @id @default(autoincrement())
-  name              String            @db.VarChar(100)
-  description       String?           @db.Text
-  price             Decimal           @db.Decimal(10, 2)
-  features          Json?
-  stripe_price_id   String?           @unique @db.VarChar(255)
-  is_active         Boolean           @default(true)
-  is_popular        Boolean           @default(false)
-  created_at        DateTime          @default(now())
-  updated_at        DateTime          @default(now()) @updatedAt
-  checkout_sessions CheckoutSession[]
-  subscriptions     Subscription[]
+  id                  BigInt            @id @default(autoincrement())
+  name                String            @db.VarChar(100)
+  slug                String?           @unique @db.VarChar(100)
+  description         String?           @db.Text
+  short_description   String?           @db.VarChar(500)
+  price               Decimal           @db.Decimal(10, 2)
+  currency            String            @default("USD") @db.VarChar(3)
+  billing_interval    String            @default("one_time") @db.VarChar(20)
+  features            Json?
+  icon_key            String?           @db.VarChar(50)
+  image_url           String?           @db.VarChar(500)
+  cta_label           String            @default("Get Started") @db.VarChar(100)
+  cta_url             String?           @db.VarChar(500)
+  stripe_price_id     String?           @unique @db.VarChar(255)
+  is_active           Boolean           @default(true)
+  is_popular          Boolean           @default(false)
+  is_featured         Boolean           @default(false)
+  sort_order          Int               @default(0)
+  available_from      DateTime?
+  available_until     DateTime?
+  journal_id          BigInt?
+  created_at          DateTime          @default(now())
+  updated_at          DateTime          @default(now()) @updatedAt
+  checkout_sessions   CheckoutSession[]
+  subscriptions       Subscription[]
+  journal             Journal?          @relation(fields: [journal_id], references: [id], onDelete: SetNull)
 
+  @@index([is_active, sort_order])
+  @@index([journal_id])
   @@map("pricing_plans")
 }
 

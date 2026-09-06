@@ -18,8 +18,8 @@ export const usePricingPlans = (journalId?: string) => {
       if (!response.ok) {
         throw new Error("Failed to fetch pricing plans")
       }
-      const { data } = await response.json()
-      return data as SerializedPricingPlan[]
+      const json = await response.json()
+      return (json as { success: boolean; data: SerializedPricingPlan[] }).data
     },
     staleTime: 300_000, // 5 minutes
   })
@@ -36,8 +36,8 @@ export const usePricingPlan = (id?: string) => {
       if (!response.ok) {
         throw new Error("Failed to fetch pricing plan")
       }
-      const { data } = await response.json()
-      return data as SerializedPricingPlan
+      const json = await response.json()
+      return (json as { success: boolean; data: SerializedPricingPlan }).data
     },
     enabled: !!id,
     staleTime: 300_000,
@@ -57,17 +57,13 @@ export const usePricingPlanBySlug = (slug?: string) => {
       if (!response.ok) {
         throw new Error("Failed to fetch pricing plan by slug")
       }
-      const { data } = await response.json()
-      return data as SerializedPricingPlan
+      const json = await response.json()
+      return (json as { success: boolean; data: SerializedPricingPlan }).data
     },
     enabled: !!slug,
     staleTime: 300_000,
   })
 }
 
-// ── Legacy alias — keeps pricing-table.tsx and pricing-client.tsx working ────
-/**
- * @deprecated Use usePricingPlans() instead.
- * Kept for backward compatibility with existing components.
- */
+// Kept for backwards compatibility
 export const useGetPricingPlans = usePricingPlans
