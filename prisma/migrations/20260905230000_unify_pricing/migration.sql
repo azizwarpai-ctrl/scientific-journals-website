@@ -35,10 +35,6 @@ CREATE INDEX `pricing_plans_is_active_sort_order_idx` ON `pricing_plans` (`is_ac
 CREATE INDEX `pricing_plans_journal_id_idx` ON `pricing_plans` (`journal_id`);
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 4. Drop the offers table (and its FK constraints first)
+-- 4. Drop the offers table
 -- ─────────────────────────────────────────────────────────────────────────────
-ALTER TABLE `offers` DROP FOREIGN KEY IF EXISTS `offers_pricing_plan_id_fkey`;
-ALTER TABLE `offers` DROP FOREIGN KEY IF EXISTS `offers_journal_id_fkey`;
-ALTER TABLE `offers` DROP FOREIGN KEY IF EXISTS `offers_created_by_fkey`;
-
 DROP TABLE IF EXISTS `offers`;
