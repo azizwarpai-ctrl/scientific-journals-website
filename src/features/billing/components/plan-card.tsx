@@ -17,6 +17,43 @@ interface PlanCardProps {
   isCompact?: boolean
 }
 
+const formattersCache = new Map<string, Intl.NumberFormat>()
+
+function formatPlanPrice(price: number, currency = "USD"): string {
+  const fractionDigits = price % 1 === 0 ? 0 : 2
+  const cacheKey = `${currency}-${fractionDigits}`
+  let formatter = formattersCache.get(cacheKey)
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: 2,
+    })
+    formattersCache.set(cacheKey, formatter)
+  }
+  return formatter.format(price)
+}
+
+function extractFeatures(features: unknown): string[] {
+  if (Array.isArray(features)) {
+    return features.map(String)
+  }
+  if (features && typeof features === "object") {
+    return Object.entries(features).reduce<string[]>((acc, [feature, enabled]) => {
+      if (enabled) acc.push(feature)
+      return acc
+    }, [])
+  }
+  return []
+}
+
+function getBillingIntervalLabel(interval?: string): string {
+  if (interval === "year") return "/year"
+  if (interval === "one_time") return "one-time"
+  return "/month"
+}
+
 function FeatureList({ features }: { features: string[] }) {
   return (
     <ul className="space-y-2.5 text-sm">
@@ -32,37 +69,66 @@ function FeatureList({ features }: { features: string[] }) {
   )
 }
 
+function PlanHeaderBadges({
+  isFeatured,
+  hasLimitedTime,
+  journal,
+}: {
+  isFeatured: boolean
+  hasLimitedTime: boolean
+  journal?: { id: string | bigint; title: string } | null
+}) {
+  return (
+    <div className="pt-5 px-6 flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        {isFeatured && <PlanBadge type="featured" />}
+        {hasLimitedTime && <PlanBadge type="limited-time" />}
+      </div>
+      {journal && (
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">
+          <BookOpen className="w-3 h-3" />
+          <span className="truncate max-w-[120px]">{journal.title}</span>
+        </span>
+      )}
+    </div>
+  )
+}
+
+function PlanPriceBlock({
+  isFree,
+  formattedPrice,
+  intervalLabel,
+}: {
+  isFree: boolean
+  formattedPrice: string
+  intervalLabel: string
+}) {
+  return (
+    <div className="mt-5 flex items-baseline gap-1.5">
+      {isFree ? (
+        <span className="text-4xl font-extrabold tracking-tight text-foreground">Free</span>
+      ) : (
+        <>
+          <span className="text-4xl font-extrabold tracking-tight text-foreground">
+            {formattedPrice}
+          </span>
+          <span className="text-sm font-medium text-muted-foreground">{intervalLabel}</span>
+        </>
+      )}
+    </div>
+  )
+}
+
 export function PlanCard({ plan, className, isCompact = false }: PlanCardProps) {
   const numericPrice = Number(plan.price) || 0
   const isFree = numericPrice === 0
-
-  const formattedPrice = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: plan.currency || "USD",
-    minimumFractionDigits: numericPrice % 1 === 0 ? 0 : 2,
-    maximumFractionDigits: 2,
-  }).format(numericPrice)
-
-  const intervalLabel =
-    plan.billing_interval === "year"
-      ? "/year"
-      : plan.billing_interval === "one_time"
-      ? "one-time"
-      : "/month"
-
-  let featuresList: string[] = []
-  if (Array.isArray(plan.features)) {
-    featuresList = plan.features.map(String)
-  } else if (plan.features && typeof plan.features === "object") {
-    featuresList = Object.entries(plan.features)
-      .filter(([_, enabled]) => Boolean(enabled))
-      .map(([feature]) => feature)
-  }
-
+  const formattedPrice = formatPlanPrice(numericPrice, plan.currency || "USD")
+  const intervalLabel = getBillingIntervalLabel(plan.billing_interval)
+  const featuresList = extractFeatures(plan.features)
   const isFeatured = Boolean(plan.is_featured || plan.is_popular)
   const hasLimitedTime = Boolean(plan.available_until)
-
   const ctaDestination = plan.cta_url || "/submit-manager"
+  const planDescription = plan.short_description || plan.description
 
   return (
     <Card
@@ -75,40 +141,25 @@ export function PlanCard({ plan, className, isCompact = false }: PlanCardProps) 
         className
       )}
     >
-      {/* Top badges bar */}
-      <div className="pt-5 px-6 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          {isFeatured && <PlanBadge type="featured" />}
-          {hasLimitedTime && <PlanBadge type="limited-time" />}
-        </div>
-        {plan.journal && (
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">
-            <BookOpen className="w-3 h-3" />
-            <span className="truncate max-w-[120px]">{plan.journal.title}</span>
-          </span>
-        )}
-      </div>
+      <PlanHeaderBadges
+        isFeatured={isFeatured}
+        hasLimitedTime={hasLimitedTime}
+        journal={plan.journal}
+      />
 
       <CardHeader className={cn("px-6 pb-4", isCompact ? "pt-2" : "pt-4")}>
         <h3 className="text-2xl font-bold tracking-tight text-foreground">{plan.name}</h3>
-        {(plan.short_description || plan.description) && (
+        {planDescription && (
           <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
-            {plan.short_description || plan.description}
+            {planDescription}
           </p>
         )}
 
-        <div className="mt-5 flex items-baseline gap-1.5">
-          {isFree ? (
-            <span className="text-4xl font-extrabold tracking-tight text-foreground">Free</span>
-          ) : (
-            <>
-              <span className="text-4xl font-extrabold tracking-tight text-foreground">
-                {formattedPrice}
-              </span>
-              <span className="text-sm font-medium text-muted-foreground">{intervalLabel}</span>
-            </>
-          )}
-        </div>
+        <PlanPriceBlock
+          isFree={isFree}
+          formattedPrice={formattedPrice}
+          intervalLabel={intervalLabel}
+        />
       </CardHeader>
 
       <CardContent className="px-6 py-2 flex-grow">

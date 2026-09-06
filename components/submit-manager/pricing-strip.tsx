@@ -7,6 +7,37 @@ import { usePricingPlans } from "@/src/features/billing/api/use-pricing-plans"
 import { PlanBadge } from "@/src/features/billing/components/plan-badge"
 import { Button } from "@/components/ui/button"
 
+const formattersCache = new Map<string, Intl.NumberFormat>()
+
+function formatPlanPrice(price: number, currency = "USD"): string {
+  const fractionDigits = price % 1 === 0 ? 0 : 2
+  const cacheKey = `${currency}-${fractionDigits}`
+  let formatter = formattersCache.get(cacheKey)
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: 2,
+    })
+    formattersCache.set(cacheKey, formatter)
+  }
+  return formatter.format(price)
+}
+
+function extractFeatures(features: unknown): string[] {
+  if (Array.isArray(features)) {
+    return features.map(String)
+  }
+  if (features && typeof features === "object") {
+    return Object.entries(features).reduce<string[]>((acc, [feature, enabled]) => {
+      if (enabled) acc.push(feature)
+      return acc
+    }, [])
+  }
+  return []
+}
+
 export function SubmitManagerPricingStrip() {
   const { data: plans = [], isLoading } = usePricingPlans()
 
@@ -45,12 +76,7 @@ export function SubmitManagerPricingStrip() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {displayPlans.map((plan) => {
             const numericPrice = Number(plan.price) || 0
-            const priceFormatted = new Intl.NumberFormat(undefined, {
-              style: "currency",
-              currency: plan.currency || "USD",
-              minimumFractionDigits: numericPrice % 1 === 0 ? 0 : 2,
-              maximumFractionDigits: 2,
-            }).format(numericPrice)
+            const priceFormatted = formatPlanPrice(numericPrice, plan.currency || "USD")
             const isFree = numericPrice === 0
             const interval =
               plan.billing_interval === "year"
@@ -61,15 +87,7 @@ export function SubmitManagerPricingStrip() {
 
             const isFeatured = Boolean(plan.is_featured || plan.is_popular)
             const ctaDestination = plan.cta_url || "/submit-manager#pricing"
-
-            let featuresList: string[] = []
-            if (Array.isArray(plan.features)) {
-              featuresList = plan.features.map(String)
-            } else if (plan.features && typeof plan.features === "object") {
-              featuresList = Object.entries(plan.features)
-                .filter(([_, enabled]) => Boolean(enabled))
-                .map(([feature]) => feature)
-            }
+            const featuresList = extractFeatures(plan.features)
 
             return (
               <div

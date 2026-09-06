@@ -131,8 +131,12 @@ export function PricingTable({ plans: propPlans, isLoading: propIsLoading }: Pri
                     defaultValue={plan.sort_order ?? 0}
                     disabled={pendingReorders.has(plan.id)}
                     onBlur={(e) => {
-                      const val = parseInt(e.target.value, 10)
-                      if (!isNaN(val) && val !== plan.sort_order) {
+                      const trimmed = e.target.value.trim()
+                      if (!trimmed || !/^-?\d+$/.test(trimmed)) {
+                        return
+                      }
+                      const val = Number.parseInt(trimmed, 10)
+                      if (val !== plan.sort_order) {
                         handleOrderChange(plan.id, val)
                       }
                     }}

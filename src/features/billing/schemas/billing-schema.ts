@@ -56,8 +56,8 @@ export const pricingPlanCreateSchema = z.object({
   is_popular: z.boolean().optional(),
   is_featured: z.boolean().default(false).optional(),
   sort_order: z.number().int().default(0).optional(),
-  available_from: z.string().datetime().optional(),
-  available_until: z.string().datetime().optional(),
+  available_from: z.iso.datetime().optional(),
+  available_until: z.iso.datetime().optional(),
   journal_id: z
     .union([z.string(), z.number()])
     .optional(),
