@@ -1,13 +1,14 @@
 #!/usr/bin/env bun
 /**
  * Standalone password reset script.
- * Uses mysql2 directly (no Prisma, no dotenv dependency).
- * 
+ * Uses the 'mariadb' driver (same one Prisma's adapter uses, guaranteed installed).
+ *
  * Usage on server:
- *   bun run reset-password.ts
+ *   cd ~/domains/digitopub.com/nodejs
+ *   bun run scripts/reset-password.ts
  */
 
-import mysql from "mysql2/promise";
+import mariadb from "mariadb";
 import bcrypt from "bcryptjs";
 import fs from "fs";
 import path from "path";
@@ -33,7 +34,6 @@ function loadEnvFile(dir: string): Record<string, string> {
     if (eqIdx === -1) continue;
     const key = trimmed.slice(0, eqIdx).trim();
     let value = trimmed.slice(eqIdx + 1).trim();
-    // Strip surrounding quotes
     if ((value.startsWith('"') && value.endsWith('"')) ||
         (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1);
@@ -48,14 +48,8 @@ async function main() {
   console.log(`Target: ${TARGET_EMAIL}`);
   console.log("");
 
-  // Load env vars
-  const scriptDir = path.dirname(new URL(import.meta.url).pathname);
-  // Try current dir first, then parent dir
-  let env = loadEnvFile(process.cwd());
-  if (!env.DATABASE_HOST && !env.DATABASE_URL) {
-    const parentDir = path.resolve(process.cwd(), "..");
-    env = loadEnvFile(parentDir);
-  }
+  // Load env vars from .env in current working directory
+  const env = loadEnvFile(process.cwd());
 
   // Merge with process.env (process.env takes precedence)
   const getEnv = (key: string) => process.env[key] || env[key] || "";
@@ -87,56 +81,52 @@ async function main() {
     console.error("  DATABASE_HOST:", dbHost || "(empty)");
     console.error("  DATABASE_USER:", dbUser || "(empty)");
     console.error("  DATABASE_NAME:", dbName || "(empty)");
-    console.error("");
-    console.error("Set these in .env or as environment variables.");
     process.exit(1);
   }
 
   console.log(`[info] Connecting to ${dbUser}@${dbHost}:${dbPort}/${dbName}`);
 
-  // Connect
-  let connection: mysql.Connection;
+  let conn: mariadb.Connection;
   try {
-    connection = await mysql.createConnection({
+    conn = await mariadb.createConnection({
       host: dbHost,
       port: parseInt(dbPort),
       user: dbUser,
       password: dbPass,
       database: dbName,
     });
-    console.log("[ok] Connected to MySQL.");
+    console.log("[ok] Connected to database.");
   } catch (e: any) {
-    console.error("[FATAL] Cannot connect to MySQL:", e.message);
+    console.error("[FATAL] Cannot connect:", e.message);
     process.exit(1);
   }
 
   // List existing admin users
   try {
-    const [rows] = await connection.execute(
-      "SELECT id, email, role FROM admin_users"
-    );
-    console.log("");
-    console.log("[info] Existing admin_users:");
-    console.table(rows);
+    const rows = await conn.query("SELECT id, email, role FROM admin_users");
+    console.log("\n[info] Existing admin_users:");
+    for (const r of rows) {
+      console.log(`  id=${r.id}  email=${r.email}  role=${r.role}`);
+    }
   } catch (e: any) {
     console.error("[error] Could not list admin_users:", e.message);
   }
 
   // Generate bcrypt hash
-  console.log("[info] Generating bcrypt hash (10 rounds)...");
+  console.log("\n[info] Generating bcrypt hash (10 rounds)...");
   const hash = await bcrypt.hash(NEW_PASSWORD, 10);
   console.log("[ok] Hash generated:", hash.substring(0, 20) + "...");
 
   // Try UPDATE first
   try {
-    const [result] = await connection.execute<mysql.ResultSetHeader>(
+    const result = await conn.query(
       "UPDATE admin_users SET password_hash = ? WHERE email = ?",
       [hash, TARGET_EMAIL]
     );
 
     if (result.affectedRows === 0) {
       console.log(`[info] No existing user '${TARGET_EMAIL}' found. Creating...`);
-      await connection.execute(
+      await conn.query(
         "INSERT INTO admin_users (email, password_hash, full_name, role, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())",
         [TARGET_EMAIL, hash, "Technical Support", "admin"]
       );
@@ -146,26 +136,25 @@ async function main() {
     }
   } catch (e: any) {
     console.error("[FATAL] SQL error:", e.message);
-    await connection.end();
+    await conn.end();
     process.exit(1);
   }
 
-  // Verify the update
+  // Verify
   try {
-    const [rows] = await connection.execute<any[]>(
+    const rows = await conn.query(
       "SELECT id, email, role, LENGTH(password_hash) as hash_length FROM admin_users WHERE email = ?",
       [TARGET_EMAIL]
     );
     if (rows.length > 0) {
-      console.log("[verify] User record after update:", rows[0]);
+      console.log(`[verify] id=${rows[0].id}  email=${rows[0].email}  role=${rows[0].role}  hash_length=${rows[0].hash_length}`);
     }
   } catch (e: any) {
     console.warn("[warn] Verification query failed:", e.message);
   }
 
-  await connection.end();
-  console.log("");
-  console.log("=== Done. You can now log in at /admin/login ===");
+  await conn.end();
+  console.log("\n=== Done. You can now log in at /admin/login ===");
 }
 
 main().catch((err) => {
