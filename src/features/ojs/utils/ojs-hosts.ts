@@ -69,3 +69,30 @@ export function isOjsHost(hostname: string): boolean {
   const allHosts = getAllOjsHostnames()
   return allHosts.has(lower)
 }
+
+/**
+ * Redirect statuses that carry a `Location` header worth considering.
+ */
+export const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
+
+/**
+ * Resolves a redirect `Location` against the current URL, but only returns a
+ * target when it stays on an OJS-owned host over HTTPS. Anything else returns
+ * null — callers must not follow, so credentials (e.g. the PDF bridge's
+ * Bearer token) are never forwarded to a foreign host.
+ */
+export function resolveOjsRedirectTarget(
+  location: string | null,
+  currentUrl: URL
+): URL | null {
+  if (!location) return null
+  let next: URL
+  try {
+    next = new URL(location, currentUrl)
+  } catch {
+    return null
+  }
+  if (next.protocol !== "https:") return null
+  if (!isOjsHost(next.hostname)) return null
+  return next
+}

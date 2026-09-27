@@ -1,4 +1,8 @@
 import { describe, it, expect } from "vitest"
+import {
+  REDIRECT_STATUSES,
+  resolveOjsRedirectTarget,
+} from "@/src/features/ojs/utils/ojs-hosts"
 
 /**
  * Tests for the bridge URL-building logic used in `app/api/pdf-proxy/route.ts`.
@@ -164,6 +168,73 @@ describe("pdf-proxy bridge URL resolution", () => {
       expect(url).toContain("/ojs/ojs-pdf-bridge.php")
       // Params are after the ?
       expect(url).toMatch(/\?.*journal=abc/)
+    })
+  })
+
+  // Regression coverage for issue #171: the production OJS_BRIDGE_URL pointed
+  // at the legacy /ojs/ path, which 301-redirects; the proxy fetched with
+  // redirect:"manual" and silently fell back to the fragile web-url path.
+  describe("bridge redirect policy (resolveOjsRedirectTarget)", () => {
+    const legacy = new URL("https://journals.digitopub.com/ojs/ojs-pdf-bridge.php")
+
+    it("follows a same-host redirect (legacy /ojs/ prefix → web root)", () => {
+      const target = resolveOjsRedirectTarget("/ojs-pdf-bridge.php?a=1", legacy)
+      expect(target?.toString()).toBe(
+        "https://journals.digitopub.com/ojs-pdf-bridge.php?a=1"
+      )
+    })
+
+    it("follows a redirect between OJS alias hosts (submitmanager.com → journals.digitopub.com)", () => {
+      const from = new URL("https://submitmanager.com/ojs-pdf-bridge.php")
+      const target = resolveOjsRedirectTarget(
+        "https://journals.digitopub.com/ojs-pdf-bridge.php",
+        from
+      )
+      expect(target?.hostname).toBe("journals.digitopub.com")
+    })
+
+    it("refuses redirects to foreign hosts (no Bearer key leak)", () => {
+      const target = resolveOjsRedirectTarget(
+        "https://evil.example.com/steal",
+        legacy
+      )
+      expect(target).toBeNull()
+    })
+
+    it("refuses protocol downgrade to http", () => {
+      const target = resolveOjsRedirectTarget(
+        "http://journals.digitopub.com/ojs-pdf-bridge.php",
+        legacy
+      )
+      expect(target).toBeNull()
+    })
+
+    it("returns null when the location header is missing", () => {
+      expect(resolveOjsRedirectTarget(null, legacy)).toBeNull()
+    })
+
+    it("refuses userinfo host-spoofing (journals.digitopub.com@evil.com)", () => {
+      const target = resolveOjsRedirectTarget(
+        "https://journals.digitopub.com@evil.example.com/steal",
+        legacy
+      )
+      expect(target).toBeNull()
+    })
+
+    it("treats garbage as a relative path on the same (allowed) host", () => {
+      // `new URL` almost never throws with a base — garbage resolves relative,
+      // which is harmless: the request stays on an OJS-owned host.
+      const target = resolveOjsRedirectTarget("ht!tp://%%%", legacy)
+      expect(target?.hostname).toBe("journals.digitopub.com")
+    })
+
+    it("REDIRECT_STATUSES covers the redirect family and nothing else", () => {
+      for (const s of [301, 302, 303, 307, 308]) {
+        expect(REDIRECT_STATUSES.has(s)).toBe(true)
+      }
+      for (const s of [200, 204, 304, 400, 429]) {
+        expect(REDIRECT_STATUSES.has(s)).toBe(false)
+      }
     })
   })
 })

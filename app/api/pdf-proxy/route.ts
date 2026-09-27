@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
 import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
+import {
+  REDIRECT_STATUSES,
+  resolveOjsRedirectTarget,
+} from "@/src/features/ojs/utils/ojs-hosts"
 
 /**
  * PDF proxy for gated / hotlink-protected OJS galleys.
@@ -36,6 +40,11 @@ type ProxyErrorCode =
   | "RATE_LIMITED"
 
 const FETCH_TIMEOUT_MS = 15000
+// Bridge aliases (legacy /ojs/ prefix, submitmanager.com) 301 to the
+// canonical bridge URL. We follow a few hops manually — fetch's automatic
+// redirect handling would strip the Authorization header on a cross-origin
+// hop, and an unfollowed 301 silently disables the bridge.
+const MAX_BRIDGE_REDIRECTS = 3
 const PDF_MAGIC = new Uint8Array([0x25, 0x50, 0x44, 0x46]) // "%PDF"
 const ACCEPTED_CONTENT_TYPES = /^(application\/pdf|application\/x-pdf|application\/octet-stream|binary\/octet-stream)/i
 
@@ -174,21 +183,47 @@ export async function GET(request: Request) {
     console.warn("[pdf-proxy] OJS_BRIDGE_URL and OJS_BASE_URL both unset, skipping bridge")
   } else {
     try {
-      const bridgeUrl = new URL(bridgeBase)
+      let bridgeUrl = new URL(bridgeBase)
       bridgeUrl.searchParams.set("journal", journal)
       bridgeUrl.searchParams.set("submissionId", submissionId)
       bridgeUrl.searchParams.set("galleyId", galleyId)
       bridgeUrl.searchParams.set("fileId", fileId)
 
-      const bridgeRes = await fetch(bridgeUrl, {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "User-Agent": "digitopub-pdf-proxy/1.0",
-        },
-        cache: "no-store",
-        redirect: "manual",
-        signal: AbortSignal.timeout(15_000),
-      })
+      // Follow redirects manually, but only to OJS-owned hosts (see
+      // resolveOjsRedirectTarget) — a stale alias must not silently disable
+      // the bridge, and the Bearer key must never leak cross-host.
+      const fetchBridge = (url: URL) =>
+        fetch(url, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "User-Agent": "digitopub-pdf-proxy/1.0",
+          },
+          cache: "no-store",
+          redirect: "manual",
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        })
+
+      let bridgeRes = await fetchBridge(bridgeUrl)
+      for (let hop = 0; hop < MAX_BRIDGE_REDIRECTS; hop++) {
+        if (!REDIRECT_STATUSES.has(bridgeRes.status)) break
+
+        const location = bridgeRes.headers.get("location")
+        const target = resolveOjsRedirectTarget(location, bridgeUrl)
+        if (!target) {
+          console.warn("[pdf-proxy] bridge redirect not followed", {
+            status: bridgeRes.status,
+            location,
+          })
+          break
+        }
+        console.info("[pdf-proxy] following bridge redirect", {
+          from: bridgeUrl.origin + bridgeUrl.pathname,
+          to: target.origin + target.pathname,
+        })
+        bridgeRes.body?.cancel().catch(() => {})
+        bridgeUrl = target
+        bridgeRes = await fetchBridge(bridgeUrl)
+      }
 
       // 429 is terminal — don't pile onto the OJS web layer.
       if (bridgeRes.status === 429) {
