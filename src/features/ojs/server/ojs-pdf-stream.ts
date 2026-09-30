@@ -15,7 +15,7 @@ export type ProxyErrorCode =
   | "NETWORK_ERROR"
   | "RATE_LIMITED"
 
-export const FETCH_TIMEOUT_MS = 15000
+export const FETCH_TIMEOUT_MS = 60000
 export const MAX_BRIDGE_REDIRECTS = 3
 export const PDF_MAGIC = new Uint8Array([0x25, 0x50, 0x44, 0x46]) // "%PDF"
 export const ACCEPTED_CONTENT_TYPES =

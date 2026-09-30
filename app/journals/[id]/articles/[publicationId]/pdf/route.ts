@@ -48,12 +48,20 @@ export async function GET(request: Request, context: RouteContext) {
   }
 
   // Handle external remote galleys via 302 redirect
-  if (
-    pdfGalley.downloadUrl &&
-    /^https?:\/\//i.test(pdfGalley.downloadUrl) &&
-    !pdfGalley.downloadUrl.includes("/pdf")
-  ) {
-    return NextResponse.redirect(pdfGalley.downloadUrl, 302)
+  if (pdfGalley.downloadUrl && /^https?:\/\//i.test(pdfGalley.downloadUrl)) {
+    try {
+      const parsed = new URL(pdfGalley.downloadUrl)
+      const reqHost = request.headers.get("host")?.toLowerCase() || ""
+      const isSelf =
+        parsed.host.toLowerCase() === reqHost ||
+        parsed.host.toLowerCase() === "digitopub.com" ||
+        parsed.host.toLowerCase() === "www.digitopub.com"
+      if (!isSelf && !parsed.pathname.endsWith("/pdf")) {
+        return NextResponse.redirect(pdfGalley.downloadUrl, 302)
+      }
+    } catch {
+      // not a valid URL, ignore
+    }
   }
 
   const filename = `${article.journalUrlPath || "article"}-${publicationId}.pdf`
