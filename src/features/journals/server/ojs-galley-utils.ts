@@ -13,7 +13,21 @@ export function isOpenAccessStatus(accessStatus: number | null | undefined): boo
 }
 
 /**
- * Builds the URL the browser loads when viewing a galley PDF.
+ * Builds the clean public PDF URL on digitopub:
+ * `/journals/{journalUrlPath}/articles/{publicationId}/pdf`
+ *
+ * Serves the PDF stream directly without `/api/` robots restrictions,
+ * allowing discovery crawlers (Google Scholar) to index the PDF.
+ */
+export function buildArticlePdfUrl(
+  journalUrlPath: string,
+  publicationId: number | string
+): string {
+  return `/journals/${encodeURIComponent(journalUrlPath)}/articles/${encodeURIComponent(String(publicationId))}/pdf`
+}
+
+/**
+ * Builds the URL the browser loads when viewing a galley PDF (legacy proxy).
  *
  *   1. `remoteUrl` set — passthrough to external URL (external galley).
  *   2. `journalUrlPath` or `submissionFileId` missing — returns null, signaling
@@ -21,12 +35,6 @@ export function isOpenAccessStatus(accessStatus: number | null | undefined): boo
  *   3. Otherwise — same-origin `/api/pdf-proxy?…` which fetches OJS's
  *      `/article/download/{s}/{g}/{f}` server-side and re-emits the PDF
  *      with `Content-Disposition: inline`.
- *
- * Why the proxy is canonical for local galleys: OJS unconditionally returns
- * `Content-Disposition: attachment` on all file URLs, which forces browser
- * downloads and prevents inline iframe rendering. The proxy normalizes this
- * header to inline, enabling seamless inline PDF display for all local
- * galleys regardless of access status (open access or subscription).
  */
 export function buildGalleyDownloadUrl(
   remoteUrl: string | null,
