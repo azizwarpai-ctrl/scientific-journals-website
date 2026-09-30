@@ -10,6 +10,7 @@ export interface ArticleGalley {
   label: string | null
   locale: string | null
   downloadUrl: string | null
+  fileId?: number | null
 }
 
 export interface ArticleDetail {

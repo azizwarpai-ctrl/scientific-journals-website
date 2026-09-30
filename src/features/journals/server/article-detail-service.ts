@@ -2,7 +2,7 @@ import sanitizeHtml from "sanitize-html"
 import { stripHtml } from "@/src/features/journals/server/citation-meta"
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { parseOjsCoverFilename, buildCoverUrl } from "@/src/features/journals/server/ojs-cover-utils"
-import { buildGalleyDownloadUrl, isOpenAccessStatus } from "@/src/features/journals/server/ojs-galley-utils"
+import { buildArticlePdfUrl, buildGalleyDownloadUrl, isOpenAccessStatus } from "@/src/features/journals/server/ojs-galley-utils"
 import { buildOjsArticleDownloadUrl } from "@/src/features/ojs/utils/ojs-config"
 import { fetchNewAuthorAffiliations, resolveAuthorAffiliation } from "@/src/features/journals/server/author-affiliation"
 import type { ArticleDetail, ArticleDetailAuthor, ArticleGalley } from "@/src/features/journals/types/article-detail-types"
@@ -298,13 +298,12 @@ export async function fetchArticleDetail(
     galleyId: row.galley_id,
     label: row.label,
     locale: row.locale,
-    downloadUrl: buildGalleyDownloadUrl(
-      row.remote_url,
-      article.journal_url_path,
-      submissionId,
-      row.galley_id,
-      row.submission_file_id
-    ),
+    fileId: row.submission_file_id,
+    downloadUrl: row.remote_url
+      ? row.remote_url
+      : article.journal_url_path
+        ? buildArticlePdfUrl(article.journal_url_path, publicationId)
+        : null,
   }))
 
   const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale)

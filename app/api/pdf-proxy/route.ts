@@ -1,57 +1,16 @@
 import { NextResponse } from "next/server"
-import { getOjsBaseUrl } from "@/src/features/ojs/utils/ojs-config"
 import {
-  REDIRECT_STATUSES,
-  resolveOjsRedirectTarget,
-} from "@/src/features/ojs/utils/ojs-hosts"
+  streamOjsPdf,
+  jsonError,
+  type ProxyErrorCode,
+} from "@/src/features/ojs/server/ojs-pdf-stream"
 
 /**
- * PDF proxy for gated / hotlink-protected OJS galleys.
+ * PDF proxy for gated / hotlink-protected OJS galleys (backward compatibility).
  *
- * Upstream strategies (tried in order):
- *
- *   Path 0 — **OJS PDF Bridge** (`ojs-pdf-bridge.php`).
- *            Authenticates with a shared Bearer token, resolves the galley
- *            directly from the OJS database, and streams the file from
- *            disk — bypassing the payments plugin, hotlink rules, and WAF
- *            interstitials entirely. Requires `OJS_API_KEY` to be set.
- *            If unconfigured, silently skipped.
- *
- *   Path 1 — **OJS web URL** (`/article/download/{s}/{g}/{f}`).
- *            The 3-arg form is the canonical direct-stream endpoint in
- *            OJS 3.x. Subject to payment-plugin and WAF interference.
- *
- * Open-access galleys are served directly from OJS (see
- * `buildGalleyDownloadUrl` in `ojs-galley-utils.ts`) and never hit this
- * route. This proxy exists for:
- *   - subscription / restricted journals, and
- *   - deployments where OJS applies session or hotlink checks to direct
- *     browser requests.
+ * Directs requests to the shared OJS PDF streaming core (`streamOjsPdf`).
+ * Public clean URLs use `/journals/[id]/articles/[publicationId]/pdf`.
  */
-
-type ProxyErrorCode =
-  | "BAD_REQUEST"
-  | "AUTH_REQUIRED"
-  | "FILE_NOT_FOUND"
-  | "INVALID_RESPONSE"
-  | "UPSTREAM_ERROR"
-  | "TIMEOUT"
-  | "NETWORK_ERROR"
-  | "RATE_LIMITED"
-
-const FETCH_TIMEOUT_MS = 15000
-// Bridge aliases (legacy /ojs/ prefix, submitmanager.com) 301 to the
-// canonical bridge URL. We follow a few hops manually — fetch's automatic
-// redirect handling would strip the Authorization header on a cross-origin
-// hop, and an unfollowed 301 silently disables the bridge.
-const MAX_BRIDGE_REDIRECTS = 3
-const PDF_MAGIC = new Uint8Array([0x25, 0x50, 0x44, 0x46]) // "%PDF"
-const ACCEPTED_CONTENT_TYPES = /^(application\/pdf|application\/x-pdf|application\/octet-stream|binary\/octet-stream)/i
-
-// Presenting as a browser bypasses WAFs / hotlink rules that silently reject
-// bot-like User-Agents with 403/HTML login pages.
-const BROWSER_USER_AGENT =
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
 
 const ID_PATTERN = /^\d+$/
 const JOURNAL_PATTERN = /^[A-Za-z0-9._-]+$/
@@ -61,28 +20,6 @@ interface ValidatedParams {
   submissionId: string
   galleyId: string
   fileId: string
-}
-
-function jsonError(
-  code: ProxyErrorCode,
-  message: string,
-  status: number,
-  sourceUrl?: string,
-  extraHeaders?: Record<string, string>
-): NextResponse {
-  const body: Record<string, unknown> = { error: code, message, status }
-  if (sourceUrl && process.env.NODE_ENV !== "production") {
-    body.source = sourceUrl
-  }
-  return NextResponse.json(body, {
-    status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store",
-      "X-Proxy-Error": code,
-      ...extraHeaders,
-    },
-  })
 }
 
 function validateParams(request: Request): ValidatedParams | NextResponse {
@@ -112,418 +49,29 @@ function validateParams(request: Request): ValidatedParams | NextResponse {
   return { journal, submissionId, galleyId, fileId }
 }
 
-function startsWithPdfMagic(chunk: Uint8Array): boolean {
-  if (chunk.length < PDF_MAGIC.length) return false
-  for (let i = 0; i < PDF_MAGIC.length; i++) {
-    if (chunk[i] !== PDF_MAGIC[i]) return false
-  }
-  return true
-}
-
-function looksLikeHtml(chunk: Uint8Array): boolean {
-  const text = new TextDecoder("utf-8", { fatal: false })
-    .decode(chunk.subarray(0, Math.min(chunk.length, 512)))
-    .trimStart()
-    .toLowerCase()
-  return (
-    text.startsWith("<!doctype html") ||
-    text.startsWith("<html") ||
-    text.includes("<head>") ||
-    text.includes("user_login")
-  )
-}
-
-function buildStream(
-  first: Uint8Array,
-  reader: ReadableStreamDefaultReader<Uint8Array>
-): ReadableStream<Uint8Array> {
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(first)
-    },
-    async pull(controller) {
-      try {
-        const { done, value } = await reader.read()
-        if (done) {
-          controller.close()
-          return
-        }
-        if (value) controller.enqueue(value)
-      } catch (err) {
-        controller.error(err)
-      }
-    },
-    cancel(reason) {
-      reader.cancel(reason).catch(() => {})
-    },
-  })
-}
-
 export async function GET(request: Request) {
   const validated = validateParams(request)
   if (validated instanceof NextResponse) return validated
   const { journal, submissionId, galleyId, fileId } = validated
 
-  // ─── Path 0: OJS PDF Bridge ───────────────────────────────────────────
-  //
-  // Try the dedicated bridge first — it bypasses all OJS permission layers
-  // (payments plugin, hotlink rules, WAF) by reading files directly from
-  // disk. Falls through to the web URL path on any non-200 response,
-  // except 429 (rate limit) which is terminal to avoid piling onto OJS.
-  const apiKey = process.env.OJS_API_KEY
-  const bridgeBase = process.env.OJS_BRIDGE_URL
-    ?? process.env.OJS_PDF_BRIDGE_URL
-    ?? (process.env.OJS_BASE_URL
-        ? `${process.env.OJS_BASE_URL.replace(/\/$/, "")}/ojs-pdf-bridge.php`
-        : null)
-
-  if (!apiKey) {
-    console.info("[pdf-proxy] OJS_API_KEY not set, skipping bridge")
-  } else if (!bridgeBase) {
-    console.warn("[pdf-proxy] OJS_BRIDGE_URL and OJS_BASE_URL both unset, skipping bridge")
-  } else {
-    try {
-      let bridgeUrl = new URL(bridgeBase)
-      bridgeUrl.searchParams.set("journal", journal)
-      bridgeUrl.searchParams.set("submissionId", submissionId)
-      bridgeUrl.searchParams.set("galleyId", galleyId)
-      bridgeUrl.searchParams.set("fileId", fileId)
-
-      // Follow redirects manually, but only to OJS-owned hosts (see
-      // resolveOjsRedirectTarget) — a stale alias must not silently disable
-      // the bridge, and the Bearer key must never leak cross-host.
-      const fetchBridge = (url: URL) =>
-        fetch(url, {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "User-Agent": "digitopub-pdf-proxy/1.0",
-          },
-          cache: "no-store",
-          redirect: "manual",
-          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        })
-
-      let bridgeRes = await fetchBridge(bridgeUrl)
-      for (let hop = 0; hop < MAX_BRIDGE_REDIRECTS; hop++) {
-        if (!REDIRECT_STATUSES.has(bridgeRes.status)) break
-
-        const location = bridgeRes.headers.get("location")
-        const target = resolveOjsRedirectTarget(location, bridgeUrl)
-        if (!target) {
-          console.warn("[pdf-proxy] bridge redirect not followed", {
-            status: bridgeRes.status,
-            location,
-          })
-          break
-        }
-        console.info("[pdf-proxy] following bridge redirect", {
-          from: bridgeUrl.origin + bridgeUrl.pathname,
-          to: target.origin + target.pathname,
-        })
-        bridgeRes.body?.cancel().catch(() => {})
-        bridgeUrl = target
-        bridgeRes = await fetchBridge(bridgeUrl)
-      }
-
-      // 429 is terminal — don't pile onto the OJS web layer.
-      if (bridgeRes.status === 429) {
-        return jsonError(
-          "RATE_LIMITED",
-          "Too many requests, please try again shortly.",
-          429,
-          bridgeUrl.toString(),
-          {
-            "Retry-After": bridgeRes.headers.get("retry-after") ?? "60",
-            "X-Proxy-Path": "bridge-429",
-          }
-        )
-      }
-
-      const bridgeCt = bridgeRes.headers.get("content-type") ?? ""
-      if (bridgeRes.ok && bridgeCt.includes("pdf")) {
-        // Bridge returned a PDF — stream it through the same verification
-        // pipeline (magic-byte check, HTML-login detection) for defense in depth.
-        console.info("[pdf-proxy] bridge hit", {
-          path: "bridge",
-          status: bridgeRes.status,
-          submissionId,
-        })
-        // Stream through streamPdfResponse below, but we need baseUrl/ojsHost
-        // for the fallback path anyway, so we defer calling streamPdfResponse
-        // until after we set those up. Instead, handle it inline here.
-        if (!bridgeRes.body) {
-          console.warn("[pdf-proxy] bridge fall-through (empty body)", {
-            bridgeStatus: bridgeRes.status,
-            journal,
-            submissionId,
-          })
-        } else {
-          // Peek first bytes to verify PDF magic / detect HTML shells.
-          const reader = bridgeRes.body.getReader()
-          const chunks: Uint8Array[] = []
-          let totalBytes = 0
-          try {
-            while (totalBytes < PDF_MAGIC.length) {
-              const { done, value } = await reader.read()
-              if (done) break
-              if (value && value.length > 0) {
-                chunks.push(value)
-                totalBytes += value.length
-              }
-            }
-          } catch {
-            await reader.cancel().catch(() => {})
-            // Fall through to web URL path
-            console.warn("[pdf-proxy] bridge fall-through (read error)", {
-              journal, submissionId, galleyId,
-            })
-            totalBytes = 0 // force fall-through
-          }
-
-          if (totalBytes > 0) {
-            const buffer = Buffer.concat(chunks, totalBytes)
-
-            if (startsWithPdfMagic(buffer) && !looksLikeHtml(buffer)) {
-              const stream = buildStream(buffer, reader)
-              const outHeaders: Record<string, string> = {
-                "Content-Type": "application/pdf",
-                "Content-Disposition": `inline; filename="article-${submissionId}.pdf"`,
-                "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
-                "Accept-Ranges": "none",
-                "X-Content-Type-Options": "nosniff",
-                "X-Frame-Options": "SAMEORIGIN",
-                "X-Proxy-Path": "bridge",
-              }
-              const contentLength = bridgeRes.headers.get("content-length")
-              if (contentLength && /^\d+$/.test(contentLength)) {
-                outHeaders["Content-Length"] = contentLength
-              }
-              return new NextResponse(stream, { status: 200, headers: outHeaders })
-            }
-
-            // Not a valid PDF — cancel and fall through
-            await reader.cancel().catch(() => {})
-            console.warn("[pdf-proxy] bridge fall-through (non-PDF content)", {
-              bridgeStatus: bridgeRes.status,
-              contentType: bridgeCt,
-              journal,
-              submissionId,
-            })
-          }
-        }
-      } else {
-        // Non-200 or non-PDF content type — log and fall through
-        console.warn("[pdf-proxy] bridge fall-through", {
-          bridgeStatus: bridgeRes.status,
-          bridgeError: bridgeRes.headers.get("x-pdf-bridge-error") ?? null,
-          contentType: bridgeCt,
-          journal,
-          submissionId,
-          galleyId,
-          fileId: fileId || null,
-        })
-      }
-    } catch (err) {
-      console.warn("[pdf-proxy] bridge fetch error", { error: String(err) })
-    }
-  }
-
-  // ─── Path 1: OJS Web URL ──────────────────────────────────────────────
-  let baseUrl: string
-  try {
-    baseUrl = getOjsBaseUrl()
-  } catch {
-    return jsonError("UPSTREAM_ERROR", "OJS source is not configured.", 502)
-  }
-
-  const ojsHost = (() => {
-    try {
-      return new URL(baseUrl).host
-    } catch {
-      return null
-    }
-  })()
-  if (!ojsHost) {
-    return jsonError("UPSTREAM_ERROR", "OJS base URL is invalid.", 502)
-  }
-
-  const articlePageReferer = `${baseUrl}/index.php/${journal}/article/view/${submissionId}`
-
-  const fetchWithTimeout = async (url: string): Promise<Response> => {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
-    try {
-      return await fetch(url, {
-        method: "GET",
-        headers: {
-          "User-Agent": BROWSER_USER_AGENT,
-          Accept: "application/pdf,application/octet-stream;q=0.9,*/*;q=0.1",
-          "Accept-Language": "en-US,en;q=0.9",
-          Referer: articlePageReferer,
-        },
-        signal: controller.signal,
-        redirect: "manual",
-        cache: "no-store",
-      })
-    } finally {
-      clearTimeout(timer)
-    }
-  }
-
-  // Follow same-host redirects; block cross-host or auth redirects.
-  const followRedirects = async (
-    startUrl: string,
-    maxHops = 5
-  ): Promise<{ res: Response; finalUrl: string } | NextResponse> => {
-    let currentUrl = startUrl
-    for (let hop = 0; hop <= maxHops; hop++) {
-      const res = await fetchWithTimeout(currentUrl)
-      if (res.status < 300 || res.status > 399) {
-        return { res, finalUrl: currentUrl }
-      }
-      const location = res.headers.get("location")
-      if (!location) {
-        return jsonError("UPSTREAM_ERROR", "Source redirected without a target.", 502, currentUrl)
-      }
-      const target = new URL(location, currentUrl)
-      const pathLower = target.pathname.toLowerCase()
-      if (pathLower.includes("/login") || pathLower.includes("signin")) {
-        return jsonError(
-          "AUTH_REQUIRED",
-          "This file requires access permission on the source server.",
-          403,
-          currentUrl
-        )
-      }
-      if (target.host !== ojsHost) {
-        return jsonError("UPSTREAM_ERROR", "Source redirected to an untrusted host.", 502, currentUrl)
-      }
-      currentUrl = target.toString()
-    }
-    return jsonError("UPSTREAM_ERROR", "Too many redirects.", 502, startUrl)
-  }
-
-  const streamPdfResponse = async (
-    res: Response,
-    sourceUrl: string
-  ): Promise<NextResponse> => {
-    if (res.status === 401 || res.status === 403) {
-      return jsonError("AUTH_REQUIRED", "This file requires access permission.", 403, sourceUrl)
-    }
-    if (res.status === 404 || res.status === 410) {
-      return jsonError("FILE_NOT_FOUND", "PDF not found on source server.", 404, sourceUrl)
-    }
-    if (!res.ok) {
-      return jsonError("UPSTREAM_ERROR", `Source returned status ${res.status}.`, 502, sourceUrl)
-    }
-
-    const contentType = (res.headers.get("content-type") || "").toLowerCase()
-    if (contentType.includes("text/html") || contentType.includes("application/xhtml")) {
-      return jsonError(
-        "AUTH_REQUIRED",
-        "Source returned HTML (likely requires authentication).",
-        403,
-        sourceUrl
-      )
-    }
-    if (!res.body) {
-      return jsonError("INVALID_RESPONSE", "Source returned empty response.", 502, sourceUrl)
-    }
-
-    // Peek first bytes to verify PDF magic / detect HTML shells.
-    const reader = res.body.getReader()
-    const chunks: Uint8Array[] = []
-    let totalBytes = 0
-    try {
-      while (totalBytes < PDF_MAGIC.length) {
-        const { done, value } = await reader.read()
-        if (done) break
-        if (value && value.length > 0) {
-          chunks.push(value)
-          totalBytes += value.length
-        }
-      }
-    } catch {
-      await reader.cancel().catch(() => {})
-      return jsonError("UPSTREAM_ERROR", "Source closed connection.", 502, sourceUrl)
-    }
-
-    if (totalBytes === 0) {
-      await reader.cancel().catch(() => {})
-      return jsonError("INVALID_RESPONSE", "Source returned empty body.", 502, sourceUrl)
-    }
-
-    const buffer = Buffer.concat(chunks, totalBytes)
-
-    if (!startsWithPdfMagic(buffer)) {
-      await reader.cancel().catch(() => {})
-      if (looksLikeHtml(buffer)) {
-        return jsonError(
-          "AUTH_REQUIRED",
-          "Source returned an HTML page instead of a PDF (likely requires authentication).",
-          403,
-          sourceUrl
-        )
-      }
-      return jsonError("INVALID_RESPONSE", "Source returned a non-PDF file.", 502, sourceUrl)
-    }
-
-    if (contentType && !ACCEPTED_CONTENT_TYPES.test(contentType)) {
-      await reader.cancel().catch(() => {})
-      return jsonError(
-        "INVALID_RESPONSE",
-        `Unexpected content type: ${contentType}.`,
-        502,
-        sourceUrl
-      )
-    }
-
-    const stream = buildStream(buffer, reader)
-    const outHeaders: Record<string, string> = {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="article-${submissionId}.pdf"`,
-      "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
-      "Accept-Ranges": "none",
-      "X-Content-Type-Options": "nosniff",
-      "X-Frame-Options": "SAMEORIGIN",
-    }
-    const contentLength = res.headers.get("content-length")
-    if (contentLength && /^\d+$/.test(contentLength)) {
-      outHeaders["Content-Length"] = contentLength
-    }
-    outHeaders["X-Proxy-Path"] = "web-url"
-    return new NextResponse(stream, { status: 200, headers: outHeaders })
-  }
-
-  const webUrl = `${baseUrl}/index.php/${journal}/article/download/${submissionId}/${galleyId}/${fileId}`
-
-  try {
-    const followed = await followRedirects(webUrl)
-    if (followed instanceof NextResponse) return followed
-    return await streamPdfResponse(followed.res, followed.finalUrl)
-  } catch (error: unknown) {
-    if (error instanceof Error && error.name === "AbortError") {
-      return jsonError("TIMEOUT", "Source did not respond in time.", 504, webUrl)
-    }
-    return jsonError("NETWORK_ERROR", "Network error contacting source.", 502, webUrl)
-  }
+  return streamOjsPdf({
+    journal,
+    submissionId,
+    galleyId,
+    fileId,
+    filename: `article-${submissionId}.pdf`,
+    contentDisposition: "inline",
+  })
 }
 
 /**
  * HEAD response is strictly metadata: it validates the request shape and
  * returns 200 with PDF-ish headers, or mirrors the validation error's
  * status + X-Proxy-Error header with no body (RFC 9110 §9.3.2).
- *
- * Note: this handler does NOT probe upstream availability. A 200 here
- * means the URL is well-formed, not that the PDF is reachable. Callers
- * that need a real existence check must use GET.
  */
 export async function HEAD(request: Request) {
   const validated = validateParams(request)
   if (validated instanceof NextResponse) {
-    // validateParams uses jsonError() which attaches a JSON body. RFC 9110
-    // forbids HEAD responses from carrying a body, so re-emit the status
-    // and headers without it.
     return new NextResponse(null, {
       status: validated.status,
       headers: validated.headers,

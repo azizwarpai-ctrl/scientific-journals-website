@@ -1,7 +1,7 @@
 import { ojsQuery } from "@/src/features/ojs/server/ojs-client"
 import { stripHtml } from "@/src/features/journals/server/citation-meta"
 import { parseOjsCoverFilename, buildCoverUrl } from "./ojs-cover-utils"
-import { buildGalleyDownloadUrl, isOpenAccessStatus } from "./ojs-galley-utils"
+import { buildArticlePdfUrl, buildGalleyDownloadUrl, isOpenAccessStatus } from "./ojs-galley-utils"
 import { buildOjsArticleDownloadUrl } from "@/src/features/ojs/utils/ojs-config"
 import {
   fetchNewAuthorAffiliations,
@@ -263,13 +263,7 @@ export async function fetchArticlesWithAuthors(
       || galleys.find(g => g.label?.toLowerCase().includes('pdf'))
 
     const pdfUrl = pdfGalley
-      ? buildGalleyDownloadUrl(
-          pdfGalley.remote_url,
-          journalUrlPath,
-          row.submission_id,
-          pdfGalley.galley_id,
-          pdfGalley.submission_file_id
-        )
+      ? (pdfGalley.remote_url || (journalUrlPath ? buildArticlePdfUrl(journalUrlPath, row.publication_id) : null))
       : null
 
     // Clean shareable OJS download URL — see ArticleDetail.pdfDownloadUrl
