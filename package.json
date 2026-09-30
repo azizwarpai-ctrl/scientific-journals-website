@@ -88,7 +88,7 @@
     "lucide-react": "^0.577.0",
     "mariadb": "^3.5.2",
     "mysql2": "^3.19.0",
-    "next": "16.3.0",
+    "next": "16.3.6",
     "next-themes": "^0.4.6",
     "nodemailer": "^8.0.11",
     "postcss": "^8.5.26",
@@ -101,7 +101,7 @@
     "react-is": "18.3.1",
     "react-resizable-panels": "^2.1.7",
     "recharts": "3.8.0",
-    "sanitize-html": "2.17.5",
+    "sanitize-html": "2.17.7",
     "sonner": "^1.7.4",
     "stripe": "20.4.1",
     "tailwind-merge": "^3.5.0",
@@ -120,14 +120,14 @@
     "@types/bcryptjs": "^2.4.6",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/coverage-v8": "^4.1.1",
     "eslint": "^9.39.0",
     "eslint-config-next": "^16.1.6",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-unused-imports": "^4.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^5",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.1"
   },
   "trustedDependencies": [
     "pg-native"
