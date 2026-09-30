@@ -100,8 +100,64 @@ export async function fetchArticleDetail(
     [publicationId, journalId, OJS_STATUS_PUBLISHED, OJS_STATUS_PUBLISHED]
   )
 
+  // --- submission_id FALLBACK ---
+  // OJS DOI resolvers and some legacy links may carry the submission_id
+  // (submissions.submission_id) in the URL parameter instead of the
+  // publication_id (publications.publication_id).  When the primary lookup
+  // finds nothing, we re-try treating the parameter as a submission_id and
+  // joining to the *current* publication via submissions.current_publication_id.
   if (articleRows.length === 0) {
-    return null
+    const fallbackRows = await ojsQuery<ArticleDbRow>(
+      `SELECT
+        p.publication_id,
+        p.submission_id,
+        p.date_published,
+        d.doi,
+        s.context_id as journal_id,
+        i.issue_id,
+        i.volume,
+        i.number,
+        i.year,
+        j.path as journal_url_path,
+        is_title.setting_value as issue_title,
+        js_name.setting_value as journal_title,
+        js_abbrev.setting_value as journal_abbreviation,
+        js_issn.setting_value as issn,
+        js_eissn.setting_value as e_issn,
+        sec.section_id,
+        sec_title.setting_value as section_title,
+        j.primary_locale,
+        i.access_status
+      FROM submissions s
+      INNER JOIN publications p ON p.publication_id = s.current_publication_id
+      LEFT JOIN dois d ON p.doi_id = d.doi_id
+      INNER JOIN journals j ON j.journal_id = s.context_id
+      LEFT JOIN issues i ON i.issue_id = p.issue_id
+      LEFT JOIN issue_settings is_title ON is_title.issue_id = i.issue_id AND is_title.setting_name = 'title' AND is_title.locale = j.primary_locale
+      LEFT JOIN journal_settings js_name ON js_name.journal_id = j.journal_id AND js_name.setting_name = 'name' AND js_name.locale = j.primary_locale
+      LEFT JOIN journal_settings js_abbrev ON js_abbrev.journal_id = j.journal_id AND js_abbrev.setting_name = 'abbreviation' AND js_abbrev.locale = j.primary_locale
+      LEFT JOIN journal_settings js_issn ON js_issn.journal_id = j.journal_id AND js_issn.setting_name = 'printIssn' AND js_issn.locale = ''
+      LEFT JOIN journal_settings js_eissn ON js_eissn.journal_id = j.journal_id AND js_eissn.setting_name = 'onlineIssn' AND js_eissn.locale = ''
+      LEFT JOIN sections sec ON sec.section_id = p.section_id
+      LEFT JOIN section_settings sec_title ON sec_title.section_id = sec.section_id AND sec_title.setting_name = 'title' AND sec_title.locale = j.primary_locale
+      WHERE s.submission_id = ? AND s.context_id = ?
+        AND p.status = ?
+        AND s.status = ?
+      LIMIT 1`,
+      [publicationId, journalId, OJS_STATUS_PUBLISHED, OJS_STATUS_PUBLISHED]
+    )
+
+    if (fallbackRows.length === 0) {
+      return null
+    }
+
+    console.warn(
+      `[ArticleDetail] publication_id ${publicationId} not found; resolved via submission_id fallback → publication_id ${fallbackRows[0].publication_id}`
+    )
+
+    // Recurse with the resolved publication_id so all downstream logic
+    // (settings, galleys, authors, metrics) runs against the correct id.
+    return fetchArticleDetail(ojsJournalId, fallbackRows[0].publication_id)
   }
 
   const article = articleRows[0]

@@ -93,4 +93,15 @@ describe("buildCitationMeta", () => {
     const meta = buildCitationMeta(article, articleUrl, appBase, { emitPdfUrl: true })
     expect(meta.citation_pdf_url).toBeUndefined()
   })
+
+  it("emits the clean digitopub PDF route as citation_pdf_url when article.pdfUrl is not under /api/", () => {
+    const article = makeArticle({
+      pdfUrl: "/journals/jot/articles/999/pdf",
+      galleys: [{ galleyId: 5, label: "PDF", locale: "en", downloadUrl: "/journals/jot/articles/999/pdf" }],
+    })
+    const meta = buildCitationMeta(article, articleUrl, appBase, { emitPdfUrl: true })
+    expect(meta.citation_pdf_url).toBe("https://digitopub.com/journals/jot/articles/999/pdf")
+    expect(String(meta.citation_pdf_url)).not.toContain("/api/")
+  })
 })
+

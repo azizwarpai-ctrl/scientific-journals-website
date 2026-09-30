@@ -86,21 +86,24 @@ export async function generateMetadata(
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
   const isValidAbsoluteUrl = appUrl.startsWith("http://") || appUrl.startsWith("https://")
 
-  // Canonical defers to the OJS landing — that's the Google-Scholar record
-  // surface (full citation_* meta, same-host PDF). Built from the real OJS
-  // submissionId + journalUrlPath; the route [publicationId] is NOT the OJS
-  // submission_id.
-  const canonicalUrl = buildOjsArticleLandingUrl(
-    article.journalUrlPath,
-    article.submissionId
-  )
+  const digitopubArticlePath = `/journals/${article.journalUrlPath || resolvedParams.id}/articles/${resolvedParams.publicationId}`
+  const digitopubCanonicalUrl = isValidAbsoluteUrl
+    ? `${appUrl}${digitopubArticlePath}`
+    : digitopubArticlePath
 
-  // Option A (default): emit no Scholar discovery metadata at all. Only when
-  // EMIT_SCHOLAR_CITATION_META is true do we build the Highwire citation_* set,
-  // and only then do we ask for the real OJS download URL as citation_pdf_url.
+  // Under Option B (EMIT_SCHOLAR_CITATION_META=true), digitopub is the canonical
+  // Google-Scholar record surface. Under Option A (default off), canonical defers
+  // to the OJS landing URL.
+  const canonicalUrl = EMIT_SCHOLAR_CITATION_META
+    ? digitopubCanonicalUrl
+    : buildOjsArticleLandingUrl(
+        article.journalUrlPath,
+        article.submissionId
+      )
+
   let citationMeta: Record<string, string | (string | number)[]> = {}
   if (EMIT_SCHOLAR_CITATION_META && isValidAbsoluteUrl) {
-    citationMeta = buildCitationMeta(article, canonicalUrl, appUrl, {
+    citationMeta = buildCitationMeta(article, digitopubArticlePath, appUrl, {
       emitPdfUrl: true,
     })
   }

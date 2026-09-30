@@ -132,18 +132,26 @@ export function buildCitationMeta(
     : base && `${base}${articleUrl}`
   set("citation_abstract_html_url", absoluteArticleUrl || null)
 
-  // citation_pdf_url (R4): we must NEVER advertise a robots-blocked PDF URL.
-  // The on-page "View PDF"/download links (article.pdfUrl) route through
-  // `/api/pdf-proxy`, which is `Disallow: /api/` in robots.ts and receives an
-  // `X-Robots-Tag: noindex` header. Emitting it would tell Scholar to fetch a
-  // URL we forbid. So:
-  //   - We only emit citation_pdf_url when explicitly asked (Option B), and
-  //   - even then only the REAL OJS download URL, and
-  //   - never any URL under `/api/`.
+  // citation_pdf_url (Option B): emit a crawlable, robots-allowed PDF URL for Google Scholar.
+  // 1. If article.pdfUrl is available and does NOT point at /api/, resolve to absolute URL.
+  // 2. Otherwise fall back to the real OJS public download URL (if not pointing at /api/).
+  // 3. Never emit any URL under /api/ (disallowed in robots.txt).
   if (options.emitPdfUrl) {
-    const ojsPdfUrl = buildOjsPdfDownloadUrl(article)
-    if (ojsPdfUrl && !pointsAtApi(ojsPdfUrl)) {
-      set("citation_pdf_url", ojsPdfUrl)
+    let pdfUrlToEmit: string | null = null
+    if (article.pdfUrl && !pointsAtApi(article.pdfUrl)) {
+      pdfUrlToEmit = article.pdfUrl.startsWith("http")
+        ? article.pdfUrl
+        : base
+          ? `${base}${article.pdfUrl}`
+          : null
+    } else {
+      const ojsPdfUrl = buildOjsPdfDownloadUrl(article)
+      if (ojsPdfUrl && !pointsAtApi(ojsPdfUrl)) {
+        pdfUrlToEmit = ojsPdfUrl
+      }
+    }
+    if (pdfUrlToEmit) {
+      set("citation_pdf_url", pdfUrlToEmit)
     }
   }
 
