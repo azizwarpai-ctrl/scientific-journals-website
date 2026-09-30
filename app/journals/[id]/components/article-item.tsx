@@ -15,7 +15,6 @@ import DOMPurify from "dompurify"
 import type { CurrentIssueArticle, CurrentIssueAuthor } from "@/src/features/journals"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ModalPdfViewer } from "../articles/[publicationId]/components/modal-pdf-viewer"
 import { AudioPlayer } from "@/src/components/audio-player"
 
 interface ArticleItemProps {
@@ -190,13 +189,17 @@ export function ArticleItem({ article }: ArticleItemProps) {
               </Link>
             </Button>
             {article.pdfUrl && (
-              <ModalPdfViewer
-                pdfUrl={article.pdfUrl}
-                pdfDownloadUrl={article.pdfDownloadUrl}
-                articleTitle={article.title || undefined}
-                isOpenAccess={article.isOpenAccess}
-                triggerStyle="card"
-              />
+              <Button asChild variant="ghost" size="sm" className="h-8 gap-2 text-primary hover:bg-primary/10 rounded-full px-4">
+                <a
+                  href={article.pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`View PDF for ${article.title || 'article'}`}
+                >
+                  <FileText className="h-3.5 w-3.5 opacity-70" />
+                  View PDF
+                </a>
+              </Button>
             )}
           </div>
         </div>

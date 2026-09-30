@@ -4,7 +4,7 @@ import { Download, FileText, BarChart3, Quote, Share2 } from "lucide-react"
 import { useState } from "react"
 import type { ArticleDetail } from "@/src/features/journals"
 import { CitationBox } from "./citation-box"
-import { ModalPdfViewer } from "./modal-pdf-viewer"
+import { Button } from "@/components/ui/button"
 
 interface ArticleSidebarProps {
   article: ArticleDetail
@@ -45,15 +45,34 @@ export function ArticleSidebar({ article }: ArticleSidebarProps) {
         </h3>
 
         {article.pdfUrl ? (
-          <ModalPdfViewer
-            pdfUrl={article.pdfUrl}
-            pdfDownloadUrl={article.pdfDownloadUrl}
-            articleTitle={article.title || undefined}
-            isOpenAccess={article.isOpenAccess}
-            articleId={article.publicationId}
-            journalId={article.journalId}
-            galleyId={article.galleys.find((g) => g.label?.toLowerCase().includes("pdf"))?.galleyId}
-          />
+          <div className="space-y-2">
+            <Button
+              asChild
+              className="w-full font-bold h-12 shadow-sm rounded-xl gap-2"
+            >
+              <a
+                href={article.pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <FileText className="h-5 w-5" /> View PDF
+              </a>
+            </Button>
+            {article.pdfDownloadUrl && (
+              <Button
+                asChild
+                variant="outline"
+                className="w-full font-semibold h-10 rounded-xl gap-2"
+              >
+                <a
+                  href={article.pdfDownloadUrl}
+                  download
+                >
+                  <Download className="h-4 w-4" /> Download PDF
+                </a>
+              </Button>
+            )}
+          </div>
         ) : (
           <div className="p-4 rounded-lg bg-muted/40 border border-border/40 text-center">
             <p className="text-sm text-muted-foreground font-medium">PDF not available</p>
