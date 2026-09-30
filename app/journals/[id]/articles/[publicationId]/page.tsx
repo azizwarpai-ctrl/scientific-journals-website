@@ -86,7 +86,8 @@ export async function generateMetadata(
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
   const isValidAbsoluteUrl = appUrl.startsWith("http://") || appUrl.startsWith("https://")
 
-  const digitopubArticlePath = `/journals/${article.journalUrlPath || resolvedParams.id}/articles/${resolvedParams.publicationId}`
+  const journalSlug = encodeURIComponent(article.journalUrlPath || resolvedParams.id)
+  const digitopubArticlePath = `/journals/${journalSlug}/articles/${article.publicationId}`
   const digitopubCanonicalUrl = isValidAbsoluteUrl
     ? `${appUrl}${digitopubArticlePath}`
     : digitopubArticlePath

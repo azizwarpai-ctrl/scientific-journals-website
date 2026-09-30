@@ -146,16 +146,23 @@ export async function streamOjsPdf(options: StreamOjsPdfOptions): Promise<NextRe
         bridgeUrl.searchParams.set("fileId", fileId)
       }
 
-      const fetchBridge = (url: URL) =>
-        fetch(url, {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "User-Agent": "digitopub-pdf-stream/1.0",
-          },
-          cache: "no-store",
-          redirect: "manual",
-          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        })
+      const fetchBridge = async (url: URL): Promise<Response> => {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+        try {
+          return await fetch(url, {
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "User-Agent": "digitopub-pdf-stream/1.0",
+            },
+            cache: "no-store",
+            redirect: "manual",
+            signal: controller.signal,
+          })
+        } finally {
+          clearTimeout(timer)
+        }
+      }
 
       let bridgeRes = await fetchBridge(bridgeUrl)
       for (let hop = 0; hop < MAX_BRIDGE_REDIRECTS; hop++) {

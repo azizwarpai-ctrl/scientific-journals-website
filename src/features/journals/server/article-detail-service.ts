@@ -350,17 +350,32 @@ export async function fetchArticleDetail(
     [publicationId]
   )
 
-  const galleys: ArticleGalley[] = galleyRows.map(row => ({
-    galleyId: row.galley_id,
-    label: row.label,
-    locale: row.locale,
-    fileId: row.submission_file_id,
-    downloadUrl: row.remote_url
-      ? row.remote_url
-      : article.journal_url_path
+  const galleys: ArticleGalley[] = galleyRows.map(row => {
+    let downloadUrl: string | null = null
+
+    if (row.remote_url) {
+      downloadUrl = row.remote_url
+    } else if (row.submission_file_id && article.journal_url_path) {
+      const isPdf = row.label?.toLowerCase().includes("pdf") ?? false
+      downloadUrl = isPdf
         ? buildArticlePdfUrl(article.journal_url_path, publicationId)
-        : null,
-  }))
+        : buildGalleyDownloadUrl(
+            null,
+            article.journal_url_path,
+            article.submission_id,
+            row.galley_id,
+            row.submission_file_id
+          )
+    }
+
+    return {
+      galleyId: row.galley_id,
+      label: row.label,
+      locale: row.locale,
+      fileId: row.submission_file_id,
+      downloadUrl,
+    }
+  })
 
   const pdfGalley = galleys.find(g => g.label?.toLowerCase().includes('pdf') && g.locale === primaryLocale)
     || galleys.find(g => g.label?.toLowerCase().includes('pdf'))
