@@ -1,3 +1,5 @@
+"use client"
+
 import {
   Send,
   ArrowRight,
@@ -6,6 +8,7 @@ import {
   Newspaper as NewspaperIcon,
   Archive as ArchiveIcon,
 } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { SubmitManuscriptButton } from "./submit-manuscript-button"
 

@@ -1,4 +1,7 @@
+"use client"
+
 import { ABOUT_METADATA } from "@/src/features/journals/about-slugs"
+
 
 export interface AboutNavPillsProps {
   activeAboutSlug: string | null
