@@ -40,3 +40,14 @@ export {
 export type { JournalRegistrationPayload } from "./schemas/journal-registration-schemas"
 export { useJournalRegistrationStore } from "./stores/journal-registration-store"
 export { JournalRegistrationWizard } from "./components/register/journal-registration-wizard"
+
+// Extracted Utilities & Hooks
+export { sanitizeContent, sanitizeRichContent } from "./utils/sanitize-html"
+export { resolveOjsUrls } from "./utils/ojs-url"
+export type { OjsUrls } from "./utils/ojs-url"
+export { formatCurrency } from "./utils/format-currency"
+export { useTabSync } from "./hooks/use-tab-sync"
+export type { UseTabSyncOptions, UseTabSyncReturn } from "./hooks/use-tab-sync"
+export { useAboutScrollSpy } from "./hooks/use-about-scroll-spy"
+export type { UseAboutScrollSpyOptions, UseAboutScrollSpyReturn } from "./hooks/use-about-scroll-spy"
+
