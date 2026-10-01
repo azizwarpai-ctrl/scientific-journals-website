@@ -130,15 +130,42 @@ export function JournalDetailView({
   const isProgrammaticScroll = useRef(false)
   const scrollResetTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
+  // Ref tracks the "live" slug so the IntersectionObserver callback never
+  // goes stale *and* the observer doesn't rebuild on every slug change.
+  const activeAboutSlugRef = useRef(activeAboutSlug)
+  activeAboutSlugRef.current = activeAboutSlug
+
+  // When the observer calls router.replace, Next.js re-renders with a new
+  // initialAboutSlug. We track whether the *observer* itself authored the
+  // current URL so we can skip the programmatic scroll in that case.
+  const observerDrivenSlugRef = useRef<string | null>(null)
+
+  // Track whether the initial mount scroll has already been performed so
+  // subsequent observer-driven URL updates don't re-trigger it.
+  const hasInitialScrolledRef = useRef(false)
+
   if (prevInitialAbout !== initialAboutSlug) {
     setPrevInitialAbout(initialAboutSlug)
-    setActiveAboutSlug(initialAboutSlug)
+    // Only update the active pill — skip if observer authored this change.
+    if (observerDrivenSlugRef.current === initialAboutSlug) {
+      // Observer-driven update already set the slug via setActiveAboutSlug;
+      // clear the marker and skip.
+      observerDrivenSlugRef.current = null
+    } else {
+      // Genuine navigation (browser back/forward, or external link) —
+      // reset the initial-scroll gate so we scroll to the new section.
+      setActiveAboutSlug(initialAboutSlug)
+      hasInitialScrolledRef.current = false
+    }
   }
 
-  // Initial scroll-to-section on mount or URL change
+  // Initial scroll-to-section — fires once on mount (or on genuine URL
+  // navigation), then locks itself out until the gate is reset above.
   useEffect(() => {
     if (isLoading || !journal) return
+    if (hasInitialScrolledRef.current) return
     if (activeTab === "about" && initialAboutSlug) {
+      hasInitialScrolledRef.current = true
       const timer = setTimeout(() => {
         const el = document.getElementById(`about-${initialAboutSlug}`)
         if (el) {
@@ -160,7 +187,10 @@ export function JournalDetailView({
     }
   }, [activeTab, initialAboutSlug, isLoading, journal])
 
-  // IntersectionObserver to update active pill + URL on scroll
+  // IntersectionObserver to update active pill + URL on scroll.
+  // Deps intentionally exclude activeAboutSlug — we read it from a ref
+  // to avoid tearing down / rebuilding the observer on every scroll-spy
+  // update, which was a key contributor to the oscillation bug (#150).
   useEffect(() => {
     if (isLoading || !journal) return
     if (activeTab !== "about") return
@@ -176,7 +206,10 @@ export function JournalDetailView({
           )
           const newSlug = mostVisible.target.id.replace("about-", "")
 
-          if (newSlug !== activeAboutSlug) {
+          if (newSlug !== activeAboutSlugRef.current) {
+            // Mark this slug as observer-driven so the prop-reconciliation
+            // block above skips re-triggering the programmatic scroll.
+            observerDrivenSlugRef.current = newSlug
             setActiveAboutSlug(newSlug)
             // Use replace so we don't spam the history stack on scroll
             router.replace(`/journals/${id}/about-journal/${newSlug}`, { scroll: false })
@@ -195,9 +228,13 @@ export function JournalDetailView({
     })
 
     return () => observer.disconnect()
-  }, [activeTab, id, router, activeAboutSlug, isLoading, journal])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, id, router, isLoading, journal])
 
   const handleAboutPillClick = (slug: string) => {
+    // Mark as observer-driven-equivalent so the prop reconciliation block
+    // doesn't reset hasInitialScrolledRef and cause a redundant useEffect scroll.
+    observerDrivenSlugRef.current = slug
     setActiveAboutSlug(slug)
     router.push(`/journals/${id}/about-journal/${slug}`, { scroll: false })
     
