@@ -21,6 +21,15 @@ const nextConfig = {
     if (dev && !isServer) {
       config.devtool = 'cheap-module-source-map'
     }
+    // @splinetool/react-spline exports only ESM ("import" condition) with
+    // no "default"/"require" fallback. Ensure Webpack tries the "import"
+    // condition when resolving package exports.
+    if (!config.resolve.conditionNames?.includes('import')) {
+      config.resolve.conditionNames = [
+        ...(config.resolve.conditionNames || []),
+        'import',
+      ]
+    }
     return config
   },
 }
