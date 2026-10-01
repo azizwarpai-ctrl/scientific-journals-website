@@ -15,14 +15,7 @@ const nextConfig = {
       { protocol: 'https', hostname: 'journals.digitopub.com' },
     ],
   },
-  experimental: {
-    // turbo was invalid here
-  },
   transpilePackages: ['@splinetool/react-spline', '@splinetool/runtime'],
-  // As per invalid config warning tip:
-  turbopack: {
-    // rules for .wasm are handled by transpilePackages or need correct syntax if still failing
-  },
   webpack: (config, { dev, isServer }) => {
     // Suppress source map warnings in development
     if (dev && !isServer) {
