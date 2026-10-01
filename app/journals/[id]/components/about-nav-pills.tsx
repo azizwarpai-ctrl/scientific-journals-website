@@ -11,7 +11,7 @@ export interface AboutNavPillsProps {
 export function AboutNavPills({ activeAboutSlug, onPillClick }: AboutNavPillsProps) {
   return (
     <div className="sticky top-16 z-30 -mx-4 px-4 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 sm:mx-0 sm:px-0 sm:top-20">
-      <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 hide-scrollbar scroll-smooth">
+      <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide scroll-smooth">
         {ABOUT_METADATA.map((meta) => {
           const isActive =
             activeAboutSlug === meta.slug || (!activeAboutSlug && meta.slug === "aims-scope")

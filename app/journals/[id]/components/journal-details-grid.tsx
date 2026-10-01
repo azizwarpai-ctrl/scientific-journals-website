@@ -26,12 +26,12 @@ export function JournalDetailsGrid({ journal }: JournalDetailsGridProps) {
           {details.map((item) => (
             <div
               key={item.label}
-              className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 -mx-3 border border-border/40 hover:border-border/80 transition-colors"
+              className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-border/40 hover:border-border/80 transition-colors"
             >
               <div className="p-2 rounded-md bg-background shadow-xs mt-0.5 border border-border/50">
                 <item.icon className="h-4 w-4 text-primary" />
               </div>
-              <div className="flex-1 min-w-0 py-0.5">
+              <div className="flex-1 min-w-0 overflow-hidden py-0.5">
                 <span className="block text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-1">
                   {item.label}
                 </span>

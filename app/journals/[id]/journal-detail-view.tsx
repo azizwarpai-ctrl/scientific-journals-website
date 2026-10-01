@@ -45,7 +45,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 overflow-x-hidden">{children}</main>
       <Footer />
     </div>
   )
@@ -145,7 +145,7 @@ export function JournalDetailView({
       <section className="py-10 md:py-14 lg:py-16">
         <div className="container mx-auto px-4 md:px-6">
           <div className="grid gap-10 lg:grid-cols-3">
-            <div className="lg:col-span-2 space-y-8">
+            <div className="lg:col-span-2 space-y-8 min-w-0">
               <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
                 <TabsList className="inline-flex h-auto w-full justify-start gap-1 bg-transparent p-0 border-b border-border rounded-none overflow-x-auto">
                   <TabsTrigger value="about" className={TAB_TRIGGER_CLASSES}>
