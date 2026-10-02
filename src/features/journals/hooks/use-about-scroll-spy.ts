@@ -88,11 +88,11 @@ export function useAboutScrollSpy({
 
     return () => {
       clearTimeout(timer)
-      if (initialResetTimer && scrollResetTimerRef.current === initialResetTimer) {
-        clearTimeout(initialResetTimer)
+      if (scrollResetTimerRef.current) {
+        clearTimeout(scrollResetTimerRef.current)
         scrollResetTimerRef.current = undefined
-        isProgrammaticScroll.current = false
       }
+      isProgrammaticScroll.current = false
     }
   }, [activeTab, initialAboutSlug, isReady])
 

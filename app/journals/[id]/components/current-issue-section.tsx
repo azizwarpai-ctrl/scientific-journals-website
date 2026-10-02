@@ -80,7 +80,7 @@ export function CurrentIssueSection({ journalId }: CurrentIssueSectionProps) {
                   </Badge>
                 </div>
                 
-                <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground/90 leading-tight">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-foreground/90 leading-tight text-balance break-words">
                   {getIssueTitle(issue)}
                 </h2>
                 

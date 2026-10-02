@@ -311,7 +311,7 @@ export function JournalPoliciesSection({
               </p>
             </div>
           ) : activeItem ? (
-            <div className="animate-in fade-in duration-300">
+            <div className="animate-in fade-in duration-300 min-w-0">
               <header className="flex items-center gap-3 pb-4 mb-6 border-b border-border/40">
                 <div className="p-2.5 rounded-lg bg-primary/10 ring-1 ring-primary/15 shrink-0">
                   <FileText className="h-4 w-4 text-primary" />
